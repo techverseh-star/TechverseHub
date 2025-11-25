@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase, PracticeProblem, isSupabaseConfigured } from "@/lib/supabase";
-import { Code, CheckCircle, Search, ChevronRight, Target, Flame, Trophy } from "lucide-react";
+import { Code, CheckCircle, Search, ChevronRight, Target, Flame, Trophy, Loader2 } from "lucide-react";
 
 const LANGUAGES = [
   { id: "python", name: "Python", icon: "🐍", color: "blue" },
@@ -180,34 +180,34 @@ const DEMO_PROBLEMS: PracticeProblem[] = [
 
   { id: "cpp-e-1", title: "Two Sum", difficulty: "Easy", language: "cpp", description: "Find two numbers that add to target", examples: "", solution: "", hints: "" },
   { id: "cpp-e-2", title: "Reverse String", difficulty: "Easy", language: "cpp", description: "Reverse string using STL", examples: "", solution: "", hints: "" },
-  { id: "cpp-e-3", title: "Valid Anagram", difficulty: "Easy", language: "cpp", description: "Check if two strings are anagrams", examples: "", solution: "", hints: "" },
-  { id: "cpp-e-4", title: "Contains Duplicate", difficulty: "Easy", language: "cpp", description: "Check for duplicates using set", examples: "", solution: "", hints: "" },
-  { id: "cpp-e-5", title: "Maximum Subarray", difficulty: "Easy", language: "cpp", description: "Kadane's algorithm", examples: "", solution: "", hints: "" },
-  { id: "cpp-e-6", title: "Merge Arrays", difficulty: "Easy", language: "cpp", description: "Merge two sorted vectors", examples: "", solution: "", hints: "" },
-  { id: "cpp-e-7", title: "Roman to Int", difficulty: "Easy", language: "cpp", description: "Roman numeral to integer", examples: "", solution: "", hints: "" },
-  { id: "cpp-e-8", title: "Climbing Stairs", difficulty: "Easy", language: "cpp", description: "Ways to climb stairs (DP)", examples: "", solution: "", hints: "" },
-  { id: "cpp-e-9", title: "Best Stock", difficulty: "Easy", language: "cpp", description: "Best time to buy/sell stock", examples: "", solution: "", hints: "" },
-  { id: "cpp-e-10", title: "Valid Parens", difficulty: "Easy", language: "cpp", description: "Check balanced parentheses", examples: "", solution: "", hints: "" },
-  { id: "cpp-m-1", title: "3Sum", difficulty: "Medium", language: "cpp", description: "Three numbers sum to zero", examples: "", solution: "", hints: "" },
-  { id: "cpp-m-2", title: "Longest Substring", difficulty: "Medium", language: "cpp", description: "Longest substring no repeat", examples: "", solution: "", hints: "" },
-  { id: "cpp-m-3", title: "Container Water", difficulty: "Medium", language: "cpp", description: "Container with most water", examples: "", solution: "", hints: "" },
-  { id: "cpp-m-4", title: "Group Anagrams", difficulty: "Medium", language: "cpp", description: "Group anagram strings", examples: "", solution: "", hints: "" },
-  { id: "cpp-m-5", title: "Merge Intervals", difficulty: "Medium", language: "cpp", description: "Merge overlapping intervals", examples: "", solution: "", hints: "" },
-  { id: "cpp-m-6", title: "Rotate Image", difficulty: "Medium", language: "cpp", description: "Rotate matrix 90 degrees", examples: "", solution: "", hints: "" },
-  { id: "cpp-m-7", title: "Word Search", difficulty: "Medium", language: "cpp", description: "Find word in 2D board", examples: "", solution: "", hints: "" },
-  { id: "cpp-m-8", title: "Course Schedule", difficulty: "Medium", language: "cpp", description: "Topological sort", examples: "", solution: "", hints: "" },
-  { id: "cpp-m-9", title: "Coin Change", difficulty: "Medium", language: "cpp", description: "Minimum coins for amount", examples: "", solution: "", hints: "" },
-  { id: "cpp-m-10", title: "LRU Cache", difficulty: "Medium", language: "cpp", description: "LRU cache with unordered_map", examples: "", solution: "", hints: "" },
-  { id: "cpp-h-1", title: "Merge K Lists", difficulty: "Hard", language: "cpp", description: "Merge k sorted linked lists", examples: "", solution: "", hints: "" },
-  { id: "cpp-h-2", title: "Trapping Rain", difficulty: "Hard", language: "cpp", description: "Calculate trapped rain water", examples: "", solution: "", hints: "" },
-  { id: "cpp-h-3", title: "N-Queens", difficulty: "Hard", language: "cpp", description: "Solve N-Queens puzzle", examples: "", solution: "", hints: "" },
-  { id: "cpp-h-4", title: "Word Break II", difficulty: "Hard", language: "cpp", description: "All possible sentences", examples: "", solution: "", hints: "" },
-  { id: "cpp-h-5", title: "Median Stream", difficulty: "Hard", language: "cpp", description: "Median from data stream", examples: "", solution: "", hints: "" },
-  { id: "cpp-h-6", title: "Sliding Window", difficulty: "Hard", language: "cpp", description: "Sliding window maximum", examples: "", solution: "", hints: "" },
-  { id: "cpp-h-7", title: "Regex Match", difficulty: "Hard", language: "cpp", description: "Regular expression matching", examples: "", solution: "", hints: "" },
-  { id: "cpp-h-8", title: "Edit Distance", difficulty: "Hard", language: "cpp", description: "Minimum edit operations", examples: "", solution: "", hints: "" },
-  { id: "cpp-h-9", title: "Serialize Tree", difficulty: "Hard", language: "cpp", description: "Serialize binary tree", examples: "", solution: "", hints: "" },
-  { id: "cpp-h-10", title: "Longest Path", difficulty: "Hard", language: "cpp", description: "Longest increasing path", examples: "", solution: "", hints: "" },
+  { id: "cpp-e-3", title: "Palindrome Check", difficulty: "Easy", language: "cpp", description: "Check if string is palindrome", examples: "", solution: "", hints: "" },
+  { id: "cpp-e-4", title: "FizzBuzz", difficulty: "Easy", language: "cpp", description: "Classic FizzBuzz with streams", examples: "", solution: "", hints: "" },
+  { id: "cpp-e-5", title: "Vector Operations", difficulty: "Easy", language: "cpp", description: "Basic vector manipulations", examples: "", solution: "", hints: "" },
+  { id: "cpp-e-6", title: "Map Usage", difficulty: "Easy", language: "cpp", description: "Using std::map effectively", examples: "", solution: "", hints: "" },
+  { id: "cpp-e-7", title: "Set Operations", difficulty: "Easy", language: "cpp", description: "Working with std::set", examples: "", solution: "", hints: "" },
+  { id: "cpp-e-8", title: "String Stream", difficulty: "Easy", language: "cpp", description: "Parse strings with stringstream", examples: "", solution: "", hints: "" },
+  { id: "cpp-e-9", title: "Find in Array", difficulty: "Easy", language: "cpp", description: "Use STL algorithms to search", examples: "", solution: "", hints: "" },
+  { id: "cpp-e-10", title: "Sort Custom", difficulty: "Easy", language: "cpp", description: "Custom comparator sorting", examples: "", solution: "", hints: "" },
+  { id: "cpp-m-1", title: "Smart Pointers", difficulty: "Medium", language: "cpp", description: "Implement using unique_ptr", examples: "", solution: "", hints: "" },
+  { id: "cpp-m-2", title: "Lambda Functions", difficulty: "Medium", language: "cpp", description: "Advanced lambda usage", examples: "", solution: "", hints: "" },
+  { id: "cpp-m-3", title: "Template Class", difficulty: "Medium", language: "cpp", description: "Create a template container", examples: "", solution: "", hints: "" },
+  { id: "cpp-m-4", title: "Move Semantics", difficulty: "Medium", language: "cpp", description: "Implement move constructor", examples: "", solution: "", hints: "" },
+  { id: "cpp-m-5", title: "Iterator", difficulty: "Medium", language: "cpp", description: "Custom iterator implementation", examples: "", solution: "", hints: "" },
+  { id: "cpp-m-6", title: "RAII Pattern", difficulty: "Medium", language: "cpp", description: "Resource management pattern", examples: "", solution: "", hints: "" },
+  { id: "cpp-m-7", title: "Operator Overload", difficulty: "Medium", language: "cpp", description: "Overload common operators", examples: "", solution: "", hints: "" },
+  { id: "cpp-m-8", title: "Exception Safe", difficulty: "Medium", language: "cpp", description: "Exception-safe code", examples: "", solution: "", hints: "" },
+  { id: "cpp-m-9", title: "Thread Basic", difficulty: "Medium", language: "cpp", description: "Basic multithreading", examples: "", solution: "", hints: "" },
+  { id: "cpp-m-10", title: "Mutex Usage", difficulty: "Medium", language: "cpp", description: "Synchronization with mutex", examples: "", solution: "", hints: "" },
+  { id: "cpp-h-1", title: "Memory Pool", difficulty: "Hard", language: "cpp", description: "Custom allocator implementation", examples: "", solution: "", hints: "" },
+  { id: "cpp-h-2", title: "Lock-Free Queue", difficulty: "Hard", language: "cpp", description: "Atomic-based queue", examples: "", solution: "", hints: "" },
+  { id: "cpp-h-3", title: "Expression Parser", difficulty: "Hard", language: "cpp", description: "Parse and evaluate expressions", examples: "", solution: "", hints: "" },
+  { id: "cpp-h-4", title: "Graph Algorithms", difficulty: "Hard", language: "cpp", description: "Advanced graph operations", examples: "", solution: "", hints: "" },
+  { id: "cpp-h-5", title: "Coroutines", difficulty: "Hard", language: "cpp", description: "C++20 coroutines usage", examples: "", solution: "", hints: "" },
+  { id: "cpp-h-6", title: "Type Erasure", difficulty: "Hard", language: "cpp", description: "Implement type erasure", examples: "", solution: "", hints: "" },
+  { id: "cpp-h-7", title: "Compile Time", difficulty: "Hard", language: "cpp", description: "constexpr computations", examples: "", solution: "", hints: "" },
+  { id: "cpp-h-8", title: "Variadic Templates", difficulty: "Hard", language: "cpp", description: "Advanced template metaprogramming", examples: "", solution: "", hints: "" },
+  { id: "cpp-h-9", title: "Concepts", difficulty: "Hard", language: "cpp", description: "C++20 concepts usage", examples: "", solution: "", hints: "" },
+  { id: "cpp-h-10", title: "Ranges Library", difficulty: "Hard", language: "cpp", description: "Advanced ranges operations", examples: "", solution: "", hints: "" },
 ];
 
 export default function PracticePage() {
@@ -219,6 +219,7 @@ export default function PracticePage() {
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(searchParams.get("lang"));
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -233,8 +234,11 @@ export default function PracticePage() {
     if (!user) return;
 
     async function loadProblems() {
+      setLoading(true);
+      
       if (!isSupabaseConfigured()) {
         setProblems(DEMO_PROBLEMS);
+        setLoading(false);
         return;
       }
 
@@ -258,6 +262,8 @@ export default function PracticePage() {
       if (submissionsData) {
         setSolvedProblems(new Set(submissionsData.map(s => s.problem_id)));
       }
+      
+      setLoading(false);
     }
 
     loadProblems();
@@ -292,6 +298,20 @@ export default function PracticePage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading problems...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) return null;
 
   return (
@@ -324,7 +344,7 @@ export default function PracticePage() {
                       <div className="text-4xl mb-2">{lang.icon}</div>
                       <h3 className="font-semibold group-hover:text-primary transition-colors">{lang.name}</h3>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {solvedCount}/{langProblems.length} solved
+                        <span className="font-medium text-primary">{solvedCount}</span>/{langProblems.length} solved
                       </p>
                     </CardContent>
                   </Card>
@@ -457,6 +477,12 @@ export default function PracticePage() {
                   </div>
                 </div>
               </div>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20">
+                <Target className="h-5 w-5 text-primary" />
+                <span className="font-medium">
+                  {filteredProblems.filter(p => solvedProblems.has(p.id)).length}/{filteredProblems.length} solved
+                </span>
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -493,6 +519,7 @@ export default function PracticePage() {
             {DIFFICULTIES.map((difficulty) => {
               const diffProblems = filteredProblems.filter(p => p.difficulty === difficulty);
               if (diffProblems.length === 0) return null;
+              const solvedCount = diffProblems.filter(p => solvedProblems.has(p.id)).length;
               
               return (
                 <div key={difficulty} className="mb-8">
@@ -501,7 +528,7 @@ export default function PracticePage() {
                       {getDifficultyIcon(difficulty)}
                     </div>
                     <h2 className="text-xl font-bold">{difficulty}</h2>
-                    <Badge variant="secondary">{diffProblems.length} problems</Badge>
+                    <Badge variant="secondary">{solvedCount}/{diffProblems.length} solved</Badge>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {diffProblems.map((problem, idx) => (

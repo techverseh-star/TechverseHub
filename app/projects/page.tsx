@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
   Rocket, Code, Clock, Star, ChevronRight, Layers, 
-  Terminal, Globe, Database, Cpu, Lock, Zap
+  Terminal, Globe, Database, Cpu, Lock, Zap, Loader2
 } from "lucide-react";
 
 const LANGUAGES = [
@@ -244,6 +244,7 @@ export default function ProjectsPage() {
   const [user, setUser] = useState<any>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -252,6 +253,7 @@ export default function ProjectsPage() {
       return;
     }
     setUser(JSON.parse(userStr));
+    setLoading(false);
   }, [router]);
 
   const filteredProjects = PROJECTS.filter(project => {
@@ -270,6 +272,20 @@ export default function ProjectsPage() {
       default: return "";
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading projects...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) return null;
 

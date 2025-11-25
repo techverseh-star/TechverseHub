@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase, Lesson, isSupabaseConfigured } from "@/lib/supabase";
-import { BookOpen, CheckCircle, Search, Code2, ChevronRight, GraduationCap, Layers } from "lucide-react";
+import { BookOpen, CheckCircle, Search, Code2, ChevronRight, GraduationCap, Layers, Loader2 } from "lucide-react";
 
 const LANGUAGES = [
   { id: "python", name: "Python", icon: "🐍", color: "blue", description: "Beginner-friendly, versatile language" },
@@ -109,6 +109,7 @@ export default function LearnPage() {
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(searchParams.get("lang"));
   const [selectedLevel, setSelectedLevel] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -123,8 +124,11 @@ export default function LearnPage() {
     if (!user) return;
 
     async function loadLessons() {
+      setLoading(true);
+      
       if (!isSupabaseConfigured()) {
         setLessons(DEMO_LESSONS);
+        setLoading(false);
         return;
       }
 
@@ -157,6 +161,8 @@ export default function LearnPage() {
       if (progressData) {
         setCompletedLessons(new Set(progressData.map(p => p.lesson_id)));
       }
+      
+      setLoading(false);
     }
     
     function getLevelFromId(id: string): 'beginner' | 'intermediate' | 'advanced' {
@@ -203,9 +209,25 @@ export default function LearnPage() {
       cyan: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20",
       green: "bg-green-500/10 text-green-500 border-green-500/20",
       red: "bg-red-500/10 text-red-500 border-red-500/20",
+      gray: "bg-gray-500/10 text-gray-500 border-gray-500/20",
+      purple: "bg-purple-500/10 text-purple-500 border-purple-500/20",
     };
     return colors[color] || "bg-gray-500/10 text-gray-500";
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading lessons...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) return null;
 
@@ -253,7 +275,7 @@ export default function LearnPage() {
                     <CardContent>
                       <div className="flex items-center justify-between text-sm mb-2">
                         <span className="text-muted-foreground">{langLessons.length} lessons</span>
-                        <span className="text-muted-foreground">{completedCount} completed</span>
+                        <span className="font-medium text-primary">{completedCount}/{langLessons.length} completed</span>
                       </div>
                       <div className="h-2 bg-secondary rounded-full overflow-hidden">
                         <div 
@@ -261,7 +283,8 @@ export default function LearnPage() {
                             lang.color === "blue" ? "bg-blue-500" :
                             lang.color === "yellow" ? "bg-yellow-500" :
                             lang.color === "orange" ? "bg-orange-500" :
-                            lang.color === "cyan" ? "bg-cyan-500" : "bg-primary"
+                            lang.color === "gray" ? "bg-gray-500" :
+                            lang.color === "purple" ? "bg-purple-500" : "bg-primary"
                           }`}
                           style={{ width: `${progress}%` }}
                         />
@@ -340,6 +363,12 @@ export default function LearnPage() {
                   </div>
                 </div>
               </div>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20">
+                <BookOpen className="h-5 w-5 text-primary" />
+                <span className="font-medium">
+                  {filteredLessons.filter(l => completedLessons.has(l.id)).length}/{filteredLessons.length} completed
+                </span>
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -377,6 +406,7 @@ export default function LearnPage() {
               const levelLessons = getLessonsByLevel(level);
               if (levelLessons.length === 0) return null;
               const levelInfo = LEVELS.find(l => l.id === level);
+              const levelCompleted = levelLessons.filter(l => completedLessons.has(l.id)).length;
               
               return (
                 <div key={level} className="mb-10">
@@ -384,7 +414,7 @@ export default function LearnPage() {
                     <span className="text-2xl">{levelInfo?.icon}</span>
                     <h2 className="text-xl font-bold capitalize">{level}</h2>
                     <Badge variant="secondary" className={getColorClasses(levelInfo?.color || "gray")}>
-                      {levelLessons.length} lessons
+                      {levelCompleted}/{levelLessons.length} completed
                     </Badge>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

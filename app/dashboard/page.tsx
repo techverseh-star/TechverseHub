@@ -10,18 +10,20 @@ import { Badge } from "@/components/ui/badge";
 import { 
   BookOpen, Code, Trophy, TrendingUp, ArrowRight, Zap, 
   Flame, Target, Clock, Star, Play, Rocket, Calendar,
-  CheckCircle2, ChevronRight
+  CheckCircle2, ChevronRight, Loader2
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const LANGUAGES = [
-  { id: "python", name: "Python", color: "blue", icon: "🐍", lessons: 15, progress: 0 },
-  { id: "javascript", name: "JavaScript", color: "yellow", icon: "⚡", lessons: 15, progress: 0 },
-  { id: "typescript", name: "TypeScript", color: "blue", icon: "📘", lessons: 12, progress: 0 },
-  { id: "java", name: "Java", color: "orange", icon: "☕", lessons: 12, progress: 0 },
-  { id: "c", name: "C", color: "gray", icon: "🔧", lessons: 10, progress: 0 },
-  { id: "cpp", name: "C++", color: "purple", icon: "⚙️", lessons: 10, progress: 0 },
+  { id: "python", name: "Python", color: "blue", icon: "🐍", lessons: 15, progress: 0, prefix: "py-" },
+  { id: "javascript", name: "JavaScript", color: "yellow", icon: "⚡", lessons: 15, progress: 0, prefix: "js-" },
+  { id: "typescript", name: "TypeScript", color: "blue", icon: "📘", lessons: 8, progress: 0, prefix: "ts-" },
+  { id: "java", name: "Java", color: "orange", icon: "☕", lessons: 8, progress: 0, prefix: "java-" },
+  { id: "c", name: "C", color: "gray", icon: "🔧", lessons: 10, progress: 0, prefix: "c-" },
+  { id: "cpp", name: "C++", color: "purple", icon: "⚙️", lessons: 10, progress: 0, prefix: "cpp-" },
 ];
+
+const TOTAL_LESSONS = 66;
 
 const DAILY_CHALLENGES = [
   { id: "1", title: "Array Manipulation", difficulty: "Easy", language: "javascript", xp: 50 },
@@ -29,15 +31,10 @@ const DAILY_CHALLENGES = [
   { id: "3", title: "Binary Search", difficulty: "Medium", language: "java", xp: 100 },
 ];
 
-const RECENT_ACTIVITY = [
-  { type: "lesson", title: "Python Functions", time: "2 hours ago", icon: BookOpen },
-  { type: "problem", title: "Two Sum", time: "Yesterday", icon: Code },
-  { type: "project", title: "Todo App", time: "3 days ago", icon: Rocket },
-];
-
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     lessonsCompleted: 0,
     problemsSolved: 0,
@@ -46,6 +43,7 @@ export default function DashboardPage() {
     xp: 0,
   });
   const [languageProgress, setLanguageProgress] = useState(LANGUAGES);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -57,7 +55,19 @@ export default function DashboardPage() {
     setUser(userData);
 
     async function loadStats() {
-      if (!isSupabaseConfigured()) return;
+      setLoading(true);
+      
+      if (!isSupabaseConfigured()) {
+        setStats({
+          lessonsCompleted: 0,
+          problemsSolved: 0,
+          totalAttempts: 0,
+          streak: 1,
+          xp: 0,
+        });
+        setLoading(false);
+        return;
+      }
       
       const { data: lessons } = await supabase
         .from("lesson_progress")
@@ -77,13 +87,40 @@ export default function DashboardPage() {
         lessonsCompleted: lessons?.length || 0,
         problemsSolved: uniqueProblems.size,
         totalAttempts: submissions?.length || 0,
-        streak: Math.floor(Math.random() * 7) + 1,
+        streak: Math.max(1, Math.floor(Math.random() * 7) + 1),
         xp: (lessons?.length || 0) * 25 + uniqueProblems.size * 50,
       });
+
+      const updatedLanguages = LANGUAGES.map(lang => {
+        const completedLessons = lessons?.filter((l: any) => 
+          l.lesson_id?.startsWith(lang.prefix)
+        ).length || 0;
+        return {
+          ...lang,
+          progress: lang.lessons > 0 ? Math.round((completedLessons / lang.lessons) * 100) : 0
+        };
+      });
+      setLanguageProgress(updatedLanguages);
+      
+      setLoading(false);
     }
 
     loadStats();
   }, [router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) return null;
 
@@ -238,6 +275,7 @@ export default function DashboardPage() {
                               style={{ width: `${lang.progress}%` }}
                             />
                           </div>
+                          <p className="text-xs text-muted-foreground mt-1">{lang.progress}% complete</p>
                         </div>
                       </Link>
                     ))}
@@ -289,22 +327,34 @@ export default function DashboardPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Calendar className="h-5 w-5 text-primary" />
-                    Recent Activity
+                    Your Progress
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {RECENT_ACTIVITY.map((activity, idx) => (
-                    <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/50 transition-colors">
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <activity.icon className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{activity.title}</p>
-                        <p className="text-xs text-muted-foreground">{activity.time}</p>
-                      </div>
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <CardContent className="space-y-4">
+                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Lessons Completed</span>
+                      <span className="text-lg font-bold text-blue-500">{stats.lessonsCompleted}/66</span>
                     </div>
-                  ))}
+                    <div className="h-2 bg-background rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-blue-500 rounded-full transition-all"
+                        style={{ width: `${(stats.lessonsCompleted / 66) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Problems Solved</span>
+                      <span className="text-lg font-bold text-purple-500">{stats.problemsSolved}/180</span>
+                    </div>
+                    <div className="h-2 bg-background rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-purple-500 rounded-full transition-all"
+                        style={{ width: `${(stats.problemsSolved / 180) * 100}%` }}
+                      />
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -337,8 +387,8 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">This Week</span>
-                    <span className="font-semibold text-green-500">+{stats.lessonsCompleted * 2} lessons</span>
+                    <span className="text-muted-foreground">Total XP</span>
+                    <span className="font-semibold text-primary">{stats.xp} XP</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Problems Solved</span>
@@ -346,7 +396,9 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Current Rank</span>
-                    <Badge variant="secondary">Beginner</Badge>
+                    <Badge variant="secondary">
+                      {stats.xp < 100 ? "Beginner" : stats.xp < 500 ? "Intermediate" : "Advanced"}
+                    </Badge>
                   </div>
                 </CardContent>
               </Card>

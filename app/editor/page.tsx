@@ -22,6 +22,7 @@ export default function EditorPage() {
   const [output, setOutput] = useState("");
   const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -30,6 +31,7 @@ export default function EditorPage() {
       return;
     }
     setUser(JSON.parse(userStr));
+    setLoading(false);
   }, [router]);
 
   const handleAiAction = async (task: "code_explain" | "code_debug" | "code_refactor") => {
@@ -101,6 +103,20 @@ export default function EditorPage() {
       default: return "AI Assistant";
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading editor...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) return null;
 

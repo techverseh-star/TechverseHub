@@ -8,32 +8,55 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase, PracticeProblem, TestCase, isSupabaseConfigured } from "@/lib/supabase";
-import { Play, Send, Lightbulb, ArrowLeft, Loader2 } from "lucide-react";
+import { Play, Send, Lightbulb, ArrowLeft, ArrowRight, Loader2, Target, CheckCircle } from "lucide-react";
 import dynamic from "next/dynamic";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
-const DEMO_PROBLEM: PracticeProblem = {
-  id: "1",
-  title: "Two Sum",
-  difficulty: "Easy",
-  language: "javascript",
-  description: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.",
-  examples: "Example 1:\nInput: nums = [2,7,11,15], target = 9\nOutput: [0,1]\n\nExample 2:\nInput: nums = [3,2,4], target = 6\nOutput: [1,2]",
-  solution: "function solution(nums, target) { const map = new Map(); for (let i = 0; i < nums.length; i++) { const complement = target - nums[i]; if (map.has(complement)) return [map.get(complement), i]; map.set(nums[i], i); } return []; }",
-  hints: "Try using a hash map to store numbers you've seen before."
+const DEMO_PROBLEMS: Record<string, PracticeProblem> = {
+  "js-e-01": { id: "js-e-01", title: "Two Sum", difficulty: "Easy", language: "javascript", description: "Given an array of integers nums and an integer target, return indices of the two numbers that add up to target.", examples: "Input: [2,7,11,15], 9\nOutput: [0,1]", solution: "function solution(nums, target) { const map = new Map(); for (let i = 0; i < nums.length; i++) { if (map.has(target - nums[i])) return [map.get(target - nums[i]), i]; map.set(nums[i], i); } }", hints: "Use a hash map" },
+  "js-e-02": { id: "js-e-02", title: "Reverse String", difficulty: "Easy", language: "javascript", description: "Reverse a string in place.", examples: "Input: 'hello'\nOutput: 'olleh'", solution: "s => s.split('').reverse().join('')", hints: "Split, reverse, join" },
+  "py-e-01": { id: "py-e-01", title: "Two Sum", difficulty: "Easy", language: "python", description: "Given an array of integers nums and an integer target, return indices of the two numbers that add up to target.", examples: "Input: [2,7,11,15], 9\nOutput: [0,1]", solution: "def solution(nums, target):\n    d = {}\n    for i, n in enumerate(nums):\n        if target - n in d:\n            return [d[target-n], i]\n        d[n] = i", hints: "Use a dictionary" },
+  "py-e-02": { id: "py-e-02", title: "Reverse String", difficulty: "Easy", language: "python", description: "Reverse a string.", examples: "Input: 'hello'\nOutput: 'olleh'", solution: "def solution(s): return s[::-1]", hints: "Use slicing" },
+  "ts-e-01": { id: "ts-e-01", title: "Two Sum", difficulty: "Easy", language: "typescript", description: "Find indices that sum to target.", examples: "Input: [2,7], 9\nOutput: [0,1]", solution: "", hints: "Use Map" },
+  "java-e-01": { id: "java-e-01", title: "Two Sum", difficulty: "Easy", language: "java", description: "Find indices that sum to target.", examples: "Input: [2,7], 9\nOutput: [0,1]", solution: "", hints: "Use HashMap" },
+  "c-e-01": { id: "c-e-01", title: "Sum Array", difficulty: "Easy", language: "c", description: "Sum all elements in array.", examples: "Input: [1,2,3]\nOutput: 6", solution: "", hints: "Use a loop" },
+  "cpp-e-01": { id: "cpp-e-01", title: "Sum Array", difficulty: "Easy", language: "cpp", description: "Sum all elements in array.", examples: "Input: [1,2,3]\nOutput: 6", solution: "", hints: "Use accumulate" },
 };
 
 const DEMO_TESTCASES: TestCase[] = [
-  { id: "1", problem_id: "1", input: "[2,7,11,15], 9", output: "[0,1]", hidden: false },
-  { id: "2", problem_id: "1", input: "[3,2,4], 6", output: "[1,2]", hidden: true },
+  { id: "1", problem_id: "js-e-01", input: "[2,7,11,15], 9", output: "[0,1]", hidden: false },
+  { id: "2", problem_id: "js-e-01", input: "[3,2,4], 6", output: "[1,2]", hidden: true },
 ];
+
+const DEMO_PROBLEMS_LIST = [
+  { id: "js-e-01", language: "javascript", difficulty: "Easy" },
+  { id: "js-e-02", language: "javascript", difficulty: "Easy" },
+  { id: "py-e-01", language: "python", difficulty: "Easy" },
+  { id: "py-e-02", language: "python", difficulty: "Easy" },
+  { id: "ts-e-01", language: "typescript", difficulty: "Easy" },
+  { id: "java-e-01", language: "java", difficulty: "Easy" },
+  { id: "c-e-01", language: "c", difficulty: "Easy" },
+  { id: "cpp-e-01", language: "cpp", difficulty: "Easy" },
+];
+
+const FALLBACK_PROBLEM: PracticeProblem = {
+  id: "demo",
+  title: "Demo Problem",
+  difficulty: "Easy",
+  language: "javascript",
+  description: "This is a demo problem. Configure Supabase to see real content.",
+  examples: "Input: 'hello'\nOutput: 'world'",
+  solution: "// Demo solution",
+  hints: "Configure Supabase for hints"
+};
 
 export default function ProblemPage() {
   const router = useRouter();
   const params = useParams();
   const [user, setUser] = useState<any>(null);
   const [problem, setProblem] = useState<PracticeProblem | null>(null);
+  const [allProblems, setAllProblems] = useState<any[]>([]);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [code, setCode] = useState("");
   const [output, setOutput] = useState("");
@@ -42,6 +65,10 @@ export default function ProblemPage() {
   const [hint, setHint] = useState("");
   const [showingSolution, setShowingSolution] = useState(false);
   const [hintLoading, setHintLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [solved, setSolved] = useState(false);
+  const [solvedCount, setSolvedCount] = useState(0);
+  const [totalProblems, setTotalProblems] = useState(0);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -56,10 +83,18 @@ export default function ProblemPage() {
     if (!user || !params.id) return;
 
     async function loadProblem() {
+      setLoading(true);
+      
       if (!isSupabaseConfigured()) {
-        setProblem(DEMO_PROBLEM);
+        const problemId = params.id as string;
+        const demoProblem = DEMO_PROBLEMS[problemId] || FALLBACK_PROBLEM;
+        setProblem(demoProblem);
         setTestCases(DEMO_TESTCASES);
-        setCode(DEMO_PROBLEM.language === "python" ? "def solution(nums, target):\n    pass" : "function solution(nums, target) {\n    \n}");
+        setCode(demoProblem.language === "python" ? "def solution(nums, target):\n    pass" : "function solution(nums, target) {\n    \n}");
+        const sameLangProblems = DEMO_PROBLEMS_LIST.filter(p => p.language === demoProblem.language);
+        setAllProblems(sameLangProblems);
+        setTotalProblems(sameLangProblems.length);
+        setLoading(false);
         return;
       }
 
@@ -74,19 +109,27 @@ export default function ProblemPage() {
         .select("*")
         .eq("problem_id", params.id);
 
+      const { data: allProblemsData } = await supabase
+        .from("practice_problems")
+        .select("id, language, difficulty")
+        .order("id");
+
       const { data: submissionData } = await supabase
         .from("submissions")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("problem_id", params.id)
-        .order("created_at", { ascending: false })
-        .limit(1);
+        .select("problem_id, status")
+        .eq("user_id", user.id);
 
       if (problemData) {
         setProblem(problemData);
         setCode(problemData.language === "python" ? "def solution():\n    pass" : "function solution() {\n    \n}");
+        
+        if (allProblemsData) {
+          const sameLangProblems = allProblemsData.filter(p => p.language === problemData.language);
+          setAllProblems(sameLangProblems);
+          setTotalProblems(sameLangProblems.length);
+        }
       } else {
-        setProblem(DEMO_PROBLEM);
+        setProblem(FALLBACK_PROBLEM);
         setCode("function solution(nums, target) {\n    \n}");
       }
       
@@ -96,9 +139,21 @@ export default function ProblemPage() {
         setTestCases(DEMO_TESTCASES);
       }
       
-      if (submissionData && submissionData[0]) {
-        setAttempts(submissionData[0].attempts || 0);
+      if (submissionData) {
+        const passedIds = new Set(submissionData.filter(s => s.status === "passed").map(s => s.problem_id));
+        setSolved(passedIds.has(params.id as string));
+        
+        if (allProblemsData && problemData) {
+          const sameLangProblems = allProblemsData.filter(p => p.language === problemData.language);
+          const solvedInLang = sameLangProblems.filter(p => passedIds.has(p.id)).length;
+          setSolvedCount(solvedInLang);
+        }
+        
+        const userSubmissions = submissionData.filter(s => s.problem_id === params.id);
+        setAttempts(userSubmissions.length);
       }
+      
+      setLoading(false);
     }
 
     loadProblem();
@@ -171,6 +226,10 @@ export default function ProblemPage() {
       
       if (passed === total) {
         setOutput(`All ${total} test cases passed! Great job!`);
+        if (!solved) {
+          setSolved(true);
+          setSolvedCount(prev => prev + 1);
+        }
       } else {
         setOutput(`Passed ${passed}/${total} test cases`);
         
@@ -236,7 +295,19 @@ export default function ProblemPage() {
     }
   };
 
-  if (!user || !problem) return null;
+  const getCurrentIndex = () => {
+    return allProblems.findIndex(p => p.id === params.id);
+  };
+
+  const getPrevProblem = () => {
+    const idx = getCurrentIndex();
+    return idx > 0 ? allProblems[idx - 1] : null;
+  };
+
+  const getNextProblem = () => {
+    const idx = getCurrentIndex();
+    return idx < allProblems.length - 1 ? allProblems[idx + 1] : null;
+  };
 
   const getDifficultyStyles = (difficulty: string) => {
     switch (difficulty) {
@@ -247,23 +318,67 @@ export default function ProblemPage() {
     }
   };
 
+  const getLanguageColor = (lang: string) => {
+    const colors: Record<string, string> = {
+      python: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+      javascript: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
+      typescript: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+      java: "bg-orange-500/10 text-orange-500 border-orange-500/20",
+      c: "bg-gray-500/10 text-gray-500 border-gray-500/20",
+      cpp: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+    };
+    return colors[lang] || "bg-gray-500/10 text-gray-500";
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading problem...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !problem) return null;
+
+  const prevProblem = getPrevProblem();
+  const nextProblem = getNextProblem();
+  const currentIdx = getCurrentIndex();
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
-          <Link href="/practice" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4">
-            <ArrowLeft className="h-4 w-4" />
-            Back to problems
-          </Link>
+          <div className="flex items-center justify-between mb-4">
+            <Link href={`/practice?lang=${problem.language}`} className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" />
+              Back to {problem.language} problems
+            </Link>
+            <div className="flex items-center gap-2 text-sm">
+              <Target className="h-4 w-4 text-primary" />
+              <span className="text-muted-foreground">
+                <span className="text-foreground font-medium">{solvedCount}</span>/{totalProblems} solved
+              </span>
+            </div>
+          </div>
+          
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm text-muted-foreground">Problem {currentIdx + 1} of {totalProblems}</span>
+              </div>
               <h1 className="text-3xl font-bold mb-3">{problem.title}</h1>
               <div className="flex items-center gap-3">
                 <Badge className={getDifficultyStyles(problem.difficulty)}>
                   {problem.difficulty}
                 </Badge>
-                <Badge variant="outline" className="capitalize">
+                <Badge className={getLanguageColor(problem.language)}>
                   {problem.language}
                 </Badge>
                 <Badge variant="secondary">
@@ -271,6 +386,12 @@ export default function ProblemPage() {
                 </Badge>
               </div>
             </div>
+            {solved && (
+              <div className="flex items-center gap-2 text-green-500 bg-green-500/10 px-4 py-2 rounded-lg">
+                <CheckCircle className="h-5 w-5" />
+                <span className="font-medium">Solved</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -358,7 +479,7 @@ export default function ProblemPage() {
                   </Button>
                 </div>
                 {output && (
-                  <div className={`rounded-lg p-4 ${output.includes("passed") ? "bg-green-500/10 border border-green-500/20" : "bg-secondary/50"}`}>
+                  <div className={`rounded-lg p-4 ${output.includes("passed!") ? "bg-green-500/10 border border-green-500/20" : "bg-secondary/50"}`}>
                     <p className="text-sm font-medium mb-2">Output:</p>
                     <pre className="text-sm whitespace-pre-wrap font-mono">{output}</pre>
                   </div>
@@ -384,6 +505,35 @@ export default function ProblemPage() {
               </CardContent>
             </Card>
           </div>
+        </div>
+
+        <div className="mt-8 flex items-center justify-between border-t pt-6">
+          {prevProblem ? (
+            <Link href={`/practice/${prevProblem.id}`}>
+              <Button variant="outline" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Previous Problem
+              </Button>
+            </Link>
+          ) : (
+            <div />
+          )}
+          
+          {nextProblem ? (
+            <Link href={`/practice/${nextProblem.id}`}>
+              <Button className="gap-2">
+                Next Problem
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          ) : (
+            <Link href={`/practice?lang=${problem.language}`}>
+              <Button className="gap-2">
+                Back to All Problems
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </div>
