@@ -11,8 +11,6 @@ import { Button } from "@/components/ui/button";
 import { supabase, Lesson, isSupabaseConfigured } from "@/lib/supabase";
 import { BookOpen, CheckCircle, Search, Code2, ChevronRight, GraduationCap, Layers, Loader2 } from "lucide-react";
 
-export const dynamic = 'force-dynamic';
-
 const LANGUAGES = [
   { id: "python", name: "Python", icon: "🐍", color: "blue", description: "Beginner-friendly, versatile language" },
   { id: "javascript", name: "JavaScript", icon: "⚡", color: "yellow", description: "The language of the web" },
@@ -102,7 +100,7 @@ const DEMO_LESSONS: Lesson[] = [
   { id: "cpp-10", title: "Modern C++ Features", language: "cpp", level: "advanced", content: "C++11/14/17/20 features", codeExample: "", tryStarter: "" },
 ];
 
-export default function LearnPage() {
+function LearnPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
@@ -462,5 +460,23 @@ export default function LearnPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function LearnPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading lessons...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <LearnPageContent />
+    </Suspense>
   );
 }

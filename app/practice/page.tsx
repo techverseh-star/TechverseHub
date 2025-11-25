@@ -11,8 +11,6 @@ import { Button } from "@/components/ui/button";
 import { supabase, PracticeProblem, isSupabaseConfigured } from "@/lib/supabase";
 import { Code, CheckCircle, Search, ChevronRight, Target, Flame, Trophy, Loader2 } from "lucide-react";
 
-export const dynamic = 'force-dynamic';
-
 const LANGUAGES = [
   { id: "python", name: "Python", icon: "🐍", color: "blue" },
   { id: "javascript", name: "JavaScript", icon: "⚡", color: "yellow" },
@@ -212,7 +210,7 @@ const DEMO_PROBLEMS: PracticeProblem[] = [
   { id: "cpp-h-10", title: "Ranges Library", difficulty: "Hard", language: "cpp", description: "Advanced ranges operations", examples: "", solution: "", hints: "" },
 ];
 
-export default function PracticePage() {
+function PracticePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
@@ -573,5 +571,23 @@ export default function PracticePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PracticePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading practice problems...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <PracticePageContent />
+    </Suspense>
   );
 }
