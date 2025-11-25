@@ -1,212 +1,136 @@
-# TechVerse Hub - Setup Guide
+# TechVerse Hub - Complete Setup Guide
 
-## Overview
-TechVerse Hub is an interactive coding education platform with AI-powered learning, LeetCode-style practice problems, and a Monaco code editor workspace.
+## Build Real Skills With Real Practice
 
-## Features
-- ✅ User authentication with Supabase
-- ✅ 20 interactive lessons (10 Python + 10 JavaScript)
-- ✅ 30 practice problems with progressive AI hints
-- ✅ Monaco Editor with syntax highlighting
-- ✅ Code execution for JavaScript and Python
-- ✅ AI assistance (Groq + Gemini)
-- ✅ Email notifications (Nodemailer)
-- ✅ Dark/Light theme
-- ✅ Responsive design
+TechVerse Hub is an interactive coding education platform featuring 6 programming languages, 180+ practice problems, and AI-powered learning assistance.
+
+## Platform Features
+
+### Languages Supported
+- **Python** - 15 lessons (Beginner to Advanced)
+- **JavaScript** - 15 lessons (Beginner to Advanced)
+- **TypeScript** - 8 lessons (Beginner to Advanced)
+- **Java** - 8 lessons (Beginner to Advanced)
+- **C** - 10 lessons (Beginner to Advanced)
+- **C++** - 10 lessons (Beginner to Advanced)
+
+### Core Features
+- 66+ Interactive lessons with live code examples
+- 180+ Practice problems (Easy, Medium, Hard)
+- AI-powered code assistance (Groq + Gemini)
+- Monaco Editor with syntax highlighting
+- Real-time code execution (JavaScript/Python)
+- User authentication with Supabase
+- Progress tracking and XP system
+- Dark/Light theme support
+- Responsive design
+
+---
 
 ## Prerequisites
-1. **Supabase Account**: Sign up at https://supabase.com
-2. **Groq API Key**: Get one at https://console.groq.com
-3. **Google Gemini API Key**: Get one at https://aistudio.google.com/app/apikey
-4. **Gmail Account**: For SMTP email sending
 
-## Environment Setup
+Before setting up, you'll need accounts for:
 
-### 1. Create `.env.local` file
-Copy `.env.example` to `.env.local` and fill in your credentials:
+1. **Supabase** - Database and authentication: https://supabase.com
+2. **Groq** - AI for code assistance: https://console.groq.com
+3. **Google AI Studio** - Gemini for learning: https://aistudio.google.com/app/apikey
+4. **Gmail** - For email notifications (optional)
 
+---
+
+## Step 1: Environment Variables
+
+Set these secrets in your Replit Secrets tab (or `.env.local` for local development):
+
+### Required
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+GROQ_API_KEY=your_groq_api_key
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+### Optional (for email notifications)
+```
+EMAIL_USER=your_gmail_address
+EMAIL_PASS=your_gmail_app_password
+```
+
+---
+
+## Step 2: Supabase Database Setup
+
+### 2.1 Create Tables
+1. Go to your Supabase project dashboard
+2. Navigate to **SQL Editor**
+3. Copy the entire contents of `scripts/create-tables.sql`
+4. Run the SQL script
+
+This creates all necessary tables with proper indexes and Row Level Security policies.
+
+### 2.2 Seed the Database
+After creating tables, seed with lesson and problem data:
+
+**Option A: Using the Seed Script (Recommended)**
 ```bash
-cp .env.example .env.local
+# Make sure SUPABASE_SERVICE_ROLE_KEY is set
+node scripts/seed-database.js
 ```
 
-### 2. Supabase Database Setup
+**Option B: Manual Import**
+1. Go to Supabase Dashboard > Table Editor
+2. For `lessons` table: Import from `data/lessons-seed.json`
+3. For `problems` table: Import from `data/practice-problems.json`
+4. For `testcases` table: Import from `data/testcases.json`
 
-#### Create Tables
-Run these SQL commands in your Supabase SQL Editor:
+---
 
-```sql
--- Users table (managed by Supabase Auth, but you can extend it)
-CREATE TABLE IF NOT EXISTS public.users (
-  id UUID PRIMARY KEY REFERENCES auth.users(id),
-  email TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+## Step 3: API Keys Configuration
 
--- Lessons table
-CREATE TABLE IF NOT EXISTS public.lessons (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  content TEXT NOT NULL,
-  codeExample TEXT,
-  tryStarter TEXT,
-  language TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Lesson Progress table
-CREATE TABLE IF NOT EXISTS public.lesson_progress (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  lesson_id TEXT REFERENCES public.lessons(id) ON DELETE CASCADE,
-  completed BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id, lesson_id)
-);
-
--- Practice Problems table
-CREATE TABLE IF NOT EXISTS public.practice_problems (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  difficulty TEXT NOT NULL CHECK (difficulty IN ('Easy', 'Medium', 'Hard')),
-  description TEXT NOT NULL,
-  examples TEXT,
-  solution TEXT,
-  hints TEXT,
-  language TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Test Cases table
-CREATE TABLE IF NOT EXISTS public.testcases (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  problem_id TEXT REFERENCES public.practice_problems(id) ON DELETE CASCADE,
-  input TEXT NOT NULL,
-  output TEXT NOT NULL,
-  hidden BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Submissions table
-CREATE TABLE IF NOT EXISTS public.submissions (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  problem_id TEXT REFERENCES public.practice_problems(id) ON DELETE CASCADE,
-  code TEXT NOT NULL,
-  status TEXT CHECK (status IN ('passed', 'failed')),
-  attempts INTEGER DEFAULT 1,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Projects table
-CREATE TABLE IF NOT EXISTS public.projects (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  files JSONB,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Enable Row Level Security
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.lessons ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.lesson_progress ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.practice_problems ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.testcases ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
-
--- Policies for public read access to lessons and problems
-CREATE POLICY "Lessons are viewable by everyone" 
-  ON public.lessons FOR SELECT 
-  USING (true);
-
-CREATE POLICY "Problems are viewable by everyone" 
-  ON public.practice_problems FOR SELECT 
-  USING (true);
-
-CREATE POLICY "Test cases are viewable by everyone" 
-  ON public.testcases FOR SELECT 
-  USING (true);
-
--- Policies for authenticated users
-CREATE POLICY "Users can view own progress" 
-  ON public.lesson_progress FOR SELECT 
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own progress" 
-  ON public.lesson_progress FOR INSERT 
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own progress" 
-  ON public.lesson_progress FOR UPDATE 
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own submissions" 
-  ON public.submissions FOR SELECT 
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own submissions" 
-  ON public.submissions FOR INSERT 
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own projects" 
-  ON public.projects FOR SELECT 
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own projects" 
-  ON public.projects FOR INSERT 
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own projects" 
-  ON public.projects FOR UPDATE 
-  USING (auth.uid() = user_id);
-```
-
-#### Seed Data
-After creating tables, you need to seed them with the lesson and practice problem data. You can do this in two ways:
-
-**Option 1: Manual Insert via Supabase Dashboard**
-1. Go to your Supabase project > Table Editor
-2. For each table (lessons, practice_problems, testcases), manually insert the data from the JSON files in the `data/` folder
-
-**Option 2: Using Supabase API (Recommended)**
-Create a seed script or use the Supabase JavaScript client to insert data:
-
-```javascript
-// Example: Insert lessons
-import { supabase } from './lib/supabase';
-import lessonsData from './data/lessons-seed.json';
-
-async function seedLessons() {
-  const { error } = await supabase.from('lessons').insert(lessonsData);
-  if (error) console.error('Error seeding lessons:', error);
-  else console.log('Lessons seeded successfully!');
-}
-
-seedLessons();
-```
-
-### 3. Gmail SMTP Setup
-1. Enable 2-Factor Authentication on your Gmail account
-2. Generate an App Password:
-   - Go to Google Account settings
-   - Security > 2-Step Verification > App passwords
-   - Generate a password for "Mail"
-   - Use this password in your `.env.local` as `EMAIL_PASS`
-
-### 4. API Keys Setup
-
-#### Groq API
+### Groq API (Code Assistance)
 1. Visit https://console.groq.com
-2. Sign up/Login
-3. Generate an API key
-4. Add to `.env.local` as `GROQ_API_KEY`
+2. Sign up or login
+3. Go to API Keys section
+4. Generate a new API key
+5. Add to secrets as `GROQ_API_KEY`
 
-#### Gemini API
+**Used for:**
+- Code explanations
+- Debugging assistance
+- Code refactoring suggestions
+- Practice problem hints
+
+### Gemini API (Learning Assistance)
 1. Visit https://aistudio.google.com/app/apikey
-2. Create an API key
-3. Add to `.env.local` as `GEMINI_API_KEY`
+2. Sign in with Google
+3. Create a new API key
+4. Add to secrets as `GEMINI_API_KEY`
 
-## Running the Application
+**Used for:**
+- Lesson explanations
+- Concept simplification
+- Interactive Q&A
+
+---
+
+## Step 4: Email Setup (Optional)
+
+For password reset emails and notifications:
+
+### Gmail App Password
+1. Go to your Google Account settings
+2. Security > 2-Step Verification (enable if not already)
+3. App passwords > Generate new
+4. Select "Mail" as the app
+5. Copy the 16-character password
+6. Add to secrets:
+   - `EMAIL_USER` = your Gmail address
+   - `EMAIL_PASS` = the app password (not your regular password)
+
+---
+
+## Step 5: Run the Application
 
 ### Development
 ```bash
@@ -214,125 +138,157 @@ npm install
 npm run dev
 ```
 
-The app will run on http://localhost:5000
+The app runs on http://localhost:5000
 
-### Build for Production
+### Production Build
 ```bash
 npm run build
 npm start
 ```
 
+---
+
 ## Project Structure
+
 ```
 techverse-hub/
-├── app/                    # Next.js App Router pages
-│   ├── api/               # API routes
-│   ├── auth/              # Authentication pages
-│   ├── dashboard/         # Dashboard page
-│   ├── learn/             # Learning module
-│   ├── practice/          # Practice arena
-│   ├── editor/            # Code editor workspace
-│   ├── globals.css        # Global styles
-│   ├── layout.tsx         # Root layout
-│   └── page.tsx           # Home page
+├── app/                    # Next.js App Router
+│   ├── api/               # API routes (execute, ai, email)
+│   ├── auth/              # Login, Signup, Reset pages
+│   ├── dashboard/         # User dashboard with stats
+│   ├── learn/             # Interactive lessons
+│   ├── practice/          # Coding challenges
+│   ├── projects/          # Real-world projects
+│   └── editor/            # AI-powered code editor
 ├── components/            # React components
-│   ├── ui/               # UI components (Button, Card, etc.)
-│   ├── Navbar.tsx        # Navigation bar
-│   ├── AdPanel.tsx       # Advertisement panel
-│   └── theme-provider.tsx
+│   ├── ui/               # Shadcn UI components
+│   └── Navbar.tsx        # Navigation
 ├── lib/                   # Utilities
-│   ├── supabase.ts       # Supabase client
-│   └── utils.ts          # Helper functions
-├── data/                  # Seed data (JSON files)
+│   └── supabase.ts       # Supabase client
+├── data/                  # Seed data files
+│   ├── lessons-seed.json
+│   ├── practice-problems.json
+│   └── testcases.json
+├── scripts/               # Database scripts
+│   ├── create-tables.sql
+│   └── seed-database.js
 └── public/               # Static assets
 ```
 
-## Features Guide
+---
 
-### Authentication
-- Signup: Create new account with email/password
-- Login: Sign in with existing credentials
-- Password Reset: Reset password via email link
-- Welcome email sent upon signup
+## Features Overview
 
-### Learning Module
-- Browse 20 lessons (Python & JavaScript)
-- Interactive code editor with syntax highlighting
-- Run code directly in browser
-- Track lesson completion progress
+### Learning Module (`/learn`)
+- Browse lessons by language
+- Filter by difficulty level
+- Interactive code examples
+- "Try It Yourself" editor
+- AI-powered explanations
 
-### Practice Arena
-- 30 coding problems (Easy, Medium, Hard)
-- Filter by difficulty
-- Monaco Editor for coding solutions
-- Run sample test cases
-- Submit for full evaluation
-- Progressive AI hints:
-  - Small hint after 2 failed attempts
-  - Bigger hint after 4 failed attempts
-  - Full solution after 6 failed attempts
+### Practice Arena (`/practice`)
+- 180+ coding problems
+- Filter by language and difficulty
+- Monaco Editor for solutions
+- Run code against test cases
+- Progressive hint system:
+  - Hint after 2 failed attempts
+  - Bigger hint after 4 attempts
+  - Solution after 6 attempts
 
-### Editor Workspace
-- VS Code-style Monaco Editor
-- AI-powered features:
+### Projects Page (`/projects`)
+- Real-world project guides
+- Beginner to Advanced levels
+- Step-by-step instructions
+- Technologies and prerequisites
+
+### Editor Workspace (`/editor`)
+- Full-featured Monaco Editor
+- AI assistance tools:
   - Explain Code
   - Debug Code
   - Refactor Code
-- Support for JavaScript and Python
-- Real-time code execution
+- Real-time execution
 
-### AI Integration
-**Groq (Llama models):**
-- Code explanation
-- Code debugging
-- Code refactoring
+### Dashboard (`/dashboard`)
+- Progress tracking
+- XP and streak system
+- Language progress
+- Recent activity
+- Quick actions
+
+---
+
+## AI Integration
+
+### Groq (Llama 3.3 70B)
+- Fast inference for code tasks
+- Code explanation and debugging
+- Refactoring suggestions
 - Practice hints
-- Solution explanations
 
-**Gemini (Flash 2.0):**
-- Lesson explanations
-- Concept simplification
-- Quiz generation
-- Study assistance
+### Gemini (Flash 2.0)
+- Learning assistance
+- Concept explanations
+- Interactive tutoring
+
+---
 
 ## Troubleshooting
 
-### Common Issues
+### Database Issues
+- **Tables not found**: Run `scripts/create-tables.sql` in Supabase SQL Editor
+- **Permission denied**: Check RLS policies are enabled
+- **Seed failed**: Verify `SUPABASE_SERVICE_ROLE_KEY` is correct
 
-1. **Supabase connection errors**
-   - Verify `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - Check if tables are created and RLS policies are set
+### Authentication Issues
+- **Signup fails**: Check Supabase URL and anon key
+- **Email not sent**: Verify Gmail app password (2FA must be enabled)
 
-2. **Email not sending**
-   - Verify Gmail app password (not regular password)
-   - Check if 2FA is enabled on Gmail
+### AI Features
+- **Not responding**: Check API keys are valid
+- **Rate limited**: Wait and retry, or check quota
 
-3. **AI features not working**
-   - Verify API keys are correct
-   - Check API quota/limits
+### Code Execution
+- **Python errors**: Ensure Python 3 is available
+- **Timeout**: Code must complete within 3 seconds
 
-4. **Code execution errors**
-   - Python: Ensure Python 3 is installed (`python3 --version`)
-   - JavaScript: VM2 should work out of the box
+---
 
-## Deployment
-This project is ready to deploy on Replit or any platform that supports Next.js:
+## Deployment Checklist
 
-### Replit
-1. Push code to Replit
-2. Set environment variables in Secrets tab
-3. Click "Run"
+Before publishing, ensure:
 
-### Vercel
-1. Connect GitHub repository
-2. Add environment variables
-3. Deploy
+- [ ] All environment variables are set in production
+- [ ] Database tables created and seeded
+- [ ] Supabase RLS policies enabled
+- [ ] API keys are valid and have quota
+- [ ] Test signup/login flow
+- [ ] Test code execution
+- [ ] Test AI features
+- [ ] Verify responsive design
+
+---
+
+## Publishing on Replit
+
+1. Click the **Publish** button in Replit
+2. Configure your domain (optional custom domain)
+3. Ensure all secrets are set for production
+4. Deploy!
+
+Your TechVerse Hub will be live and accessible to users worldwide.
+
+---
 
 ## Support
-For issues or questions:
-- Check the setup guide above
-- Review error logs in browser console
-- Verify all environment variables are set correctly
 
-## License
-MIT License - Feel free to use this project for learning and development.
+For issues:
+1. Check browser console for errors
+2. Verify environment variables
+3. Check Supabase logs for database errors
+4. Review this setup guide
+
+---
+
+**TechVerse Hub - Build Real Skills With Real Practice**

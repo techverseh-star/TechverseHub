@@ -1,9 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 
 const inter = Inter({ subsets: ["latin"] });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#0f172a",
+};
 
 export const metadata: Metadata = {
   title: {
@@ -66,11 +73,6 @@ export const metadata: Metadata = {
     images: ["/og-image.png"],
     creator: "@techversehub",
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 5,
-  },
   category: "Education",
   classification: "Programming Education Platform",
 };
@@ -132,11 +134,6 @@ export default function RootLayout({
         <link rel="canonical" href="https://techversehub.com" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <meta name="theme-color" content="#0f172a" />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
       </head>
       <body className={inter.className}>
         <ThemeProvider
