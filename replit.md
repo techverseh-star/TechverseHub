@@ -6,7 +6,7 @@ TechVerse Hub is an interactive coding education platform built with Next.js 14,
 ## Recent Changes (November 25, 2025)
 - ✅ Complete Next.js 14 application built from scratch
 - ✅ Implemented authentication with Supabase (signup, login, password reset)
-- ✅ **Expanded to 6 programming languages**: Python, JavaScript, TypeScript, Java, Go, Rust
+- ✅ **Expanded to 6 programming languages**: Python, JavaScript, TypeScript, Java, C, C++
 - ✅ **W3Schools-style learning**: Theory, examples, and practice from basics to advanced
 - ✅ **180+ practice problems** (30 per language across Easy, Medium, Hard difficulties)
 - ✅ **New Projects page** with real-world application building guides
@@ -70,8 +70,8 @@ TechVerse Hub is an interactive coding education platform built with Next.js 14,
 2. **JavaScript** - 15 lessons (Beginner to Advanced)
 3. **TypeScript** - 8 lessons (Beginner to Advanced)
 4. **Java** - 8 lessons (Beginner to Advanced)
-5. **Go** - 8 lessons (Beginner to Advanced)
-6. **Rust** - 8 lessons (Beginner to Advanced)
+5. **C** - 10 lessons (Beginner to Advanced)
+6. **C++** - 10 lessons (Beginner to Advanced)
 
 ### Lesson Levels
 - **Beginner**: Basics, variables, control flow, loops

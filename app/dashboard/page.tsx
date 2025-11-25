@@ -19,8 +19,8 @@ const LANGUAGES = [
   { id: "javascript", name: "JavaScript", color: "yellow", icon: "⚡", lessons: 15, progress: 0 },
   { id: "typescript", name: "TypeScript", color: "blue", icon: "📘", lessons: 12, progress: 0 },
   { id: "java", name: "Java", color: "orange", icon: "☕", lessons: 12, progress: 0 },
-  { id: "go", name: "Go", color: "cyan", icon: "🔷", lessons: 10, progress: 0 },
-  { id: "rust", name: "Rust", color: "orange", icon: "🦀", lessons: 10, progress: 0 },
+  { id: "c", name: "C", color: "gray", icon: "🔧", lessons: 10, progress: 0 },
+  { id: "cpp", name: "C++", color: "purple", icon: "⚙️", lessons: 10, progress: 0 },
 ];
 
 const DAILY_CHALLENGES = [
