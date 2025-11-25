@@ -289,7 +289,7 @@ techverse-hub/
 - Practice hints
 - Solution explanations
 
-**Gemini (Flash 1.5):**
+**Gemini (Flash 2.0):**
 - Lesson explanations
 - Concept simplification
 - Quiz generation

@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const { task, code, language, problem, hints, solution, size } = await request.json();
 
     let prompt = "";
-    let model = "llama-3.1-70b-versatile";
+    let model = "llama-3.3-70b-versatile";
 
     switch (task) {
       case "code_explain":
