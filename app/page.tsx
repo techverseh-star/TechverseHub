@@ -36,13 +36,13 @@ export default function HomePage() {
               </div>
               
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
-                Master coding with
-                <span className="gradient-text block mt-2">AI-powered practice</span>
+                Build Real Skills With
+                <span className="gradient-text block mt-2">Real Practice</span>
               </h1>
               
               <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-                Interactive lessons, LeetCode-style challenges, and intelligent hints. 
-                Learn Python and JavaScript with real-time code execution.
+                Master 6 programming languages with interactive lessons, 180+ coding challenges, 
+                and AI-powered assistance. From beginner to advanced, we've got you covered.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -76,7 +76,7 @@ export default function HomePage() {
                 </div>
                 <h3 className="text-xl font-semibold mb-3">Interactive Lessons</h3>
                 <p className="text-muted-foreground">
-                  20 hands-on lessons covering Python and JavaScript fundamentals with live code examples.
+                  66+ hands-on lessons covering Python, JavaScript, TypeScript, Java, C, and C++ from beginner to advanced.
                 </p>
               </div>
               
@@ -96,7 +96,7 @@ export default function HomePage() {
                 </div>
                 <h3 className="text-xl font-semibold mb-3">Practice Arena</h3>
                 <p className="text-muted-foreground">
-                  30 coding challenges from Easy to Hard. Test your skills with real test cases and instant feedback.
+                  180+ coding challenges across 6 languages. Test your skills with real test cases and instant feedback.
                 </p>
               </div>
             </div>

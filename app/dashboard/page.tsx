@@ -108,7 +108,7 @@ export default function DashboardPage() {
               <h1 className="text-3xl font-bold mb-2">
                 Welcome back, <span className="gradient-text">{userName}</span>
               </h1>
-              <p className="text-muted-foreground">Continue your coding journey</p>
+              <p className="text-muted-foreground">Build Real Skills With Real Practice</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20">
