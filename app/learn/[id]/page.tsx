@@ -2,15 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase, Lesson } from "@/lib/supabase";
-import { CheckCircle, Play } from "lucide-react";
+import { supabase, Lesson, isSupabaseConfigured } from "@/lib/supabase";
+import { CheckCircle, Play, ArrowLeft, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
+
+const DEMO_LESSON: Lesson = {
+  id: "1",
+  title: "Python Basics: Variables and Data Types",
+  language: "python",
+  content: "In Python, variables are containers for storing data values. Unlike other programming languages, Python has no command for declaring a variable. A variable is created the moment you first assign a value to it.\n\nCommon data types:\n- int: Integer numbers (5, 10, -3)\n- float: Decimal numbers (3.14, -0.5)\n- str: Text strings ('hello', \"world\")\n- bool: Boolean values (True, False)",
+  codeExample: "# Variables\nname = \"Alice\"\nage = 25\nheight = 5.6\nis_student = True\n\nprint(f\"Name: {name}\")\nprint(f\"Age: {age}\")\nprint(f\"Height: {height}\")\nprint(f\"Is student: {is_student}\")",
+  tryStarter: "# Try creating your own variables\nname = \"Your Name\"\nage = 0\n\nprint(name)\nprint(age)"
+};
 
 export default function LessonPage() {
   const router = useRouter();
@@ -35,6 +45,12 @@ export default function LessonPage() {
     if (!user || !params.id) return;
 
     async function loadLesson() {
+      if (!isSupabaseConfigured()) {
+        setLesson(DEMO_LESSON);
+        setCode(DEMO_LESSON.tryStarter || "");
+        return;
+      }
+
       const { data: lessonData } = await supabase
         .from("lessons")
         .select("*")
@@ -44,6 +60,9 @@ export default function LessonPage() {
       if (lessonData) {
         setLesson(lessonData);
         setCode(lessonData.tryStarter || "");
+      } else {
+        setLesson(DEMO_LESSON);
+        setCode(DEMO_LESSON.tryStarter || "");
       }
 
       const { data: progressData } = await supabase
@@ -86,11 +105,13 @@ export default function LessonPage() {
   const handleMarkComplete = async () => {
     if (!user || !lesson) return;
 
-    await supabase.from("lesson_progress").upsert({
-      user_id: user.id,
-      lesson_id: lesson.id,
-      completed: true,
-    });
+    if (isSupabaseConfigured()) {
+      await supabase.from("lesson_progress").upsert({
+        user_id: user.id,
+        lesson_id: lesson.id,
+        completed: true,
+      });
+    }
 
     setCompleted(true);
   };
@@ -102,15 +123,27 @@ export default function LessonPage() {
       <Navbar />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
+          <Link href="/learn" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4">
+            <ArrowLeft className="h-4 w-4" />
+            Back to lessons
+          </Link>
+          <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold mb-2">{lesson.title}</h1>
-              <Badge>{lesson.language}</Badge>
+              <h1 className="text-3xl font-bold mb-3">{lesson.title}</h1>
+              <Badge 
+                className={`${
+                  lesson.language === "python" 
+                    ? "bg-blue-500/10 text-blue-500 border-blue-500/20" 
+                    : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+                }`}
+              >
+                {lesson.language}
+              </Badge>
             </div>
             {completed && (
-              <div className="flex items-center gap-2 text-green-500">
+              <div className="flex items-center gap-2 text-green-500 bg-green-500/10 px-4 py-2 rounded-lg">
                 <CheckCircle className="h-5 w-5" />
-                <span>Completed</span>
+                <span className="font-medium">Completed</span>
               </div>
             )}
           </div>
@@ -124,7 +157,7 @@ export default function LessonPage() {
               </CardHeader>
               <CardContent>
                 <div className="prose dark:prose-invert max-w-none">
-                  <p className="whitespace-pre-wrap">{lesson.content}</p>
+                  <p className="whitespace-pre-wrap text-muted-foreground">{lesson.content}</p>
                 </div>
               </CardContent>
             </Card>
@@ -134,8 +167,8 @@ export default function LessonPage() {
                 <CardTitle>Code Example</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="bg-muted p-4 rounded-md font-mono text-sm">
-                  <pre>{lesson.codeExample}</pre>
+                <div className="code-block">
+                  <pre className="text-sm">{lesson.codeExample}</pre>
                 </div>
               </CardContent>
             </Card>
@@ -147,7 +180,7 @@ export default function LessonPage() {
                 <CardTitle>Try It Yourself</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="border rounded-md overflow-hidden">
+                <div className="border rounded-lg overflow-hidden">
                   <MonacoEditor
                     height="300px"
                     language={lesson.language === "python" ? "python" : "javascript"}
@@ -157,21 +190,33 @@ export default function LessonPage() {
                     options={{
                       minimap: { enabled: false },
                       fontSize: 14,
+                      padding: { top: 16, bottom: 16 },
+                      scrollBeyondLastLine: false,
                     }}
                   />
                 </div>
                 <Button onClick={handleRunCode} disabled={running} className="w-full">
-                  <Play className="h-4 w-4 mr-2" />
-                  {running ? "Running..." : "Run Code"}
+                  {running ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      Run Code
+                    </>
+                  )}
                 </Button>
                 {output && (
-                  <div className="bg-muted p-4 rounded-md">
-                    <p className="text-sm font-semibold mb-2">Output:</p>
-                    <pre className="text-sm whitespace-pre-wrap">{output}</pre>
+                  <div className="bg-secondary/50 rounded-lg p-4">
+                    <p className="text-sm font-medium mb-2">Output:</p>
+                    <pre className="text-sm whitespace-pre-wrap font-mono">{output}</pre>
                   </div>
                 )}
                 {!completed && (
                   <Button onClick={handleMarkComplete} variant="outline" className="w-full">
+                    <CheckCircle className="h-4 w-4 mr-2" />
                     Mark as Complete
                   </Button>
                 )}

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { NodeVM } from "vm2";
 import { exec } from "child_process";
 import { promisify } from "util";
 import fs from "fs/promises";
@@ -12,7 +11,7 @@ export async function POST(request: NextRequest) {
     const { code, language, testInput } = await request.json();
 
     if (language === "javascript") {
-      return executeJavaScript(code, testInput);
+      return await executeJavaScript(code, testInput);
     } else if (language === "python") {
       return await executePython(code, testInput);
     }
@@ -23,24 +22,58 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function executeJavaScript(code: string, testInput?: string) {
+async function executeJavaScript(code: string, testInput?: string) {
   try {
-    const vm = new NodeVM({
-      timeout: 3000,
-      console: "redirect",
-    });
+    const tempDir = "/tmp";
+    const fileName = `code_${Date.now()}.js`;
+    const filePath = path.join(tempDir, fileName);
 
-    let output = "";
-    const modifiedCode = `
-      ${code}
-      ${testInput ? `console.log(solution(${testInput}));` : ""}
-    `;
+    const wrappedCode = `
+const __logs = [];
+const __originalLog = console.log;
+console.log = (...args) => {
+  __logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
+};
 
-    const result = vm.run(modifiedCode);
-    
-    output = result || "Code executed successfully";
+try {
+${code}
+${testInput ? `
+const __result = typeof solution === 'function' ? solution(${testInput}) : undefined;
+if (__result !== undefined) console.log(__result);
+` : ''}
+} catch (e) {
+  console.log('Error:', e.message);
+}
 
-    return NextResponse.json({ output });
+console.log = __originalLog;
+process.stdout.write(__logs.join('\\n'));
+`;
+
+    await fs.writeFile(filePath, wrappedCode);
+
+    try {
+      const { stdout, stderr } = await execAsync(`timeout 3 node ${filePath}`, {
+        maxBuffer: 1024 * 1024,
+      });
+
+      await fs.unlink(filePath);
+
+      if (stderr && !stdout) {
+        return NextResponse.json({ error: stderr });
+      }
+
+      return NextResponse.json({ output: stdout.trim() || "Code executed successfully (no output)" });
+    } catch (execError: any) {
+      try {
+        await fs.unlink(filePath);
+      } catch {}
+      
+      if (execError.killed) {
+        return NextResponse.json({ error: "Execution timeout (3 seconds)" });
+      }
+      
+      return NextResponse.json({ error: execError.stderr || execError.message });
+    }
   } catch (error: any) {
     return NextResponse.json({ error: error.message });
   }
@@ -54,8 +87,11 @@ async function executePython(code: string, testInput?: string) {
 
     const modifiedCode = `
 ${code}
-${testInput ? `\nprint(solution(${testInput}))` : ""}
-    `;
+${testInput ? `
+if 'solution' in dir():
+    print(solution(${testInput}))
+` : ""}
+`;
 
     await fs.writeFile(filePath, modifiedCode);
 
@@ -66,13 +102,15 @@ ${testInput ? `\nprint(solution(${testInput}))` : ""}
 
       await fs.unlink(filePath);
 
-      if (stderr) {
+      if (stderr && !stdout) {
         return NextResponse.json({ error: stderr });
       }
 
-      return NextResponse.json({ output: stdout.trim() });
+      return NextResponse.json({ output: stdout.trim() || "Code executed successfully (no output)" });
     } catch (execError: any) {
-      await fs.unlink(filePath);
+      try {
+        await fs.unlink(filePath);
+      } catch {}
       
       if (execError.killed) {
         return NextResponse.json({ error: "Execution timeout (3 seconds)" });

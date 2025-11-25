@@ -6,7 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Lightbulb, Bug, Sparkles, Play } from "lucide-react";
+import { Lightbulb, Bug, Sparkles, Play, Loader2, Copy, Check } from "lucide-react";
 import dynamic from "next/dynamic";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
@@ -14,12 +14,14 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false 
 export default function EditorPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [code, setCode] = useState("// Start coding here...\n");
+  const [code, setCode] = useState("// Welcome to TechVerse Hub Editor!\n// Start coding here...\n\nfunction hello() {\n  console.log('Hello, World!');\n}\n\nhello();");
   const [language, setLanguage] = useState("javascript");
   const [aiResponse, setAiResponse] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [activeAction, setActiveAction] = useState<string | null>(null);
   const [output, setOutput] = useState("");
   const [running, setRunning] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -33,6 +35,7 @@ export default function EditorPage() {
   const handleAiAction = async (task: "code_explain" | "code_debug" | "code_refactor") => {
     setAiLoading(true);
     setAiResponse("");
+    setActiveAction(task);
 
     try {
       const response = await fetch("/api/ai/groq", {
@@ -46,7 +49,7 @@ export default function EditorPage() {
       });
 
       const result = await response.json();
-      setAiResponse(result.response);
+      setAiResponse(result.response || "No response received.");
 
       if (task === "code_refactor" && result.code) {
         const shouldReplace = confirm("Would you like to replace your code with the refactored version?");
@@ -55,7 +58,7 @@ export default function EditorPage() {
         }
       }
     } catch (error) {
-      setAiResponse("Error getting AI response");
+      setAiResponse("Error getting AI response. Please try again.");
     } finally {
       setAiLoading(false);
     }
@@ -84,6 +87,21 @@ export default function EditorPage() {
     }
   };
 
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const getActionLabel = (action: string | null) => {
+    switch (action) {
+      case "code_explain": return "Explanation";
+      case "code_debug": return "Debug Analysis";
+      case "code_refactor": return "Refactored Code";
+      default: return "AI Assistant";
+    }
+  };
+
   if (!user) return null;
 
   return (
@@ -91,38 +109,48 @@ export default function EditorPage() {
       <Navbar />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Code Editor Workspace</h1>
+          <h1 className="text-3xl font-bold mb-2">Code Editor</h1>
           <p className="text-muted-foreground">Write code with AI-powered assistance</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle>Code Editor</CardTitle>
-                  <div className="flex gap-2">
-                    <Badge
-                      variant={language === "javascript" ? "default" : "outline"}
-                      className="cursor-pointer"
-                      onClick={() => setLanguage("javascript")}
+                  <CardTitle>Editor</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={copyToClipboard}
+                      className="h-8"
                     >
-                      JavaScript
-                    </Badge>
-                    <Badge
-                      variant={language === "python" ? "default" : "outline"}
-                      className="cursor-pointer"
-                      onClick={() => setLanguage("python")}
-                    >
-                      Python
-                    </Badge>
+                      {copied ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <div className="flex gap-1">
+                      {["javascript", "python"].map((lang) => (
+                        <Badge
+                          key={lang}
+                          variant={language === lang ? "default" : "outline"}
+                          className="cursor-pointer capitalize"
+                          onClick={() => setLanguage(lang)}
+                        >
+                          {lang}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="border rounded-md overflow-hidden">
+                <div className="border rounded-lg overflow-hidden">
                   <MonacoEditor
-                    height="500px"
+                    height="450px"
                     language={language}
                     value={code}
                     onChange={(value) => setCode(value || "")}
@@ -130,45 +158,59 @@ export default function EditorPage() {
                     options={{
                       minimap: { enabled: false },
                       fontSize: 14,
+                      padding: { top: 16, bottom: 16 },
+                      scrollBeyondLastLine: false,
+                      wordWrap: "on",
                     }}
                   />
                 </div>
 
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     onClick={() => handleAiAction("code_explain")}
                     disabled={aiLoading}
                     variant="outline"
+                    size="sm"
+                    className="gap-2"
                   >
-                    <Lightbulb className="h-4 w-4 mr-2" />
-                    Explain Code
+                    <Lightbulb className="h-4 w-4" />
+                    Explain
                   </Button>
                   <Button
                     onClick={() => handleAiAction("code_debug")}
                     disabled={aiLoading}
                     variant="outline"
+                    size="sm"
+                    className="gap-2"
                   >
-                    <Bug className="h-4 w-4 mr-2" />
-                    Debug Code
+                    <Bug className="h-4 w-4" />
+                    Debug
                   </Button>
                   <Button
                     onClick={() => handleAiAction("code_refactor")}
                     disabled={aiLoading}
                     variant="outline"
+                    size="sm"
+                    className="gap-2"
                   >
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Refactor Code
+                    <Sparkles className="h-4 w-4" />
+                    Refactor
                   </Button>
-                  <Button onClick={handleRunCode} disabled={running}>
-                    <Play className="h-4 w-4 mr-2" />
+                  <div className="flex-1" />
+                  <Button onClick={handleRunCode} disabled={running} size="sm" className="gap-2">
+                    {running ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
                     Run Code
                   </Button>
                 </div>
 
                 {output && (
-                  <div className="bg-muted p-4 rounded-md">
-                    <p className="text-sm font-semibold mb-2">Output:</p>
-                    <pre className="text-sm whitespace-pre-wrap">{output}</pre>
+                  <div className="bg-secondary/50 rounded-lg p-4">
+                    <p className="text-sm font-medium mb-2">Output:</p>
+                    <pre className="text-sm whitespace-pre-wrap font-mono">{output}</pre>
                   </div>
                 )}
               </CardContent>
@@ -176,25 +218,29 @@ export default function EditorPage() {
           </div>
 
           <div className="lg:col-span-1">
-            <Card>
+            <Card className="sticky top-24">
               <CardHeader>
-                <CardTitle>AI Assistant</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  {getActionLabel(activeAction)}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {aiLoading && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
-                    <p>AI is thinking...</p>
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+                    <p className="text-sm">AI is analyzing your code...</p>
                   </div>
                 )}
                 {!aiLoading && !aiResponse && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>Click an AI action button to get assistance with your code</p>
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                    <p className="text-sm">Click an AI action button to get help with your code</p>
                   </div>
                 )}
                 {!aiLoading && aiResponse && (
                   <div className="prose dark:prose-invert max-w-none">
-                    <p className="whitespace-pre-wrap text-sm">{aiResponse}</p>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{aiResponse}</p>
                   </div>
                 )}
               </CardContent>

@@ -2,15 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase, PracticeProblem, TestCase } from "@/lib/supabase";
-import { Play, Send, Lightbulb, CheckCircle, XCircle } from "lucide-react";
+import { supabase, PracticeProblem, TestCase, isSupabaseConfigured } from "@/lib/supabase";
+import { Play, Send, Lightbulb, ArrowLeft, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
+
+const DEMO_PROBLEM: PracticeProblem = {
+  id: "1",
+  title: "Two Sum",
+  difficulty: "Easy",
+  language: "javascript",
+  description: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.",
+  examples: "Example 1:\nInput: nums = [2,7,11,15], target = 9\nOutput: [0,1]\n\nExample 2:\nInput: nums = [3,2,4], target = 6\nOutput: [1,2]",
+  solution: "function solution(nums, target) { const map = new Map(); for (let i = 0; i < nums.length; i++) { const complement = target - nums[i]; if (map.has(complement)) return [map.get(complement), i]; map.set(nums[i], i); } return []; }",
+  hints: "Try using a hash map to store numbers you've seen before."
+};
+
+const DEMO_TESTCASES: TestCase[] = [
+  { id: "1", problem_id: "1", input: "[2,7,11,15], 9", output: "[0,1]", hidden: false },
+  { id: "2", problem_id: "1", input: "[3,2,4], 6", output: "[1,2]", hidden: true },
+];
 
 export default function ProblemPage() {
   const router = useRouter();
@@ -24,6 +41,7 @@ export default function ProblemPage() {
   const [attempts, setAttempts] = useState(0);
   const [hint, setHint] = useState("");
   const [showingSolution, setShowingSolution] = useState(false);
+  const [hintLoading, setHintLoading] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -38,6 +56,13 @@ export default function ProblemPage() {
     if (!user || !params.id) return;
 
     async function loadProblem() {
+      if (!isSupabaseConfigured()) {
+        setProblem(DEMO_PROBLEM);
+        setTestCases(DEMO_TESTCASES);
+        setCode(DEMO_PROBLEM.language === "python" ? "def solution(nums, target):\n    pass" : "function solution(nums, target) {\n    \n}");
+        return;
+      }
+
       const { data: problemData } = await supabase
         .from("practice_problems")
         .select("*")
@@ -60,8 +85,17 @@ export default function ProblemPage() {
       if (problemData) {
         setProblem(problemData);
         setCode(problemData.language === "python" ? "def solution():\n    pass" : "function solution() {\n    \n}");
+      } else {
+        setProblem(DEMO_PROBLEM);
+        setCode("function solution(nums, target) {\n    \n}");
       }
-      if (testData) setTestCases(testData);
+      
+      if (testData && testData.length > 0) {
+        setTestCases(testData);
+      } else {
+        setTestCases(DEMO_TESTCASES);
+      }
+      
       if (submissionData && submissionData[0]) {
         setAttempts(submissionData[0].attempts || 0);
       }
@@ -123,23 +157,30 @@ export default function ProblemPage() {
       const newAttempts = attempts + 1;
       const status = passed === total ? "passed" : "failed";
 
-      await supabase.from("submissions").insert({
-        user_id: user.id,
-        problem_id: problem.id,
-        code,
-        status,
-        attempts: newAttempts,
-      });
+      if (isSupabaseConfigured()) {
+        await supabase.from("submissions").insert({
+          user_id: user.id,
+          problem_id: problem.id,
+          code,
+          status,
+          attempts: newAttempts,
+        });
+      }
 
       setAttempts(newAttempts);
-      setOutput(`Passed ${passed}/${total} test cases`);
-
-      if (status === "failed" && newAttempts === 2) {
-        requestHint("small");
-      } else if (status === "failed" && newAttempts === 4) {
-        requestHint("big");
-      } else if (status === "failed" && newAttempts >= 6) {
-        requestSolution();
+      
+      if (passed === total) {
+        setOutput(`All ${total} test cases passed! Great job!`);
+      } else {
+        setOutput(`Passed ${passed}/${total} test cases`);
+        
+        if (newAttempts === 2) {
+          requestHint("small");
+        } else if (newAttempts === 4) {
+          requestHint("big");
+        } else if (newAttempts >= 6) {
+          requestSolution();
+        }
       }
     } catch (error) {
       setOutput("Error submitting code");
@@ -149,6 +190,7 @@ export default function ProblemPage() {
   };
 
   const requestHint = async (size: "small" | "big") => {
+    setHintLoading(true);
     try {
       const response = await fetch("/api/ai/groq", {
         method: "POST",
@@ -162,13 +204,16 @@ export default function ProblemPage() {
       });
 
       const result = await response.json();
-      setHint(result.response);
+      setHint(result.response || "Think about the approach carefully.");
     } catch (error) {
-      console.error("Error getting hint:", error);
+      setHint("Unable to get hint. Try again later.");
+    } finally {
+      setHintLoading(false);
     }
   };
 
   const requestSolution = async () => {
+    setHintLoading(true);
     try {
       const response = await fetch("/api/ai/groq", {
         method: "POST",
@@ -181,20 +226,23 @@ export default function ProblemPage() {
       });
 
       const result = await response.json();
-      setHint(result.response);
+      setHint(result.response || problem?.solution || "");
       setShowingSolution(true);
     } catch (error) {
-      console.error("Error getting solution:", error);
+      setHint(problem?.solution || "Unable to get solution.");
+      setShowingSolution(true);
+    } finally {
+      setHintLoading(false);
     }
   };
 
   if (!user || !problem) return null;
 
-  const getDifficultyColor = (difficulty: string) => {
+  const getDifficultyStyles = (difficulty: string) => {
     switch (difficulty) {
-      case "Easy": return "bg-green-500/10 text-green-500 border-green-500";
-      case "Medium": return "bg-yellow-500/10 text-yellow-500 border-yellow-500";
-      case "Hard": return "bg-red-500/10 text-red-500 border-red-500";
+      case "Easy": return "bg-green-500/10 text-green-500 border-green-500/20";
+      case "Medium": return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+      case "Hard": return "bg-red-500/10 text-red-500 border-red-500/20";
       default: return "";
     }
   };
@@ -204,15 +252,23 @@ export default function ProblemPage() {
       <Navbar />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
+          <Link href="/practice" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4">
+            <ArrowLeft className="h-4 w-4" />
+            Back to problems
+          </Link>
+          <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold mb-2">{problem.title}</h1>
-              <div className="flex gap-2">
-                <Badge className={getDifficultyColor(problem.difficulty)}>
+              <h1 className="text-3xl font-bold mb-3">{problem.title}</h1>
+              <div className="flex items-center gap-3">
+                <Badge className={getDifficultyStyles(problem.difficulty)}>
                   {problem.difficulty}
                 </Badge>
-                <Badge variant="secondary">{problem.language}</Badge>
-                <Badge variant="outline">Attempts: {attempts}</Badge>
+                <Badge variant="outline" className="capitalize">
+                  {problem.language}
+                </Badge>
+                <Badge variant="secondary">
+                  Attempts: {attempts}
+                </Badge>
               </div>
             </div>
           </div>
@@ -225,9 +281,7 @@ export default function ProblemPage() {
                 <CardTitle>Problem Description</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="prose dark:prose-invert max-w-none">
-                  <p className="whitespace-pre-wrap">{problem.description}</p>
-                </div>
+                <p className="whitespace-pre-wrap text-muted-foreground">{problem.description}</p>
               </CardContent>
             </Card>
 
@@ -236,22 +290,29 @@ export default function ProblemPage() {
                 <CardTitle>Examples</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="bg-muted p-4 rounded-md font-mono text-sm">
-                  <pre className="whitespace-pre-wrap">{problem.examples}</pre>
+                <div className="code-block">
+                  <pre className="text-sm whitespace-pre-wrap">{problem.examples}</pre>
                 </div>
               </CardContent>
             </Card>
 
-            {hint && (
-              <Card className="border-yellow-500">
+            {(hint || hintLoading) && (
+              <Card className="border-yellow-500/30 bg-yellow-500/5">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Lightbulb className="h-5 w-5 text-yellow-500" />
+                  <CardTitle className="flex items-center gap-2 text-yellow-500">
+                    <Lightbulb className="h-5 w-5" />
                     {showingSolution ? "Solution" : "Hint"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="whitespace-pre-wrap">{hint}</p>
+                  {hintLoading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Getting help...
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap">{hint}</p>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -263,7 +324,7 @@ export default function ProblemPage() {
                 <CardTitle>Your Solution</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="border rounded-md overflow-hidden">
+                <div className="border rounded-lg overflow-hidden">
                   <MonacoEditor
                     height="400px"
                     language={problem.language === "python" ? "python" : "javascript"}
@@ -273,23 +334,33 @@ export default function ProblemPage() {
                     options={{
                       minimap: { enabled: false },
                       fontSize: 14,
+                      padding: { top: 16, bottom: 16 },
+                      scrollBeyondLastLine: false,
                     }}
                   />
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={handleRunCode} disabled={running} variant="outline" className="flex-1">
-                    <Play className="h-4 w-4 mr-2" />
+                    {running ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4 mr-2" />
+                    )}
                     Run
                   </Button>
                   <Button onClick={handleSubmit} disabled={running} className="flex-1">
-                    <Send className="h-4 w-4 mr-2" />
+                    {running ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-2" />
+                    )}
                     Submit
                   </Button>
                 </div>
                 {output && (
-                  <div className="bg-muted p-4 rounded-md">
-                    <p className="text-sm font-semibold mb-2">Output:</p>
-                    <pre className="text-sm whitespace-pre-wrap">{output}</pre>
+                  <div className={`rounded-lg p-4 ${output.includes("passed") ? "bg-green-500/10 border border-green-500/20" : "bg-secondary/50"}`}>
+                    <p className="text-sm font-medium mb-2">Output:</p>
+                    <pre className="text-sm whitespace-pre-wrap font-mono">{output}</pre>
                   </div>
                 )}
               </CardContent>
@@ -297,14 +368,16 @@ export default function ProblemPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Test Cases (Sample)</CardTitle>
+                <CardTitle>Sample Test Cases</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {testCases.filter(tc => !tc.hidden).map((tc, idx) => (
-                    <div key={idx} className="bg-muted p-3 rounded-md text-sm">
-                      <p><strong>Input:</strong> {tc.input}</p>
-                      <p><strong>Expected:</strong> {tc.output}</p>
+                    <div key={idx} className="code-block">
+                      <p className="text-xs text-muted-foreground mb-1">Input:</p>
+                      <pre className="text-sm mb-2">{tc.input}</pre>
+                      <p className="text-xs text-muted-foreground mb-1">Expected:</p>
+                      <pre className="text-sm">{tc.output}</pre>
                     </div>
                   ))}
                 </div>
