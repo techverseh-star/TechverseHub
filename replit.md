@@ -21,6 +21,14 @@ TechVerse Hub is an interactive coding education platform with the slogan **"Bui
 - **Database seed scripts** for automated setup
 - Workflow configured and running on port 5000
 
+### UX Improvements (Latest)
+- **Loading spinners** on all pages during data fetching
+- **W3Schools-style navigation** with Next/Previous buttons on Learn and Practice pages
+- **Completion tracking** displays (e.g., "3/15 completed") on all relevant pages
+- **Demo mode** works properly with comprehensive sample data when Supabase is not configured
+- **Language-filtered navigation** - Next/Previous stays within the same programming language
+- **Dashboard progress tracking** with accurate lesson prefix matching (py-, js-, ts-, java-, c-, cpp-)
+
 ## Platform Slogan
 **"Build Real Skills With Real Practice"** - Featured on homepage and dashboard
 
