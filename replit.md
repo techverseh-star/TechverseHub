@@ -36,6 +36,8 @@ TechVerse Hub is an interactive coding education platform with the slogan **"Bui
 - **Automatic streak updates**: Streak updated on dashboard visit (not just login)
 - **Streak logic**: Increments on consecutive days, resets if gap > 1 day
 - **Beautiful email templates**: Enhanced welcome and password reset emails with gradient headers
+- **Secure streak API**: Uses @supabase/ssr for server-side authentication with cookie-based sessions
+- **Demo mode fallback**: Shows default streak of 1 when Supabase not configured
 
 ## Platform Slogan
 **"Build Real Skills With Real Practice"** - Featured on homepage and dashboard

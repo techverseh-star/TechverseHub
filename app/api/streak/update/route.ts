@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase-server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,34 +9,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User ID required" }, { status: 400 });
     }
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
     if (!supabaseUrl || !supabaseAnonKey) {
       return NextResponse.json({ success: true, streak: 1, skipped: true });
     }
 
-    const cookieStore = cookies();
-    const accessToken = cookieStore.get('sb-access-token')?.value;
-    const refreshToken = cookieStore.get('sb-refresh-token')?.value;
+    const serverClient = createSupabaseServerClient();
+    const { data: { user }, error: authError } = await serverClient.auth.getUser();
     
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
-
-    if (accessToken) {
-      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(accessToken);
-      
-      if (user && user.id !== userId) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-      }
+    if (authError || !user) {
+      return NextResponse.json({ success: true, streak: 1, skipped: true });
+    }
+    
+    if (user.id !== userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const supabase = supabaseServiceKey 
-      ? createClient(supabaseUrl, supabaseServiceKey, {
-          auth: { autoRefreshToken: false, persistSession: false }
-        })
-      : supabaseAuth;
+    const supabase = createSupabaseServiceClient() || serverClient;
     
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
