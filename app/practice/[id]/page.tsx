@@ -478,12 +478,12 @@ export default function ProblemPage() {
                     Submit
                   </Button>
                 </div>
-                {output && (
-                  <div className={`rounded-lg p-4 ${output.includes("passed!") ? "bg-green-500/10 border border-green-500/20" : "bg-secondary/50"}`}>
-                    <p className="text-sm font-medium mb-2">Output:</p>
-                    <pre className="text-sm whitespace-pre-wrap font-mono">{output}</pre>
-                  </div>
-                )}
+                <div className={`rounded-lg p-4 ${output?.includes("passed!") ? "bg-green-500/10 border border-green-500/20" : "bg-secondary/50"}`}>
+                  <p className="text-sm font-medium mb-2">Output:</p>
+                  <pre className="text-sm whitespace-pre-wrap font-mono min-h-[60px]">
+                    {output || "Click 'Run' to test your code or 'Submit' to check all test cases..."}
+                  </pre>
+                </div>
               </CardContent>
             </Card>
 

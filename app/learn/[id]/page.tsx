@@ -323,12 +323,12 @@ export default function LessonPage() {
                     </>
                   )}
                 </Button>
-                {output && (
-                  <div className="bg-secondary/50 rounded-lg p-4">
-                    <p className="text-sm font-medium mb-2">Output:</p>
-                    <pre className="text-sm whitespace-pre-wrap font-mono">{output}</pre>
-                  </div>
-                )}
+                <div className="bg-secondary/50 rounded-lg p-4">
+                  <p className="text-sm font-medium mb-2">Output:</p>
+                  <pre className="text-sm whitespace-pre-wrap font-mono min-h-[60px]">
+                    {output || "Click 'Run Code' to see output..."}
+                  </pre>
+                </div>
                 {!completed && (
                   <Button onClick={handleMarkComplete} variant="outline" className="w-full">
                     <CheckCircle className="h-4 w-4 mr-2" />

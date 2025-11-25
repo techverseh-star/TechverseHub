@@ -223,12 +223,12 @@ export default function EditorPage() {
                   </Button>
                 </div>
 
-                {output && (
-                  <div className="bg-secondary/50 rounded-lg p-4">
-                    <p className="text-sm font-medium mb-2">Output:</p>
-                    <pre className="text-sm whitespace-pre-wrap font-mono">{output}</pre>
-                  </div>
-                )}
+                <div className="bg-secondary/50 rounded-lg p-4">
+                  <p className="text-sm font-medium mb-2">Output:</p>
+                  <pre className="text-sm whitespace-pre-wrap font-mono min-h-[60px]">
+                    {output || "Click 'Run Code' to execute your code..."}
+                  </pre>
+                </div>
               </CardContent>
             </Card>
           </div>
