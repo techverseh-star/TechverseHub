@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase, Lesson, isSupabaseConfigured } from "@/lib/supabase";
 import { BookOpen, CheckCircle, Search, Code2, ChevronRight, GraduationCap, Layers, Loader2 } from "lucide-react";
+
+export const dynamic = 'force-dynamic';
 
 const LANGUAGES = [
   { id: "python", name: "Python", icon: "🐍", color: "blue", description: "Beginner-friendly, versatile language" },
