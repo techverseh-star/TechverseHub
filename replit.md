@@ -9,9 +9,9 @@ TechVerse Hub is an interactive coding education platform with the slogan **"Bui
 - **6 programming languages**: Python, JavaScript, TypeScript, Java, C, C++
 - **66+ interactive lessons** with theory, examples, and practice exercises
 - **180+ practice problems** (30 per language across Easy, Medium, Hard)
-- **Projects page** with real-world application building guides
+- **Projects page** with LeetCode-style split-view interface
 - Integrated Monaco Editor for code editing
-- Implemented code execution API for JavaScript and Python
+- Implemented code execution API for JavaScript, Python, and TypeScript
 - Added Groq API integration (Llama 3.3 70B) for code assistance
 - Added Gemini API integration (Flash 2.0) for learning assistance
 - Built email system with Nodemailer
@@ -29,15 +29,11 @@ TechVerse Hub is an interactive coding education platform with the slogan **"Bui
 - **Language-filtered navigation** - Next/Previous stays within the same programming language
 - **Dashboard progress tracking** with accurate lesson prefix matching (py-, js-, ts-, java-, c-, cpp-)
 
-### Authentication & Streak System
+### Authentication System
 - **Improved signup**: Shows "user already exists" error for duplicate accounts
 - **Improved login**: Better error messages for invalid credentials, unverified email, rate limiting
-- **Daily streak tracking**: Tracks consecutive days of activity in user_streaks table
-- **Automatic streak updates**: Streak updated on dashboard visit (not just login)
-- **Streak logic**: Increments on consecutive days, resets if gap > 1 day
+- **Password reset**: Complete flow with email link and new password form
 - **Beautiful email templates**: Enhanced welcome and password reset emails with gradient headers
-- **Secure streak API**: Uses @supabase/ssr for server-side authentication with cookie-based sessions
-- **Demo mode fallback**: Shows default streak of 1 when Supabase not configured
 
 ## Platform Slogan
 **"Build Real Skills With Real Practice"** - Featured on homepage and dashboard
@@ -60,24 +56,27 @@ TechVerse Hub is an interactive coding education platform with the slogan **"Bui
 - **Gemini (Flash 2.0)**: Lesson explanations, concept simplification, study help
 
 ### Code Execution
-- **JavaScript**: VM2 sandbox with 3-second timeout
+- **JavaScript**: Child process with node, 3-second timeout
 - **Python**: Child process with python3, 3-second timeout
+- **TypeScript**: Compiled via tsc then executed with node
+- **Java/C/C++**: Informational message with local compilation instructions
 
 ## Project Structure
 ```
 ├── app/                   # Next.js App Router
-│   ├── api/              # API routes (execute, ai, email)
-│   ├── auth/             # Auth pages (login, signup, reset)
+│   ├── api/              # API routes (run, ai, email)
+│   ├── auth/             # Auth pages (login, signup, forgot-password, reset)
 │   ├── dashboard/        # Dashboard with stats
 │   ├── learn/            # Learning module (6 languages)
 │   ├── practice/         # Practice arena (180+ problems)
-│   ├── projects/         # Real-world projects
+│   ├── projects/         # Real-world projects with split-view editor
 │   └── editor/           # AI-powered editor workspace
 ├── components/           # React components
 ├── lib/                  # Utilities
-├── data/                 # Seed data (JSON files)
+├── data/                 # Seed data and project definitions
 │   ├── lessons-seed.json
 │   ├── practice-problems.json
+│   ├── projects.ts
 │   └── testcases.json
 ├── scripts/              # Database scripts
 │   ├── create-tables.sql
@@ -107,10 +106,12 @@ TechVerse Hub is an interactive coding education platform with the slogan **"Bui
 - Solution explanations
 
 ### Projects
-Real-world projects for each language:
-- Beginner: CLI tools, simple apps
-- Intermediate: APIs, databases, web servers
-- Advanced: Full-stack apps, distributed systems
+Real-world projects for each language with:
+- LeetCode-style split-view interface
+- Description, concepts, and step-by-step guide on left
+- Monaco editor with code execution on right
+- AI-powered hints and debugging
+- Show/hide solution functionality
 
 ## Required Setup
 
@@ -121,8 +122,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY # Supabase anonymous key
 SUPABASE_SERVICE_ROLE_KEY     # For seeding database
 GROQ_API_KEY                  # Groq API for code AI
 GEMINI_API_KEY                # Google Gemini for learning AI
-EMAIL_USER                    # Gmail address (optional)
-EMAIL_PASS                    # Gmail app password (optional)
+SMTP_HOST                     # SMTP server (optional)
+SMTP_USER                     # SMTP username (optional)
+SMTP_PASS                     # SMTP password (optional)
 ```
 
 ### Supabase Setup
@@ -151,13 +153,14 @@ All required dependencies installed via npm:
 - Supabase client
 - Groq SDK, Google Generative AI
 - Monaco Editor
-- Nodemailer, VM2
+- Nodemailer
 - Tailwind CSS, Shadcn UI utilities
 
 ### Code Execution
-- JavaScript runs in isolated VM2 sandbox
+- JavaScript runs via child_process with node
 - Python executes via child_process with python3
-- Both have 3-second timeout limits
+- TypeScript compiles with tsc then runs with node
+- All have 3-second timeout limits
 
 ## User Preferences
 None specified yet.

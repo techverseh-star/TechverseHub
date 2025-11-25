@@ -10,21 +10,6 @@ import { Button } from "@/components/ui/button";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { Code2, ArrowLeft, Loader2 } from "lucide-react";
 
-async function initializeUserStreak(userId: string) {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    await supabase.from("user_streaks").upsert({
-      user_id: userId,
-      current_streak: 1,
-      longest_streak: 1,
-      last_activity_date: today,
-      streak_start_date: today,
-    }, { onConflict: 'user_id' });
-  } catch (error) {
-    console.error("Failed to initialize streak:", error);
-  }
-}
-
 export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -88,8 +73,6 @@ export default function SignupPage() {
             body: JSON.stringify({ email }),
           });
         } catch {}
-
-        await initializeUserStreak(data.user.id);
 
         localStorage.setItem("user", JSON.stringify({ id: data.user.id, email: data.user.email }));
         router.push("/dashboard");

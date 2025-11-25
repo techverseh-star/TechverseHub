@@ -73,7 +73,7 @@ export default function ProjectDetailPage() {
     setOutput("");
     
     try {
-      const response = await fetch("/api/execute", {
+      const response = await fetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -96,12 +96,12 @@ export default function ProjectDetailPage() {
     setAiResponse("");
     
     try {
-      const response = await fetch("/api/ai/code", {
+      const response = await fetch("/api/ai/groq", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          task: "code_debug",
           code,
-          action: "debug",
           language: project.language,
           context: `Project: ${project.title}. Error/Output: ${output}`
         })
@@ -122,12 +122,12 @@ export default function ProjectDetailPage() {
     setActiveTab("hints");
     
     try {
-      const response = await fetch("/api/ai/code", {
+      const response = await fetch("/api/ai/groq", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          task: "practice_hint",
           code,
-          action: "hint",
           language: project.language,
           context: `Project: ${project.title}. Description: ${project.description}. Help the user progress without giving the full solution.`
         })

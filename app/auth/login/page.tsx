@@ -10,18 +10,6 @@ import { Button } from "@/components/ui/button";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { Code2, ArrowLeft, Loader2 } from "lucide-react";
 
-async function updateUserStreak(userId: string) {
-  try {
-    await fetch("/api/streak/update", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId }),
-    });
-  } catch (error) {
-    console.error("Failed to update streak:", error);
-  }
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -62,7 +50,6 @@ export default function LoginPage() {
       }
 
       if (data.user) {
-        await updateUserStreak(data.user.id);
         localStorage.setItem("user", JSON.stringify({ id: data.user.id, email: data.user.email }));
         router.push("/dashboard");
       }
@@ -117,7 +104,7 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Password</Label>
-                    <Link href="/auth/reset" className="text-sm text-primary hover:underline">
+                    <Link href="/auth/forgot-password" className="text-sm text-primary hover:underline">
                       Forgot password?
                     </Link>
                   </div>

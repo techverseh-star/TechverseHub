@@ -44,13 +44,13 @@ export async function POST(request: NextRequest) {
                 <li><strong>66+ Interactive Lessons</strong> - From beginner to advanced</li>
                 <li><strong>180+ Practice Problems</strong> - LeetCode-style challenges</li>
                 <li><strong>AI-Powered Assistance</strong> - Get help when you're stuck</li>
-                <li><strong>Progress Tracking</strong> - Streaks, XP, and achievements</li>
+                <li><strong>Progress Tracking</strong> - XP, lessons, and achievements</li>
               </ul>
             </div>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${siteUrl}/dashboard" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">Start Learning Now</a>
             </div>
-            <p style="color: #64748b; font-size: 14px; text-align: center;">Keep your streak alive by practicing every day!</p>
+            <p style="color: #64748b; font-size: 14px; text-align: center;">Practice every day to build your coding skills!</p>
           </div>
           <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 20px;">- The TechVerse Hub Team</p>
         </div>

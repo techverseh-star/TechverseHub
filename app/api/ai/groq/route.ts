@@ -7,7 +7,7 @@ const groq = new Groq({
 
 export async function POST(request: NextRequest) {
   try {
-    const { task, code, language, problem, hints, solution, size } = await request.json();
+    const { task, code, language, problem, hints, solution, size, context } = await request.json();
 
     let prompt = "";
     let model = "llama-3.3-70b-versatile";
@@ -26,7 +26,9 @@ export async function POST(request: NextRequest) {
         break;
 
       case "practice_hint":
-        if (size === "small") {
+        if (code && context) {
+          prompt = `Give a helpful hint for completing this coding project. Don't reveal the full solution, just guide the user:\n\n${context}\n\nCurrent code:\n${code}`;
+        } else if (size === "small") {
           prompt = `Give a small hint for this coding problem (don't reveal the solution):\n\n${problem}\n\nAvailable hints: ${hints}`;
         } else {
           prompt = `Give a bigger hint for this coding problem (still don't reveal the full solution):\n\n${problem}\n\nAvailable hints: ${hints}`;
