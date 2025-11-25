@@ -128,7 +128,7 @@ export default function LearnPage() {
         return;
       }
 
-      const { data: lessonsData } = await supabase
+      const { data: lessonsData, error } = await supabase
         .from("lessons")
         .select("*")
         .order("id");
@@ -140,13 +140,39 @@ export default function LearnPage() {
         .eq("completed", true);
 
       if (lessonsData && lessonsData.length > 0) {
-        setLessons(lessonsData);
+        const mappedLessons = lessonsData.map((lesson: any) => ({
+          id: lesson.id,
+          title: lesson.title,
+          content: lesson.content,
+          codeExample: lesson.codeexample || lesson.codeExample || "",
+          tryStarter: lesson.trystarter || lesson.tryStarter || "",
+          language: lesson.language,
+          level: getLevelFromId(lesson.id),
+        }));
+        setLessons(mappedLessons);
       } else {
         setLessons(DEMO_LESSONS);
       }
       
       if (progressData) {
         setCompletedLessons(new Set(progressData.map(p => p.lesson_id)));
+      }
+    }
+    
+    function getLevelFromId(id: string): 'beginner' | 'intermediate' | 'advanced' {
+      const num = parseInt(id.split('-')[1] || '0');
+      if (id.includes('py-') || id.includes('js-')) {
+        if (num <= 7) return 'beginner';
+        if (num <= 12) return 'intermediate';
+        return 'advanced';
+      } else if (id.includes('ts-') || id.includes('java-')) {
+        if (num <= 3) return 'beginner';
+        if (num <= 6) return 'intermediate';
+        return 'advanced';
+      } else {
+        if (num <= 4) return 'beginner';
+        if (num <= 7) return 'intermediate';
+        return 'advanced';
       }
     }
 

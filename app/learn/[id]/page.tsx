@@ -58,8 +58,16 @@ export default function LessonPage() {
         .single();
 
       if (lessonData) {
-        setLesson(lessonData);
-        setCode(lessonData.tryStarter || "");
+        const mappedLesson: Lesson = {
+          id: lessonData.id,
+          title: lessonData.title,
+          content: lessonData.content,
+          codeExample: lessonData.codeexample || lessonData.codeExample || "",
+          tryStarter: lessonData.trystarter || lessonData.tryStarter || "",
+          language: lessonData.language,
+        };
+        setLesson(mappedLesson);
+        setCode(mappedLesson.tryStarter || "");
       } else {
         setLesson(DEMO_LESSON);
         setCode(DEMO_LESSON.tryStarter || "");
