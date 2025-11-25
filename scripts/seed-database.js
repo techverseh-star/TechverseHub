@@ -25,10 +25,8 @@ async function seedLessons() {
     title: lesson.title,
     language: lesson.language,
     content: lesson.content,
-    code_example: lesson.codeExample,
-    try_it_starter: lesson.tryStarter,
-    order_index: index + 1,
-    difficulty: getDifficulty(lesson.id),
+    codeexample: lesson.codeExample,
+    trystarter: lesson.tryStarter,
     created_at: new Date().toISOString()
   }));
 
@@ -50,7 +48,7 @@ async function seedProblems() {
     fs.readFileSync(path.join(__dirname, '../data/practice-problems.json'), 'utf8')
   );
 
-  const problems = problemsData.map((problem, index) => ({
+  const problems = problemsData.map((problem) => ({
     id: problem.id,
     title: problem.title,
     difficulty: problem.difficulty,
@@ -59,12 +57,11 @@ async function seedProblems() {
     examples: problem.examples,
     solution: problem.solution,
     hints: problem.hints,
-    order_index: index + 1,
     created_at: new Date().toISOString()
   }));
 
   const { error } = await supabase
-    .from('problems')
+    .from('practice_problems')
     .upsert(problems, { onConflict: 'id' });
 
   if (error) {
@@ -87,11 +84,10 @@ async function seedTestcases() {
   for (const [problemId, cases] of Object.entries(testcasesData)) {
     for (const testcase of cases) {
       testcases.push({
-        id: `tc-${id++}`,
         problem_id: problemId,
         input: JSON.stringify(testcase.input),
-        expected_output: JSON.stringify(testcase.expected),
-        is_sample: true,
+        output: JSON.stringify(testcase.expected),
+        hidden: false,
         created_at: new Date().toISOString()
       });
     }
@@ -99,7 +95,7 @@ async function seedTestcases() {
 
   const { error } = await supabase
     .from('testcases')
-    .upsert(testcases, { onConflict: 'id' });
+    .insert(testcases);
 
   if (error) {
     console.error('Error seeding testcases:', error);
