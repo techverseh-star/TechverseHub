@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
   BookOpen, Code, Trophy, TrendingUp, ArrowRight, Zap, 
-  Flame, Target, Clock, Star, Play, Rocket, Calendar,
+  Target, Clock, Star, Play, Rocket, Calendar,
   CheckCircle2, ChevronRight, Loader2
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -39,7 +39,6 @@ export default function DashboardPage() {
     lessonsCompleted: 0,
     problemsSolved: 0,
     totalAttempts: 0,
-    streak: 0,
     xp: 0,
   });
   const [languageProgress, setLanguageProgress] = useState(LANGUAGES);
@@ -62,7 +61,6 @@ export default function DashboardPage() {
           lessonsCompleted: 0,
           problemsSolved: 0,
           totalAttempts: 0,
-          streak: 1,
           xp: 0,
         });
         setLoading(false);
@@ -81,28 +79,12 @@ export default function DashboardPage() {
         .eq("user_id", userData.id)
         .eq("status", "passed");
 
-      let currentStreak = 1;
-      try {
-        const streakResponse = await fetch("/api/streak/update", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: userData.id }),
-        });
-        const streakResult = await streakResponse.json();
-        if (streakResult.success) {
-          currentStreak = streakResult.streak || 1;
-        }
-      } catch (error) {
-        console.error("Failed to update streak:", error);
-      }
-
       const uniqueProblems = new Set(submissions?.map(s => s.problem_id) || []);
 
       setStats({
         lessonsCompleted: lessons?.length || 0,
         problemsSolved: uniqueProblems.size,
         totalAttempts: submissions?.length || 0,
-        streak: currentStreak,
         xp: (lessons?.length || 0) * 25 + uniqueProblems.size * 50,
       });
 
@@ -163,10 +145,6 @@ export default function DashboardPage() {
               <p className="text-muted-foreground">Build Real Skills With Real Practice</p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20">
-                <Flame className="h-5 w-5 text-orange-500" />
-                <span className="font-semibold text-orange-500">{stats.streak} day streak</span>
-              </div>
               <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20">
                 <Star className="h-5 w-5 text-purple-500" />
                 <span className="font-semibold text-purple-500">{stats.xp} XP</span>

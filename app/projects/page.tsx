@@ -414,9 +414,11 @@ export default function ProjectsPage() {
                         {project.difficulty}
                       </Badge>
                     </div>
-                    <Button size="sm" variant="ghost" className="group-hover:bg-primary group-hover:text-primary-foreground">
-                      Start <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
+                    <Link href={`/projects/${project.id}`}>
+                      <Button size="sm" variant="ghost" className="group-hover:bg-primary group-hover:text-primary-foreground">
+                        Start <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
