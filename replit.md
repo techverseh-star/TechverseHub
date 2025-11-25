@@ -29,6 +29,14 @@ TechVerse Hub is an interactive coding education platform with the slogan **"Bui
 - **Language-filtered navigation** - Next/Previous stays within the same programming language
 - **Dashboard progress tracking** with accurate lesson prefix matching (py-, js-, ts-, java-, c-, cpp-)
 
+### Authentication & Streak System
+- **Improved signup**: Shows "user already exists" error for duplicate accounts
+- **Improved login**: Better error messages for invalid credentials, unverified email, rate limiting
+- **Daily streak tracking**: Tracks consecutive days of activity in user_streaks table
+- **Automatic streak updates**: Streak updated on dashboard visit (not just login)
+- **Streak logic**: Increments on consecutive days, resets if gap > 1 day
+- **Beautiful email templates**: Enhanced welcome and password reset emails with gradient headers
+
 ## Platform Slogan
 **"Build Real Skills With Real Practice"** - Featured on homepage and dashboard
 

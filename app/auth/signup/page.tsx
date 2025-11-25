@@ -10,6 +10,21 @@ import { Button } from "@/components/ui/button";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { Code2, ArrowLeft, Loader2 } from "lucide-react";
 
+async function initializeUserStreak(userId: string) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    await supabase.from("user_streaks").upsert({
+      user_id: userId,
+      current_streak: 1,
+      longest_streak: 1,
+      last_activity_date: today,
+      streak_start_date: today,
+    }, { onConflict: 'user_id' });
+  } catch (error) {
+    console.error("Failed to initialize streak:", error);
+  }
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -47,7 +62,23 @@ export default function SignupPage() {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.toLowerCase().includes("already registered") || 
+            error.message.toLowerCase().includes("already exists") ||
+            error.message.toLowerCase().includes("user already")) {
+          setError("An account with this email already exists. Please sign in instead.");
+        } else {
+          throw error;
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        setError("An account with this email already exists. Please sign in instead.");
+        setLoading(false);
+        return;
+      }
 
       if (data.user) {
         try {
@@ -58,11 +89,17 @@ export default function SignupPage() {
           });
         } catch {}
 
+        await initializeUserStreak(data.user.id);
+
         localStorage.setItem("user", JSON.stringify({ id: data.user.id, email: data.user.email }));
         router.push("/dashboard");
       }
     } catch (err: any) {
-      setError(err.message || "Signup failed");
+      if (err.message.toLowerCase().includes("already")) {
+        setError("An account with this email already exists. Please sign in instead.");
+      } else {
+        setError(err.message || "Signup failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

@@ -81,13 +81,28 @@ export default function DashboardPage() {
         .eq("user_id", userData.id)
         .eq("status", "passed");
 
+      let currentStreak = 1;
+      try {
+        const streakResponse = await fetch("/api/streak/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: userData.id }),
+        });
+        const streakResult = await streakResponse.json();
+        if (streakResult.success) {
+          currentStreak = streakResult.streak || 1;
+        }
+      } catch (error) {
+        console.error("Failed to update streak:", error);
+      }
+
       const uniqueProblems = new Set(submissions?.map(s => s.problem_id) || []);
 
       setStats({
         lessonsCompleted: lessons?.length || 0,
         problemsSolved: uniqueProblems.size,
         totalAttempts: submissions?.length || 0,
-        streak: Math.max(1, Math.floor(Math.random() * 7) + 1),
+        streak: currentStreak,
         xp: (lessons?.length || 0) * 25 + uniqueProblems.size * 50,
       });
 

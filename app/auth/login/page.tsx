@@ -10,6 +10,18 @@ import { Button } from "@/components/ui/button";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { Code2, ArrowLeft, Loader2 } from "lucide-react";
 
+async function updateUserStreak(userId: string) {
+  try {
+    await fetch("/api/streak/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+  } catch (error) {
+    console.error("Failed to update streak:", error);
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -34,14 +46,28 @@ export default function LoginPage() {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.toLowerCase().includes("invalid login") || 
+            error.message.toLowerCase().includes("invalid credentials")) {
+          setError("Invalid email or password. Please try again.");
+        } else if (error.message.toLowerCase().includes("email not confirmed")) {
+          setError("Please verify your email address before signing in.");
+        } else if (error.message.toLowerCase().includes("too many requests")) {
+          setError("Too many login attempts. Please wait a moment and try again.");
+        } else {
+          setError(error.message || "Login failed. Please try again.");
+        }
+        setLoading(false);
+        return;
+      }
 
       if (data.user) {
+        await updateUserStreak(data.user.id);
         localStorage.setItem("user", JSON.stringify({ id: data.user.id, email: data.user.email }));
         router.push("/dashboard");
       }
     } catch (err: any) {
-      setError(err.message || "Login failed");
+      setError(err.message || "Login failed. Please check your credentials and try again.");
     } finally {
       setLoading(false);
     }

@@ -75,6 +75,18 @@ CREATE TABLE IF NOT EXISTS submissions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- User Streaks table for tracking daily activity streaks
+CREATE TABLE IF NOT EXISTS user_streaks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+  current_streak INTEGER DEFAULT 0,
+  longest_streak INTEGER DEFAULT 0,
+  last_activity_date DATE,
+  streak_start_date DATE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_lessons_language ON lessons(language);
 CREATE INDEX IF NOT EXISTS idx_problems_language ON problems(language);
@@ -93,6 +105,7 @@ ALTER TABLE testcases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lesson_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_streaks ENABLE ROW LEVEL SECURITY;
 
 -- Lessons: Anyone can read
 CREATE POLICY "Lessons are viewable by everyone" ON lessons
@@ -133,6 +146,16 @@ CREATE POLICY "Users can view own submissions" ON submissions
 CREATE POLICY "Users can insert own submissions" ON submissions
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+-- User Streaks: Users can manage their own
+CREATE POLICY "Users can view own streaks" ON user_streaks
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own streaks" ON user_streaks
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own streaks" ON user_streaks
+  FOR UPDATE USING (auth.uid() = user_id);
+
 -- Function to auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -156,3 +179,7 @@ GRANT ALL ON testcases TO service_role;
 GRANT ALL ON profiles TO service_role;
 GRANT ALL ON lesson_progress TO service_role;
 GRANT ALL ON submissions TO service_role;
+GRANT ALL ON user_streaks TO service_role;
+
+-- Create index for user_streaks
+CREATE INDEX IF NOT EXISTS idx_user_streaks_user_id ON user_streaks(user_id);

@@ -5,6 +5,11 @@ export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json();
 
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.log("SMTP not configured, skipping welcome email");
+      return NextResponse.json({ success: true, skipped: true });
+    }
+
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || "587"),
@@ -15,28 +20,39 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    const userName = email.split('@')[0];
+    const siteUrl = process.env.REPLIT_DEV_DOMAIN 
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+      : 'https://techverse-hub.replit.app';
+
     const mailOptions = {
-      from: process.env.SMTP_USER,
+      from: `"TechVerse Hub" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: "Welcome to TechVerse Hub!",
+      subject: "Welcome to TechVerse Hub - Build Real Skills With Real Practice!",
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #3b82f6; margin: 0;">Welcome to TechVerse Hub!</h1>
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
+          <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 40px 20px; text-align: center; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to TechVerse Hub!</h1>
+            <p style="color: rgba(255,255,255,0.9); margin-top: 10px; font-size: 16px;">Build Real Skills With Real Practice</p>
           </div>
-          <p style="font-size: 16px; color: #333;">Thank you for joining our interactive coding platform.</p>
-          <p style="font-size: 16px; color: #333;">Get started by exploring our features:</p>
-          <ul style="font-size: 16px; color: #333; line-height: 1.8;">
-            <li>Interactive Python and JavaScript lessons</li>
-            <li>LeetCode-style coding challenges</li>
-            <li>AI-powered code assistance</li>
-            <li>Track your progress and achievements</li>
-          </ul>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="#" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Start Learning</a>
+          <div style="background: white; padding: 30px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <p style="font-size: 18px; color: #1e293b;">Hi ${userName}!</p>
+            <p style="font-size: 16px; color: #475569; line-height: 1.6;">Thank you for joining TechVerse Hub! You now have access to:</p>
+            <div style="background: #f1f5f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <ul style="font-size: 15px; color: #334155; line-height: 2; margin: 0; padding-left: 20px;">
+                <li><strong>6 Programming Languages</strong> - Python, JavaScript, TypeScript, Java, C, C++</li>
+                <li><strong>66+ Interactive Lessons</strong> - From beginner to advanced</li>
+                <li><strong>180+ Practice Problems</strong> - LeetCode-style challenges</li>
+                <li><strong>AI-Powered Assistance</strong> - Get help when you're stuck</li>
+                <li><strong>Progress Tracking</strong> - Streaks, XP, and achievements</li>
+              </ul>
+            </div>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${siteUrl}/dashboard" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">Start Learning Now</a>
+            </div>
+            <p style="color: #64748b; font-size: 14px; text-align: center;">Keep your streak alive by practicing every day!</p>
           </div>
-          <p style="color: #666; font-size: 14px;">Happy coding!</p>
-          <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">- The TechVerse Hub Team</p>
+          <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 20px;">- The TechVerse Hub Team</p>
         </div>
       `,
     };
