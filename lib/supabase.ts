@@ -24,6 +24,8 @@ export interface Lesson {
   codeExample: string;
   tryStarter: string;
   language: string;
+  level?: 'beginner' | 'intermediate' | 'advanced';
+  order?: number;
 }
 
 export interface PracticeProblem {

@@ -2,34 +2,104 @@
 
 import { Card } from "@/components/ui/card";
 
-export function AdPanel() {
-  return (
-    <div className="sticky top-24">
-      <Card className="w-full h-[250px] flex flex-col items-center justify-center bg-gradient-to-br from-secondary to-secondary/50 border-dashed">
-        <div className="text-center text-muted-foreground p-4">
-          <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center mx-auto mb-3">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="opacity-50"
-            >
-              <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-              <path d="M3 9h18" />
-              <path d="M9 21V9" />
-            </svg>
+interface AdConfig {
+  id: string;
+  imageUrl?: string;
+  linkUrl?: string;
+  title?: string;
+  description?: string;
+}
+
+interface AdPanelProps {
+  variant?: "sidebar" | "banner" | "inline";
+  className?: string;
+  ads?: AdConfig[];
+}
+
+export function AdPanel({ variant = "sidebar", className = "", ads = [] }: AdPanelProps) {
+  if (!ads || ads.length === 0) {
+    return null;
+  }
+
+  const ad = ads[0];
+
+  if (variant === "banner") {
+    return (
+      <div className={`w-full ${className}`}>
+        <Card className="overflow-hidden bg-gradient-to-r from-secondary/50 to-secondary/30 border-dashed border-muted-foreground/20">
+          <a 
+            href={ad.linkUrl || "#"} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center justify-center p-3 hover:bg-secondary/50 transition-colors"
+          >
+            {ad.imageUrl ? (
+              <img src={ad.imageUrl} alt={ad.title || "Advertisement"} className="max-h-16 object-contain" />
+            ) : (
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">{ad.title || "Sponsored"}</p>
+                {ad.description && <p className="text-xs text-muted-foreground/70">{ad.description}</p>}
+              </div>
+            )}
+          </a>
+        </Card>
+      </div>
+    );
+  }
+
+  if (variant === "inline") {
+    return (
+      <div className={`${className}`}>
+        <Card className="overflow-hidden bg-secondary/30 border-dashed border-muted-foreground/20">
+          <a 
+            href={ad.linkUrl || "#"} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="block p-4 hover:bg-secondary/50 transition-colors"
+          >
+            {ad.imageUrl ? (
+              <img src={ad.imageUrl} alt={ad.title || "Advertisement"} className="w-full h-auto object-contain rounded" />
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-sm text-muted-foreground">{ad.title || "Sponsored"}</p>
+                {ad.description && <p className="text-xs text-muted-foreground/70 mt-1">{ad.description}</p>}
+              </div>
+            )}
+          </a>
+          <div className="px-4 pb-2">
+            <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">Ad</span>
           </div>
-          <p className="text-sm font-medium mb-1">Ad Space</p>
-          <p className="text-xs opacity-70">300 x 250</p>
-          <p className="text-xs opacity-50 mt-2">AdSense Placeholder</p>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`sticky top-24 ${className}`}>
+      <Card className="w-full overflow-hidden bg-gradient-to-br from-secondary to-secondary/50 border-dashed border-muted-foreground/20">
+        <a 
+          href={ad.linkUrl || "#"} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="block hover:bg-secondary/50 transition-colors"
+        >
+          {ad.imageUrl ? (
+            <img src={ad.imageUrl} alt={ad.title || "Advertisement"} className="w-full h-auto object-cover" />
+          ) : (
+            <div className="text-center text-muted-foreground p-4 h-[250px] flex flex-col items-center justify-center">
+              <p className="text-sm font-medium mb-1">{ad.title || "Sponsored"}</p>
+              {ad.description && <p className="text-xs opacity-70">{ad.description}</p>}
+            </div>
+          )}
+        </a>
+        <div className="px-3 py-2 border-t border-border/50">
+          <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">Advertisement</span>
         </div>
       </Card>
     </div>
   );
+}
+
+export function AdSlot({ position, className = "" }: { position: string; className?: string }) {
+  return null;
 }

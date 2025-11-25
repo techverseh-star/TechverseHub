@@ -33,6 +33,7 @@ export function Navbar() {
     { href: "/dashboard", label: "Dashboard" },
     { href: "/learn", label: "Learn" },
     { href: "/practice", label: "Practice" },
+    { href: "/projects", label: "Projects" },
     { href: "/editor", label: "Editor" },
   ];
 

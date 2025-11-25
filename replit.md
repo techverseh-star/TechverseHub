@@ -6,15 +6,17 @@ TechVerse Hub is an interactive coding education platform built with Next.js 14,
 ## Recent Changes (November 25, 2025)
 - ✅ Complete Next.js 14 application built from scratch
 - ✅ Implemented authentication with Supabase (signup, login, password reset)
-- ✅ Created 20 interactive lessons (10 Python + 10 JavaScript)
-- ✅ Built 30 practice problems with progressive AI hints
+- ✅ **Expanded to 6 programming languages**: Python, JavaScript, TypeScript, Java, Go, Rust
+- ✅ **W3Schools-style learning**: Theory, examples, and practice from basics to advanced
+- ✅ **180+ practice problems** (30 per language across Easy, Medium, Hard difficulties)
+- ✅ **New Projects page** with real-world application building guides
 - ✅ Integrated Monaco Editor for code editing
 - ✅ Implemented code execution API for JavaScript and Python
 - ✅ Added Groq API integration for code assistance
 - ✅ Added Gemini API integration for learning assistance
 - ✅ Built email system with Nodemailer
 - ✅ Created responsive UI with dark/light theme
-- ✅ Added seed data for lessons, problems, and test cases
+- ✅ Enhanced Dashboard with activity tracking and XP system
 - ✅ Workflow configured and running on port 5000
 - ✅ **Design upgraded to modern GitHub/Next.js aesthetic** with:
   - Dark theme with gradient text effects
@@ -50,15 +52,43 @@ TechVerse Hub is an interactive coding education platform built with Next.js 14,
 ├── app/                   # Next.js App Router
 │   ├── api/              # API routes
 │   ├── auth/             # Auth pages
-│   ├── dashboard/        # Dashboard
-│   ├── learn/            # Learning module
-│   ├── practice/         # Practice arena
-│   └── editor/           # Editor workspace
+│   ├── dashboard/        # Dashboard with stats
+│   ├── learn/            # Learning module (6 languages)
+│   ├── practice/         # Practice arena (180+ problems)
+│   ├── projects/         # Real-world projects
+│   └── editor/           # AI-powered editor workspace
 ├── components/           # React components
 ├── lib/                  # Utilities
 ├── data/                 # Seed data
 └── public/              # Static assets
 ```
+
+## Learning Content
+
+### Languages Covered
+1. **Python** - 15 lessons (Beginner to Advanced)
+2. **JavaScript** - 15 lessons (Beginner to Advanced)
+3. **TypeScript** - 8 lessons (Beginner to Advanced)
+4. **Java** - 8 lessons (Beginner to Advanced)
+5. **Go** - 8 lessons (Beginner to Advanced)
+6. **Rust** - 8 lessons (Beginner to Advanced)
+
+### Lesson Levels
+- **Beginner**: Basics, variables, control flow, loops
+- **Intermediate**: Functions, OOP, data structures
+- **Advanced**: Advanced features, patterns, best practices
+
+### Practice Problems
+- 30 problems per language (10 Easy, 10 Medium, 10 Hard)
+- Progressive AI hints
+- Test case validation
+- Solution explanations
+
+### Projects
+Real-world projects for each language:
+- Beginner: CLI tools, simple apps
+- Intermediate: APIs, databases, web servers
+- Advanced: Full-stack apps, distributed systems
 
 ## Required Setup
 
@@ -118,3 +148,4 @@ None currently. Application is fully functional pending:
 - Users must configure these services before the app will be fully functional
 - Detailed setup instructions are in SETUP.md
 - All seed data is provided in data/ folder
+- Demo mode works without Supabase (shows sample data)
