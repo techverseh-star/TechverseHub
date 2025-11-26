@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,44 +8,54 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
-    const { token, password } = await req.json();
+    const { token, password, checkOnly } = await req.json();
 
-    if (!token || !password) {
+    if (!token) {
       return NextResponse.json(
-        { error: "Missing token or password" },
+        { error: "Missing token" },
         { status: 400 }
       );
     }
 
-    // 1️⃣ Lookup token in DB
-    const { data, error: tokenError } = await supabase
+    // 1️⃣ Lookup token
+    const { data: resetRow, error: lookupError } = await supabase
       .from("password_resets")
       .select("*")
       .eq("token", token)
       .single();
 
-    if (tokenError || !data) {
+    if (lookupError || !resetRow) {
       return NextResponse.json(
-        { error: "Invalid or expired token" },
+        { valid: false, error: "Invalid or expired token" },
         { status: 400 }
       );
     }
 
     // 2️⃣ Check expiry
-    const expired = new Date(data.expires_at) < new Date();
-    if (expired) {
+    if (new Date(resetRow.expires_at) < new Date()) {
       return NextResponse.json(
-        { error: "Token expired. Please request a new reset link." },
+        { valid: false, error: "Token expired" },
         { status: 400 }
       );
     }
 
-    // 3️⃣ Update user password
+    // 3️⃣ If frontend is only checking token — return valid
+    if (checkOnly) {
+      return NextResponse.json({ valid: true });
+    }
+
+    // 4️⃣ If user is resetting password — validate password
+    if (!password) {
+      return NextResponse.json(
+        { error: "Password is required" },
+        { status: 400 }
+      );
+    }
+
+    // 5️⃣ Update user password
     const { error: updateError } = await supabase.auth.admin.updateUserById(
-      data.user_id,
-      {
-        password: password,
-      }
+      resetRow.user_id,
+      { password }
     );
 
     if (updateError) {
@@ -56,13 +65,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4️⃣ Delete used token (prevent reuse)
+    // 6️⃣ Delete token after use
     await supabase.from("password_resets").delete().eq("token", token);
 
-    return NextResponse.json({ ok: true });
-  } catch (e) {
+    return NextResponse.json({ success: true });
+
+  } catch (error) {
+    console.error("Reset-password server error:", error);
     return NextResponse.json(
-      { error: "Server error while resetting password" },
+      { error: "Server error" },
       { status: 500 }
     );
   }
