@@ -1,38 +1,32 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-  CardDescription
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, KeyRound, CheckCircle } from "lucide-react";
+import { Card, CardHeader, CardContent, CardFooter, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
-export default function ResetPasswordPage() {
+export default function ResetPage() {
+  const params = useSearchParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = searchParams.get("token");
+  const token = params.get("token");
 
-  const [loading, setLoading] = useState(true);
   const [valid, setValid] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
-  // Validate token on load
+  // 🔍 1️⃣ Validate token
   useEffect(() => {
-    async function verify() {
+    const check = async () => {
       if (!token) {
-        setMessage("Invalid reset link.");
-        setLoading(false);
+        setError("Invalid reset link");
+        setChecking(false);
         return;
       }
 
@@ -43,24 +37,21 @@ export default function ResetPasswordPage() {
 
       const data = await res.json();
 
-      if (data.valid) {
-        setValid(true);
-      } else {
-        setMessage("Invalid or expired reset link.");
-      }
+      if (data.valid) setValid(true);
+      else setError(data.error || "Invalid reset link");
 
-      setLoading(false);
-    }
+      setChecking(false);
+    };
 
-    verify();
+    check();
   }, [token]);
 
-  // Submit new password
-  async function handleSubmit(e: any) {
-    e.preventDefault();
+  // 🔑 2️⃣ Submit new password
+  const submitPassword = async () => {
+    setError("");
 
     if (password !== confirm) {
-      setMessage("Passwords do not match.");
+      setError("Passwords do not match");
       return;
     }
 
@@ -72,80 +63,81 @@ export default function ResetPasswordPage() {
     const data = await res.json();
 
     if (data.success) {
-      router.push("/auth/login");
+      setSuccess(true);
+      setTimeout(() => router.push("/auth/login"), 2000);
     } else {
-      setMessage(data.error || "Server error.");
+      setError(data.error || "Server error");
     }
-  }
+  };
 
-  if (loading) {
+  // UI ------
+  if (checking)
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-10 w-10 animate-spin" />
       </div>
     );
-  }
 
-  if (!valid) {
+  if (!valid)
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Card className="max-w-md w-full p-6 text-center">
-          <KeyRound className="h-10 w-10 text-red-500 mx-auto" />
-          <p className="mt-4 font-semibold text-red-600">Invalid Reset Link</p>
-          <p className="text-gray-400">{message}</p>
-
-          <Link
-            href="/auth/forgot-password"
-            className="mt-4 inline-block underline text-blue-500"
-          >
-            Request New Link
-          </Link>
+        <Card className="max-w-md w-full p-4">
+          <CardHeader className="text-center">
+            <KeyRound className="h-10 w-10 text-red-500 mx-auto" />
+            <CardTitle>Invalid Reset Link</CardTitle>
+            <CardDescription>Server error.</CardDescription>
+          </CardHeader>
+          <CardFooter className="flex flex-col gap-2">
+            <Button onClick={() => router.push("/auth/forgot-password")} className="w-full">
+              Request New Link
+            </Button>
+          </CardFooter>
         </Card>
       </div>
     );
-  }
+
+  if (success)
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="max-w-md w-full p-4">
+          <CardHeader className="text-center">
+            <CheckCircle className="h-10 w-10 text-green-500 mx-auto" />
+            <CardTitle>Password Updated</CardTitle>
+            <CardDescription>You can now log in.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="max-w-md w-full shadow-xl p-6">
-        <CardHeader>
-          <CardTitle>Set New Password</CardTitle>
+    <div className="min-h-screen flex items-center justify-center">
+      <Card className="max-w-md w-full p-6">
+        <CardHeader className="text-center">
+          <KeyRound className="h-10 w-10 text-primary mx-auto" />
+          <CardTitle>Create New Password</CardTitle>
         </CardHeader>
+        <CardContent className="space-y-4">
+          {error && <div className="text-red-500">{error}</div>}
 
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
+          <Input
+            type="password"
+            placeholder="New password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
-            {message && (
-              <p className="text-red-500 text-center">{message}</p>
-            )}
-
-            <div>
-              <Label>New Password</Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-
-            <div>
-              <Label>Confirm Password</Label>
-              <Input
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                required
-              />
-            </div>
-          </CardContent>
-
-          <CardFooter>
-            <Button type="submit" className="w-full">
-              Update Password
-            </Button>
-          </CardFooter>
-        </form>
+          <Input
+            type="password"
+            placeholder="Confirm password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+        </CardContent>
+        <CardFooter>
+          <Button className="w-full" onClick={submitPassword}>
+            Reset Password
+          </Button>
+        </CardFooter>
       </Card>
     </div>
   );
