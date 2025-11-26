@@ -6,16 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { Code2, ArrowLeft, Loader2, Mail, CheckCircle } from "lucide-react";
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  const [email, setEmail] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [success, setSuccess] = useState<boolean>(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -27,67 +27,26 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      const redirect = `${window.location.origin}/auth/reset`;
-
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirect,
+      const res = await fetch("/api/request-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
       });
 
-      if (error) {
-        setError(error.message);
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data?.error || "Failed to send reset email. Please try again.");
       } else {
         setSuccess(true);
       }
-    } catch {
+    } catch (err: any) {
       setError("Failed to send reset email. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (success) {
-    return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <nav className="border-b">
-          <div className="container mx-auto px-4 py-4">
-            <Link href="/" className="flex items-center gap-2 w-fit">
-              <ArrowLeft className="h-4 w-4" />
-              <Code2 className="h-6 w-6 text-primary" />
-              <span className="font-bold">TechVerse Hub</span>
-            </Link>
-          </div>
-        </nav>
-
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="w-full max-w-md">
-            <Card className="shadow-xl">
-              <CardHeader className="text-center">
-                <div className="mx-auto w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center mb-4">
-                  <CheckCircle className="h-6 w-6 text-green-500" />
-                </div>
-                <CardTitle className="text-2xl">Check your email</CardTitle>
-                <CardDescription>
-                  We've sent a password reset link to {email}
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="text-center">
-                <p className="text-sm text-muted-foreground mb-4">
-                  If it doesn’t appear soon, check the spam folder.
-                </p>
-
-                <Link href="/auth/login">
-                  <Button variant="outline" className="w-full">Back to Sign in</Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
+  return success ? (
     <div className="min-h-screen flex flex-col bg-background">
       <nav className="border-b">
         <div className="container mx-auto px-4 py-4">
@@ -101,13 +60,49 @@ export default function ForgotPasswordPage() {
 
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <Card className="shadow-xl">
+          <Card className="border-border/50 shadow-xl">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center mb-4">
+                <CheckCircle className="h-6 w-6 text-green-500" />
+              </div>
+              <CardTitle className="text-2xl">Check your email</CardTitle>
+              <CardDescription>We've sent a password reset link to {email}</CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p className="text-sm text-muted-foreground mb-4">
+                Click the link in the email to reset your password. If you don't see it, check your spam folder.
+              </p>
+              <Link href="/auth/login">
+                <Button variant="outline" className="w-full">
+                  Back to Sign in
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="min-h-screen flex flex-col bg-background">
+      <nav className="border-b">
+        <div className="container mx-auto px-4 py-4">
+          <Link href="/" className="flex items-center gap-2 w-fit">
+            <ArrowLeft className="h-4 w-4" />
+            <Code2 className="h-6 w-6 text-primary" />
+            <span className="font-bold">TechVerse Hub</span>
+          </Link>
+        </div>
+      </nav>
+
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <Card className="border-border/50 shadow-xl">
             <CardHeader className="text-center">
               <div className="mx-auto w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
                 <Mail className="h-6 w-6 text-primary" />
               </div>
               <CardTitle className="text-2xl">Forgot password?</CardTitle>
-              <CardDescription>We’ll email you a reset link.</CardDescription>
+              <CardDescription>Enter your email and we'll send you a reset link</CardDescription>
             </CardHeader>
 
             <form onSubmit={handleSubmit}>
@@ -125,7 +120,7 @@ export default function ForgotPasswordPage() {
                     type="email"
                     placeholder="you@example.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                     required
                     className="h-11"
                   />
@@ -134,8 +129,7 @@ export default function ForgotPasswordPage() {
                 <Button type="submit" className="w-full h-11" disabled={loading}>
                   {loading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending...
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...
                     </>
                   ) : (
                     "Send reset link"
