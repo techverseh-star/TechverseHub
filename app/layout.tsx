@@ -96,13 +96,13 @@ const jsonLd = {
       description: "Learn Python from basics to advanced"
     },
     {
-      "@type": "Course", 
+      "@type": "Course",
       name: "JavaScript Programming",
       description: "Master JavaScript for web development"
     },
     {
       "@type": "Course",
-      name: "TypeScript Programming", 
+      name: "TypeScript Programming",
       description: "Learn TypeScript for type-safe development"
     },
     {
@@ -131,6 +131,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3928367405059176"
+          crossorigin="anonymous"></script>
         <link rel="canonical" href="https://techversehub.com" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
