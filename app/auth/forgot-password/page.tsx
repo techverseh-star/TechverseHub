@@ -15,7 +15,7 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -27,8 +27,10 @@ export default function ForgotPasswordPage() {
     }
 
     try {
+      const redirect = `${window.location.origin}/auth/reset`;
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset`,
+        redirectTo: redirect,
       });
 
       if (error) {
@@ -36,7 +38,7 @@ export default function ForgotPasswordPage() {
       } else {
         setSuccess(true);
       }
-    } catch (err: any) {
+    } catch {
       setError("Failed to send reset email. Please try again.");
     } finally {
       setLoading(false);
@@ -58,7 +60,7 @@ export default function ForgotPasswordPage() {
 
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="w-full max-w-md">
-            <Card className="border-border/50 shadow-xl">
+            <Card className="shadow-xl">
               <CardHeader className="text-center">
                 <div className="mx-auto w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center mb-4">
                   <CheckCircle className="h-6 w-6 text-green-500" />
@@ -68,14 +70,14 @@ export default function ForgotPasswordPage() {
                   We've sent a password reset link to {email}
                 </CardDescription>
               </CardHeader>
+
               <CardContent className="text-center">
                 <p className="text-sm text-muted-foreground mb-4">
-                  Click the link in the email to reset your password. If you don't see it, check your spam folder.
+                  If it doesn’t appear soon, check the spam folder.
                 </p>
+
                 <Link href="/auth/login">
-                  <Button variant="outline" className="w-full">
-                    Back to Sign in
-                  </Button>
+                  <Button variant="outline" className="w-full">Back to Sign in</Button>
                 </Link>
               </CardContent>
             </Card>
@@ -99,16 +101,15 @@ export default function ForgotPasswordPage() {
 
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <Card className="border-border/50 shadow-xl">
+          <Card className="shadow-xl">
             <CardHeader className="text-center">
               <div className="mx-auto w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
                 <Mail className="h-6 w-6 text-primary" />
               </div>
               <CardTitle className="text-2xl">Forgot password?</CardTitle>
-              <CardDescription>
-                Enter your email and we'll send you a reset link
-              </CardDescription>
+              <CardDescription>We’ll email you a reset link.</CardDescription>
             </CardHeader>
+
             <form onSubmit={handleSubmit}>
               <CardContent className="space-y-4">
                 {error && (
@@ -116,6 +117,7 @@ export default function ForgotPasswordPage() {
                     {error}
                   </div>
                 )}
+
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -128,6 +130,7 @@ export default function ForgotPasswordPage() {
                     className="h-11"
                   />
                 </div>
+
                 <Button type="submit" className="w-full h-11" disabled={loading}>
                   {loading ? (
                     <>
@@ -140,6 +143,7 @@ export default function ForgotPasswordPage() {
                 </Button>
               </CardContent>
             </form>
+
             <div className="px-6 pb-6 text-center text-sm">
               <Link href="/auth/login" className="text-primary hover:underline">
                 Back to Sign in
