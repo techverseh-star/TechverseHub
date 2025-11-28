@@ -86,6 +86,7 @@ export default function EditorPage() {
       });
     }, 700)
   ).current;
+
   function debounce<T extends (...args: any[]) => any>(fn: T, ms = 700) {
     let t: any;
     return (...args: Parameters<T>) => {
@@ -93,50 +94,61 @@ export default function EditorPage() {
       t = setTimeout(() => fn(...args), ms);
     };
   }
-   function ensureAtLeastOneFile(
-  setFiles: React.Dispatch<React.SetStateAction<FileObj[]>>,
-  setActiveFileId: React.Dispatch<React.SetStateAction<string>>,
-  setOpenFileIds: React.Dispatch<React.SetStateAction<string[]>>
-) {
-  const defaultFile = createFileObj(
-    "example.js",
-    "javascript",
-    `console.log("Hello TechVerse")`
-  );
+  function ensureAtLeastOneFile(
+    setFiles: React.Dispatch<React.SetStateAction<FileObj[]>>,
+    setActiveFileId: React.Dispatch<React.SetStateAction<string>>,
+    setOpenFileIds: React.Dispatch<React.SetStateAction<string[]>>
+  ) {
+    const defaultFile = createFileObj(
+      "example.js",
+      "javascript",
+      `console.log("Hello TechVerse")`
+    );
 
-  setFiles([defaultFile]);
-  setActiveFileId(defaultFile.id);
-  setOpenFileIds([defaultFile.id]);
-}
-  // LOAD USER FILES ON PAGE OPEN
-  useEffect(() => {
-  async function load() {
-    const user = await getLoggedUser();
-    if (!user) return;
+    setFiles([defaultFile]);
+    setActiveFileId(defaultFile.id);
+    setOpenFileIds([defaultFile.id]);
 
-    const res = await fetch("/api/files/load", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: user.id }),
-    });
-
-    const data = await res.json();
-
-    if (!data.files || data.files.length === 0) {
-      const newFile = ensureAtLeastOneFile(setFiles, setActiveFileId, setOpenFileIds);
-
-      // Save blank starter file to Supabase
-      saveToSupabase(user.id, newFile);
-      return;
-    }
-
-    setFiles(data.files);
-    setActiveFileId(data.files[0].id);
-    setOpenFileIds([data.files[0].id]);
+    return defaultFile;
   }
 
-  load();
-}, []);
+  // LOAD USER FILES ON PAGE OPEN
+  useEffect(() => {
+    async function load() {
+      const user = await getLoggedUser();
+      if (!user) return;
+
+      const res = await fetch("/api/files/load", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: user.id }),
+      });
+
+      const data = await res.json();
+
+      if (!data.files || data.files.length === 0) {
+        const defaultFile = createFileObj(
+          "example.js",
+          "javascript",
+          `console.log("Hello TechVerse")`
+        );
+
+        setFiles([defaultFile]);
+        setActiveFileId(defaultFile.id);
+        setOpenFileIds([defaultFile.id]);
+
+        saveToSupabase(user.id, defaultFile);
+
+
+      }
+
+      setFiles(data.files);
+      setActiveFileId(data.files[0].id);
+      setOpenFileIds([data.files[0].id]);
+    }
+
+    load();
+  }, []);
 
 
 
@@ -456,6 +468,30 @@ export default function EditorPage() {
     setFiles((p) => p.map((x) => (x.id === id ? { ...x, name: newName } : x)));
     setModalOpen(null);
   }
+  function applyAiFix(fix: any) {
+    if (!fix) return;
+
+    const active = files.find(f => f.id === activeFileId);
+    if (!active) return;
+
+    let cleaned = "";
+
+    if (typeof fix === "string") {
+      cleaned = fix
+        .replace(/```[a-zA-Z]*/g, "")
+        .replace(/```/g, "")
+        .trim();
+    } else if (fix.code) {
+      cleaned = fix.code;
+    } else if (fix.snippet) {
+      cleaned = fix.snippet;
+    }
+
+    updateFileContent(active.id, cleaned);
+    setConsoleLines(["AI Fix applied successfully"]);
+  }
+
+
 
   const activeFile = files.find((f) => f.id === activeFileId) ?? null;
 
