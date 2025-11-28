@@ -93,6 +93,21 @@ export default function EditorPage() {
       t = setTimeout(() => fn(...args), ms);
     };
   }
+   function ensureAtLeastOneFile(
+  setFiles: React.Dispatch<React.SetStateAction<FileObj[]>>,
+  setActiveFileId: React.Dispatch<React.SetStateAction<string>>,
+  setOpenFileIds: React.Dispatch<React.SetStateAction<string[]>>
+) {
+  const defaultFile = createFileObj(
+    "example.js",
+    "javascript",
+    `console.log("Hello TechVerse")`
+  );
+
+  setFiles([defaultFile]);
+  setActiveFileId(defaultFile.id);
+  setOpenFileIds([defaultFile.id]);
+}
   // LOAD USER FILES ON PAGE OPEN
   useEffect(() => {
   async function load() {
@@ -251,19 +266,8 @@ export default function EditorPage() {
       }
     })();
   }
-  function ensureAtLeastOneFile(setFiles, setActiveFileId, setOpenFileIds) {
-    const defaultFile = createFileObj(
-      "example.js",
-      "javascript",
-      `console.log("Hello TechVerse!");`
-    );
 
-    setFiles([defaultFile]);
-    setActiveFileId(defaultFile.id);
-    setOpenFileIds([defaultFile.id]);
 
-    return defaultFile;
-  }
 
 
 
