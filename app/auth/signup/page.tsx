@@ -3,12 +3,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { Code2, ArrowLeft, Loader2 } from "lucide-react";
+import { Code2, ArrowLeft, Loader2, Eye, EyeOff } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -17,6 +24,10 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // 👁️ Password visibility
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,9 +59,11 @@ export default function SignupPage() {
       });
 
       if (error) {
-        if (error.message.toLowerCase().includes("already registered") || 
-            error.message.toLowerCase().includes("already exists") ||
-            error.message.toLowerCase().includes("user already")) {
+        if (
+          error.message.toLowerCase().includes("already registered") ||
+          error.message.toLowerCase().includes("already exists") ||
+          error.message.toLowerCase().includes("user already")
+        ) {
           setError("An account with this email already exists. Please sign in instead.");
         } else {
           throw error;
@@ -59,7 +72,7 @@ export default function SignupPage() {
         return;
       }
 
-      if (data.user && data.user.identities && data.user.identities.length === 0) {
+      if (data.user && data.user.identities?.length === 0) {
         setError("An account with this email already exists. Please sign in instead.");
         setLoading(false);
         return;
@@ -74,7 +87,11 @@ export default function SignupPage() {
           });
         } catch {}
 
-        localStorage.setItem("user", JSON.stringify({ id: data.user.id, email: data.user.email }));
+        localStorage.setItem(
+          "user",
+          JSON.stringify({ id: data.user.id, email: data.user.email })
+        );
+
         router.push("/dashboard");
       }
     } catch (err: any) {
@@ -110,6 +127,7 @@ export default function SignupPage() {
               <CardTitle className="text-2xl">Create your account</CardTitle>
               <CardDescription>Start your coding journey today</CardDescription>
             </CardHeader>
+
             <form onSubmit={handleSignup}>
               <CardContent className="space-y-4">
                 {error && (
@@ -117,6 +135,8 @@ export default function SignupPage() {
                     {error}
                   </div>
                 )}
+
+                {/* Email */}
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -129,31 +149,56 @@ export default function SignupPage() {
                     className="h-11"
                   />
                 </div>
+
+                {/* Password + eye toggle */}
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="At least 6 characters"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="h-11"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="At least 6 characters"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      className="h-11 pr-10"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
                 </div>
+
+                {/* Confirm Password + eye toggle */}
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder="Confirm your password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    className="h-11"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Confirm your password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      className="h-11 pr-10"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                      {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
                 </div>
               </CardContent>
+
               <CardFooter className="flex flex-col gap-4">
                 <Button type="submit" className="w-full h-11" disabled={loading}>
                   {loading ? (
@@ -165,9 +210,13 @@ export default function SignupPage() {
                     "Create account"
                   )}
                 </Button>
+
                 <p className="text-sm text-center text-muted-foreground">
                   Already have an account?{" "}
-                  <Link href="/auth/login" className="text-primary hover:underline font-medium">
+                  <Link
+                    href="/auth/login"
+                    className="text-primary hover:underline font-medium"
+                  >
                     Sign in
                   </Link>
                 </p>
