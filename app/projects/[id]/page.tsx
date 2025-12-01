@@ -6,12 +6,13 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   ArrowLeft, Play, Bug, Lightbulb, RotateCcw, Copy, Check,
   Clock, ChevronRight, ChevronDown, Loader2, Sparkles, Code2
 } from "lucide-react";
 import Editor from "@monaco-editor/react";
 import { PROJECT_DATA } from "@/data/projects";
+import { supabase } from "@/lib/supabase";
 
 const DEFAULT_PROJECT = {
   title: "Project Not Found",
@@ -42,7 +43,7 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
-  
+
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [code, setCode] = useState("");
@@ -58,20 +59,23 @@ export default function ProjectDetailPage() {
   const project = PROJECT_DATA[projectId] || DEFAULT_PROJECT;
 
   useEffect(() => {
-    const userStr = localStorage.getItem("user");
-    if (!userStr) {
-      router.push("/auth/login");
-      return;
+    async function loadUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth/login");
+        return;
+      }
+      setUser(user);
+      setCode(project.starterCode || "");
+      setLoading(false);
     }
-    setUser(JSON.parse(userStr));
-    setCode(project.starterCode || "");
-    setLoading(false);
+    loadUser();
   }, [router, projectId, project.starterCode]);
 
   const runCode = async () => {
     setIsRunning(true);
     setOutput("");
-    
+
     try {
       const response = await fetch("/api/run", {
         method: "POST",
@@ -81,7 +85,7 @@ export default function ProjectDetailPage() {
           language: project.language
         })
       });
-      
+
       const result = await response.json();
       setOutput(result.output || result.error || "No output");
     } catch (error: any) {
@@ -94,7 +98,7 @@ export default function ProjectDetailPage() {
   const debugWithAI = async () => {
     setIsAiLoading(true);
     setAiResponse("");
-    
+
     try {
       const response = await fetch("/api/ai/groq", {
         method: "POST",
@@ -106,7 +110,7 @@ export default function ProjectDetailPage() {
           context: `Project: ${project.title}. Error/Output: ${output}`
         })
       });
-      
+
       const result = await response.json();
       setAiResponse(result.response || "Unable to analyze code.");
     } catch (error: any) {
@@ -120,7 +124,7 @@ export default function ProjectDetailPage() {
     setIsAiLoading(true);
     setAiResponse("");
     setActiveTab("hints");
-    
+
     try {
       const response = await fetch("/api/ai/groq", {
         method: "POST",
@@ -132,7 +136,7 @@ export default function ProjectDetailPage() {
           context: `Project: ${project.title}. Description: ${project.description}. Help the user progress without giving the full solution.`
         })
       });
-      
+
       const result = await response.json();
       setAiResponse(result.response || "Unable to generate hint.");
     } catch (error: any) {
@@ -177,7 +181,7 @@ export default function ProjectDetailPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
-      
+
       <div className="border-b border-border bg-card/50 px-4 py-3">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -193,7 +197,7 @@ export default function ProjectDetailPage() {
                 <Badge variant="outline">{project.language}</Badge>
                 <Badge variant="outline" className={
                   project.difficulty === "Beginner" ? "text-green-500" :
-                  project.difficulty === "Intermediate" ? "text-yellow-500" : "text-red-500"
+                    project.difficulty === "Intermediate" ? "text-yellow-500" : "text-red-500"
                 }>{project.difficulty}</Badge>
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
@@ -282,7 +286,7 @@ export default function ProjectDetailPage() {
                     Debug My Code
                   </Button>
                 </div>
-                
+
                 {isAiLoading ? (
                   <div className="flex items-center gap-2 p-4 bg-muted rounded-lg">
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -326,9 +330,9 @@ export default function ProjectDetailPage() {
                 <RotateCcw className="h-4 w-4" />
                 Reset
               </Button>
-              <Button 
-                onClick={toggleSolution} 
-                variant={showSolution ? "default" : "outline"} 
+              <Button
+                onClick={toggleSolution}
+                variant={showSolution ? "default" : "outline"}
                 size="sm"
               >
                 {showSolution ? "Hide Solution" : "Show Solution"}

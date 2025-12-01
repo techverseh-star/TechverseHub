@@ -85,13 +85,9 @@ export default function SignupPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email }),
           });
-        } catch {}
+        } catch { }
 
-        localStorage.setItem(
-          "user",
-          JSON.stringify({ id: data.user.id, email: data.user.email })
-        );
-
+        // localStorage.setItem("user", JSON.stringify(data.user));
         router.push("/dashboard");
       }
     } catch (err: any) {

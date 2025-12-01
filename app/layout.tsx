@@ -14,6 +14,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://techversehub.com'),
   title: {
     default: "TechVerse Hub - Build Real Skills With Real Practice",
     template: "%s | TechVerse Hub"
@@ -140,8 +141,7 @@ export default function RootLayout({
         />
 
         <link rel="canonical" href="https://techversehub.com" />
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
       </head>
       <body className={inter.className}>
         <ThemeProvider

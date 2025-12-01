@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Footer } from "@/components/Footer";
 import { Code2, Zap, Brain, Trophy, ArrowRight } from "lucide-react";
 
 export default function HomePage() {
@@ -27,24 +28,24 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
-          
+
           <div className="container mx-auto px-4 py-24 relative">
             <div className="max-w-4xl mx-auto text-center">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary text-sm mb-8">
                 <Zap className="h-4 w-4 text-yellow-500" />
                 <span>AI-powered learning platform</span>
               </div>
-              
+
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
                 Build Real Skills With
                 <span className="gradient-text block mt-2">Real Practice</span>
               </h1>
-              
+
               <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-                Master 6 programming languages with interactive lessons, 180+ coding challenges, 
+                Master 6 programming languages with interactive lessons, 180+ coding challenges,
                 and AI-powered assistance. From beginner to advanced, we've got you covered.
               </p>
-              
+
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/auth/signup">
                   <Button size="lg" className="gap-2 text-lg px-8">
@@ -68,7 +69,7 @@ export default function HomePage() {
               <h2 className="text-3xl md:text-4xl font-bold mb-4">Everything you need to code</h2>
               <p className="text-muted-foreground text-lg">Comprehensive tools for learning and practicing</p>
             </div>
-            
+
             <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
               <div className="glass-card rounded-xl p-8 hover:glow transition-all duration-300">
                 <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center mb-6">
@@ -79,7 +80,7 @@ export default function HomePage() {
                   66+ hands-on lessons covering Python, JavaScript, TypeScript, Java, C, and C++ from beginner to advanced.
                 </p>
               </div>
-              
+
               <div className="glass-card rounded-xl p-8 hover:glow transition-all duration-300">
                 <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center mb-6">
                   <Brain className="h-6 w-6 text-purple-500" />
@@ -89,7 +90,7 @@ export default function HomePage() {
                   Get intelligent hints, code explanations, and debugging help powered by advanced AI models.
                 </p>
               </div>
-              
+
               <div className="glass-card rounded-xl p-8 hover:glow transition-all duration-300">
                 <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center mb-6">
                   <Trophy className="h-6 w-6 text-green-500" />
@@ -119,11 +120,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="border-t py-8">
-        <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-          <p>Built for aspiring developers. Learn, practice, and grow.</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

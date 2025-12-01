@@ -61,10 +61,6 @@ export default function LoginPage() {
       }
 
       if (data.user) {
-        localStorage.setItem(
-          "user",
-          JSON.stringify({ id: data.user.id, email: data.user.email })
-        );
         router.push("/dashboard");
       }
     } catch (err: any) {

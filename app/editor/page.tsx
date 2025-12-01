@@ -1,53 +1,53 @@
 "use client";
 import { getLoggedUser } from "@/lib/auth";
-
 import React, { useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
-import { Play, Bug, X, FilePlus } from "lucide-react";
+import { THEME, FileObj } from "./types";
+import { createFileObj, extToLang, langToExt, defaultContentFor, debounce, stringify } from "./utils";
 
-const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
+import ActivityBar from "./_components/ActivityBar";
+import FileExplorer from "./_components/FileExplorer";
+import EditorTabs from "./_components/EditorTabs";
+import CodeEditor from "./_components/CodeEditor";
+import ConsolePanel from "./_components/ConsolePanel";
+import AIPanel from "./_components/AIPanel";
 
-/**
- * TechVerse Editor - final single-file
- * - VS Code style tabs at top
- * - Activity bar left
- * - Resizable Explorer, Editor, AI panel, and Console
- * - Smooth resizing using rAF + brief transition on release
- * - Delete modal instead of alert()
- * - Icons loaded from /icons/lang/<file>.svg
- */
+// Import Panel for Modal
+function ImportPanel({ onImported, onCancel, existingFiles }: { onImported: (files: { name: string; content: string }[]) => void; onCancel: () => void; existingFiles: FileObj[] }) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const list = e.target.files;
+    if (!list) return;
+    const arr = Array.from(list);
+    const readers = arr.map((f) => new Promise<{ name: string; content: string }>((res) => {
+      const r = new FileReader();
+      r.onload = () => res({ name: f.name, content: String(r.result) });
+      r.readAsText(f);
+    }));
+    Promise.all(readers).then((results) => {
+      const unique = results.filter(r => !existingFiles.some(ef => ef.name === r.name));
+      if (unique.length < results.length) {
+        alert(`Skipped ${results.length - unique.length} duplicate file(s).`);
+      }
+      if (unique.length > 0) onImported(unique);
+      else onCancel();
+    });
+  }
+  return (
+    <div>
+      <input ref={inputRef} type="file" multiple onChange={handleFiles} />
+      <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <button onClick={onCancel} style={{ padding: "8px 12px", background: "transparent", borderRadius: 6, border: "none", color: "#d4d4d4" }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
 
-/* ---------------- Theme ---------------- */
-const THEME = {
-  bg: "#1E1E1E",
-  panel: "#0F1113", // main panels (slightly lighter than bg)
-  sidebar: "#252526",
-  border: "#2B2B2B",
-  fg: "#D4D4D4",
-  accent: "#007ACC",
-  panelAlt: "#0B0B0C",
-  tabActiveBg: "#252526",
-  tabInactiveBg: "transparent",
-  tabHoverBg: "#2a2a2a",
-};
-
-/* ---------------- types ---------------- */
-type FileObj = { id: string; name: string; language: string; content: string };
-
-/* ---------------- component ---------------- */
 export default function EditorPage() {
   // files
-  const [files, setFiles] = useState<FileObj[]>(() => [
-    createFileObj("example.js", "javascript", `console.log("Hello TechVerse");`),
-    createFileObj("index.html", "html", `<html><body><h1>Hello</h1></body></html>`),
-    createFileObj("style.css", "css", `body { font-family: system-ui; }`),
-    createFileObj("main.c", "c", `#include <stdio.h>\nint main(){ printf("Hello C\\n"); return 0; }`),
-    createFileObj("main.cpp", "cpp", `#include <iostream>\nint main(){ std::cout<<"Hello C++\\n"; return 0; }`),
-    createFileObj("app.py", "python", `print("Hello Python")`),
-  ]);
+  const [files, setFiles] = useState<FileObj[]>([]);
 
-  const [activeFileId, setActiveFileId] = useState<string>(files[0].id);
-  const [openFileIds, setOpenFileIds] = useState<string[]>([files[0].id]);
+  const [activeFileId, setActiveFileId] = useState<string>("");
+  const [openFileIds, setOpenFileIds] = useState<string[]>([]);
 
   // layout/resizers
   const [leftWidth, setLeftWidth] = useState<number>(320);
@@ -71,29 +71,30 @@ export default function EditorPage() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [consoleLines, setConsoleLines] = useState<string[]>([]);
   const [isConsoleOpen, setIsConsoleOpen] = useState(true);
+  const [stdin, setStdin] = useState("");
   const [modalOpen, setModalOpen] = useState<null | { mode: "new" | "rename" | "import" | "delete"; payload?: any }>(null);
   const [modalValue, setModalValue] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiFindings, setAiFindings] = useState<any[]>([]);
   const [aiResultText, setAiResultText] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
-  const saveToSupabase = useRef(
-    debounce(async (user_id: string, file: any) => {
+
+  const saveTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
+
+  function triggerSave(user_id: string, file: FileObj) {
+    if (saveTimeouts.current[file.id]) {
+      clearTimeout(saveTimeouts.current[file.id]);
+    }
+    saveTimeouts.current[file.id] = setTimeout(async () => {
       await fetch("/api/files/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id, file }),
       });
-    }, 700)
-  ).current;
-
-  function debounce<T extends (...args: any[]) => any>(fn: T, ms = 700) {
-    let t: any;
-    return (...args: Parameters<T>) => {
-      clearTimeout(t);
-      t = setTimeout(() => fn(...args), ms);
-    };
+      delete saveTimeouts.current[file.id];
+    }, 700);
   }
+
   function ensureAtLeastOneFile(
     setFiles: React.Dispatch<React.SetStateAction<FileObj[]>>,
     setActiveFileId: React.Dispatch<React.SetStateAction<string>>,
@@ -137,21 +138,45 @@ export default function EditorPage() {
         setActiveFileId(defaultFile.id);
         setOpenFileIds([defaultFile.id]);
 
-        saveToSupabase(user.id, defaultFile);
+        triggerSave(user.id, defaultFile);
+      } else {
+        // Deduplicate files by name, keeping the most recent one
+        const uniqueFilesMap = new Map<string, FileObj>();
 
+        // Sort by updated_at desc (if available) so we process newest first
+        const sorted = (data.files as any[]).sort((a, b) => {
+          const da = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+          const db = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+          return db - da;
+        });
 
+        for (const f of sorted) {
+          // Map keys are filenames. Since we sorted by newest first, 
+          // the first time we see a filename, it's the newest version.
+          if (!uniqueFilesMap.has(f.name)) {
+            // Map the DB fields to our FileObj type
+            uniqueFilesMap.set(f.name, {
+              id: f.file_id || f.id, // Handle DB field name difference if any
+              name: f.name,
+              language: f.language,
+              content: f.content,
+              updated_at: f.updated_at
+            });
+          }
+        }
+
+        const uniqueFiles = Array.from(uniqueFilesMap.values());
+
+        setFiles(uniqueFiles);
+        if (uniqueFiles.length > 0) {
+          setActiveFileId(uniqueFiles[0].id);
+          setOpenFileIds([uniqueFiles[0].id]);
+        }
       }
-
-      setFiles(data.files);
-      setActiveFileId(data.files[0].id);
-      setOpenFileIds([data.files[0].id]);
     }
 
     load();
   }, []);
-
-
-
 
   // ensure full height
   useEffect(() => {
@@ -241,16 +266,6 @@ export default function EditorPage() {
     return () => window.removeEventListener("message", handler);
   }, []);
 
-  /* ---------------- helpers ---------------- */
-  function stringify(v: any) {
-    try {
-      if (typeof v === "string") return v;
-      return JSON.stringify(v);
-    } catch {
-      return String(v);
-    }
-  }
-
   function openFile(id: string) {
     setOpenFileIds((p) => (p.includes(id) ? p : [...p, id]));
     setActiveFileId(id);
@@ -273,17 +288,13 @@ export default function EditorPage() {
       if (user) {
         const file = files.find(f => f.id === id);
         if (file) {
-          saveToSupabase(user.id, { ...file, content });
+          triggerSave(user.id, { ...file, content });
         }
       }
     })();
   }
 
-
-
-
-
-  function createNewFile(language?: string, suggestedName?: string) {
+  function createNewFileHandler(language?: string, suggestedName?: string) {
     const lang = language ?? "javascript";
     const ext = langToExt(lang);
     const base = suggestedName ? suggestedName.replace(/\.\w+$/, "") : `untitled`;
@@ -297,6 +308,12 @@ export default function EditorPage() {
     setFiles((p) => [file, ...p]);
     openFile(file.id);
     setModalOpen(null);
+
+    // Save immediately to Supabase
+    (async () => {
+      const user = await getLoggedUser();
+      if (user) triggerSave(user.id, file);
+    })();
   }
 
   function renameFileStart(id: string) {
@@ -312,21 +329,35 @@ export default function EditorPage() {
     setModalOpen({ mode: "delete", payload: { id: f.id, name: f.name } });
   }
   function performDelete(id: string) {
+    // Cancel any pending save for this file
+    if (saveTimeouts.current[id]) {
+      clearTimeout(saveTimeouts.current[id]);
+      delete saveTimeouts.current[id];
+    }
+
     const updated = files.filter((x) => x.id !== id);
+
+    // Call API to delete from DB
+    (async () => {
+      const user = await getLoggedUser();
+      if (user) {
+        await fetch("/api/files/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: user.id, file_id: id }),
+        });
+      }
+    })();
 
     if (updated.length === 0) {
       const newFile = ensureAtLeastOneFile(setFiles, setActiveFileId, setOpenFileIds);
-
-      // (optional) save new blank file to Supabase
       (async () => {
         const user = await getLoggedUser();
-        if (user) saveToSupabase(user.id, newFile);
+        if (user) triggerSave(user.id, newFile);
       })();
-
       return;
     }
 
-    // Normal delete flow
     setFiles(updated);
     setOpenFileIds((p) => p.filter((x) => x !== id));
 
@@ -336,7 +367,6 @@ export default function EditorPage() {
 
     setModalOpen(null);
   }
-
 
   /* ---------------- AI actions ---------------- */
   async function runAiDebug() {
@@ -420,10 +450,13 @@ export default function EditorPage() {
         setRunning(false);
         return;
       }
+      if (stdin) {
+        setConsoleLines((c) => [...c, `> ${stdin}`]);
+      }
       const res = await fetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: active.content, language: active.language }),
+        body: JSON.stringify({ code: active.content, language: active.language, testInput: stdin }),
       });
       const data = await res.json();
       const out = data.output ?? data.error ?? "No output";
@@ -447,7 +480,7 @@ export default function EditorPage() {
         setModalOpen(null);
         setModalValue("");
       } else {
-        createNewFile(modalValue || "javascript");
+        createNewFileHandler(modalValue || "javascript");
         setModalValue("");
       }
     } else if (modalOpen.mode === "rename") {
@@ -470,540 +503,106 @@ export default function EditorPage() {
   }
   function applyAiFix(fix: any) {
     if (!fix) return;
-
     const active = files.find(f => f.id === activeFileId);
     if (!active) return;
-
     let cleaned = "";
-
     if (typeof fix === "string") {
-      cleaned = fix
-        .replace(/```[a-zA-Z]*/g, "")
-        .replace(/```/g, "")
-        .trim();
+      cleaned = fix.replace(/```[a-zA-Z]*/g, "").replace(/```/g, "").trim();
     } else if (fix.code) {
       cleaned = fix.code;
     } else if (fix.snippet) {
       cleaned = fix.snippet;
     }
-
     updateFileContent(active.id, cleaned);
     setConsoleLines(["AI Fix applied successfully"]);
   }
 
-
-
   const activeFile = files.find((f) => f.id === activeFileId) ?? null;
 
-  /* ---------------- render ---------------- */
   return (
     <div style={{ height: "100vh", background: THEME.bg, color: THEME.fg, overflow: "hidden", fontSize: 13 }}>
-      {/* TOP TAB BAR (VS Code style) */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          padding: "6px 10px",
-          borderBottom: `1px solid ${THEME.border}`,
-          background: THEME.panel,
-        }}
-      >
-        {/* DASHBOARD RETURN BUTTON */}
-        <button
-          onClick={() => (window.location.href = "/dashboard")}
-          title="Back to Dashboard"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 32,
-            height: 32,
-            borderRadius: 6,
-            background: "#181818",
-            border: `1px solid ${THEME.border}`,
-            cursor: "pointer",
-            color: THEME.fg,
-            fontSize: 14,
-          }}
-        >
-          ←
-        </button>
+      <EditorTabs
+        files={files}
+        openFileIds={openFileIds}
+        activeFileId={activeFileId}
+        onOpenFile={openFile}
+        onCloseTab={closeTab}
+        onRun={runActiveFile}
+        onDebug={runAiDebug}
+      />
 
-        {/* TABS CONTAINER */}
-        {/* TABS CONTAINER */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            overflowX: "auto",
-            flex: 1,
-            paddingRight: 8,
-            gap: 4,
-          }}
-        >
-          {openFileIds.map((id) => {
-            const f = files.find((x) => x.id === id);
-            if (!f) return null;
+      <div style={{ display: "flex", height: `calc(100vh - 56px)`, minHeight: 0, overflow: "hidden" }}>
+        <ActivityBar onCreateFile={createNewFileHandler} />
 
-            const isActive = id === activeFileId;
-
-            return (
-              <div
-                key={id}
-                onClick={() => setActiveFileId(id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "6px 12px",
-                  borderRadius: "6px 6px 0 0",
-                  background: isActive ? THEME.tabActiveBg : "transparent",
-                  border: isActive ? `1px solid ${THEME.border}` : "1px solid transparent",
-                  borderBottom: isActive ? `1px solid ${THEME.tabActiveBg}` : "1px solid transparent",
-                  whiteSpace: "nowrap",
-                  cursor: "pointer",
-                }}
-                className="tab-item"
-              >
-                <img
-                  src={`/icons/lang/${getFileIcon(f.name)}`}
-                  style={{ width: 16, height: 16, flexShrink: 0 }}
-                />
-
-                <span
-                  style={{
-                    maxWidth: 180,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    display: "block",
-                  }}
-                >
-                  {f.name}
-                </span>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    closeTab(id);
-                  }}
-                  style={{
-                    width: 18,
-                    height: 18,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 4,
-                    background: "transparent",
-                    cursor: "pointer",
-                    opacity: 0.4,
-                  }}
-                  className="tab-close-btn"
-                >
-                  ✕
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* RIGHT SIDE BUTTONS */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={() => runActiveFile()}
-            style={{
-              display: "flex",
-              gap: 6,
-              alignItems: "center",
-              padding: "6px 10px",
-              background: THEME.accent,
-              color: "#fff",
-              borderRadius: 6,
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            ▶ Run
-          </button>
-
-          <button
-            onClick={() => runAiDebug()}
-            title="Debug"
-            style={{
-              width: 40,
-              height: 32,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "#181818",
-              border: `1px solid ${THEME.border}`,
-              borderRadius: 6,
-              color: THEME.fg,
-              cursor: "pointer",
-            }}
-          >
-            🐞
-          </button>
-        </div>
-      </div>
-
-
-      {/* main area: activity bar, explorer, editor, ai */}
-      <div style={{
-        display: "flex",
-        height: `calc(100vh - 56px)`,
-        minHeight: 0,          // ← CRITICAL FIX
-        overflow: "hidden",    // prevents bottom gap
-      }}>
-        {/* Activity bar */}
-        <div style={{ width: 48, background: THEME.sidebar, borderRight: `1px solid ${THEME.border}`, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, paddingTop: 10 }}>
-          <ActivityIcon title="JS" onClick={() => createNewFile("javascript")} icon="/icons/lang/js.svg" />
-          <ActivityIcon title="Python" onClick={() => createNewFile("python")} icon="/icons/lang/python.svg" />
-          <ActivityIcon title="C" onClick={() => createNewFile("c")} icon="/icons/lang/c.svg" />
-          <ActivityIcon title="C++" onClick={() => createNewFile("cpp")} icon="/icons/lang/c++.svg" />
-          <ActivityIcon title="Java" onClick={() => createNewFile("java")} icon="/icons/lang/java.svg" />
-          <ActivityIcon title="HTML" onClick={() => createNewFile("html")} icon="/icons/lang/html.svg" />
-          <ActivityIcon title="CSS" onClick={() => createNewFile("css")} icon="/icons/lang/css.svg" />
-          <ActivityIcon title="JSON" onClick={() => createNewFile("json")} icon="/icons/lang/json.svg" />
-        </div>
-
-        {/* LEFT SIDE (Explorer + Resizer) */}
         <div style={{ display: "flex", height: "100%", minHeight: 0 }}>
+          <FileExplorer
+            files={files}
+            activeFileId={activeFileId}
+            leftWidth={leftWidth}
+            leftTransition={leftTransition}
+            onOpenFile={openFile}
+            onRenameFile={renameFileStart}
+            onDeleteFile={deleteFilePrompt}
+            onNewFile={() => setModalOpen({ mode: "new" })}
+            onImportFile={() => setModalOpen({ mode: "import" })}
+          />
 
-          {/* EXPLORER PANEL */}
-          <div
-            style={{
-              width: leftWidth,
-              minWidth: 140,
-              background: THEME.panel,
-              borderRight: `1px solid ${THEME.border}`,
-              display: "flex",
-              flexDirection: "column",
-              transition: leftTransition ? "width 160ms ease" : "none",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                padding: "10px 12px",
-                borderBottom: `1px solid ${THEME.border}`,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div style={{ color: THEME.fg, fontWeight: 700 }}>Explorer</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={() => setModalOpen({ mode: "new" })}
-                  style={{
-                    background: "transparent",
-                    color: THEME.fg,
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  New
-                </button>
-                <button
-                  onClick={() => setModalOpen({ mode: "import" })}
-                  style={{
-                    background: "transparent",
-                    color: THEME.fg,
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  Import
-                </button>
-              </div>
-            </div>
-
-            {/* FILE LIST */}
-            <div style={{ padding: 8, overflowY: "auto", flex: 1 }}>
-              {files.map((f) => (
-                <div
-                  key={f.id}
-                  onClick={() => openFile(f.id)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "8px",
-                    marginBottom: 4,
-                    borderRadius: 4,
-                    background: activeFileId === f.id ? THEME.tabActiveBg : "transparent",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <img
-                      src={`/icons/lang/${getFileIcon(f.name)}`}
-                      className="w-5 h-5"
-                    />
-                    <span
-                      style={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        maxWidth: leftWidth - 120,
-                      }}
-                    >
-                      {f.name}
-                    </span>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        renameFileStart(f.id);
-                      }}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: "#9c9c9c",
-                        cursor: "pointer",
-                        fontSize: 12,
-                      }}
-                    >
-                      rename
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteFilePrompt(f.id);
-                      }}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: "#d9534f",
-                        cursor: "pointer",
-                        fontSize: 12,
-                      }}
-                    >
-                      del
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* LEFT RESIZER BAR — FULL HEIGHT */}
           <div
             onMouseDown={() => {
               desiredLeftRef.current = leftWidth;
               setIsDraggingLeft(true);
               setLeftTransition(false);
             }}
-            style={{
-              width: 6,
-              cursor: "col-resize",
-              background: "transparent",
-              height: "100%",
-            }}
+            style={{ width: 6, cursor: "col-resize", background: "transparent", height: "100%" }}
             title="Resize Explorer Panel"
           />
         </div>
 
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: THEME.bg }}>
+          <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
+            <CodeEditor activeFile={activeFile} onUpdateContent={updateFileContent} />
 
-        {/* Editor center */}
-        <div style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          minHeight: 0, // IMPORTANT FIX
-          background: THEME.bg,
-        }}
-        >
-          <div style={{
-            flex: 1,
-            display: "flex",
-            overflow: "hidden",
-            minHeight: 0,  // ← PATCH FIX HERE
-          }}>
-            <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-              <MonacoEditor
-                height="100%"
-                language={activeFile?.language ?? "javascript"}
-                value={activeFile?.content ?? ""}
-                theme="vs-dark"
-                onChange={(v) => activeFile && updateFileContent(activeFile.id, v ?? "")}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 13,
-                  automaticLayout: true,
-                }}
-              />
-
-            </div>
-
-            {/* vertical resizer between editor and AI panel */}
-            <div
-              onMouseDown={() => { desiredRightRef.current = rightWidth; setIsDraggingRight(true); setRightTransition(false); }}
-              style={{ width: 6, cursor: "col-resize", background: "transparent" }}
-              title="Drag to resize AI panel"
+            <AIPanel
+              rightWidth={rightWidth}
+              rightTransition={rightTransition}
+              aiLoading={aiLoading}
+              aiFindings={aiFindings}
+              aiResultText={aiResultText}
+              onRunDebug={runAiDebug}
+              onCallRefactor={callAiRefactor}
+              onCallExplain={callAiExplain}
+              onApplyFix={applyAiFix}
+              onIgnoreFix={(desc) => setConsoleLines((c) => [...c, `Ignored fix: ${desc}`])}
+              onDragStart={() => {
+                desiredRightRef.current = rightWidth;
+                setIsDraggingRight(true);
+                setRightTransition(false);
+              }}
             />
-
-            {/* AI panel */}
-            <div style={{ width: rightWidth, minWidth: 200, background: THEME.panel, borderLeft: `1px solid ${THEME.border}`, display: "flex", flexDirection: "column", transition: rightTransition ? "width 160ms ease" : "none" }}>
-              <div style={{ padding: 12, borderBottom: `1px solid ${THEME.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontWeight: 700 }}>AI Assistant</div>
-                <div style={{ color: "#9c9c9c", fontSize: 12 }}>Suggestions</div>
-              </div>
-
-              <div style={{ padding: 12, overflow: "auto", flex: 1 }}>
-                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                  <button onClick={() => runAiDebug()} style={{ padding: "6px 10px", borderRadius: 6, background: "#181818", color: THEME.fg, border: `1px solid ${THEME.border}`, cursor: "pointer" }}>Debug</button>
-                  <button onClick={() => callAiRefactor()} style={{ padding: "6px 10px", borderRadius: 6, background: "#181818", color: THEME.fg, border: `1px solid ${THEME.border}`, cursor: "pointer" }}>Refactor</button>
-                  <button onClick={() => callAiExplain()} style={{ padding: "6px 10px", borderRadius: 6, background: "#181818", color: THEME.fg, border: `1px solid ${THEME.border}`, cursor: "pointer" }}>Explain</button>
-                </div>
-
-                <div style={{ background: THEME.panelAlt, padding: 10, borderRadius: 8, minHeight: 160 }}>
-                  {aiLoading && <div style={{ color: "#9c9c9c" }}>AI working…</div>}
-                  {!aiLoading && aiFindings.length > 0 && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {aiFindings.map((fix, i) => (
-                        <div key={i} style={{ padding: 10, background: "#0f1314", borderRadius: 6 }}>
-                          <div style={{ color: THEME.fg, fontWeight: 700 }}>{fix.desc ?? `Issue ${i + 1}`}</div>
-                          <div style={{ color: "#9c9c9c", marginTop: 6, whiteSpace: "pre-wrap", fontSize: 12 }}>{fix.snippet ?? fix.details ?? ""}</div>
-                          <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-                            <button onClick={() => applyAiFix(fix)} style={{ background: "#0f7a3f", color: "#fff", padding: "6px 8px", borderRadius: 4 }}>Apply</button>
-                            <button onClick={() => setConsoleLines((c) => [...c, `Ignored fix: ${fix.desc ?? "fix"}`])} style={{ background: "#2a2a2a", color: THEME.fg, padding: "6px 8px", borderRadius: 4 }}>Ignore</button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {!aiLoading && aiResultText && <pre style={{ color: THEME.fg, whiteSpace: "pre-wrap" }}>{aiResultText}</pre>}
-                  {!aiLoading && !aiResultText && aiFindings.length === 0 && <div style={{ color: "#9c9c9c" }}>No AI output yet.</div>}
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Console */}
-          {/* Console */}
-          <div
-            style={{
-              height: isConsoleOpen ? consoleHeight : 0,
-              transition: consoleTransition ? "height 160ms ease" : "none",
-              overflow: "hidden",
-              borderTop: `1px solid ${THEME.border}`,
-              display: "flex",
-              flexDirection: "column",
-              minHeight: 0,
+          <ConsolePanel
+            consoleLines={consoleLines}
+            consoleHeight={consoleHeight}
+            isConsoleOpen={isConsoleOpen}
+            consoleTransition={consoleTransition}
+            stdin={stdin}
+            onSetStdin={setStdin}
+            onClearConsole={() => setConsoleLines([])}
+            onCloseConsole={() => setIsConsoleOpen(false)}
+            onOpenConsole={() => setIsConsoleOpen(true)}
+            onDragStart={() => {
+              desiredConsoleRef.current = consoleHeight;
+              setIsDraggingConsole(true);
+              setConsoleTransition(false);
             }}
-          >
-            {/* Drag Bar */}
-            <div
-              onMouseDown={() => {
-                desiredConsoleRef.current = consoleHeight;
-                setIsDraggingConsole(true);
-                setConsoleTransition(false);
-              }}
-              style={{
-                height: 8,
-                cursor: "row-resize",
-                borderBottom: `1px solid ${THEME.border}`,
-                background: "transparent",
-                flexShrink: 0,
-              }}
-            />
-
-            {/* Header */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "8px 12px",
-                background: "#111111",
-                borderBottom: `1px solid ${THEME.border}`,
-                flexShrink: 0,
-              }}
-            >
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <div style={{ color: THEME.fg, fontWeight: 700 }}>Console</div>
-                <div style={{ color: "#9c9c9c", fontSize: 12 }}>
-                  {consoleLines.length} lines
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={() => setConsoleLines([])}
-                  style={{
-                    background: "transparent",
-                    color: THEME.fg,
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  Clear
-                </button>
-                <button
-                  onClick={() => setIsConsoleOpen(false)}
-                  style={{
-                    background: "transparent",
-                    color: THEME.fg,
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  Hide
-                </button>
-              </div>
-            </div>
-
-            {/* Console Output — FULL HEIGHT FIXED HERE */}
-            <div
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                padding: 12,
-                background: "#0b0b0b",
-                fontFamily: "monospace",
-                fontSize: 13,
-                color: THEME.fg,
-                minHeight: 0,
-              }}
-            >
-              {consoleLines.length === 0 ? (
-                <div style={{ color: "#9c9c9c" }}>
-                  No logs yet. Run the file to see output.
-                </div>
-              ) : (
-                consoleLines.map((ln, i) => (
-                  <div key={i} style={{ whiteSpace: "pre-wrap", marginBottom: 6 }}>
-                    {ln}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-
-          {!isConsoleOpen && (
-            <div style={{ position: "fixed", right: 20, bottom: 20 }}>
-              <button onClick={() => setIsConsoleOpen(true)} style={{ padding: "8px 12px", background: "#0b0b0b", color: THEME.fg, borderRadius: 6 }}>Show Console ▲</button>
-            </div>
-          )}
+            onRun={runActiveFile}
+          />
         </div>
       </div>
 
-      {/* runner iframe */}
       <iframe ref={iframeRef} title="runner" sandbox="allow-scripts" style={{ display: "none" }} />
 
-      {/* modal (new/rename/import/delete) */}
       {modalOpen && (
         <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 120 }}>
           <div onClick={() => setModalOpen(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)" }} />
@@ -1015,7 +614,7 @@ export default function EditorPage() {
             </div>
             <div style={{ padding: 14 }}>
               {modalOpen.mode === "import" ? (
-                <ImportPanel onImported={(newFiles) => {
+                <ImportPanel existingFiles={files} onImported={(newFiles) => {
                   const objs = newFiles.map((n) => createFileObj(n.name, extToLang(n.name), n.content));
                   setFiles((p) => [...objs, ...p]);
                   if (objs[0]) openFile(objs[0].id);
@@ -1052,108 +651,6 @@ export default function EditorPage() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-/* ---------------- helpers & small components ---------------- */
-
-function getFileIcon(filename: string) {
-  const ext = filename.split(".").pop()?.toLowerCase();
-  switch (ext) {
-    case "js": return "js.svg";
-    case "ts": return "ts.svg";
-    case "py": return "python.svg";
-    case "c": return "c.svg";
-    case "cpp":
-    case "cc":
-    case "cxx":
-    case "c++": return "c++.svg";
-    case "java": return "java.svg";
-    case "html": return "html.svg";
-    case "css": return "css.svg";
-    case "json": return "json.svg";
-    default: return "js.svg";
-  }
-}
-
-function createFileObj(name: string, language: string, content = ""): FileObj {
-  return { id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, name, language, content };
-}
-function langToExt(lang: string) {
-  switch (lang) {
-    case "javascript": return "js";
-    case "typescript": return "ts";
-    case "python": return "py";
-    case "cpp": return "cpp";
-    case "c": return "c";
-    case "java": return "java";
-    case "html": return "html";
-    case "css": return "css";
-    case "json": return "json";
-    default: return "txt";
-  }
-}
-function extToLang(name: string) {
-  const ext = name.split(".").pop()?.toLowerCase();
-  switch (ext) {
-    case "js": return "javascript";
-    case "ts": return "typescript";
-    case "py": return "python";
-    case "cpp":
-    case "cc":
-    case "cxx": return "cpp";
-    case "c": return "c";
-    case "java": return "java";
-    case "html":
-    case "htm": return "html";
-    case "css": return "css";
-    case "json": return "json";
-    default: return "plaintext";
-  }
-}
-function defaultContentFor(lang: string) {
-  switch (lang) {
-    case "javascript": return `console.log("Hello from JS");`;
-    case "python": return `print("Hello from Python")`;
-    case "c": return `#include <stdio.h>\nint main(){ printf("Hello C\\n"); return 0; }`;
-    case "cpp": return `#include <iostream>\nint main(){ std::cout<<"Hello C++\\n"; return 0; }`;
-    case "java": return `public class Main { public static void main(String[] args){ System.out.println("Hello Java"); } }`;
-    case "html": return `<html><body><h1>Hello HTML</h1></body></html>`;
-    case "css": return `body { font-family: system-ui; }`;
-    default: return "";
-  }
-}
-
-/* ActivityIcon */
-function ActivityIcon({ title, onClick, icon }: { title: string; onClick: () => void; icon: string }) {
-  return (
-    <div title={title} onClick={onClick} style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, cursor: "pointer" }}>
-      <img src={icon} alt={title} style={{ width: 20, height: 20 }} />
-    </div>
-  );
-}
-
-/* ImportPanel */
-function ImportPanel({ onImported, onCancel }: { onImported: (files: { name: string; content: string }[]) => void; onCancel: () => void; }) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const list = e.target.files;
-    if (!list) return;
-    const arr = Array.from(list);
-    const readers = arr.map((f) => new Promise<{ name: string; content: string }>((res) => {
-      const r = new FileReader();
-      r.onload = () => res({ name: f.name, content: String(r.result) });
-      r.readAsText(f);
-    }));
-    Promise.all(readers).then((results) => onImported(results));
-  }
-  return (
-    <div>
-      <input ref={inputRef} type="file" multiple onChange={handleFiles} />
-      <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <button onClick={onCancel} style={{ padding: "8px 12px", background: "transparent", borderRadius: 6, border: "none", color: "#d4d4d4" }}>Cancel</button>
-      </div>
     </div>
   );
 }

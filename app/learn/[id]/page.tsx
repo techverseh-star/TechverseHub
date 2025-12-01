@@ -61,12 +61,15 @@ export default function LessonPage() {
   const [totalLessons, setTotalLessons] = useState(0);
 
   useEffect(() => {
-    const userStr = localStorage.getItem("user");
-    if (!userStr) {
-      router.push("/auth/login");
-      return;
+    async function loadUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth/login");
+        return;
+      }
+      setUser(user);
     }
-    setUser(JSON.parse(userStr));
+    loadUser();
   }, [router]);
 
   useEffect(() => {
@@ -74,7 +77,7 @@ export default function LessonPage() {
 
     async function loadLesson() {
       setLoading(true);
-      
+
       if (!isSupabaseConfigured()) {
         const lessonId = params.id as string;
         const demoLesson = DEMO_LESSONS[lessonId] || FALLBACK_LESSON;
@@ -115,7 +118,7 @@ export default function LessonPage() {
         };
         setLesson(mappedLesson);
         setCode(mappedLesson.tryStarter || "");
-        
+
         if (allLessonsData) {
           const sameLangLessons = allLessonsData.filter(l => l.language === lessonData.language);
           setAllLessons(sameLangLessons);
@@ -129,14 +132,14 @@ export default function LessonPage() {
       if (progressData) {
         const completedIds = new Set(progressData.map(p => p.lesson_id));
         setCompleted(completedIds.has(params.id as string));
-        
+
         if (allLessonsData && lessonData) {
           const sameLangLessons = allLessonsData.filter(l => l.language === lessonData.language);
           const completedInLang = sameLangLessons.filter(l => completedIds.has(l.id)).length;
           setCompletedCount(completedInLang);
         }
       }
-      
+
       setLoading(false);
     }
 
@@ -244,7 +247,7 @@ export default function LessonPage() {
               </span>
             </div>
           </div>
-          
+
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -351,7 +354,7 @@ export default function LessonPage() {
           ) : (
             <div />
           )}
-          
+
           {nextLesson ? (
             <Link href={`/learn/${nextLesson.id}`}>
               <Button className="gap-2">

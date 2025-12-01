@@ -7,6 +7,8 @@ import { Moon, Sun, Code2, LogOut, Menu, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
+import { supabase } from "@/lib/supabase";
+
 export function Navbar() {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
@@ -16,14 +18,21 @@ export function Navbar() {
 
   useEffect(() => {
     setMounted(true);
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      setUser(JSON.parse(userStr));
+    async function getUser() {
+      const { data } = await supabase.auth.getUser();
+      setUser(data.user);
     }
+    getUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     window.location.href = "/";
   };
 
@@ -46,16 +55,16 @@ export function Navbar() {
               <Code2 className="h-6 w-6 text-primary" />
               <span className="text-lg font-bold hidden sm:inline">TechVerse Hub</span>
             </Link>
-            
+
             {user && (
               <div className="hidden md:flex items-center gap-1">
                 {navLinks.map((link) => (
                   <Link key={link.href} href={link.href}>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="sm"
-                      className={pathname?.startsWith(link.href) 
-                        ? "bg-secondary text-foreground" 
+                      className={pathname?.startsWith(link.href)
+                        ? "bg-secondary text-foreground"
                         : "text-muted-foreground hover:text-foreground"
                       }
                     >
@@ -76,23 +85,23 @@ export function Navbar() {
             >
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
-            
+
             {user && (
               <>
                 <div className="hidden sm:flex items-center gap-3 pl-2 border-l">
                   <span className="text-sm text-muted-foreground truncate max-w-[150px]">
                     {user.email}
                   </span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={handleLogout}
                     className="text-muted-foreground hover:text-destructive"
                   >
                     <LogOut className="h-4 w-4" />
                   </Button>
                 </div>
-                
+
                 <Button
                   variant="ghost"
                   size="icon"
@@ -111,19 +120,19 @@ export function Navbar() {
             <div className="flex flex-col gap-2">
               {navLinks.map((link) => (
                 <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)}>
-                  <Button 
-                    variant="ghost" 
-                    className={`w-full justify-start ${pathname?.startsWith(link.href) 
-                      ? "bg-secondary text-foreground" 
+                  <Button
+                    variant="ghost"
+                    className={`w-full justify-start ${pathname?.startsWith(link.href)
+                      ? "bg-secondary text-foreground"
                       : "text-muted-foreground"
-                    }`}
+                      }`}
                   >
                     {link.label}
                   </Button>
                 </Link>
               ))}
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 className="w-full justify-start text-destructive"
                 onClick={handleLogout}
               >

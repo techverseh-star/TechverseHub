@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -112,12 +113,15 @@ function LearnPageContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const userStr = localStorage.getItem("user");
-    if (!userStr) {
-      router.push("/auth/login");
-      return;
+    async function loadUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth/login");
+        return;
+      }
+      setUser(user);
     }
-    setUser(JSON.parse(userStr));
+    loadUser();
   }, [router]);
 
   useEffect(() => {
@@ -125,7 +129,7 @@ function LearnPageContent() {
 
     async function loadLessons() {
       setLoading(true);
-      
+
       if (!isSupabaseConfigured()) {
         setLessons(DEMO_LESSONS);
         setLoading(false);
@@ -157,14 +161,14 @@ function LearnPageContent() {
       } else {
         setLessons(DEMO_LESSONS);
       }
-      
+
       if (progressData) {
         setCompletedLessons(new Set(progressData.map(p => p.lesson_id)));
       }
-      
+
       setLoading(false);
     }
-    
+
     function getLevelFromId(id: string): 'beginner' | 'intermediate' | 'advanced' {
       const num = parseInt(id.split('-')[1] || '0');
       if (id.includes('py-') || id.includes('js-')) {
@@ -251,9 +255,9 @@ function LearnPageContent() {
                 const langLessons = lessons.filter(l => l.language === lang.id);
                 const completedCount = langLessons.filter(l => completedLessons.has(l.id)).length;
                 const progress = langLessons.length > 0 ? (completedCount / langLessons.length) * 100 : 0;
-                
+
                 return (
-                  <Card 
+                  <Card
                     key={lang.id}
                     className="group cursor-pointer hover:border-primary/50 transition-all hover:shadow-lg"
                     onClick={() => setSelectedLanguage(lang.id)}
@@ -278,14 +282,13 @@ function LearnPageContent() {
                         <span className="font-medium text-primary">{completedCount}/{langLessons.length} completed</span>
                       </div>
                       <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full rounded-full transition-all ${
-                            lang.color === "blue" ? "bg-blue-500" :
+                        <div
+                          className={`h-full rounded-full transition-all ${lang.color === "blue" ? "bg-blue-500" :
                             lang.color === "yellow" ? "bg-yellow-500" :
-                            lang.color === "orange" ? "bg-orange-500" :
-                            lang.color === "gray" ? "bg-gray-500" :
-                            lang.color === "purple" ? "bg-purple-500" : "bg-primary"
-                          }`}
+                              lang.color === "orange" ? "bg-orange-500" :
+                                lang.color === "gray" ? "bg-gray-500" :
+                                  lang.color === "purple" ? "bg-purple-500" : "bg-primary"
+                            }`}
                           style={{ width: `${progress}%` }}
                         />
                       </div>
@@ -303,10 +306,9 @@ function LearnPageContent() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {LEVELS.map((level, idx) => (
                   <Card key={level.id} className="relative overflow-hidden">
-                    <div className={`absolute top-0 left-0 w-1 h-full ${
-                      level.color === "green" ? "bg-green-500" :
+                    <div className={`absolute top-0 left-0 w-1 h-full ${level.color === "green" ? "bg-green-500" :
                       level.color === "yellow" ? "bg-yellow-500" : "bg-red-500"
-                    }`} />
+                      }`} />
                     <CardContent className="p-6">
                       <div className="flex items-center gap-3 mb-4">
                         <span className="text-3xl">{level.icon}</span>
@@ -382,7 +384,7 @@ function LearnPageContent() {
                 />
               </div>
               <div className="flex gap-2">
-                <Badge 
+                <Badge
                   variant={selectedLevel === "all" ? "default" : "outline"}
                   className="cursor-pointer px-4 py-2"
                   onClick={() => setSelectedLevel("all")}
@@ -390,7 +392,7 @@ function LearnPageContent() {
                   All Levels
                 </Badge>
                 {LEVELS.map((level) => (
-                  <Badge 
+                  <Badge
                     key={level.id}
                     variant={selectedLevel === level.id ? "default" : "outline"}
                     className={`cursor-pointer px-4 py-2 ${selectedLevel === level.id ? getColorClasses(level.color) : ""}`}
@@ -407,7 +409,7 @@ function LearnPageContent() {
               if (levelLessons.length === 0) return null;
               const levelInfo = LEVELS.find(l => l.id === level);
               const levelCompleted = levelLessons.filter(l => completedLessons.has(l.id)).length;
-              
+
               return (
                 <div key={level} className="mb-10">
                   <div className="flex items-center gap-3 mb-4">
@@ -459,6 +461,7 @@ function LearnPageContent() {
           </>
         )}
       </div>
+      <Footer />
     </div>
   );
 }

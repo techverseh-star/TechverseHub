@@ -7,10 +7,11 @@ import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Rocket, Code, Clock, Star, ChevronRight, Layers, 
+import {
+  Rocket, Code, Clock, Star, ChevronRight, Layers,
   Terminal, Globe, Database, Cpu, Lock, Zap, Loader2
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 const LANGUAGES = [
   { id: "python", name: "Python", icon: "🐍", color: "blue" },
@@ -247,13 +248,16 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const userStr = localStorage.getItem("user");
-    if (!userStr) {
-      router.push("/auth/login");
-      return;
+    async function loadUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth/login");
+        return;
+      }
+      setUser(user);
+      setLoading(false);
     }
-    setUser(JSON.parse(userStr));
-    setLoading(false);
+    loadUser();
   }, [router]);
 
   const filteredProjects = PROJECTS.filter(project => {
@@ -328,11 +332,10 @@ export default function ProjectsPage() {
             <Badge
               key={diff}
               variant={selectedDifficulty === diff ? "default" : "outline"}
-              className={`cursor-pointer px-4 py-2 ${
-                selectedDifficulty === diff && diff !== "all" 
-                  ? getDifficultyStyles(diff) 
-                  : ""
-              }`}
+              className={`cursor-pointer px-4 py-2 ${selectedDifficulty === diff && diff !== "all"
+                ? getDifficultyStyles(diff)
+                : ""
+                }`}
               onClick={() => setSelectedDifficulty(diff)}
             >
               {diff === "all" ? "All Levels" : diff}
@@ -355,10 +358,10 @@ export default function ProjectsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => {
             const lang = getLanguageInfo(project.language);
-            
+
             return (
-              <Card 
-                key={project.id} 
+              <Card
+                key={project.id}
                 className="group hover:border-primary/50 transition-all hover:shadow-lg flex flex-col"
               >
                 <CardHeader className="pb-3">

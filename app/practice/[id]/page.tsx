@@ -13,31 +13,11 @@ import dynamic from "next/dynamic";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
-const DEMO_PROBLEMS: Record<string, PracticeProblem> = {
-  "js-e-01": { id: "js-e-01", title: "Two Sum", difficulty: "Easy", language: "javascript", description: "Given an array of integers nums and an integer target, return indices of the two numbers that add up to target.", examples: "Input: [2,7,11,15], 9\nOutput: [0,1]", solution: "function solution(nums, target) { const map = new Map(); for (let i = 0; i < nums.length; i++) { if (map.has(target - nums[i])) return [map.get(target - nums[i]), i]; map.set(nums[i], i); } }", hints: "Use a hash map" },
-  "js-e-02": { id: "js-e-02", title: "Reverse String", difficulty: "Easy", language: "javascript", description: "Reverse a string in place.", examples: "Input: 'hello'\nOutput: 'olleh'", solution: "s => s.split('').reverse().join('')", hints: "Split, reverse, join" },
-  "py-e-01": { id: "py-e-01", title: "Two Sum", difficulty: "Easy", language: "python", description: "Given an array of integers nums and an integer target, return indices of the two numbers that add up to target.", examples: "Input: [2,7,11,15], 9\nOutput: [0,1]", solution: "def solution(nums, target):\n    d = {}\n    for i, n in enumerate(nums):\n        if target - n in d:\n            return [d[target-n], i]\n        d[n] = i", hints: "Use a dictionary" },
-  "py-e-02": { id: "py-e-02", title: "Reverse String", difficulty: "Easy", language: "python", description: "Reverse a string.", examples: "Input: 'hello'\nOutput: 'olleh'", solution: "def solution(s): return s[::-1]", hints: "Use slicing" },
-  "ts-e-01": { id: "ts-e-01", title: "Two Sum", difficulty: "Easy", language: "typescript", description: "Find indices that sum to target.", examples: "Input: [2,7], 9\nOutput: [0,1]", solution: "", hints: "Use Map" },
-  "java-e-01": { id: "java-e-01", title: "Two Sum", difficulty: "Easy", language: "java", description: "Find indices that sum to target.", examples: "Input: [2,7], 9\nOutput: [0,1]", solution: "", hints: "Use HashMap" },
-  "c-e-01": { id: "c-e-01", title: "Sum Array", difficulty: "Easy", language: "c", description: "Sum all elements in array.", examples: "Input: [1,2,3]\nOutput: 6", solution: "", hints: "Use a loop" },
-  "cpp-e-01": { id: "cpp-e-01", title: "Sum Array", difficulty: "Easy", language: "cpp", description: "Sum all elements in array.", examples: "Input: [1,2,3]\nOutput: 6", solution: "", hints: "Use accumulate" },
-};
+import { DEMO_PROBLEMS } from "@/lib/challenges";
 
 const DEMO_TESTCASES: TestCase[] = [
   { id: "1", problem_id: "js-e-01", input: "[2,7,11,15], 9", output: "[0,1]", hidden: false },
   { id: "2", problem_id: "js-e-01", input: "[3,2,4], 6", output: "[1,2]", hidden: true },
-];
-
-const DEMO_PROBLEMS_LIST = [
-  { id: "js-e-01", language: "javascript", difficulty: "Easy" },
-  { id: "js-e-02", language: "javascript", difficulty: "Easy" },
-  { id: "py-e-01", language: "python", difficulty: "Easy" },
-  { id: "py-e-02", language: "python", difficulty: "Easy" },
-  { id: "ts-e-01", language: "typescript", difficulty: "Easy" },
-  { id: "java-e-01", language: "java", difficulty: "Easy" },
-  { id: "c-e-01", language: "c", difficulty: "Easy" },
-  { id: "cpp-e-01", language: "cpp", difficulty: "Easy" },
 ];
 
 const FALLBACK_PROBLEM: PracticeProblem = {
@@ -71,12 +51,15 @@ export default function ProblemPage() {
   const [totalProblems, setTotalProblems] = useState(0);
 
   useEffect(() => {
-    const userStr = localStorage.getItem("user");
-    if (!userStr) {
-      router.push("/auth/login");
-      return;
+    async function loadUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth/login");
+        return;
+      }
+      setUser(user);
     }
-    setUser(JSON.parse(userStr));
+    loadUser();
   }, [router]);
 
   useEffect(() => {
@@ -84,14 +67,17 @@ export default function ProblemPage() {
 
     async function loadProblem() {
       setLoading(true);
-      
+
       if (!isSupabaseConfigured()) {
         const problemId = params.id as string;
-        const demoProblem = DEMO_PROBLEMS[problemId] || FALLBACK_PROBLEM;
+        const demoProblem = DEMO_PROBLEMS.find(p => p.id === problemId) || FALLBACK_PROBLEM;
         setProblem(demoProblem);
+
+        // Use default test cases if none exist for this problem
         setTestCases(DEMO_TESTCASES);
+
         setCode(demoProblem.language === "python" ? "def solution(nums, target):\n    pass" : "function solution(nums, target) {\n    \n}");
-        const sameLangProblems = DEMO_PROBLEMS_LIST.filter(p => p.language === demoProblem.language);
+        const sameLangProblems = DEMO_PROBLEMS.filter(p => p.language === demoProblem.language);
         setAllProblems(sameLangProblems);
         setTotalProblems(sameLangProblems.length);
         setLoading(false);
@@ -122,7 +108,7 @@ export default function ProblemPage() {
       if (problemData) {
         setProblem(problemData);
         setCode(problemData.language === "python" ? "def solution():\n    pass" : "function solution() {\n    \n}");
-        
+
         if (allProblemsData) {
           const sameLangProblems = allProblemsData.filter(p => p.language === problemData.language);
           setAllProblems(sameLangProblems);
@@ -132,27 +118,27 @@ export default function ProblemPage() {
         setProblem(FALLBACK_PROBLEM);
         setCode("function solution(nums, target) {\n    \n}");
       }
-      
+
       if (testData && testData.length > 0) {
         setTestCases(testData);
       } else {
         setTestCases(DEMO_TESTCASES);
       }
-      
+
       if (submissionData) {
         const passedIds = new Set(submissionData.filter(s => s.status === "passed").map(s => s.problem_id));
         setSolved(passedIds.has(params.id as string));
-        
+
         if (allProblemsData && problemData) {
           const sameLangProblems = allProblemsData.filter(p => p.language === problemData.language);
           const solvedInLang = sameLangProblems.filter(p => passedIds.has(p.id)).length;
           setSolvedCount(solvedInLang);
         }
-        
+
         const userSubmissions = submissionData.filter(s => s.problem_id === params.id);
         setAttempts(userSubmissions.length);
       }
-      
+
       setLoading(false);
     }
 
@@ -223,7 +209,7 @@ export default function ProblemPage() {
       }
 
       setAttempts(newAttempts);
-      
+
       if (passed === total) {
         setOutput(`All ${total} test cases passed! Great job!`);
         if (!solved) {
@@ -232,7 +218,7 @@ export default function ProblemPage() {
         }
       } else {
         setOutput(`Passed ${passed}/${total} test cases`);
-        
+
         if (newAttempts === 2) {
           requestHint("small");
         } else if (newAttempts === 4) {
@@ -367,7 +353,7 @@ export default function ProblemPage() {
               </span>
             </div>
           </div>
-          
+
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -518,7 +504,7 @@ export default function ProblemPage() {
           ) : (
             <div />
           )}
-          
+
           {nextProblem ? (
             <Link href={`/practice/${nextProblem.id}`}>
               <Button className="gap-2">

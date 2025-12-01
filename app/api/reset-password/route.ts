@@ -32,7 +32,12 @@ export async function POST(req: Request) {
     }
 
     // 2️⃣ Check expiry
-    if (new Date(resetRow.expires_at) < new Date()) {
+    // Ensure expires_at is treated as UTC if it doesn't have a timezone offset
+    const expiresAtString = resetRow.expires_at.endsWith("Z")
+      ? resetRow.expires_at
+      : `${resetRow.expires_at}Z`;
+
+    if (new Date(expiresAtString) < new Date()) {
       return NextResponse.json(
         { valid: false, error: "Token expired" },
         { status: 400 }
