@@ -12,14 +12,7 @@ import { Button } from "@/components/ui/button";
 import { supabase, Lesson, isSupabaseConfigured } from "@/lib/supabase";
 import { BookOpen, CheckCircle, Search, Code2, ChevronRight, GraduationCap, Layers, Loader2 } from "lucide-react";
 
-const LANGUAGES = [
-  { id: "python", name: "Python", icon: "🐍", color: "blue", description: "Beginner-friendly, versatile language" },
-  { id: "javascript", name: "JavaScript", icon: "⚡", color: "yellow", description: "The language of the web" },
-  { id: "typescript", name: "TypeScript", icon: "📘", color: "blue", description: "JavaScript with static types" },
-  { id: "java", name: "Java", icon: "☕", color: "orange", description: "Enterprise & Android development" },
-  { id: "c", name: "C", icon: "🔧", color: "gray", description: "Foundation of modern programming" },
-  { id: "cpp", name: "C++", icon: "⚙️", color: "purple", description: "High-performance systems & games" },
-];
+import { LANGUAGES } from "@/lib/constants";
 
 const LEVELS = [
   { id: "beginner", name: "Beginner", icon: "🌱", color: "green" },
@@ -265,7 +258,7 @@ function LearnPageContent() {
                     <CardHeader>
                       <div className="flex items-center gap-4">
                         <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl ${getColorClasses(lang.color)}`}>
-                          {lang.icon}
+                          <img src={lang.icon} alt={lang.name} className="w-10 h-10" />
                         </div>
                         <div className="flex-1">
                           <CardTitle className="text-xl group-hover:text-primary transition-colors">
@@ -358,7 +351,9 @@ function LearnPageContent() {
               </Button>
               <div className="flex-1">
                 <div className="flex items-center gap-3">
-                  <span className="text-4xl">{LANGUAGES.find(l => l.id === selectedLanguage)?.icon}</span>
+                  <span className="text-4xl">
+                    <img src={LANGUAGES.find(l => l.id === selectedLanguage)?.icon} alt="Language Icon" className="w-10 h-10" />
+                  </span>
                   <div>
                     <h1 className="text-3xl font-bold">{LANGUAGES.find(l => l.id === selectedLanguage)?.name}</h1>
                     <p className="text-muted-foreground">{LANGUAGES.find(l => l.id === selectedLanguage)?.description}</p>

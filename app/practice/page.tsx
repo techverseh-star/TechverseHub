@@ -12,14 +12,7 @@ import { Button } from "@/components/ui/button";
 import { supabase, PracticeProblem, isSupabaseConfigured } from "@/lib/supabase";
 import { Code, CheckCircle, Search, ChevronRight, Target, Flame, Trophy, Loader2 } from "lucide-react";
 
-const LANGUAGES = [
-  { id: "python", name: "Python", icon: "🐍", color: "blue" },
-  { id: "javascript", name: "JavaScript", icon: "⚡", color: "yellow" },
-  { id: "typescript", name: "TypeScript", icon: "📘", color: "blue" },
-  { id: "java", name: "Java", icon: "☕", color: "orange" },
-  { id: "c", name: "C", icon: "🔧", color: "gray" },
-  { id: "cpp", name: "C++", icon: "⚙️", color: "purple" },
-];
+import { LANGUAGES } from "@/lib/constants";
 
 const DIFFICULTIES = ["Easy", "Medium", "Hard"];
 
@@ -159,7 +152,9 @@ function PracticePageContent() {
                     onClick={() => setSelectedLanguage(lang.id)}
                   >
                     <CardContent className="p-4 text-center">
-                      <div className="text-4xl mb-2">{lang.icon}</div>
+                      <div className="text-4xl mb-2 flex justify-center">
+                        <img src={lang.icon} alt={lang.name} className="w-10 h-10" />
+                      </div>
                       <h3 className="font-semibold group-hover:text-primary transition-colors">{lang.name}</h3>
                       <p className="text-xs text-muted-foreground mt-1">
                         <span className="font-medium text-primary">{solvedCount}</span>/{langProblems.length} solved
@@ -251,7 +246,7 @@ function PracticePageContent() {
                             </h3>
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-sm text-muted-foreground capitalize">
-                                {LANGUAGES.find(l => l.id === problem.language)?.icon} {problem.language}
+                                <img src={LANGUAGES.find(l => l.id === problem.language)?.icon} alt="icon" className="w-4 h-4 inline mr-1" /> {problem.language}
                               </span>
                             </div>
                           </div>
@@ -286,7 +281,9 @@ function PracticePageContent() {
               </Button>
               <div className="flex-1">
                 <div className="flex items-center gap-3">
-                  <span className="text-4xl">{LANGUAGES.find(l => l.id === selectedLanguage)?.icon}</span>
+                  <span className="text-4xl">
+                    <img src={LANGUAGES.find(l => l.id === selectedLanguage)?.icon} alt="Language Icon" className="w-10 h-10" />
+                  </span>
                   <div>
                     <h1 className="text-3xl font-bold">{LANGUAGES.find(l => l.id === selectedLanguage)?.name} Problems</h1>
                     <p className="text-muted-foreground">{filteredProblems.length} problems available</p>

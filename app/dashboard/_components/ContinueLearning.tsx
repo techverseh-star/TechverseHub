@@ -9,9 +9,9 @@ interface ContinueLearningProps {
         name: string;
         color: string;
         icon: string;
-        lessons: number;
-        progress: number;
-        prefix: string;
+        lessons?: number;
+        progress?: number;
+        prefix?: string;
     }[];
 }
 
@@ -36,7 +36,9 @@ export function ContinueLearning({ languageProgress }: ContinueLearningProps) {
                     {languageProgress.map((lang) => (
                         <Link key={lang.id} href={`/learn?lang=${lang.id}`}>
                             <div className="p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group text-center">
-                                <div className="text-3xl mb-2">{lang.icon}</div>
+                                <div className="text-3xl mb-2 flex justify-center">
+                                    <img src={lang.icon} alt={lang.name} className="w-8 h-8" />
+                                </div>
                                 <p className="font-medium group-hover:text-primary transition-colors">{lang.name}</p>
                                 <p className="text-xs text-muted-foreground">{lang.lessons} lessons</p>
                                 <div className="mt-2 h-1.5 bg-background rounded-full overflow-hidden">

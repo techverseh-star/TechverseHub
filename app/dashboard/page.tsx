@@ -14,14 +14,7 @@ import { ContinueLearning } from "./_components/ContinueLearning";
 import { QuickNav } from "./_components/QuickNav";
 import { ProgressSection } from "./_components/ProgressSection";
 
-const LANGUAGES = [
-  { id: "python", name: "Python", color: "blue", icon: "🐍", lessons: 15, progress: 0, prefix: "py-" },
-  { id: "javascript", name: "JavaScript", color: "yellow", icon: "⚡", lessons: 15, progress: 0, prefix: "js-" },
-  { id: "typescript", name: "TypeScript", color: "blue", icon: "📘", lessons: 8, progress: 0, prefix: "ts-" },
-  { id: "java", name: "Java", color: "orange", icon: "☕", lessons: 8, progress: 0, prefix: "java-" },
-  { id: "c", name: "C", color: "gray", icon: "🔧", lessons: 10, progress: 0, prefix: "c-" },
-  { id: "cpp", name: "C++", color: "purple", icon: "⚙️", lessons: 10, progress: 0, prefix: "cpp-" },
-];
+import { LANGUAGES } from "@/lib/constants";
 
 const TOTAL_LESSONS = 66;
 
@@ -161,11 +154,11 @@ export default function DashboardPage() {
 
       const updatedLanguages = LANGUAGES.map(lang => {
         const completedLessons = lessons?.filter((l: any) =>
-          l.lesson_id?.startsWith(lang.prefix)
+          l.lesson_id?.startsWith(lang.prefix!)
         ).length || 0;
         return {
           ...lang,
-          progress: lang.lessons > 0 ? Math.round((completedLessons / lang.lessons) * 100) : 0
+          progress: lang.lessons! > 0 ? Math.round((completedLessons / lang.lessons!) * 100) : 0
         };
       });
       setLanguageProgress(updatedLanguages);

@@ -13,14 +13,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
-const LANGUAGES = [
-  { id: "python", name: "Python", icon: "🐍", color: "blue" },
-  { id: "javascript", name: "JavaScript", icon: "⚡", color: "yellow" },
-  { id: "typescript", name: "TypeScript", icon: "📘", color: "blue" },
-  { id: "java", name: "Java", icon: "☕", color: "orange" },
-  { id: "c", name: "C", icon: "🔧", color: "gray" },
-  { id: "cpp", name: "C++", icon: "⚙️", color: "purple" },
-];
+import { LANGUAGES } from "@/lib/constants";
 
 interface Project {
   id: string;
@@ -321,7 +314,9 @@ export default function ProjectsPage() {
               onClick={() => setSelectedLanguage(lang.id)}
               className="gap-2"
             >
-              <span>{lang.icon}</span>
+              <span>
+                <img src={lang.icon} alt={lang.name} className="w-4 h-4" />
+              </span>
               {lang.name}
             </Button>
           ))}
@@ -346,7 +341,9 @@ export default function ProjectsPage() {
         {selectedLanguage && (
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold flex items-center justify-center gap-3">
-              <span className="text-4xl">{getLanguageInfo(selectedLanguage)?.icon}</span>
+              <span className="text-4xl">
+                <img src={getLanguageInfo(selectedLanguage)?.icon} alt="Language Icon" className="w-10 h-10" />
+              </span>
               {getLanguageInfo(selectedLanguage)?.name} Projects
             </h2>
             <p className="text-muted-foreground mt-2">
@@ -375,7 +372,9 @@ export default function ProjectsPage() {
                           {project.title}
                         </CardTitle>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xl">{lang?.icon}</span>
+                          <span className="text-xl">
+                            <img src={lang?.icon} alt={lang?.name} className="w-5 h-5" />
+                          </span>
                           <span className="text-sm text-muted-foreground">{lang?.name}</span>
                         </div>
                       </div>
