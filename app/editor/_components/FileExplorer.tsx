@@ -29,7 +29,8 @@ export default function FileExplorer({
         <div
             style={{
                 width: leftWidth,
-                minWidth: 140,
+                minWidth: 200,
+                flexShrink: 0,
                 background: THEME.panel,
                 borderRight: `1px solid ${THEME.border}`,
                 display: "flex",

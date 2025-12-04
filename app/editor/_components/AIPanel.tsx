@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { THEME } from "../types";
 import { Send, Play, RefreshCw, HelpCircle } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 interface AIPanelProps {
     rightWidth: number;
@@ -70,14 +71,12 @@ export default function AIPanel({
     return (
         <>
             {/* vertical resizer */}
-            <div
-                onMouseDown={onDragStart}
-                style={{ width: 6, cursor: "col-resize", background: "transparent" }}
-            />
+
             <div
                 style={{
                     width: rightWidth,
                     minWidth: 250,
+                    flexShrink: 0,
                     background: THEME.panel,
                     borderLeft: `1px solid ${THEME.border}`,
                     display: "flex",
@@ -95,9 +94,9 @@ export default function AIPanel({
                         background: THEME.panelAlt,
                     }}
                 >
-                    <ActionButton icon={<Play size={14} />} label="Debug" onClick={() => onSendMessage("Debug this code and fix any errors.")} />
-                    <ActionButton icon={<RefreshCw size={14} />} label="Refactor" onClick={() => onSendMessage("Refactor this code to be more efficient.")} />
-                    <ActionButton icon={<HelpCircle size={14} />} label="Explain" onClick={() => onSendMessage("Explain this code in detail.")} />
+                    <ActionButton icon={<Play size={14} />} label="Debug" onClick={() => onSendMessage("Debug this code and fix any errors.")} disabled={loading} />
+                    <ActionButton icon={<RefreshCw size={14} />} label="Refactor" onClick={() => onSendMessage("Refactor this code to be more efficient.")} disabled={loading} />
+                    <ActionButton icon={<HelpCircle size={14} />} label="Explain" onClick={() => onSendMessage("Explain this code in detail.")} disabled={loading} />
                 </div>
 
                 {/* Chat Title & Auto-Apply Toggle */}
@@ -148,11 +147,64 @@ export default function AIPanel({
                                     background: msg.role === "user" ? THEME.accent : "#2a2a2a",
                                     color: msg.role === "user" ? "#fff" : THEME.fg,
                                     fontSize: 13,
-                                    whiteSpace: "pre-wrap",
                                     lineHeight: 1.5,
                                 }}
                             >
-                                <MessageContent content={msg.content} onApplyCode={onApplyCode} />
+                                {msg.role === "user" ? (
+                                    <div style={{ whiteSpace: "pre-wrap" }}>{msg.content}</div>
+                                ) : (
+                                    <ReactMarkdown
+                                        components={{
+                                            code({ node, className, children, ...props }) {
+                                                const match = /language-(\w+)/.exec(className || "");
+                                                const isInline = !match;
+                                                const codeContent = String(children).replace(/\n$/, "");
+
+                                                if (isInline) {
+                                                    return (
+                                                        <code className={className} style={{ background: "#444", padding: "2px 4px", borderRadius: 4, fontSize: "0.9em" }} {...props}>
+                                                            {children}
+                                                        </code>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <div style={{ marginTop: 8, marginBottom: 8, borderRadius: 6, overflow: "hidden", border: "1px solid #444" }}>
+                                                        <div style={{ background: "#1e1e1e", padding: "4px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                            <span style={{ fontSize: 11, color: "#888" }}>{match ? match[1] : "Code"}</span>
+                                                            <button
+                                                                onClick={() => onApplyCode(codeContent)}
+                                                                style={{
+                                                                    background: "#0f7a3f",
+                                                                    color: "#fff",
+                                                                    border: "none",
+                                                                    borderRadius: 4,
+                                                                    padding: "2px 8px",
+                                                                    fontSize: 11,
+                                                                    cursor: "pointer",
+                                                                }}
+                                                            >
+                                                                Apply
+                                                            </button>
+                                                        </div>
+                                                        <pre style={{ margin: 0, padding: 8, background: "#111", overflowX: "auto", fontSize: 12, color: "#d4d4d4" }}>
+                                                            <code>{children}</code>
+                                                        </pre>
+                                                    </div>
+                                                );
+                                            },
+                                            p: ({ children }) => <p style={{ margin: "0 0 8px 0" }}>{children}</p>,
+                                            ul: ({ children }) => <ul style={{ margin: "0 0 8px 0", paddingLeft: 20 }}>{children}</ul>,
+                                            ol: ({ children }) => <ol style={{ margin: "0 0 8px 0", paddingLeft: 20 }}>{children}</ol>,
+                                            li: ({ children }) => <li style={{ marginBottom: 4 }}>{children}</li>,
+                                            h1: ({ children }) => <h1 style={{ fontSize: "1.4em", fontWeight: "bold", margin: "12px 0 8px 0" }}>{children}</h1>,
+                                            h2: ({ children }) => <h2 style={{ fontSize: "1.2em", fontWeight: "bold", margin: "10px 0 6px 0" }}>{children}</h2>,
+                                            h3: ({ children }) => <h3 style={{ fontSize: "1.1em", fontWeight: "bold", margin: "8px 0 4px 0" }}>{children}</h3>,
+                                        }}
+                                    >
+                                        {msg.content}
+                                    </ReactMarkdown>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -205,10 +257,11 @@ export default function AIPanel({
     );
 }
 
-function ActionButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+function ActionButton({ icon, label, onClick, disabled }: { icon: React.ReactNode; label: string; onClick: () => void; disabled?: boolean }) {
     return (
         <button
             onClick={onClick}
+            disabled={disabled}
             style={{
                 flex: 1,
                 display: "flex",
@@ -219,56 +272,17 @@ function ActionButton({ icon, label, onClick }: { icon: React.ReactNode; label: 
                 borderRadius: 6,
                 background: "#2a2a2a",
                 border: "none",
-                color: "#ccc",
+                color: disabled ? "#666" : "#ccc",
                 fontSize: 12,
-                cursor: "pointer",
+                cursor: disabled ? "not-allowed" : "pointer",
                 transition: "background 0.2s",
+                opacity: disabled ? 0.6 : 1,
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#3a3a3a")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#2a2a2a")}
+            onMouseEnter={(e) => !disabled && (e.currentTarget.style.background = "#3a3a3a")}
+            onMouseLeave={(e) => !disabled && (e.currentTarget.style.background = "#2a2a2a")}
         >
             {icon}
             <span>{label}</span>
         </button>
-    );
-}
-
-function MessageContent({ content, onApplyCode }: { content: string; onApplyCode: (code: string) => void }) {
-    // Simple markdown parsing for code blocks
-    const parts = content.split(/(```[\s\S]*?```)/g);
-    return (
-        <>
-            {parts.map((part, i) => {
-                if (part.startsWith("```")) {
-                    const match = part.match(/```(\w+)?\n([\s\S]*?)```/);
-                    const code = match ? match[2] : part.slice(3, -3);
-                    return (
-                        <div key={i} style={{ marginTop: 8, marginBottom: 8, borderRadius: 6, overflow: "hidden", border: "1px solid #444" }}>
-                            <div style={{ background: "#1e1e1e", padding: "4px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 11, color: "#888" }}>Code</span>
-                                <button
-                                    onClick={() => onApplyCode(code)}
-                                    style={{
-                                        background: "#0f7a3f",
-                                        color: "#fff",
-                                        border: "none",
-                                        borderRadius: 4,
-                                        padding: "2px 8px",
-                                        fontSize: 11,
-                                        cursor: "pointer",
-                                    }}
-                                >
-                                    Apply
-                                </button>
-                            </div>
-                            <pre style={{ margin: 0, padding: 8, background: "#111", overflowX: "auto", fontSize: 12, color: "#d4d4d4" }}>
-                                <code>{code}</code>
-                            </pre>
-                        </div>
-                    );
-                }
-                return <span key={i}>{part}</span>;
-            })}
-        </>
     );
 }

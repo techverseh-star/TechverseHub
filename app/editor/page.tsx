@@ -50,8 +50,8 @@ export default function EditorPage() {
   const [openFileIds, setOpenFileIds] = useState<string[]>([]);
 
   // layout/resizers
-  const [leftWidth, setLeftWidth] = useState<number>(320);
-  const [rightWidth, setRightWidth] = useState<number>(360);
+  const [leftWidth, setLeftWidth] = useState<number>(324);
+  const [rightWidth, setRightWidth] = useState<number>(486);
   const [consoleHeight, setConsoleHeight] = useState<number>(220);
 
   const desiredLeftRef = useRef<number>(leftWidth);
@@ -208,14 +208,16 @@ export default function EditorPage() {
     function onMove(e: MouseEvent) {
       if (isDraggingLeft) {
         const next = e.clientX;
-        const min = 140;
-        const max = Math.max(300, window.innerWidth - 600);
+        const min = 200;
+        // Reserve space for right panel and center editor (min 400px) + overhead (64px total: 52 bar + 6 left resizer + 6 right resizer)
+        const max = window.innerWidth - rightWidth - 464;
         desiredLeftRef.current = Math.max(min, Math.min(max, next));
       }
       if (isDraggingRight) {
         const next = window.innerWidth - e.clientX;
-        const min = 200;
-        const max = Math.max(300, window.innerWidth - 420);
+        const min = 250;
+        // Reserve space for left panel and center editor (min 400px) + overhead (64px total)
+        const max = window.innerWidth - leftWidth - 464;
         desiredRightRef.current = Math.max(min, Math.min(max, next));
       }
       if (isDraggingConsole) {
@@ -371,7 +373,7 @@ export default function EditorPage() {
   /* ---------------- AI Chat ---------------- */
   async function handleSendMessage(text: string) {
     const active = files.find((f) => f.id === activeFileId);
-    if (!active) return;
+    if (!active || aiLoading) return;
 
     const newMessage = { role: "user" as const, content: text };
     const updatedMessages = [...chatMessages, newMessage];
@@ -399,8 +401,8 @@ export default function EditorPage() {
 
       // Simulate typing
       let currentText = "";
-      const step = 1; // chars per tick
-      const delay = 15; // ms per tick
+      const step = 5; // chars per tick
+      const delay = 5; // ms per tick
 
       for (let i = 0; i < fullResponse.length; i += step) {
         await new Promise(r => setTimeout(r, delay));
@@ -427,11 +429,16 @@ export default function EditorPage() {
   }
 
   /* ---------------- run file ---------------- */
-  async function runActiveFile() {
+  async function runActiveFile(clearInput = false) {
     const active = files.find((f) => f.id === activeFileId);
     if (!active) return;
     setConsoleLines([]);
     setRunning(true);
+
+    if (clearInput) {
+      setStdin("");
+    }
+
     try {
       if (["javascript"].includes(active.language)) {
         const html = `<!doctype html><html><body><script>
@@ -442,13 +449,17 @@ export default function EditorPage() {
         setRunning(false);
         return;
       }
-      if (stdin) {
-        setConsoleLines((c) => [...c, `> ${stdin}`]);
+
+      // Use current stdin (which might have been cleared)
+      const inputToSend = clearInput ? "" : stdin;
+
+      if (inputToSend) {
+        setConsoleLines((c) => [...c, `> ${inputToSend}`]);
       }
       const res = await fetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: active.content, language: active.language, testInput: stdin }),
+        body: JSON.stringify({ code: active.content, language: active.language, testInput: inputToSend }),
       });
       const data = await res.json();
       const out = data.output ?? data.error ?? "No output";
@@ -511,7 +522,7 @@ export default function EditorPage() {
       <div style={{ display: "flex", height: `calc(100vh - 56px)`, minHeight: 0, overflow: "hidden" }}>
         <ActivityBar onCreateFile={createNewFileHandler} />
 
-        <div style={{ display: "flex", height: "100%", minHeight: 0 }}>
+        <div style={{ display: "flex", height: "100%", minHeight: 0, flexShrink: 0 }}>
           <FileExplorer
             files={files}
             activeFileId={activeFileId}
@@ -524,19 +535,11 @@ export default function EditorPage() {
             onImportFile={() => setModalOpen({ mode: "import" })}
           />
 
-          <div
-            onMouseDown={() => {
-              desiredLeftRef.current = leftWidth;
-              setIsDraggingLeft(true);
-              setLeftTransition(false);
-            }}
-            style={{ width: 6, cursor: "col-resize", background: "transparent", height: "100%" }}
-            title="Resize Explorer Panel"
-          />
+
         </div>
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: THEME.bg }}>
-          <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
+          <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0, minWidth: 0 }}>
             <CodeEditor activeFile={activeFile} onUpdateContent={updateFileContent} />
 
             <AIPanel

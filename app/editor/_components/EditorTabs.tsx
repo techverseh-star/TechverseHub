@@ -8,7 +8,7 @@ interface EditorTabsProps {
     activeFileId: string;
     onOpenFile: (id: string) => void;
     onCloseTab: (id: string) => void;
-    onRun: () => void;
+    onRun: (clearInput?: boolean) => void;
     onDebug: () => void;
 }
 
@@ -130,7 +130,7 @@ export default function EditorTabs({
             {/* RIGHT SIDE BUTTONS */}
             <div style={{ display: "flex", gap: 8 }}>
                 <button
-                    onClick={onRun}
+                    onClick={() => onRun(true)}
                     style={{
                         display: "flex",
                         gap: 6,

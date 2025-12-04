@@ -12,7 +12,7 @@ interface ConsolePanelProps {
     onCloseConsole: () => void;
     onOpenConsole: () => void;
     onDragStart: () => void;
-    onRun: () => void;
+    onRun: (clearInput?: boolean) => void;
 }
 
 export default function ConsolePanel({
@@ -160,16 +160,30 @@ export default function ConsolePanel({
                     }}
                 >
                     <span style={{ color: "#4ade80", marginRight: 8, fontFamily: "monospace" }}>{">"}</span>
-                    <input
-                        type="text"
+                    <textarea
+                        ref={(el) => {
+                            // Auto-scroll to bottom when value changes
+                            if (el && el.value === stdin) {
+                                el.scrollTop = el.scrollHeight;
+                            }
+                        }}
                         value={stdin}
                         onChange={(e) => onSetStdin(e.target.value)}
                         onKeyDown={(e) => {
-                            if (e.key === "Enter") {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
                                 onRun();
+                                const newValue = stdin + "\n";
+                                onSetStdin(newValue);
+                                // Force cursor to end after state update
+                                setTimeout(() => {
+                                    const el = e.target as HTMLTextAreaElement;
+                                    el.selectionStart = el.selectionEnd = newValue.length;
+                                    el.scrollTop = el.scrollHeight;
+                                }, 0);
                             }
                         }}
-                        placeholder="Type input here (stdin)..."
+                        placeholder="Type input here (stdin). Shift+Enter for new line."
                         style={{
                             flex: 1,
                             background: "transparent",
@@ -178,7 +192,11 @@ export default function ConsolePanel({
                             fontFamily: "monospace",
                             fontSize: 13,
                             outline: "none",
+                            resize: "vertical",
+                            minHeight: 24,
+                            maxHeight: 200,
                         }}
+                        rows={1}
                     />
                 </div>
             </div>

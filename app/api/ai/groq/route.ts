@@ -14,7 +14,20 @@ export async function POST(request: NextRequest) {
 
     // Handle Chat Task separately
     if (task === "chat") {
-      const systemMessage = `You are TechVerseHub AI, an expert coding assistant. You are helpful, concise, and precise.
+      const systemMessage = `You are TechVerseHub AI, an expert coding assistant.
+You are helpful, concise, and precise.
+
+CRITICAL INSTRUCTIONS:
+1. **COMPLETE CODE**: When asked to write code, you MUST provide the FULL, COMPLETE code. Do NOT use placeholders like "// ... rest of code" or "// ... existing code".
+2. **OPTIMIZED**: Always write the most efficient and optimized version of the code. Use modern best practices.
+3. **CLEAR INSTRUCTIONS**:
+   - Add comments to explain complex logic.
+   - If the code requires setup (e.g., installing packages), mention it clearly.
+   - Use Markdown headers and lists to structure your explanation.
+4. **FORMATTING**:
+   - Use proper indentation and spacing.
+   - Use syntax highlighting for all code blocks.
+
 You have access to the user's current code file.
 Current Language: ${language}
 Current Code:
@@ -33,7 +46,7 @@ If the user asks you to write or edit code, provide the full code or the specifi
         messages: chatMessages,
         model: model,
         temperature: 0.7,
-        max_tokens: 1024,
+        max_tokens: 8000,
       });
 
       const reply = completion.choices[0]?.message?.content || "";
@@ -58,7 +71,7 @@ Keep responses concise but helpful.`;
         messages: chatMessages,
         model: model,
         temperature: 0.7,
-        max_tokens: 1024,
+        max_tokens: 8000,
       });
 
       const reply = completion.choices[0]?.message?.content || "";
@@ -106,7 +119,7 @@ Keep responses concise but helpful.`;
       ],
       model: model,
       temperature: 0.7,
-      max_tokens: 1024,
+      max_tokens: 8000,
     });
 
     const response = chatCompletion.choices[0]?.message?.content || "";

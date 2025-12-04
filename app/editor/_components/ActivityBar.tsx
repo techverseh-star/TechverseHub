@@ -11,6 +11,7 @@ export default function ActivityBar({ onCreateFile }: ActivityBarProps) {
         <div
             style={{
                 width: 52,
+                flexShrink: 0,
                 background: THEME.sidebar,
                 borderRight: `1px solid ${THEME.border}`,
                 display: "flex",
