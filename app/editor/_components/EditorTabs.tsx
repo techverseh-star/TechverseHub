@@ -1,6 +1,6 @@
 import React from "react";
 import { THEME, FileObj } from "../types";
-import { getFileIcon } from "../utils";
+import { getFileIconComponent } from "../utils";
 
 interface EditorTabsProps {
     files: FileObj[];
@@ -69,6 +69,7 @@ export default function EditorTabs({
                     if (!f) return null;
 
                     const isActive = id === activeFileId;
+                    const Icon = getFileIconComponent(f.name);
 
                     return (
                         <div
@@ -88,10 +89,7 @@ export default function EditorTabs({
                             }}
                             className="tab-item"
                         >
-                            <img
-                                src={`/icons/lang/${getFileIcon(f.name)}`}
-                                style={{ width: 16, height: 16, flexShrink: 0 }}
-                            />
+                            <Icon style={{ width: 16, height: 16, flexShrink: 0, color: THEME.fg }} />
 
                             <span
                                 style={{

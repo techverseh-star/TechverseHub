@@ -7,11 +7,65 @@ const groq = new Groq({
 
 export async function POST(request: NextRequest) {
   try {
-    const { task, code, language, problem, hints, solution, size, context } = await request.json();
+    const { task, code, language, problem, hints, solution, size, context, messages } = await request.json();
 
     let prompt = "";
     let model = "llama-3.3-70b-versatile";
 
+    // Handle Chat Task separately
+    if (task === "chat") {
+      const systemMessage = `You are TechVerseHub AI, an expert coding assistant. You are helpful, concise, and precise.
+You have access to the user's current code file.
+Current Language: ${language}
+Current Code:
+\`\`\`${language}
+${code}
+\`\`\`
+If the user asks you to write or edit code, provide the full code or the specific snippet in a markdown code block.
+`;
+
+      const chatMessages = [
+        { role: "system", content: systemMessage },
+        ...(messages || [])
+      ];
+
+      const completion = await groq.chat.completions.create({
+        messages: chatMessages,
+        model: model,
+        temperature: 0.7,
+        max_tokens: 1024,
+      });
+
+      const reply = completion.choices[0]?.message?.content || "";
+      return NextResponse.json({ response: reply });
+    }
+
+    // Handle Study Planning Task
+    if (task === "study_planning") {
+      const systemMessage = `You are TechVerseHub AI, a dedicated coding tutor and career mentor.
+Your goal is to help the user plan their learning path, suggest projects, and provide motivation.
+You are encouraging, knowledgeable, and structured.
+When asked for a study plan, provide a clear, step-by-step roadmap.
+When asked for advice, give practical and actionable tips.
+Keep responses concise but helpful.`;
+
+      const chatMessages = [
+        { role: "system", content: systemMessage },
+        ...(messages || [])
+      ];
+
+      const completion = await groq.chat.completions.create({
+        messages: chatMessages,
+        model: model,
+        temperature: 0.7,
+        max_tokens: 1024,
+      });
+
+      const reply = completion.choices[0]?.message?.content || "";
+      return NextResponse.json({ response: reply });
+    }
+
+    // Handle other tasks
     switch (task) {
       case "code_explain":
         prompt = `Explain this ${language} code in simple terms:\n\n${code}`;
@@ -65,7 +119,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       response,
       code: extractedCode,
     });

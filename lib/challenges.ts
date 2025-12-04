@@ -186,4 +186,60 @@ export const DEMO_PROBLEMS: PracticeProblem[] = [
     { id: "cpp-h-8", title: "Variadic Templates", difficulty: "Hard", language: "cpp", description: "Advanced template metaprogramming", examples: "", solution: "", hints: "" },
     { id: "cpp-h-9", title: "Concepts", difficulty: "Hard", language: "cpp", description: "C++20 concepts usage", examples: "", solution: "", hints: "" },
     { id: "cpp-h-10", title: "Ranges Library", difficulty: "Hard", language: "cpp", description: "Advanced ranges operations", examples: "", solution: "", hints: "" },
+
+    // HTML
+    { id: "html-e-1", title: "Basic Structure", difficulty: "Easy", language: "html", description: "Create a basic HTML page structure", examples: "", solution: "", hints: "" },
+    { id: "html-m-1", title: "Semantic Tags", difficulty: "Medium", language: "html", description: "Use semantic tags correctly", examples: "", solution: "", hints: "" },
+
+    // CSS
+    { id: "css-e-1", title: "Color & Fonts", difficulty: "Easy", language: "css", description: "Change text color and font family", examples: "", solution: "", hints: "" },
+    { id: "css-m-1", title: "Flexbox Center", difficulty: "Medium", language: "css", description: "Center an element using Flexbox", examples: "", solution: "", hints: "" },
+
+    // PHP
+    { id: "php-e-1", title: "Hello World", difficulty: "Easy", language: "php", description: "Print Hello World in PHP", examples: "", solution: "", hints: "" },
+    { id: "php-m-1", title: "Array Filter", difficulty: "Medium", language: "php", description: "Filter an array based on condition", examples: "", solution: "", hints: "" },
+
+    // Ruby
+    { id: "ruby-e-1", title: "String Interpolation", difficulty: "Easy", language: "ruby", description: "Use string interpolation", examples: "", solution: "", hints: "" },
+    { id: "ruby-m-1", title: "Blocks", difficulty: "Medium", language: "ruby", description: "Create a method that accepts a block", examples: "", solution: "", hints: "" },
+
+    // SQL
+    { id: "sql-e-1", title: "Select All", difficulty: "Easy", language: "sql", description: "Select all columns from a table", examples: "", solution: "", hints: "" },
+    { id: "sql-m-1", title: "Group By", difficulty: "Medium", language: "sql", description: "Group results and count", examples: "", solution: "", hints: "" },
+
+    // Swift
+    { id: "swift-e-1", title: "Variables", difficulty: "Easy", language: "swift", description: "Declare constants and variables", examples: "", solution: "", hints: "" },
+    { id: "swift-m-1", title: "Closures", difficulty: "Medium", language: "swift", description: "Write a simple closure", examples: "", solution: "", hints: "" },
+
+    // Kotlin
+    { id: "kotlin-e-1", title: "Null Safety", difficulty: "Easy", language: "kotlin", description: "Handle nullable types", examples: "", solution: "", hints: "" },
+    { id: "kotlin-m-1", title: "Data Classes", difficulty: "Medium", language: "kotlin", description: "Create a data class", examples: "", solution: "", hints: "" },
+
+    // Dart
+    { id: "dart-e-1", title: "Functions", difficulty: "Easy", language: "dart", description: "Write a simple function", examples: "", solution: "", hints: "" },
+    { id: "dart-m-1", title: "Streams", difficulty: "Medium", language: "dart", description: "Create a simple stream", examples: "", solution: "", hints: "" },
+
+    // C#
+    { id: "csharp-e-1", title: "Properties", difficulty: "Easy", language: "csharp", description: "Use auto-implemented properties", examples: "", solution: "", hints: "" },
+    { id: "csharp-m-1", title: "LINQ Select", difficulty: "Medium", language: "csharp", description: "Select specific fields using LINQ", examples: "", solution: "", hints: "" },
+
+    // Go
+    { id: "go-e-1", title: "Slices", difficulty: "Easy", language: "go", description: "Work with slices", examples: "", solution: "", hints: "" },
+    { id: "go-m-1", title: "Channels", difficulty: "Medium", language: "go", description: "Send data through a channel", examples: "", solution: "", hints: "" },
+
+    // Rust
+    { id: "rust-e-1", title: "Ownership", difficulty: "Easy", language: "rust", description: "Demonstrate ownership rules", examples: "", solution: "", hints: "" },
+    { id: "rust-m-1", title: "Result Type", difficulty: "Medium", language: "rust", description: "Handle errors with Result", examples: "", solution: "", hints: "" },
+
+    // R
+    { id: "r-e-1", title: "Vectors", difficulty: "Easy", language: "r", description: "Create and manipulate vectors", examples: "", solution: "", hints: "" },
+    { id: "r-m-1", title: "Data Frames", difficulty: "Medium", language: "r", description: "Filter a data frame", examples: "", solution: "", hints: "" },
+
+    // Julia
+    { id: "julia-e-1", title: "Functions", difficulty: "Easy", language: "julia", description: "Define a function", examples: "", solution: "", hints: "" },
+    { id: "julia-m-1", title: "Multiple Dispatch", difficulty: "Medium", language: "julia", description: "Demonstrate multiple dispatch", examples: "", solution: "", hints: "" },
+
+    // Scala
+    { id: "scala-e-1", title: "Pattern Matching", difficulty: "Easy", language: "scala", description: "Use pattern matching", examples: "", solution: "", hints: "" },
+    { id: "scala-m-1", title: "Case Classes", difficulty: "Medium", language: "scala", description: "Define a case class", examples: "", solution: "", hints: "" },
 ];

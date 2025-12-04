@@ -65,7 +65,10 @@ function PracticePageContent() {
         .eq("status", "passed");
 
       if (problemsData && problemsData.length > 0) {
-        setProblems(problemsData);
+        // Merge DB problems with Demo problems
+        const dbProblemIds = new Set(problemsData.map(p => p.id));
+        const newDemoProblems = DEMO_PROBLEMS.filter(p => !dbProblemIds.has(p.id));
+        setProblems([...problemsData, ...newDemoProblems]);
       } else {
         setProblems(DEMO_PROBLEMS);
       }
@@ -153,7 +156,7 @@ function PracticePageContent() {
                   >
                     <CardContent className="p-4 text-center">
                       <div className="text-4xl mb-2 flex justify-center">
-                        <img src={lang.icon} alt={lang.name} className="w-10 h-10" />
+                        <lang.iconComponent className="w-10 h-10" />
                       </div>
                       <h3 className="font-semibold group-hover:text-primary transition-colors">{lang.name}</h3>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -245,8 +248,12 @@ function PracticePageContent() {
                               {problem.title}
                             </h3>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-sm text-muted-foreground capitalize">
-                                <img src={LANGUAGES.find(l => l.id === problem.language)?.icon} alt="icon" className="w-4 h-4 inline mr-1" /> {problem.language}
+                              <span className="text-sm text-muted-foreground capitalize flex items-center gap-1">
+                                {(() => {
+                                  const Icon = LANGUAGES.find(l => l.id === problem.language)?.iconComponent;
+                                  return Icon && <Icon className="w-4 h-4" />;
+                                })()}
+                                {problem.language}
                               </span>
                             </div>
                           </div>
@@ -282,7 +289,10 @@ function PracticePageContent() {
               <div className="flex-1">
                 <div className="flex items-center gap-3">
                   <span className="text-4xl">
-                    <img src={LANGUAGES.find(l => l.id === selectedLanguage)?.icon} alt="Language Icon" className="w-10 h-10" />
+                    {(() => {
+                      const Icon = LANGUAGES.find(l => l.id === selectedLanguage)?.iconComponent;
+                      return Icon && <Icon className="w-10 h-10" />;
+                    })()}
                   </span>
                   <div>
                     <h1 className="text-3xl font-bold">{LANGUAGES.find(l => l.id === selectedLanguage)?.name} Problems</h1>

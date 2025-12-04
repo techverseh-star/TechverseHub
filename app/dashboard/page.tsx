@@ -4,15 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trophy, Flame } from "lucide-react";
 import { supabase, isSupabaseConfigured, PracticeProblem } from "@/lib/supabase";
 import { DEMO_PROBLEMS } from "@/lib/challenges";
 import { DashboardHeader } from "./_components/DashboardHeader";
 import { StatsOverview } from "./_components/StatsOverview";
 import { DailyChallenges } from "./_components/DailyChallenges";
 import { ContinueLearning } from "./_components/ContinueLearning";
-import { QuickNav } from "./_components/QuickNav";
 import { ProgressSection } from "./_components/ProgressSection";
+import { DashboardAI } from "./_components/DashboardAI";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { LANGUAGES } from "@/lib/constants";
 
@@ -68,10 +69,14 @@ export default function DashboardPage() {
     problemsSolved: 0,
     totalAttempts: 0,
     xp: 0,
+    streak: 0,
   });
-  const [languageProgress, setLanguageProgress] = useState(LANGUAGES);
+  const [languageProgress, setLanguageProgress] = useState(
+    LANGUAGES.filter(lang => ["python", "javascript", "typescript", "java", "c", "cpp"].includes(lang.id))
+  );
   const [dailyChallenges, setDailyChallenges] = useState<PracticeProblem[]>([]);
   const [completedChallenges, setCompletedChallenges] = useState<Set<string>>(new Set());
+  const [lessons, setLessons] = useState<any[]>([]);
 
   useEffect(() => {
     async function loadStats(currentUser: any) {
@@ -101,22 +106,28 @@ export default function DashboardPage() {
           problemsSolved: 0,
           totalAttempts: 0,
           xp: 0,
+          streak: 0,
         });
         setLoading(false);
         return;
       }
 
-      // Fetch stats
-      const { data: lessons } = await supabase
-        .from("lesson_progress")
-        .select("*")
-        .eq("user_id", currentUser.id)
-        .eq("completed", true);
+      // Fetch stats in parallel
+      const [lessonsResult, submissionsResult] = await Promise.all([
+        supabase
+          .from("lesson_progress")
+          .select("*")
+          .eq("user_id", currentUser.id)
+          .eq("completed", true),
+        supabase
+          .from("submissions")
+          .select("*")
+          .eq("user_id", currentUser.id)
+      ]);
 
-      const { data: submissions } = await supabase
-        .from("submissions")
-        .select("*")
-        .eq("user_id", currentUser.id);
+      const fetchedLessons = lessonsResult.data || [];
+      const submissions = submissionsResult.data;
+      setLessons(fetchedLessons);
 
       // Determine preferred language from submissions
       if (submissions && submissions.length > 0) {
@@ -146,21 +157,24 @@ export default function DashboardPage() {
       setCompletedChallenges(uniqueProblems);
 
       setStats({
-        lessonsCompleted: lessons?.length || 0,
+        lessonsCompleted: fetchedLessons.length,
         problemsSolved: uniqueProblems.size,
         totalAttempts: submissions?.length || 0,
-        xp: (lessons?.length || 0) * 25 + uniqueProblems.size * 50,
+        xp: (fetchedLessons.length) * 25 + uniqueProblems.size * 50,
+        streak: 0, // Placeholder for streak logic
       });
 
-      const updatedLanguages = LANGUAGES.map(lang => {
-        const completedLessons = lessons?.filter((l: any) =>
-          l.lesson_id?.startsWith(lang.prefix!)
-        ).length || 0;
-        return {
-          ...lang,
-          progress: lang.lessons! > 0 ? Math.round((completedLessons / lang.lessons!) * 100) : 0
-        };
-      });
+      const updatedLanguages = LANGUAGES
+        .filter(lang => ["python", "javascript", "typescript", "java", "c", "cpp"].includes(lang.id))
+        .map(lang => {
+          const completedLessons = fetchedLessons.filter((l: any) =>
+            l.lesson_id?.startsWith(lang.prefix!)
+          ).length || 0;
+          return {
+            ...lang,
+            progress: lang.lessons! > 0 ? Math.round((completedLessons / lang.lessons!) * 100) : 0
+          };
+        });
       setLanguageProgress(updatedLanguages);
 
       setLoading(false);
@@ -203,21 +217,33 @@ export default function DashboardPage() {
         <div className="space-y-8">
           <DashboardHeader userName={userName} xp={stats.xp} />
 
-          <StatsOverview stats={stats} />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Main Content Area - 8 columns */}
+            <div className="lg:col-span-8 space-y-8">
+              <StatsOverview stats={stats} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <DailyChallenges
-                dailyChallenges={dailyChallenges}
-                completedChallenges={completedChallenges}
-              />
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold tracking-tight">Continue Learning</h2>
+                <ContinueLearning
+                  languageProgress={languageProgress}
+                />
+              </div>
 
-              <ContinueLearning languageProgress={languageProgress} />
-
-              <QuickNav />
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold tracking-tight">Daily Challenges</h2>
+                <DailyChallenges
+                  dailyChallenges={dailyChallenges}
+                  completedChallenges={completedChallenges}
+                />
+              </div>
             </div>
 
-            <ProgressSection stats={stats} />
+            {/* Sidebar Area - 4 columns */}
+            <div className="lg:col-span-4 space-y-8">
+              <div className="sticky top-8">
+                <DashboardAI />
+              </div>
+            </div>
           </div>
         </div>
       </div>

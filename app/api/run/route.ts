@@ -17,6 +17,13 @@ const langMap: Record<string, { runtime: string; version: string }> = {
   kotlin: { runtime: "kotlin", version: "1.8.0" },
   rust: { runtime: "rust", version: "1.68.2" },
   swift: { runtime: "swift", version: "5.3.3" },
+  dart: { runtime: "dart", version: "2.19.6" },
+  r: { runtime: "r", version: "4.2.3" },
+  julia: { runtime: "julia", version: "1.9.0" },
+  scala: { runtime: "scala", version: "3.2.2" },
+  csharp: { runtime: "csharp", version: "6.12.0" },
+  sqlite3: { runtime: "sqlite3", version: "3.41.2" },
+  sql: { runtime: "sqlite3", version: "3.41.2" }, // Map sql to sqlite3
 };
 
 export async function POST(req: NextRequest) {
@@ -116,6 +123,19 @@ function getExt(lang: string) {
       return "kt";
     case "rust":
       return "rs";
+    case "dart":
+      return "dart";
+    case "r":
+      return "r";
+    case "julia":
+      return "jl";
+    case "scala":
+      return "scala";
+    case "csharp":
+      return "cs";
+    case "sqlite3":
+    case "sql":
+      return "sql";
     default:
       return "txt";
   }

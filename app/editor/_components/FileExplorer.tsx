@@ -1,6 +1,6 @@
 import React from "react";
 import { THEME, FileObj } from "../types";
-import { getFileIcon } from "../utils";
+import { getFileIconComponent } from "../utils";
 
 interface FileExplorerProps {
     files: FileObj[];
@@ -76,80 +76,80 @@ export default function FileExplorer({
 
             {/* FILE LIST */}
             <div style={{ padding: 8, overflowY: "auto", flex: 1 }}>
-                {files.map((f) => (
-                    <div
-                        key={f.id}
-                        onClick={() => onOpenFile(f.id)}
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            padding: "8px",
-                            marginBottom: 4,
-                            borderRadius: 4,
-                            background: activeFileId === f.id ? THEME.tabActiveBg : "transparent",
-                            cursor: "pointer",
-                        }}
-                    >
+                {files.map((f) => {
+                    const Icon = getFileIconComponent(f.name);
+                    return (
                         <div
+                            key={f.id}
+                            onClick={() => onOpenFile(f.id)}
                             style={{
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 8,
-                                overflow: "hidden",
+                                justifyContent: "space-between",
+                                padding: "8px",
+                                marginBottom: 4,
+                                borderRadius: 4,
+                                background: activeFileId === f.id ? THEME.tabActiveBg : "transparent",
+                                cursor: "pointer",
                             }}
                         >
-                            <img
-                                src={`/icons/lang/${getFileIcon(f.name)}`}
-                                className="w-5 h-5"
-                            />
-                            <span
+                            <div
                                 style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
                                     overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                    maxWidth: leftWidth - 120,
                                 }}
                             >
-                                {f.name}
-                            </span>
-                        </div>
+                                <Icon className="w-5 h-5" style={{ color: THEME.fg }} />
+                                <span
+                                    style={{
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                        maxWidth: leftWidth - 120,
+                                    }}
+                                >
+                                    {f.name}
+                                </span>
+                            </div>
 
-                        <div style={{ display: "flex", gap: 8 }}>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRenameFile(f.id);
-                                }}
-                                style={{
-                                    background: "transparent",
-                                    border: "none",
-                                    color: "#9c9c9c",
-                                    cursor: "pointer",
-                                    fontSize: 12,
-                                }}
-                            >
-                                rename
-                            </button>
+                            <div style={{ display: "flex", gap: 8 }}>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRenameFile(f.id);
+                                    }}
+                                    style={{
+                                        background: "transparent",
+                                        border: "none",
+                                        color: "#9c9c9c",
+                                        cursor: "pointer",
+                                        fontSize: 12,
+                                    }}
+                                >
+                                    rename
+                                </button>
 
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onDeleteFile(f.id);
-                                }}
-                                style={{
-                                    background: "transparent",
-                                    border: "none",
-                                    color: "#d9534f",
-                                    cursor: "pointer",
-                                    fontSize: 12,
-                                }}
-                            >
-                                del
-                            </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteFile(f.id);
+                                    }}
+                                    style={{
+                                        background: "transparent",
+                                        border: "none",
+                                        color: "#d9534f",
+                                        cursor: "pointer",
+                                        fontSize: 12,
+                                    }}
+                                >
+                                    del
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

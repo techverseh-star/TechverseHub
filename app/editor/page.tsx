@@ -74,9 +74,9 @@ export default function EditorPage() {
   const [stdin, setStdin] = useState("");
   const [modalOpen, setModalOpen] = useState<null | { mode: "new" | "rename" | "import" | "delete"; payload?: any }>(null);
   const [modalValue, setModalValue] = useState("");
+  // Chat State
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiFindings, setAiFindings] = useState<any[]>([]);
-  const [aiResultText, setAiResultText] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant" | "system"; content: string }[]>([]);
   const [running, setRunning] = useState(false);
 
   const saveTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
@@ -368,70 +368,62 @@ export default function EditorPage() {
     setModalOpen(null);
   }
 
-  /* ---------------- AI actions ---------------- */
-  async function runAiDebug() {
+  /* ---------------- AI Chat ---------------- */
+  async function handleSendMessage(text: string) {
     const active = files.find((f) => f.id === activeFileId);
     if (!active) return;
+
+    const newMessage = { role: "user" as const, content: text };
+    const updatedMessages = [...chatMessages, newMessage];
+    setChatMessages(updatedMessages);
     setAiLoading(true);
-    setAiFindings([]);
-    setAiResultText(null);
+
     try {
       const res = await fetch("/api/ai/groq", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task: "code_debug", code: active.content, language: active.language }),
+        body: JSON.stringify({
+          task: "chat",
+          code: active.content,
+          language: active.language,
+          messages: updatedMessages
+        }),
       });
       const data = await res.json();
-      setAiResultText(data.response ?? null);
-      const findings = data.findings ?? data.fixes ?? data.issues ?? [];
-      setAiFindings(findings);
-    } catch (e) {
-      setAiResultText("AI debug failed: " + String(e));
-    } finally {
-      setAiLoading(false);
-    }
-  }
-  async function callAiRefactor() {
-    const active = files.find((f) => f.id === activeFileId);
-    if (!active) return;
-    setAiLoading(true);
-    try {
-      const res = await fetch("/api/ai/groq", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task: "code_refactor", code: active.content, language: active.language }),
-      });
-      const data = await res.json();
-      if (data.code) {
-        if (confirm("Apply refactored code?")) updateFileContent(active.id, data.code);
-        else setAiResultText("Refactor available.");
-      } else {
-        setAiResultText(data.response ?? "No refactor result.");
+      setAiLoading(false); // Stop loading spinner, start typing
+
+      const fullResponse = data.response || "Sorry, I couldn't generate a response.";
+
+      // Add empty assistant message
+      setChatMessages(prev => [...prev, { role: "assistant", content: "" }]);
+
+      // Simulate typing
+      let currentText = "";
+      const step = 1; // chars per tick
+      const delay = 15; // ms per tick
+
+      for (let i = 0; i < fullResponse.length; i += step) {
+        await new Promise(r => setTimeout(r, delay));
+        const chunk = fullResponse.slice(i, i + step);
+        currentText += chunk;
+        setChatMessages(prev => {
+          const newArr = [...prev];
+          newArr[newArr.length - 1] = { role: "assistant", content: currentText };
+          return newArr;
+        });
       }
+
     } catch (e) {
-      setAiResultText("AI refactor failed: " + String(e));
-    } finally {
       setAiLoading(false);
+      setChatMessages(prev => [...prev, { role: "assistant", content: "Error: " + String(e) }]);
     }
   }
-  async function callAiExplain() {
-    const active = files.find((f) => f.id === activeFileId);
+
+  function handleApplyCode(code: string) {
+    const active = files.find(f => f.id === activeFileId);
     if (!active) return;
-    setAiLoading(true);
-    setAiResultText(null);
-    try {
-      const res = await fetch("/api/ai/groq", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task: "code_explain", code: active.content, language: active.language }),
-      });
-      const data = await res.json();
-      setAiResultText(data.response ?? "No explanation.");
-    } catch (e) {
-      setAiResultText("AI explain failed: " + String(e));
-    } finally {
-      setAiLoading(false);
-    }
+    updateFileContent(active.id, code);
+    setConsoleLines(prev => [...prev, "Applied code from TechVerseHub AI."]);
   }
 
   /* ---------------- run file ---------------- */
@@ -501,21 +493,6 @@ export default function EditorPage() {
     setFiles((p) => p.map((x) => (x.id === id ? { ...x, name: newName } : x)));
     setModalOpen(null);
   }
-  function applyAiFix(fix: any) {
-    if (!fix) return;
-    const active = files.find(f => f.id === activeFileId);
-    if (!active) return;
-    let cleaned = "";
-    if (typeof fix === "string") {
-      cleaned = fix.replace(/```[a-zA-Z]*/g, "").replace(/```/g, "").trim();
-    } else if (fix.code) {
-      cleaned = fix.code;
-    } else if (fix.snippet) {
-      cleaned = fix.snippet;
-    }
-    updateFileContent(active.id, cleaned);
-    setConsoleLines(["AI Fix applied successfully"]);
-  }
 
   const activeFile = files.find((f) => f.id === activeFileId) ?? null;
 
@@ -528,7 +505,7 @@ export default function EditorPage() {
         onOpenFile={openFile}
         onCloseTab={closeTab}
         onRun={runActiveFile}
-        onDebug={runAiDebug}
+        onDebug={() => handleSendMessage("Debug this code")}
       />
 
       <div style={{ display: "flex", height: `calc(100vh - 56px)`, minHeight: 0, overflow: "hidden" }}>
@@ -565,14 +542,10 @@ export default function EditorPage() {
             <AIPanel
               rightWidth={rightWidth}
               rightTransition={rightTransition}
-              aiLoading={aiLoading}
-              aiFindings={aiFindings}
-              aiResultText={aiResultText}
-              onRunDebug={runAiDebug}
-              onCallRefactor={callAiRefactor}
-              onCallExplain={callAiExplain}
-              onApplyFix={applyAiFix}
-              onIgnoreFix={(desc) => setConsoleLines((c) => [...c, `Ignored fix: ${desc}`])}
+              messages={chatMessages}
+              loading={aiLoading}
+              onSendMessage={handleSendMessage}
+              onApplyCode={handleApplyCode}
               onDragStart={() => {
                 desiredRightRef.current = rightWidth;
                 setIsDraggingRight(true);

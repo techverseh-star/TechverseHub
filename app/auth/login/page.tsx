@@ -62,10 +62,10 @@ export default function LoginPage() {
 
       if (data.user) {
         router.push("/dashboard");
+        return; // Don't stop loading, let the page transition happen
       }
     } catch (err: any) {
       setError(err.message || "Login failed. Please check your credentials.");
-    } finally {
       setLoading(false);
     }
   };

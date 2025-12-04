@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase, Lesson, isSupabaseConfigured } from "@/lib/supabase";
 import { CheckCircle, Play, ArrowLeft, ArrowRight, Loader2, BookOpen } from "lucide-react";
 import dynamic from "next/dynamic";
+import LessonChat from "../_components/LessonChat";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -371,6 +372,13 @@ export default function LessonPage() {
             </Link>
           )}
         </div>
+
+        <LessonChat
+          lessonTitle={lesson.title}
+          lessonContent={lesson.content}
+          currentCode={code}
+          language={lesson.language}
+        />
       </div>
     </div>
   );

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Rocket, Code, Clock, Star, ChevronRight, Layers,
-  Terminal, Globe, Database, Cpu, Lock, Zap, Loader2
+  Terminal, Globe, Database, Cpu, Lock, Zap, Loader2, MessageCircle
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -231,6 +231,188 @@ const PROJECTS: Project[] = [
     features: ["Fast allocation", "Memory reuse", "Leak detection"],
     icon: <Cpu className="h-6 w-6" />
   },
+
+  // HTML
+  {
+    id: "html-1",
+    title: "Personal Portfolio",
+    description: "Build a responsive personal portfolio website",
+    language: "html",
+    difficulty: "Beginner",
+    duration: "3-4 hours",
+    skills: ["Semantic HTML", "Links", "Images", "Forms"],
+    features: ["About me", "Projects gallery", "Contact form"],
+    icon: <Globe className="h-6 w-6" />
+  },
+
+  // CSS
+  {
+    id: "css-1",
+    title: "Landing Page",
+    description: "Design a beautiful landing page with modern CSS",
+    language: "css",
+    difficulty: "Intermediate",
+    duration: "4-5 hours",
+    skills: ["Flexbox", "Grid", "Animations", "Responsive Design"],
+    features: ["Hero section", "Feature grid", "Testimonials"],
+    icon: <Layers className="h-6 w-6" />
+  },
+
+  // PHP
+  {
+    id: "php-1",
+    title: "Blog Engine",
+    description: "Create a dynamic blog with admin panel",
+    language: "php",
+    difficulty: "Intermediate",
+    duration: "8-10 hours",
+    skills: ["MySQL", "Sessions", "CRUD", "Authentication"],
+    features: ["Create posts", "Comments", "User login"],
+    icon: <Database className="h-6 w-6" />
+  },
+
+  // Ruby
+  {
+    id: "ruby-1",
+    title: "CLI Quiz Game",
+    description: "Build an interactive quiz game in the terminal",
+    language: "ruby",
+    difficulty: "Beginner",
+    duration: "2-3 hours",
+    skills: ["Input/Output", "Classes", "Loops", "File I/O"],
+    features: ["Multiple choice", "Score tracking", "High scores"],
+    icon: <Terminal className="h-6 w-6" />
+  },
+
+  // SQL
+  {
+    id: "sql-1",
+    title: "E-commerce Database",
+    description: "Design and query a database for an online store",
+    language: "sql",
+    difficulty: "Intermediate",
+    duration: "4-5 hours",
+    skills: ["Schema Design", "Joins", "Aggregations", "Views"],
+    features: ["Product catalog", "Order history", "Customer analytics"],
+    icon: <Database className="h-6 w-6" />
+  },
+
+  // Swift
+  {
+    id: "swift-1",
+    title: "Weather App",
+    description: "Build a weather forecast app for iOS",
+    language: "swift",
+    difficulty: "Intermediate",
+    duration: "6-8 hours",
+    skills: ["SwiftUI", "API Integration", "JSON Parsing", "Location"],
+    features: ["Current weather", "Forecast", "Location search"],
+    icon: <Zap className="h-6 w-6" />
+  },
+
+  // Kotlin
+  {
+    id: "kotlin-1",
+    title: "Note Taking App",
+    description: "Create a modern Android note-taking app",
+    language: "kotlin",
+    difficulty: "Intermediate",
+    duration: "6-8 hours",
+    skills: ["Android Jetpack", "Room Database", "Coroutines", "MVVM"],
+    features: ["Create notes", "Search", "Categories"],
+    icon: <Layers className="h-6 w-6" />
+  },
+
+  // Dart
+  {
+    id: "dart-1",
+    title: "Chat App UI",
+    description: "Build a beautiful chat application interface",
+    language: "dart",
+    difficulty: "Beginner",
+    duration: "4-5 hours",
+    skills: ["Flutter Widgets", "Layouts", "Navigation", "Theming"],
+    features: ["Message list", "Input field", "Profile view"],
+    icon: <MessageCircle className="h-6 w-6" />
+  },
+
+  // C#
+  {
+    id: "csharp-1",
+    title: "Inventory System",
+    description: "Build a desktop inventory management system",
+    language: "csharp",
+    difficulty: "Intermediate",
+    duration: "8-10 hours",
+    skills: ["WPF/WinForms", "Entity Framework", "LINQ", "SQL Server"],
+    features: ["Stock tracking", "Sales reports", "User roles"],
+    icon: <Database className="h-6 w-6" />
+  },
+
+  // Go
+  {
+    id: "go-1",
+    title: "Web Server",
+    description: "Build a high-performance REST API",
+    language: "go",
+    difficulty: "Intermediate",
+    duration: "5-6 hours",
+    skills: ["net/http", "Goroutines", "JSON", "Middleware"],
+    features: ["API endpoints", "Concurrency", "Logging"],
+    icon: <Globe className="h-6 w-6" />
+  },
+
+  // Rust
+  {
+    id: "rust-1",
+    title: "File Compressor",
+    description: "Create a CLI tool to compress files",
+    language: "rust",
+    difficulty: "Advanced",
+    duration: "8-10 hours",
+    skills: ["File I/O", "Compression Algorithms", "Error Handling", "Clap"],
+    features: ["Compress/Decompress", "Progress bar", "Benchmarks"],
+    icon: <Terminal className="h-6 w-6" />
+  },
+
+  // R
+  {
+    id: "r-1",
+    title: "Data Visualization Dashboard",
+    description: "Create interactive charts and graphs",
+    language: "r",
+    difficulty: "Intermediate",
+    duration: "4-5 hours",
+    skills: ["ggplot2", "Shiny", "Data Cleaning", "Statistics"],
+    features: ["Interactive plots", "Data filtering", "Export reports"],
+    icon: <Layers className="h-6 w-6" />
+  },
+
+  // Julia
+  {
+    id: "julia-1",
+    title: "Scientific Calculator",
+    description: "Build a high-performance scientific calculator",
+    language: "julia",
+    difficulty: "Beginner",
+    duration: "3-4 hours",
+    skills: ["Math functions", "REPL", "Multiple Dispatch", "Plotting"],
+    features: ["Complex numbers", "Matrix operations", "Graphing"],
+    icon: <Cpu className="h-6 w-6" />
+  },
+
+  // Scala
+  {
+    id: "scala-1",
+    title: "Distributed Task Queue",
+    description: "Implement a distributed task processing system",
+    language: "scala",
+    difficulty: "Advanced",
+    duration: "10-12 hours",
+    skills: ["Akka", "Concurrency", "Functional Programming", "JVM"],
+    features: ["Task scheduling", "Worker nodes", "Fault tolerance"],
+    icon: <Globe className="h-6 w-6" />
+  },
 ];
 
 export default function ProjectsPage() {
@@ -315,7 +497,7 @@ export default function ProjectsPage() {
               className="gap-2"
             >
               <span>
-                <img src={lang.icon} alt={lang.name} className="w-4 h-4" />
+                <lang.iconComponent className="w-4 h-4" />
               </span>
               {lang.name}
             </Button>
@@ -342,7 +524,10 @@ export default function ProjectsPage() {
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold flex items-center justify-center gap-3">
               <span className="text-4xl">
-                <img src={getLanguageInfo(selectedLanguage)?.icon} alt="Language Icon" className="w-10 h-10" />
+                {(() => {
+                  const LangIcon = getLanguageInfo(selectedLanguage)?.iconComponent;
+                  return LangIcon ? <LangIcon className="w-10 h-10" /> : null;
+                })()}
               </span>
               {getLanguageInfo(selectedLanguage)?.name} Projects
             </h2>
@@ -355,6 +540,7 @@ export default function ProjectsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => {
             const lang = getLanguageInfo(project.language);
+            const LangIcon = lang?.iconComponent;
 
             return (
               <Card
@@ -373,7 +559,7 @@ export default function ProjectsPage() {
                         </CardTitle>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xl">
-                            <img src={lang?.icon} alt={lang?.name} className="w-5 h-5" />
+                            {LangIcon && <LangIcon className="w-5 h-5" />}
                           </span>
                           <span className="text-sm text-muted-foreground">{lang?.name}</span>
                         </div>

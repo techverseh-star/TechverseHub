@@ -1,45 +1,40 @@
 import Link from "next/link";
 import { BookOpen, Code, Rocket } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export function QuickNav() {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link href="/learn" className="block">
-                <Card className="h-full group hover:border-blue-500/50 transition-all hover:shadow-lg hover:shadow-blue-500/10">
-                    <CardContent className="p-6 flex flex-col items-center text-center">
-                        <div className="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                            <BookOpen className="h-7 w-7 text-blue-500" />
-                        </div>
-                        <h3 className="font-semibold mb-1">Learn</h3>
-                        <p className="text-sm text-muted-foreground">Interactive lessons</p>
-                    </CardContent>
-                </Card>
-            </Link>
+        <Card>
+            <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="flex items-center gap-4 w-full md:w-auto">
+                    <h3 className="font-semibold text-lg">Quick Actions</h3>
+                    <div className="h-4 w-px bg-border hidden md:block" />
+                </div>
 
-            <Link href="/practice" className="block">
-                <Card className="h-full group hover:border-purple-500/50 transition-all hover:shadow-lg hover:shadow-purple-500/10">
-                    <CardContent className="p-6 flex flex-col items-center text-center">
-                        <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                            <Code className="h-7 w-7 text-purple-500" />
-                        </div>
-                        <h3 className="font-semibold mb-1">Practice</h3>
-                        <p className="text-sm text-muted-foreground">Coding challenges</p>
-                    </CardContent>
-                </Card>
-            </Link>
+                <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                    <Link href="/learn" className="flex-1 md:flex-none">
+                        <Button variant="outline" className="w-full gap-2 hover:bg-blue-500/10 hover:text-blue-500 hover:border-blue-500/20">
+                            <BookOpen className="h-4 w-4" />
+                            Continue Learning
+                        </Button>
+                    </Link>
 
-            <Link href="/projects" className="block">
-                <Card className="h-full group hover:border-green-500/50 transition-all hover:shadow-lg hover:shadow-green-500/10">
-                    <CardContent className="p-6 flex flex-col items-center text-center">
-                        <div className="w-14 h-14 rounded-2xl bg-green-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                            <Rocket className="h-7 w-7 text-green-500" />
-                        </div>
-                        <h3 className="font-semibold mb-1">Projects</h3>
-                        <p className="text-sm text-muted-foreground">Build real apps</p>
-                    </CardContent>
-                </Card>
-            </Link>
-        </div>
+                    <Link href="/practice" className="flex-1 md:flex-none">
+                        <Button variant="outline" className="w-full gap-2 hover:bg-purple-500/10 hover:text-purple-500 hover:border-purple-500/20">
+                            <Code className="h-4 w-4" />
+                            Practice Problems
+                        </Button>
+                    </Link>
+
+                    <Link href="/projects" className="flex-1 md:flex-none">
+                        <Button variant="outline" className="w-full gap-2 hover:bg-green-500/10 hover:text-green-500 hover:border-green-500/20">
+                            <Rocket className="h-4 w-4" />
+                            New Project
+                        </Button>
+                    </Link>
+                </div>
+            </CardContent>
+        </Card>
     );
 }
