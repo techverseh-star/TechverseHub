@@ -14,6 +14,7 @@ import { ContinueLearning } from "./_components/ContinueLearning";
 import { ProgressSection } from "./_components/ProgressSection";
 import { DashboardAI } from "./_components/DashboardAI";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdUnit } from "@/components/AdUnit";
 
 import { LANGUAGES } from "@/lib/constants";
 
@@ -211,41 +212,55 @@ export default function DashboardPage() {
   const userName = user.email?.split("@")[0] || "there";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
-      <div className="container mx-auto px-4 py-8">
-        <div className="space-y-8">
-          <DashboardHeader userName={userName} xp={stats.xp} />
+      <div className="flex-1 flex justify-center">
+        <aside className="hidden 2xl:block w-[180px] shrink-0 p-4 sticky top-24 h-fit">
+          <AdUnit
+            slotId="2890917443"
+            style={{ display: "inline-block", width: "160px", height: "600px" }}
+            format={null}
+          />
+        </aside>
+        <main className="flex-1 w-full max-w-[1600px]">
+          <div className="container mx-auto px-4 py-8">
+            <div className="space-y-8">
+              <DashboardHeader userName={userName} xp={stats.xp} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Main Content Area - 8 columns */}
-            <div className="lg:col-span-8 space-y-8">
-              <StatsOverview stats={stats} />
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Main Content Area - 8 columns */}
+                <div className="lg:col-span-8 space-y-8">
+                  <StatsOverview stats={stats} />
 
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold tracking-tight">Continue Learning</h2>
-                <ContinueLearning
-                  languageProgress={languageProgress}
-                />
-              </div>
+                  <div className="space-y-4">
+                    <h2 className="text-lg font-semibold tracking-tight">Continue Learning</h2>
+                    <ContinueLearning
+                      languageProgress={languageProgress}
+                    />
+                  </div>
 
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold tracking-tight">Daily Challenges</h2>
-                <DailyChallenges
-                  dailyChallenges={dailyChallenges}
-                  completedChallenges={completedChallenges}
-                />
-              </div>
-            </div>
+                  <div className="space-y-4">
+                    <h2 className="text-lg font-semibold tracking-tight">Daily Challenges</h2>
+                    <DailyChallenges
+                      dailyChallenges={dailyChallenges}
+                      completedChallenges={completedChallenges}
+                    />
+                  </div>
+                </div>
 
-            {/* Sidebar Area - 4 columns */}
-            <div className="lg:col-span-4 space-y-8">
-              <div className="sticky top-8">
-                <DashboardAI />
+                {/* Sidebar Area - 4 columns */}
+                <div className="lg:col-span-4 space-y-8">
+                  <div className="sticky top-8">
+                    <DashboardAI />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </main>
+        <aside className="hidden 2xl:block w-[180px] shrink-0 p-4 sticky top-24 h-fit">
+          <AdUnit slotId="REPLACE_WITH_RIGHT_AD_SLOT_ID" />
+        </aside>
       </div>
       <Footer />
     </div>
