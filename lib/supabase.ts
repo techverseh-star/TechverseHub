@@ -5,8 +5,39 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 const isConfigured = supabaseUrl && supabaseAnonKey;
 
-export const supabase: SupabaseClient = isConfigured 
-  ? createClient(supabaseUrl, supabaseAnonKey)
+// Custom storage adapter to handle "Remember Me" functionality
+const hybridStorage = {
+  getItem: (key: string) => {
+    if (typeof window === 'undefined') return null;
+    return window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+  },
+  setItem: (key: string, value: string) => {
+    if (typeof window === 'undefined') return;
+    // Check preference
+    const rememberMe = window.localStorage.getItem('techverse_remember_me') !== 'false';
+    const storage = rememberMe ? window.localStorage : window.sessionStorage;
+    storage.setItem(key, value);
+
+    // Clear the other one to avoid conflicts
+    const other = rememberMe ? window.sessionStorage : window.localStorage;
+    other.removeItem(key);
+  },
+  removeItem: (key: string) => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(key);
+    window.sessionStorage.removeItem(key);
+  },
+};
+
+export const supabase: SupabaseClient = isConfigured
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      storage: hybridStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+  })
   : createClient('https://placeholder.supabase.co', 'placeholder-key');
 
 export const isSupabaseConfigured = () => isConfigured;

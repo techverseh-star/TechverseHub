@@ -337,11 +337,15 @@ function LearnPageContent() {
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
       <div className="flex-1 flex justify-center">
-        <aside className="hidden 2xl:block w-[180px] shrink-0 p-4 sticky top-24 h-fit">
-          <AdUnit slotId="REPLACE_WITH_LEFT_AD_SLOT_ID" />
+        <aside className="hidden laptop:block w-[180px] shrink-0 p-4 sticky top-24 h-fit">
+          <AdUnit
+            slotId="9618594430"
+            style={{ display: "inline-block", width: "160px", height: "600px" }}
+            format={null}
+          />
         </aside>
-        <main className="flex-1 w-full max-w-[1600px]">
-          <div className="container mx-auto px-4 py-8">
+        <main className="flex-1 w-full max-w-[1600px] mx-auto">
+          <div className="w-full px-4 py-8">
             {!selectedLanguage ? (
               <>
                 <div className="text-center mb-12">
@@ -572,8 +576,12 @@ function LearnPageContent() {
             )}
           </div>
         </main>
-        <aside className="hidden 2xl:block w-[180px] shrink-0 p-4 sticky top-24 h-fit">
-          <AdUnit slotId="REPLACE_WITH_RIGHT_AD_SLOT_ID" />
+        <aside className="hidden laptop:block w-[180px] shrink-0 p-4 sticky top-24 h-fit">
+          <AdUnit
+            slotId="8305512761"
+            style={{ display: "inline-block", width: "160px", height: "600px" }}
+            format={null}
+          />
         </aside>
       </div>
       <Footer />

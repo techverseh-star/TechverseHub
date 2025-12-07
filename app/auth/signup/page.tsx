@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,22 @@ export default function SignupPage() {
   // 👁️ Password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      if (!isSupabaseConfigured()) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          router.replace("/dashboard");
+        }
+      } catch (err) {
+        // Silent error
+      }
+    };
+    checkSession();
+  }, [router]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +70,10 @@ export default function SignupPage() {
     }
 
     try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('techverse_remember_me', rememberMe ? 'true' : 'false');
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -191,6 +212,21 @@ export default function SignupPage() {
                     >
                       {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
+                  </div>
+                  {/* REMEMBER ME */}
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="remember"
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                    />
+                    <label
+                      htmlFor="remember"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      onClick={() => setRememberMe(!rememberMe)}
+                    >
+                      Remember me
+                    </label>
                   </div>
                 </div>
               </CardContent>
