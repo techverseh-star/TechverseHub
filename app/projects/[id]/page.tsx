@@ -11,21 +11,8 @@ import {
   Clock, ChevronRight, ChevronDown, Loader2, Sparkles, Code2
 } from "lucide-react";
 import Editor from "@monaco-editor/react";
-import { PROJECT_DATA } from "@/data/projects";
 import { supabase } from "@/lib/supabase";
-
-const DEFAULT_PROJECT = {
-  title: "Project Not Found",
-  language: "python",
-  difficulty: "Beginner",
-  duration: "N/A",
-  description: "This project is not available.",
-  overview: "Please go back and select a valid project.",
-  concepts: [],
-  steps: [],
-  starterCode: "# Project not found",
-  solution: "# No solution available"
-};
+import { getProjectById, Project } from "@/lib/api";
 
 const getLanguageForMonaco = (lang: string) => {
   const map: Record<string, string> = {
@@ -44,6 +31,7 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const projectId = params.id as string;
 
+  const [project, setProject] = useState<Project | null>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [code, setCode] = useState("");
@@ -56,23 +44,28 @@ export default function ProjectDetailPage() {
   const [expandedStep, setExpandedStep] = useState<number | null>(0);
   const [copied, setCopied] = useState(false);
 
-  const project = PROJECT_DATA[projectId] || DEFAULT_PROJECT;
-
   useEffect(() => {
-    async function loadUser() {
+    async function loadData() {
+      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push("/auth/login");
         return;
       }
       setUser(user);
-      setCode(project.starterCode || "");
+
+      const projectData = await getProjectById(projectId);
+      if (projectData) {
+        setProject(projectData);
+        setCode(projectData.starterCode || "");
+      }
       setLoading(false);
     }
-    loadUser();
-  }, [router, projectId, project.starterCode]);
+    loadData();
+  }, [router, projectId]);
 
   const runCode = async () => {
+    if (!project) return;
     setIsRunning(true);
     setOutput("");
 
@@ -96,6 +89,7 @@ export default function ProjectDetailPage() {
   };
 
   const debugWithAI = async () => {
+    if (!project) return;
     setIsAiLoading(true);
     setAiResponse("");
 
@@ -121,6 +115,7 @@ export default function ProjectDetailPage() {
   };
 
   const getHint = async () => {
+    if (!project) return;
     setIsAiLoading(true);
     setAiResponse("");
     setActiveTab("hints");
@@ -147,6 +142,7 @@ export default function ProjectDetailPage() {
   };
 
   const resetCode = () => {
+    if (!project) return;
     setCode(project.starterCode || "");
     setOutput("");
     setAiResponse("");
@@ -159,6 +155,7 @@ export default function ProjectDetailPage() {
   };
 
   const toggleSolution = () => {
+    if (!project) return;
     if (showSolution) {
       setCode(project.starterCode);
     } else {
@@ -173,6 +170,24 @@ export default function ProjectDetailPage() {
         <Navbar />
         <div className="flex items-center justify-center min-h-[80vh]">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
+          <h1 className="text-2xl font-bold mb-4">Project Not Found</h1>
+          <p className="text-muted-foreground mb-8">The project you are looking for does not exist or has been removed.</p>
+          <Link href="/projects">
+            <Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Projects
+            </Button>
+          </Link>
         </div>
       </div>
     );
@@ -210,7 +225,7 @@ export default function ProjectDetailPage() {
       </div>
 
       <div className="flex-1 flex">
-        <div className="w-1/2 border-r border-border overflow-y-auto">
+        <div className="w-1/2 border-r border-border overflow-y-auto max-h-[calc(100vh-140px)]">
           <div className="p-6">
             <div className="flex gap-2 mb-6">
               <Button
@@ -310,7 +325,7 @@ export default function ProjectDetailPage() {
           </div>
         </div>
 
-        <div className="w-1/2 flex flex-col">
+        <div className="w-1/2 flex flex-col h-[calc(100vh-140px)]">
           <div className="border-b border-border p-2 flex items-center justify-between bg-card/50">
             <div className="flex items-center gap-2">
               <Button onClick={runCode} disabled={isRunning} size="sm" className="gap-2">
@@ -359,7 +374,7 @@ export default function ProjectDetailPage() {
             />
           </div>
 
-          <div className="h-48 border-t border-border bg-black/90 overflow-auto">
+          <div className="h-48 border-t border-border bg-black/90 overflow-auto shrink-0">
             <div className="p-2 border-b border-border/50 text-xs text-muted-foreground">
               Output
             </div>

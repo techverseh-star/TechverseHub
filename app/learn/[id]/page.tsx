@@ -7,52 +7,20 @@ import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase, Lesson, isSupabaseConfigured } from "@/lib/supabase";
+import { supabase, Lesson } from "@/lib/supabase";
+import { getLessonById, getLessons } from "@/lib/api";
 import { CheckCircle, Play, ArrowLeft, ArrowRight, Loader2, BookOpen } from "lucide-react";
 import dynamic from "next/dynamic";
 import LessonChat from "../_components/LessonChat";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
-const DEMO_LESSONS: Record<string, Lesson> = {
-  "py-01": { id: "py-01", title: "Introduction to Python", language: "python", content: "Python is a high-level programming language...", codeExample: "print('Hello, World!')", tryStarter: "# Write your first Python program\nprint('Hello!')" },
-  "py-02": { id: "py-02", title: "Variables and Data Types", language: "python", content: "Variables store data values...", codeExample: "name = 'Alice'\nage = 25", tryStarter: "# Create variables\nname = ''" },
-  "py-03": { id: "py-03", title: "Operators", language: "python", content: "Python supports various operators...", codeExample: "a = 10\nb = 5\nprint(a + b)", tryStarter: "# Try operators\nx = 10" },
-  "js-01": { id: "js-01", title: "Introduction to JavaScript", language: "javascript", content: "JavaScript is a versatile language...", codeExample: "console.log('Hello, World!');", tryStarter: "// Write your first JS program\nconsole.log('Hello!');" },
-  "js-02": { id: "js-02", title: "Variables and Data Types", language: "javascript", content: "JavaScript uses let, const, var...", codeExample: "let name = 'Alice';", tryStarter: "// Create variables\nlet name = '';" },
-  "ts-01": { id: "ts-01", title: "Introduction to TypeScript", language: "typescript", content: "TypeScript adds types to JavaScript...", codeExample: "let name: string = 'Alice';", tryStarter: "// Write TypeScript\nlet name: string = '';" },
-  "java-01": { id: "java-01", title: "Introduction to Java", language: "java", content: "Java is an object-oriented language...", codeExample: "System.out.println(\"Hello\");", tryStarter: "// Java basics\n" },
-  "c-01": { id: "c-01", title: "Introduction to C", language: "c", content: "C is a powerful systems language...", codeExample: "printf(\"Hello\");", tryStarter: "// C basics\n" },
-  "cpp-01": { id: "cpp-01", title: "Introduction to C++", language: "cpp", content: "C++ extends C with OOP...", codeExample: "cout << \"Hello\";", tryStarter: "// C++ basics\n" },
-};
-
-const DEMO_LESSONS_LIST = [
-  { id: "py-01", language: "python" },
-  { id: "py-02", language: "python" },
-  { id: "py-03", language: "python" },
-  { id: "js-01", language: "javascript" },
-  { id: "js-02", language: "javascript" },
-  { id: "ts-01", language: "typescript" },
-  { id: "java-01", language: "java" },
-  { id: "c-01", language: "c" },
-  { id: "cpp-01", language: "cpp" },
-];
-
-const FALLBACK_LESSON: Lesson = {
-  id: "demo",
-  title: "Demo Lesson",
-  language: "python",
-  content: "This is a demo lesson. Configure Supabase to see real content.",
-  codeExample: "print('Hello!')",
-  tryStarter: "# Demo code\nprint('Hello!')"
-};
-
 export default function LessonPage() {
   const router = useRouter();
   const params = useParams();
   const [user, setUser] = useState<any>(null);
   const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [allLessons, setAllLessons] = useState<any[]>([]);
+  const [allLessons, setAllLessons] = useState<Lesson[]>([]);
   const [code, setCode] = useState("");
   const [output, setOutput] = useState("");
   const [running, setRunning] = useState(false);
@@ -79,28 +47,20 @@ export default function LessonPage() {
     async function loadLesson() {
       setLoading(true);
 
-      if (!isSupabaseConfigured()) {
-        const lessonId = params.id as string;
-        const demoLesson = DEMO_LESSONS[lessonId] || FALLBACK_LESSON;
-        setLesson(demoLesson);
-        setCode(demoLesson.tryStarter || "");
-        const sameLangLessons = DEMO_LESSONS_LIST.filter(l => l.language === demoLesson.language);
-        setAllLessons(sameLangLessons);
-        setTotalLessons(sameLangLessons.length);
+      const lessonData = await getLessonById(params.id as string);
+
+      if (!lessonData) {
+        // Handle not found
         setLoading(false);
         return;
       }
 
-      const { data: lessonData } = await supabase
-        .from("lessons")
-        .select("*")
-        .eq("id", params.id)
-        .single();
+      setLesson(lessonData);
+      setCode(lessonData.tryStarter || "");
 
-      const { data: allLessonsData } = await supabase
-        .from("lessons")
-        .select("id, language")
-        .order("id");
+      const fetchedLessons = await getLessons(lessonData.language);
+      setAllLessons(fetchedLessons);
+      setTotalLessons(fetchedLessons.length);
 
       const { data: progressData } = await supabase
         .from("lesson_progress")
@@ -108,37 +68,11 @@ export default function LessonPage() {
         .eq("user_id", user.id)
         .eq("completed", true);
 
-      if (lessonData) {
-        const mappedLesson: Lesson = {
-          id: lessonData.id,
-          title: lessonData.title,
-          content: lessonData.content,
-          codeExample: lessonData.codeexample || lessonData.codeExample || "",
-          tryStarter: lessonData.trystarter || lessonData.tryStarter || "",
-          language: lessonData.language,
-        };
-        setLesson(mappedLesson);
-        setCode(mappedLesson.tryStarter || "");
-
-        if (allLessonsData) {
-          const sameLangLessons = allLessonsData.filter(l => l.language === lessonData.language);
-          setAllLessons(sameLangLessons);
-          setTotalLessons(sameLangLessons.length);
-        }
-      } else {
-        setLesson(FALLBACK_LESSON);
-        setCode(FALLBACK_LESSON.tryStarter || "");
-      }
-
       if (progressData) {
         const completedIds = new Set(progressData.map(p => p.lesson_id));
         setCompleted(completedIds.has(params.id as string));
-
-        if (allLessonsData && lessonData) {
-          const sameLangLessons = allLessonsData.filter(l => l.language === lessonData.language);
-          const completedInLang = sameLangLessons.filter(l => completedIds.has(l.id)).length;
-          setCompletedCount(completedInLang);
-        }
+        const completedInLang = fetchedLessons.filter(l => completedIds.has(l.id)).length;
+        setCompletedCount(completedInLang);
       }
 
       setLoading(false);
@@ -173,13 +107,11 @@ export default function LessonPage() {
   const handleMarkComplete = async () => {
     if (!user || !lesson) return;
 
-    if (isSupabaseConfigured()) {
-      await supabase.from("lesson_progress").upsert({
-        user_id: user.id,
-        lesson_id: lesson.id,
-        completed: true,
-      });
-    }
+    await supabase.from("lesson_progress").upsert({
+      user_id: user.id,
+      lesson_id: lesson.id,
+      completed: true,
+    });
 
     setCompleted(true);
     setCompletedCount(prev => prev + 1);
@@ -225,7 +157,23 @@ export default function LessonPage() {
     );
   }
 
-  if (!user || !lesson) return null;
+  if (!user || !lesson) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
+          <h1 className="text-2xl font-bold mb-4">Lesson Not Found</h1>
+          <p className="text-muted-foreground mb-8">The lesson you are looking for does not exist.</p>
+          <Link href="/learn">
+            <Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Lessons
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const prevLesson = getPrevLesson();
   const nextLesson = getNextLesson();

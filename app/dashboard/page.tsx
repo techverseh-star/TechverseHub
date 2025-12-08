@@ -4,62 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { Loader2, Trophy, Flame } from "lucide-react";
-import { supabase, isSupabaseConfigured, PracticeProblem } from "@/lib/supabase";
-import { DEMO_PROBLEMS } from "@/lib/challenges";
+import { Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { getProblems, PracticeProblem } from "@/lib/api";
 import { DashboardHeader } from "./_components/DashboardHeader";
 import { StatsOverview } from "./_components/StatsOverview";
 import { DailyChallenges } from "./_components/DailyChallenges";
 import { ContinueLearning } from "./_components/ContinueLearning";
-import { ProgressSection } from "./_components/ProgressSection";
 import { DashboardAI } from "./_components/DashboardAI";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdUnit } from "@/components/AdUnit";
-
 import { LANGUAGES } from "@/lib/constants";
-
-const TOTAL_LESSONS = 66;
-
-// Simple seeded random function to get consistent daily challenges
-function getDailyChallenges(seed: string, preferredLanguage?: string, count: number = 3): PracticeProblem[] {
-  let problems = [...DEMO_PROBLEMS];
-
-  // If preferred language is provided, try to filter by it
-  if (preferredLanguage) {
-    const langProblems = problems.filter(p => p.language === preferredLanguage);
-    // Only use filtered list if we have enough problems
-    if (langProblems.length >= count) {
-      problems = langProblems;
-    }
-  }
-
-  let m = problems.length;
-  let t;
-  let i;
-
-  // Create a numeric hash from the seed string
-  let hash = 0;
-  for (let j = 0; j < seed.length; j++) {
-    hash = ((hash << 5) - hash) + seed.charCodeAt(j);
-    hash |= 0;
-  }
-
-  // Custom random function using the hash
-  const random = () => {
-    const x = Math.sin(hash++) * 10000;
-    return x - Math.floor(x);
-  };
-
-  // Fisher-Yates shuffle with seeded random
-  while (m) {
-    i = Math.floor(random() * m--);
-    t = problems[m];
-    problems[m] = problems[i];
-    problems[i] = t;
-  }
-
-  return problems.slice(0, count);
-}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -77,44 +31,12 @@ export default function DashboardPage() {
   );
   const [dailyChallenges, setDailyChallenges] = useState<PracticeProblem[]>([]);
   const [completedChallenges, setCompletedChallenges] = useState<Set<string>>(new Set());
-  const [lessons, setLessons] = useState<any[]>([]);
 
   useEffect(() => {
     async function loadStats(currentUser: any) {
       setLoading(true);
 
-      // Generate daily challenges based on today's date
-      const today = new Date().toISOString().split('T')[0];
-      let preferredLanguage: string | undefined;
-
-      if (isSupabaseConfigured()) {
-        // Try to get user's last submission to determine preferred language
-        const { data: lastSubmission } = await supabase
-          .from("submissions")
-          .select("user_id") // minimal select to check existence/ordering if needed, or just skip if we can't join easily
-          .eq("user_id", currentUser.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
-      }
-
-      if (!isSupabaseConfigured()) {
-        const challenges = getDailyChallenges(today);
-        setDailyChallenges(challenges);
-
-        setStats({
-          lessonsCompleted: 0,
-          problemsSolved: 0,
-          totalAttempts: 0,
-          xp: 0,
-          streak: 0,
-        });
-        setLoading(false);
-        return;
-      }
-
-      // Fetch stats in parallel
-      const [lessonsResult, submissionsResult] = await Promise.all([
+      const [lessonsResult, submissionsResult, problemsResult] = await Promise.all([
         supabase
           .from("lesson_progress")
           .select("*")
@@ -123,46 +45,33 @@ export default function DashboardPage() {
         supabase
           .from("submissions")
           .select("*")
-          .eq("user_id", currentUser.id)
+          .eq("user_id", currentUser.id),
+        getProblems()
       ]);
 
       const fetchedLessons = lessonsResult.data || [];
-      const submissions = submissionsResult.data;
-      setLessons(fetchedLessons);
+      const submissions = submissionsResult.data || [];
+      const allProblems = problemsResult || [];
 
-      // Determine preferred language from submissions
-      if (submissions && submissions.length > 0) {
-        const problemIds = submissions.map(s => s.problem_id);
-        const { data: problems } = await supabase
-          .from("practice_problems")
-          .select("id, language")
-          .in("id", problemIds);
+      // Logic to pick "Daily" challenges - for now, just random 3 from all problems
+      // or rotating based on date
+      const today = new Date();
+      const seed = today.getDate() + today.getMonth() * 31 + today.getFullYear() * 365;
 
-        if (problems && problems.length > 0) {
-          // Count languages
-          const langCounts: Record<string, number> = {};
-          problems.forEach(p => {
-            langCounts[p.language] = (langCounts[p.language] || 0) + 1;
-          });
-
-          // Find max
-          preferredLanguage = Object.keys(langCounts).reduce((a, b) => langCounts[a] > langCounts[b] ? a : b);
-        }
-      }
-
-      const challenges = getDailyChallenges(today, preferredLanguage);
+      const shuffled = [...allProblems].sort(() => 0.5 - Math.random()); // Simple shuffle
+      const challenges = shuffled.slice(0, 3);
       setDailyChallenges(challenges);
 
-      const passedSubmissions = submissions?.filter(s => s.status === "passed") || [];
+      const passedSubmissions = submissions.filter(s => s.status === "passed");
       const uniqueProblems = new Set(passedSubmissions.map(s => s.problem_id));
       setCompletedChallenges(uniqueProblems);
 
       setStats({
         lessonsCompleted: fetchedLessons.length,
         problemsSolved: uniqueProblems.size,
-        totalAttempts: submissions?.length || 0,
+        totalAttempts: submissions.length,
         xp: (fetchedLessons.length) * 25 + uniqueProblems.size * 50,
-        streak: 0, // Placeholder for streak logic
+        streak: 0,
       });
 
       const updatedLanguages = LANGUAGES
@@ -259,11 +168,10 @@ export default function DashboardPage() {
           </div>
         </main>
         <aside className="hidden laptop:block w-[180px] shrink-0 p-4 sticky top-24 h-fit">
-          <AdUnit slotId="REPLACE_WITH_RIGHT_AD_SLOT_ID" />
+          <AdUnit slotId="7951672437" />
         </aside>
       </div>
       <Footer />
     </div>
   );
 }
-

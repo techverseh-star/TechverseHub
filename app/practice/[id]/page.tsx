@@ -7,29 +7,12 @@ import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase, PracticeProblem, TestCase, isSupabaseConfigured } from "@/lib/supabase";
+import { supabase, PracticeProblem, TestCase } from "@/lib/supabase";
 import { Play, Send, Lightbulb, ArrowLeft, ArrowRight, Loader2, Target, CheckCircle } from "lucide-react";
 import dynamic from "next/dynamic";
+import { getProblemById } from "@/lib/api";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
-
-import { DEMO_PROBLEMS } from "@/lib/challenges";
-
-const DEMO_TESTCASES: TestCase[] = [
-  { id: "1", problem_id: "js-e-01", input: "[2,7,11,15], 9", output: "[0,1]", hidden: false },
-  { id: "2", problem_id: "js-e-01", input: "[3,2,4], 6", output: "[1,2]", hidden: true },
-];
-
-const FALLBACK_PROBLEM: PracticeProblem = {
-  id: "demo",
-  title: "Demo Problem",
-  difficulty: "Easy",
-  language: "javascript",
-  description: "This is a demo problem. Configure Supabase to see real content.",
-  examples: "Input: 'hello'\nOutput: 'world'",
-  solution: "// Demo solution",
-  hints: "Configure Supabase for hints"
-};
 
 export default function ProblemPage() {
   const router = useRouter();
@@ -68,27 +51,17 @@ export default function ProblemPage() {
     async function loadProblem() {
       setLoading(true);
 
-      if (!isSupabaseConfigured()) {
-        const problemId = params.id as string;
-        const demoProblem = DEMO_PROBLEMS.find(p => p.id === problemId) || FALLBACK_PROBLEM;
-        setProblem(demoProblem);
+      const problemData = await getProblemById(params.id as string);
 
-        // Use default test cases if none exist for this problem
-        setTestCases(DEMO_TESTCASES);
-
-        setCode(demoProblem.language === "python" ? "def solution(nums, target):\n    pass" : "function solution(nums, target) {\n    \n}");
-        const sameLangProblems = DEMO_PROBLEMS.filter(p => p.language === demoProblem.language);
-        setAllProblems(sameLangProblems);
-        setTotalProblems(sameLangProblems.length);
+      if (!problemData) {
         setLoading(false);
+        // Handle not found
         return;
       }
 
-      const { data: problemData } = await supabase
-        .from("practice_problems")
-        .select("*")
-        .eq("id", params.id)
-        .single();
+      setProblem(problemData);
+      // Set starter code or default
+      setCode(problemData.language === "python" ? "def solution():\n    pass" : "function solution() {\n    \n}");
 
       const { data: testData } = await supabase
         .from("testcases")
@@ -105,38 +78,27 @@ export default function ProblemPage() {
         .select("problem_id, status")
         .eq("user_id", user.id);
 
-      if (problemData) {
-        setProblem(problemData);
-        setCode(problemData.language === "python" ? "def solution():\n    pass" : "function solution() {\n    \n}");
+      if (allProblemsData) {
+        const sameLangProblems = allProblemsData.filter(p => p.language === problemData.language);
+        setAllProblems(sameLangProblems);
+        setTotalProblems(sameLangProblems.length);
 
-        if (allProblemsData) {
-          const sameLangProblems = allProblemsData.filter(p => p.language === problemData.language);
-          setAllProblems(sameLangProblems);
-          setTotalProblems(sameLangProblems.length);
+        if (submissionData) {
+          const passedIds = new Set(submissionData.filter(s => s.status === "passed").map(s => s.problem_id));
+          setSolved(passedIds.has(params.id as string));
+          const solvedInLang = sameLangProblems.filter(p => passedIds.has(p.id)).length;
+          setSolvedCount(solvedInLang);
+
+          const userSubmissions = submissionData.filter(s => s.problem_id === params.id);
+          setAttempts(userSubmissions.length);
         }
-      } else {
-        setProblem(FALLBACK_PROBLEM);
-        setCode("function solution(nums, target) {\n    \n}");
       }
 
       if (testData && testData.length > 0) {
         setTestCases(testData);
       } else {
-        setTestCases(DEMO_TESTCASES);
-      }
-
-      if (submissionData) {
-        const passedIds = new Set(submissionData.filter(s => s.status === "passed").map(s => s.problem_id));
-        setSolved(passedIds.has(params.id as string));
-
-        if (allProblemsData && problemData) {
-          const sameLangProblems = allProblemsData.filter(p => p.language === problemData.language);
-          const solvedInLang = sameLangProblems.filter(p => passedIds.has(p.id)).length;
-          setSolvedCount(solvedInLang);
-        }
-
-        const userSubmissions = submissionData.filter(s => s.problem_id === params.id);
-        setAttempts(userSubmissions.length);
+        // Fallback for no test cases? Or just empty.
+        setTestCases([]);
       }
 
       setLoading(false);
@@ -157,7 +119,7 @@ export default function ProblemPage() {
         body: JSON.stringify({
           code,
           language: problem?.language || "javascript",
-          testInput: sampleTestCases[0]?.input,
+          testInput: sampleTestCases[0]?.input || "",
         }),
       });
 
@@ -175,6 +137,14 @@ export default function ProblemPage() {
 
     setRunning(true);
     let passed = 0;
+
+    // If no test cases, we can't really verify, but we can simulate a run
+    if (testCases.length === 0) {
+      setOutput("No test cases available for this problem yet.");
+      setRunning(false);
+      return;
+    }
+
     let total = testCases.length;
 
     try {
@@ -190,6 +160,7 @@ export default function ProblemPage() {
         });
 
         const result = await response.json();
+        // Naive equality check
         if (result.output?.trim() === testCase.output.trim()) {
           passed++;
         }
@@ -198,15 +169,13 @@ export default function ProblemPage() {
       const newAttempts = attempts + 1;
       const status = passed === total ? "passed" : "failed";
 
-      if (isSupabaseConfigured()) {
-        await supabase.from("submissions").insert({
-          user_id: user.id,
-          problem_id: problem.id,
-          code,
-          status,
-          attempts: newAttempts,
-        });
-      }
+      await supabase.from("submissions").insert({
+        user_id: user.id,
+        problem_id: problem.id,
+        code,
+        status,
+        attempts: newAttempts,
+      });
 
       setAttempts(newAttempts);
 
@@ -330,7 +299,23 @@ export default function ProblemPage() {
     );
   }
 
-  if (!user || !problem) return null;
+  if (!user || !problem) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
+          <h1 className="text-2xl font-bold mb-4">Problem Not Found</h1>
+          <p className="text-muted-foreground mb-8">The problem you are looking for does not exist.</p>
+          <Link href="/practice">
+            <Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Practice
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const prevProblem = getPrevProblem();
   const nextProblem = getNextProblem();
@@ -487,6 +472,7 @@ export default function ProblemPage() {
                       <pre className="text-sm">{tc.output}</pre>
                     </div>
                   ))}
+                  {testCases.length === 0 && <p className="text-sm text-muted-foreground">No test cases available.</p>}
                 </div>
               </CardContent>
             </Card>

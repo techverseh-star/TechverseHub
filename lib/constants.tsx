@@ -18,6 +18,29 @@ export interface Language {
     prefix?: string;
 }
 
+export const LANGUAGE_ICONS: Record<string, React.ElementType> = {
+    python: SiPython,
+    javascript: SiJavascript,
+    typescript: SiTypescript,
+    java: FaJava,
+    c: SiC,
+    cpp: SiCplusplus,
+    html: SiHtml5,
+    css: SiCss3,
+    php: SiPhp,
+    ruby: SiRuby,
+    sql: SiMysql,
+    swift: SiSwift,
+    kotlin: SiKotlin,
+    dart: SiDart,
+    csharp: TbBrandCSharp,
+    go: SiGo,
+    rust: SiRust,
+    r: SiR,
+    julia: SiJulia,
+    scala: SiScala
+};
+
 export const LANGUAGES: Language[] = [
     {
         id: "python",

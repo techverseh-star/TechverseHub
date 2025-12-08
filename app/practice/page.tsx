@@ -5,19 +5,18 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { supabase, PracticeProblem, isSupabaseConfigured } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
+import { getProblems, PracticeProblem } from "@/lib/api"; // Updated import
 import { Code, CheckCircle, Search, ChevronRight, Target, Flame, Trophy, Loader2 } from "lucide-react";
 import { AdUnit } from "@/components/AdUnit";
 
 import { LANGUAGES } from "@/lib/constants";
 
 const DIFFICULTIES = ["Easy", "Medium", "Hard"];
-
-import { DEMO_PROBLEMS } from "@/lib/challenges";
 
 function PracticePageContent() {
   const router = useRouter();
@@ -48,31 +47,15 @@ function PracticePageContent() {
     async function loadProblems() {
       setLoading(true);
 
-      if (!isSupabaseConfigured()) {
-        setProblems(DEMO_PROBLEMS);
-        setLoading(false);
-        return;
-      }
-
-      const { data: problemsData } = await supabase
-        .from("practice_problems")
-        .select("*")
-        .order("id");
+      // Fetch from API instead of direct DB or hardcoded
+      const problemsData = await getProblems();
+      setProblems(problemsData);
 
       const { data: submissionsData } = await supabase
         .from("submissions")
         .select("problem_id")
         .eq("user_id", user.id)
         .eq("status", "passed");
-
-      if (problemsData && problemsData.length > 0) {
-        // Merge DB problems with Demo problems
-        const dbProblemIds = new Set(problemsData.map(p => p.id));
-        const newDemoProblems = DEMO_PROBLEMS.filter(p => !dbProblemIds.has(p.id));
-        setProblems([...problemsData, ...newDemoProblems]);
-      } else {
-        setProblems(DEMO_PROBLEMS);
-      }
 
       if (submissionsData) {
         setSolvedProblems(new Set(submissionsData.map(s => s.problem_id)));
@@ -92,8 +75,6 @@ function PracticePageContent() {
   });
 
   const getLanguageProblems = (lang: string) => problems.filter(p => p.language === lang);
-  const getProblemsByDifficulty = (problems: PracticeProblem[], difficulty: string) =>
-    problems.filter(p => p.difficulty === difficulty);
 
   const getDifficultyStyles = (difficulty: string) => {
     switch (difficulty) {
@@ -405,7 +386,7 @@ function PracticePageContent() {
           </div>
         </main>
         <aside className="hidden laptop:block w-[180px] shrink-0 p-4 sticky top-24 h-fit">
-          <AdUnit slotId="REPLACE_WITH_RIGHT_AD_SLOT_ID" />
+          <AdUnit slotId="7951672437" />
         </aside>
       </div>
       <Footer />

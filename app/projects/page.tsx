@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
@@ -9,434 +9,60 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Rocket, Code, Clock, Star, ChevronRight, Layers,
-  Terminal, Globe, Database, Cpu, Lock, Zap, Loader2, MessageCircle
+  Terminal, Globe, Database, Cpu, Lock, Zap, Loader2, MessageCircle, BookOpen
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { getProjects, Project as ApiProject } from "@/lib/api";
 
 import { LANGUAGES } from "@/lib/constants";
 import { AdUnit } from "@/components/AdUnit";
 
-interface Project {
-  id: string;
-  title: string;
-  description: string;
-  language: string;
-  difficulty: "Beginner" | "Intermediate" | "Advanced";
-  duration: string;
-  skills: string[];
-  features: string[];
+interface Project extends ApiProject {
   icon: React.ReactNode;
 }
 
-const PROJECTS: Project[] = [
-  {
-    id: "py-1",
-    title: "Todo CLI Application",
-    description: "Build a command-line todo manager using pure Python with file persistence",
-    language: "python",
-    difficulty: "Beginner",
-    duration: "2-3 hours",
-    skills: ["File I/O", "Lists", "Dictionaries", "Functions"],
-    features: ["Add/remove tasks", "Mark complete", "Save to JSON file"],
-    icon: <Terminal className="h-6 w-6" />
-  },
-  {
-    id: "py-2",
-    title: "Password Generator & Manager",
-    description: "Create a secure password generator and storage system using Python",
-    language: "python",
-    difficulty: "Intermediate",
-    duration: "4-5 hours",
-    skills: ["Random", "File Handling", "Encryption basics", "OOP"],
-    features: ["Generate passwords", "Store encrypted", "Search passwords"],
-    icon: <Lock className="h-6 w-6" />
-  },
-  {
-    id: "py-3",
-    title: "Data Analysis Tool",
-    description: "Build a CSV data analyzer with statistics and filtering capabilities",
-    language: "python",
-    difficulty: "Advanced",
-    duration: "6-8 hours",
-    skills: ["File parsing", "Statistics", "Data structures", "Algorithms"],
-    features: ["CSV parsing", "Calculate stats", "Filter & sort data"],
-    icon: <Database className="h-6 w-6" />
-  },
-
-  {
-    id: "js-1",
-    title: "Interactive Calculator",
-    description: "Build a fully functional calculator with keyboard support using vanilla JS",
-    language: "javascript",
-    difficulty: "Beginner",
-    duration: "2-3 hours",
-    skills: ["DOM Manipulation", "Events", "Functions", "CSS"],
-    features: ["Basic operations", "Keyboard input", "History"],
-    icon: <Zap className="h-6 w-6" />
-  },
-  {
-    id: "js-2",
-    title: "Memory Card Game",
-    description: "Create a memory matching card game with animations using pure JavaScript",
-    language: "javascript",
-    difficulty: "Intermediate",
-    duration: "4-5 hours",
-    skills: ["DOM", "Arrays", "Events", "CSS Animations"],
-    features: ["Card matching", "Score tracking", "Timer"],
-    icon: <Layers className="h-6 w-6" />
-  },
-  {
-    id: "js-3",
-    title: "Kanban Task Board",
-    description: "Build a drag-and-drop task board with local storage persistence",
-    language: "javascript",
-    difficulty: "Advanced",
-    duration: "6-8 hours",
-    skills: ["Drag & Drop API", "Local Storage", "DOM", "Events"],
-    features: ["Drag tasks", "Multiple columns", "Persistent data"],
-    icon: <Globe className="h-6 w-6" />
-  },
-
-  {
-    id: "ts-1",
-    title: "Type-Safe Todo App",
-    description: "Build a todo application with strict TypeScript types and interfaces",
-    language: "typescript",
-    difficulty: "Beginner",
-    duration: "3-4 hours",
-    skills: ["Interfaces", "Types", "Generics", "Enums"],
-    features: ["CRUD operations", "Type validation", "Filtering"],
-    icon: <Terminal className="h-6 w-6" />
-  },
-  {
-    id: "ts-2",
-    title: "CLI Expense Tracker",
-    description: "Create a command-line expense tracker with TypeScript",
-    language: "typescript",
-    difficulty: "Intermediate",
-    duration: "5-6 hours",
-    skills: ["Type Guards", "Union Types", "Classes", "File I/O"],
-    features: ["Track expenses", "Categories", "Reports"],
-    icon: <Database className="h-6 w-6" />
-  },
-  {
-    id: "ts-3",
-    title: "Generic Data Structures",
-    description: "Implement type-safe data structures (Stack, Queue, LinkedList)",
-    language: "typescript",
-    difficulty: "Advanced",
-    duration: "6-8 hours",
-    skills: ["Generics", "Classes", "Interfaces", "Iterators"],
-    features: ["Stack", "Queue", "LinkedList", "Unit tests"],
-    icon: <Cpu className="h-6 w-6" />
-  },
-
-  {
-    id: "java-1",
-    title: "Banking System Console App",
-    description: "Build a banking system with accounts, transactions, and reports",
-    language: "java",
-    difficulty: "Beginner",
-    duration: "4-5 hours",
-    skills: ["OOP", "Collections", "File I/O", "Scanner"],
-    features: ["Create accounts", "Deposit/withdraw", "View balance"],
-    icon: <Lock className="h-6 w-6" />
-  },
-  {
-    id: "java-2",
-    title: "Library Management System",
-    description: "Create a library system with book catalog and borrowing",
-    language: "java",
-    difficulty: "Intermediate",
-    duration: "6-8 hours",
-    skills: ["OOP", "ArrayList", "HashMap", "File persistence"],
-    features: ["Add books", "Search catalog", "Borrow/return"],
-    icon: <Database className="h-6 w-6" />
-  },
-  {
-    id: "java-3",
-    title: "Multi-threaded File Processor",
-    description: "Build a concurrent file processor using Java threads",
-    language: "java",
-    difficulty: "Advanced",
-    duration: "8-10 hours",
-    skills: ["Threads", "Synchronization", "Executors", "Concurrency"],
-    features: ["Parallel processing", "Thread pool", "Progress tracking"],
-    icon: <Cpu className="h-6 w-6" />
-  },
-
-  {
-    id: "c-1",
-    title: "Student Record System",
-    description: "Build a file-based student database using structs and file I/O",
-    language: "c",
-    difficulty: "Beginner",
-    duration: "3-4 hours",
-    skills: ["Structs", "File I/O", "Arrays", "Pointers"],
-    features: ["Add students", "Search records", "Save to file"],
-    icon: <Database className="h-6 w-6" />
-  },
-  {
-    id: "c-2",
-    title: "Dynamic Array Library",
-    description: "Implement a resizable array with memory management",
-    language: "c",
-    difficulty: "Intermediate",
-    duration: "5-6 hours",
-    skills: ["Pointers", "malloc/free", "Memory", "Data Structures"],
-    features: ["Dynamic resize", "Insert/delete", "Memory efficient"],
-    icon: <Cpu className="h-6 w-6" />
-  },
-  {
-    id: "c-3",
-    title: "Mini Shell",
-    description: "Build a Unix-like command shell with pipes and redirection",
-    language: "c",
-    difficulty: "Advanced",
-    duration: "10-15 hours",
-    skills: ["fork/exec", "Pipes", "System calls", "Signal handling"],
-    features: ["Run commands", "Pipes", "I/O redirection"],
-    icon: <Terminal className="h-6 w-6" />
-  },
-
-  {
-    id: "cpp-1",
-    title: "Console Text Editor",
-    description: "Build a text editor with file operations using C++ STL",
-    language: "cpp",
-    difficulty: "Beginner",
-    duration: "3-4 hours",
-    skills: ["STL strings", "fstream", "Vectors", "OOP"],
-    features: ["Open/save files", "Edit text", "Line numbers"],
-    icon: <Terminal className="h-6 w-6" />
-  },
-  {
-    id: "cpp-2",
-    title: "Template-based Container Library",
-    description: "Create generic containers using C++ templates",
-    language: "cpp",
-    difficulty: "Intermediate",
-    duration: "6-8 hours",
-    skills: ["Templates", "STL", "Iterators", "Operator overloading"],
-    features: ["Generic stack", "Generic queue", "Custom iterators"],
-    icon: <Layers className="h-6 w-6" />
-  },
-  {
-    id: "cpp-3",
-    title: "Memory Pool Allocator",
-    description: "Implement a custom memory pool for efficient allocation",
-    language: "cpp",
-    difficulty: "Advanced",
-    duration: "10-12 hours",
-    skills: ["Memory management", "Placement new", "Templates", "RAII"],
-    features: ["Fast allocation", "Memory reuse", "Leak detection"],
-    icon: <Cpu className="h-6 w-6" />
-  },
-
-  // HTML
-  {
-    id: "html-1",
-    title: "Personal Portfolio",
-    description: "Build a responsive personal portfolio website",
-    language: "html",
-    difficulty: "Beginner",
-    duration: "3-4 hours",
-    skills: ["Semantic HTML", "Links", "Images", "Forms"],
-    features: ["About me", "Projects gallery", "Contact form"],
-    icon: <Globe className="h-6 w-6" />
-  },
-
-  // CSS
-  {
-    id: "css-1",
-    title: "Landing Page",
-    description: "Design a beautiful landing page with modern CSS",
-    language: "css",
-    difficulty: "Intermediate",
-    duration: "4-5 hours",
-    skills: ["Flexbox", "Grid", "Animations", "Responsive Design"],
-    features: ["Hero section", "Feature grid", "Testimonials"],
-    icon: <Layers className="h-6 w-6" />
-  },
-
-  // PHP
-  {
-    id: "php-1",
-    title: "Blog Engine",
-    description: "Create a dynamic blog with admin panel",
-    language: "php",
-    difficulty: "Intermediate",
-    duration: "8-10 hours",
-    skills: ["MySQL", "Sessions", "CRUD", "Authentication"],
-    features: ["Create posts", "Comments", "User login"],
-    icon: <Database className="h-6 w-6" />
-  },
-
-  // Ruby
-  {
-    id: "ruby-1",
-    title: "CLI Quiz Game",
-    description: "Build an interactive quiz game in the terminal",
-    language: "ruby",
-    difficulty: "Beginner",
-    duration: "2-3 hours",
-    skills: ["Input/Output", "Classes", "Loops", "File I/O"],
-    features: ["Multiple choice", "Score tracking", "High scores"],
-    icon: <Terminal className="h-6 w-6" />
-  },
-
-  // SQL
-  {
-    id: "sql-1",
-    title: "E-commerce Database",
-    description: "Design and query a database for an online store",
-    language: "sql",
-    difficulty: "Intermediate",
-    duration: "4-5 hours",
-    skills: ["Schema Design", "Joins", "Aggregations", "Views"],
-    features: ["Product catalog", "Order history", "Customer analytics"],
-    icon: <Database className="h-6 w-6" />
-  },
-
-  // Swift
-  {
-    id: "swift-1",
-    title: "Weather App",
-    description: "Build a weather forecast app for iOS",
-    language: "swift",
-    difficulty: "Intermediate",
-    duration: "6-8 hours",
-    skills: ["SwiftUI", "API Integration", "JSON Parsing", "Location"],
-    features: ["Current weather", "Forecast", "Location search"],
-    icon: <Zap className="h-6 w-6" />
-  },
-
-  // Kotlin
-  {
-    id: "kotlin-1",
-    title: "Note Taking App",
-    description: "Create a modern Android note-taking app",
-    language: "kotlin",
-    difficulty: "Intermediate",
-    duration: "6-8 hours",
-    skills: ["Android Jetpack", "Room Database", "Coroutines", "MVVM"],
-    features: ["Create notes", "Search", "Categories"],
-    icon: <Layers className="h-6 w-6" />
-  },
-
-  // Dart
-  {
-    id: "dart-1",
-    title: "Chat App UI",
-    description: "Build a beautiful chat application interface",
-    language: "dart",
-    difficulty: "Beginner",
-    duration: "4-5 hours",
-    skills: ["Flutter Widgets", "Layouts", "Navigation", "Theming"],
-    features: ["Message list", "Input field", "Profile view"],
-    icon: <MessageCircle className="h-6 w-6" />
-  },
-
-  // C#
-  {
-    id: "csharp-1",
-    title: "Inventory System",
-    description: "Build a desktop inventory management system",
-    language: "csharp",
-    difficulty: "Intermediate",
-    duration: "8-10 hours",
-    skills: ["WPF/WinForms", "Entity Framework", "LINQ", "SQL Server"],
-    features: ["Stock tracking", "Sales reports", "User roles"],
-    icon: <Database className="h-6 w-6" />
-  },
-
-  // Go
-  {
-    id: "go-1",
-    title: "Web Server",
-    description: "Build a high-performance REST API",
-    language: "go",
-    difficulty: "Intermediate",
-    duration: "5-6 hours",
-    skills: ["net/http", "Goroutines", "JSON", "Middleware"],
-    features: ["API endpoints", "Concurrency", "Logging"],
-    icon: <Globe className="h-6 w-6" />
-  },
-
-  // Rust
-  {
-    id: "rust-1",
-    title: "File Compressor",
-    description: "Create a CLI tool to compress files",
-    language: "rust",
-    difficulty: "Advanced",
-    duration: "8-10 hours",
-    skills: ["File I/O", "Compression Algorithms", "Error Handling", "Clap"],
-    features: ["Compress/Decompress", "Progress bar", "Benchmarks"],
-    icon: <Terminal className="h-6 w-6" />
-  },
-
-  // R
-  {
-    id: "r-1",
-    title: "Data Visualization Dashboard",
-    description: "Create interactive charts and graphs",
-    language: "r",
-    difficulty: "Intermediate",
-    duration: "4-5 hours",
-    skills: ["ggplot2", "Shiny", "Data Cleaning", "Statistics"],
-    features: ["Interactive plots", "Data filtering", "Export reports"],
-    icon: <Layers className="h-6 w-6" />
-  },
-
-  // Julia
-  {
-    id: "julia-1",
-    title: "Scientific Calculator",
-    description: "Build a high-performance scientific calculator",
-    language: "julia",
-    difficulty: "Beginner",
-    duration: "3-4 hours",
-    skills: ["Math functions", "REPL", "Multiple Dispatch", "Plotting"],
-    features: ["Complex numbers", "Matrix operations", "Graphing"],
-    icon: <Cpu className="h-6 w-6" />
-  },
-
-  // Scala
-  {
-    id: "scala-1",
-    title: "Distributed Task Queue",
-    description: "Implement a distributed task processing system",
-    language: "scala",
-    difficulty: "Advanced",
-    duration: "10-12 hours",
-    skills: ["Akka", "Concurrency", "Functional Programming", "JVM"],
-    features: ["Task scheduling", "Worker nodes", "Fault tolerance"],
-    icon: <Globe className="h-6 w-6" />
-  },
-];
-
-export default function ProjectsPage() {
+function ProjectsPageContent() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadUser() {
+    async function loadData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push("/auth/login");
         return;
       }
       setUser(user);
+
+      const fetchedProjects = await getProjects();
+
+      const mappedProjects = fetchedProjects.map(p => {
+        let Icon = Terminal;
+        const titleLower = p.title.toLowerCase();
+        if (titleLower.includes("web") || titleLower.includes("landing") || titleLower.includes("portfolio")) Icon = Globe;
+        else if (titleLower.includes("data") || titleLower.includes("sql") || titleLower.includes("inventory")) Icon = Database;
+        else if (titleLower.includes("calc") || titleLower.includes("math")) Icon = Cpu;
+        else if (titleLower.includes("game")) Icon = Zap;
+        else if (titleLower.includes("app") || titleLower.includes("chat")) Icon = MessageCircle;
+        else if (titleLower.includes("system") || titleLower.includes("manager")) Icon = Layers;
+
+        return {
+          ...p,
+          icon: <Icon className="h-6 w-6" />
+        };
+      });
+
+      setProjects(mappedProjects);
       setLoading(false);
     }
-    loadUser();
+    loadData();
   }, [router]);
 
-  const filteredProjects = PROJECTS.filter(project => {
+  const filteredProjects = projects.filter(project => {
     const matchesLanguage = !selectedLanguage || project.language === selectedLanguage;
     const matchesDifficulty = selectedDifficulty === "all" || project.difficulty === selectedDifficulty;
     return matchesLanguage && matchesDifficulty;
@@ -578,31 +204,31 @@ export default function ProjectsPage() {
                       </div>
                     </CardHeader>
                     <CardContent className="flex-1 flex flex-col">
-                      <p className="text-muted-foreground text-sm mb-4">
+                      <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
                         {project.description}
                       </p>
 
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {project.skills.map((skill) => (
-                          <Badge key={skill} variant="secondary" className="text-xs">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
-
-                      <div className="space-y-2 mb-4 text-sm">
-                        <h4 className="font-medium text-muted-foreground">What you'll build:</h4>
-                        <ul className="space-y-1">
-                          {project.features.map((feature, idx) => (
-                            <li key={idx} className="flex items-center gap-2 text-muted-foreground">
-                              <Code className="h-3 w-3 text-primary" />
-                              {feature}
-                            </li>
+                      {project.concepts && project.concepts.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {project.concepts.slice(0, 4).map((concept: string) => (
+                            <Badge key={concept} variant="secondary" className="text-xs">
+                              {concept}
+                            </Badge>
                           ))}
-                        </ul>
+                          {project.concepts.length > 4 && (
+                            <Badge variant="secondary" className="text-xs">+{project.concepts.length - 4}</Badge>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="space-y-2 mb-4 text-sm mt-auto">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <BookOpen className="h-4 w-4 text-primary" />
+                          {project.steps ? project.steps.length : 0} Guided Steps
+                        </div>
                       </div>
 
-                      <div className="mt-auto pt-4 border-t border-border flex items-center justify-between">
+                      <div className="pt-4 border-t border-border flex items-center justify-between">
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Clock className="h-4 w-4" />
@@ -657,9 +283,27 @@ export default function ProjectsPage() {
           </div>
         </main>
         <aside className="hidden laptop:block w-[180px] shrink-0 p-4 sticky top-24 h-fit">
-          <AdUnit slotId="REPLACE_WITH_RIGHT_AD_SLOT_ID" />
+          <AdUnit slotId="7951672437" />
         </aside>
       </div>
     </div>
+  );
+}
+
+export default function ProjectsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading projects...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <ProjectsPageContent />
+    </Suspense>
   );
 }
