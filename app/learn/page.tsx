@@ -166,7 +166,7 @@ function LearnPageContent() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {LANGUAGES.filter(lang => ["python", "javascript", "typescript", "java", "c", "cpp"].includes(lang.id)).map((lang) => {
+                  {LANGUAGES.map((lang) => {
                     const langLessons = lessons.filter(l => l.language === lang.id);
                     const completedCount = langLessons.filter(l => completedLessons.has(l.id)).length;
                     const progress = langLessons.length > 0 ? (completedCount / langLessons.length) * 100 : 0;

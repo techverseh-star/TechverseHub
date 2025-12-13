@@ -5,7 +5,7 @@ export function Footer() {
     return (
         <footer className="border-t border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-12 pb-8">
             <div className="container max-w-screen-2xl mx-auto px-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
                     <div className="space-y-4">
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
@@ -36,15 +36,23 @@ export function Footer() {
                         </ul>
                     </div>
 
-
-
                     <div>
                         <h3 className="font-semibold mb-4">Company</h3>
                         <ul className="space-y-2 text-sm text-muted-foreground">
                             <li><Link href="/about" className="hover:text-primary transition-colors">About</Link></li>
-
+                            <li><Link href="/blog" className="hover:text-primary transition-colors">Blog</Link></li>
                             <li><Link href="/contact" className="hover:text-primary transition-colors">Contact</Link></li>
                             <li><Link href="/feedback" className="hover:text-primary transition-colors">Feedback</Link></li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h3 className="font-semibold mb-4">Legal</h3>
+                        <ul className="space-y-2 text-sm text-muted-foreground">
+                            <li><Link href="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+                            <li><Link href="/terms-conditions" className="hover:text-primary transition-colors">Terms & Conditions</Link></li>
+                            <li><Link href="/disclaimer" className="hover:text-primary transition-colors">Disclaimer</Link></li>
+                            <li><Link href="/cookie-policy" className="hover:text-primary transition-colors">Cookie Policy</Link></li>
                         </ul>
                     </div>
                 </div>
