@@ -21,8 +21,8 @@ export async function POST(request: NextRequest) {
     });
 
     const userName = email.split('@')[0];
-    const siteUrl = process.env.REPLIT_DEV_DOMAIN 
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+    const siteUrl = process.env.REPLIT_DEV_DOMAIN
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
       : 'https://techverse-hub.replit.app';
 
     const mailOptions = {
@@ -40,11 +40,11 @@ export async function POST(request: NextRequest) {
             <p style="font-size: 16px; color: #475569; line-height: 1.6;">Thank you for joining TechVerse Hub! You now have access to:</p>
             <div style="background: #f1f5f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <ul style="font-size: 15px; color: #334155; line-height: 2; margin: 0; padding-left: 20px;">
-                <li><strong>6 Programming Languages</strong> - Python, JavaScript, TypeScript, Java, C, C++</li>
-                <li><strong>66+ Interactive Lessons</strong> - From beginner to advanced</li>
-                <li><strong>180+ Practice Problems</strong> - LeetCode-style challenges</li>
+                <li><strong>Interactive Coding Courses</strong> - Master 6+ languages</li>
+                <li><strong>Tech Insights Blog</strong> - Stay updated with industry trends</li>
+                <li><strong>Community & Mentorship</strong> - Connect with other developers</li>
+                <li><strong>Real-world Open Source</strong> - Contribute to meaningful projects</li>
                 <li><strong>AI-Powered Assistance</strong> - Get help when you're stuck</li>
-                <li><strong>Progress Tracking</strong> - XP, lessons, and achievements</li>
               </ul>
             </div>
             <div style="text-align: center; margin: 30px 0;">

@@ -37,13 +37,13 @@ export default function HomePage() {
               </div>
 
               <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
-                Build Real Skills With
-                <span className="gradient-text block mt-2">Real Practice</span>
+                Your Complete Ecosystem for
+                <span className="gradient-text block mt-2">Technical Excellence</span>
               </h1>
 
               <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-                Master 6 programming languages with interactive lessons, 180+ coding challenges,
-                and AI-powered assistance. From beginner to advanced, we've got you covered.
+                Join a thriving community of innovators. Master 6+ languages with AI-powered mentorship,
+                stay ahead with industry insights, and build real-world impact through open source.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -67,10 +67,10 @@ export default function HomePage() {
           <div className="container mx-auto px-4">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-4xl font-bold mb-4">Everything you need to code</h2>
-              <p className="text-muted-foreground text-lg">Comprehensive tools for learning and practicing</p>
+              <p className="text-muted-foreground text-lg">Comprehensive tools for learning, building, and growing</p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
               <div className="glass-card rounded-xl p-8 hover:glow transition-all duration-300">
                 <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center mb-6">
                   <Code2 className="h-6 w-6 text-blue-500" />
@@ -98,6 +98,36 @@ export default function HomePage() {
                 <h3 className="text-xl font-semibold mb-3">Practice Arena</h3>
                 <p className="text-muted-foreground">
                   180+ coding challenges across 6 languages. Test your skills with real test cases and instant feedback.
+                </p>
+              </div>
+
+              <div className="glass-card rounded-xl p-8 hover:glow transition-all duration-300">
+                <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center mb-6">
+                  <Zap className="h-6 w-6 text-orange-500" />
+                </div>
+                <h3 className="text-xl font-semibold mb-3">Community First</h3>
+                <p className="text-muted-foreground">
+                  Connect with peers, find mentors, and grow together in a supportive environment.
+                </p>
+              </div>
+
+              <div className="glass-card rounded-xl p-8 hover:glow transition-all duration-300">
+                <div className="w-12 h-12 rounded-lg bg-pink-500/10 flex items-center justify-center mb-6">
+                  <Brain className="h-6 w-6 text-pink-500" />
+                </div>
+                <h3 className="text-xl font-semibold mb-3">Industry Insights</h3>
+                <p className="text-muted-foreground">
+                  Stay ahead of the curve with our curated blog, deep dives into tech trends, and career advice.
+                </p>
+              </div>
+
+              <div className="glass-card rounded-xl p-8 hover:glow transition-all duration-300">
+                <div className="w-12 h-12 rounded-lg bg-cyan-500/10 flex items-center justify-center mb-6">
+                  <Code2 className="h-6 w-6 text-cyan-500" />
+                </div>
+                <h3 className="text-xl font-semibold mb-3">Open Source</h3>
+                <p className="text-muted-foreground">
+                  Contribute to real-world projects like our mesh network initiative and build your portfolio.
                 </p>
               </div>
             </div>
