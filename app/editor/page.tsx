@@ -1,5 +1,5 @@
 "use client";
-import { getLoggedUser } from "@/lib/auth";
+import { useAuth } from "@/components/AuthProvider";
 import React, { useEffect, useRef, useState } from "react";
 import { THEME, FileObj } from "./types";
 import { createFileObj, extToLang, langToExt, defaultContentFor, debounce, stringify } from "./utils";
@@ -43,11 +43,19 @@ function ImportPanel({ onImported, onCancel, existingFiles }: { onImported: (fil
 }
 
 export default function EditorPage() {
+  const { user, session, loading: authLoading } = useAuth();
+
   // files
   const [files, setFiles] = useState<FileObj[]>([]);
 
   const [activeFileId, setActiveFileId] = useState<string>("");
   const [openFileIds, setOpenFileIds] = useState<string[]>([]);
+
+  // On narrow viewports the file explorer / AI panel don't fit alongside the
+  // editor (they need ~850px combined), so below `md` they render as
+  // overlay drawers toggled from the tab bar instead of persistent columns.
+  const [mobileFilesOpen, setMobileFilesOpen] = useState(false);
+  const [mobileAIOpen, setMobileAIOpen] = useState(false);
 
   // layout/resizers
   const [leftWidth, setLeftWidth] = useState<number>(324);
@@ -80,16 +88,27 @@ export default function EditorPage() {
   const [running, setRunning] = useState(false);
 
   const saveTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
+  // Guards the file-loading effects below so they only ever populate `files`
+  // once per visit. Without this, a token refresh (session gets a new object
+  // reference periodically) or a cross-tab login (user flips from null to an
+  // object via Supabase's storage-event sync) would re-run the effect and
+  // silently overwrite in-progress edits - guest content that was never
+  // saved, or an authenticated user's unsaved changes - with whatever is
+  // currently in the DB.
+  const filesInitialized = useRef(false);
 
-  function triggerSave(user_id: string, file: FileObj) {
+  function triggerSave(file: FileObj) {
     if (saveTimeouts.current[file.id]) {
       clearTimeout(saveTimeouts.current[file.id]);
     }
     saveTimeouts.current[file.id] = setTimeout(async () => {
       await fetch("/api/files/save", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id, file }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ file }),
       });
       delete saveTimeouts.current[file.id];
     }, 700);
@@ -115,14 +134,17 @@ export default function EditorPage() {
 
   // LOAD USER FILES ON PAGE OPEN
   useEffect(() => {
-    async function load() {
-      const user = await getLoggedUser();
-      if (!user) return;
+    if (authLoading || !user || filesInitialized.current) return;
+    filesInitialized.current = true;
 
+    async function load() {
       const res = await fetch("/api/files/load", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: user.id }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({}),
       });
 
       const data = await res.json();
@@ -138,7 +160,7 @@ export default function EditorPage() {
         setActiveFileId(defaultFile.id);
         setOpenFileIds([defaultFile.id]);
 
-        triggerSave(user.id, defaultFile);
+        triggerSave(defaultFile);
       } else {
         // Deduplicate files by name, keeping the most recent one
         const uniqueFilesMap = new Map<string, FileObj>();
@@ -176,7 +198,16 @@ export default function EditorPage() {
     }
 
     load();
-  }, []);
+  }, [authLoading, user, session]);
+
+  // GUESTS: the load-user-files effect above only runs when a user is
+  // signed in, so without this a guest's `files` state stays empty forever
+  // and the editor renders blank (no tabs, no Monaco model).
+  useEffect(() => {
+    if (authLoading || user || filesInitialized.current) return;
+    filesInitialized.current = true;
+    ensureAtLeastOneFile(setFiles, setActiveFileId, setOpenFileIds);
+  }, [authLoading, user]);
 
   // ensure full height
   useEffect(() => {
@@ -285,15 +316,12 @@ export default function EditorPage() {
       prev.map(f => (f.id === id ? { ...f, content } : f))
     );
 
-    (async () => {
-      const user = await getLoggedUser();
-      if (user) {
-        const file = files.find(f => f.id === id);
-        if (file) {
-          triggerSave(user.id, { ...file, content });
-        }
+    if (user) {
+      const file = files.find(f => f.id === id);
+      if (file) {
+        triggerSave({ ...file, content });
       }
-    })();
+    }
   }
 
   function createNewFileHandler(language?: string, suggestedName?: string) {
@@ -312,10 +340,7 @@ export default function EditorPage() {
     setModalOpen(null);
 
     // Save immediately to Supabase
-    (async () => {
-      const user = await getLoggedUser();
-      if (user) triggerSave(user.id, file);
-    })();
+    if (user) triggerSave(file);
   }
 
   function renameFileStart(id: string) {
@@ -340,23 +365,20 @@ export default function EditorPage() {
     const updated = files.filter((x) => x.id !== id);
 
     // Call API to delete from DB
-    (async () => {
-      const user = await getLoggedUser();
-      if (user) {
-        await fetch("/api/files/delete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: user.id, file_id: id }),
-        });
-      }
-    })();
+    if (user) {
+      fetch("/api/files/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ file_id: id }),
+      });
+    }
 
     if (updated.length === 0) {
       const newFile = ensureAtLeastOneFile(setFiles, setActiveFileId, setOpenFileIds);
-      (async () => {
-        const user = await getLoggedUser();
-        if (user) triggerSave(user.id, newFile);
-      })();
+      if (user) triggerSave(newFile);
       return;
     }
 
@@ -375,6 +397,15 @@ export default function EditorPage() {
     const active = files.find((f) => f.id === activeFileId);
     if (!active || aiLoading) return;
 
+    if (!user) {
+      setChatMessages(prev => [
+        ...prev,
+        { role: "user", content: text },
+        { role: "assistant", content: "Please [sign in](/auth/login) to use the AI assistant." },
+      ]);
+      return;
+    }
+
     const newMessage = { role: "user" as const, content: text };
     const updatedMessages = [...chatMessages, newMessage];
     setChatMessages(updatedMessages);
@@ -383,7 +414,10 @@ export default function EditorPage() {
     try {
       const res = await fetch("/api/ai/groq", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           task: "chat",
           code: active.content,
@@ -450,6 +484,12 @@ export default function EditorPage() {
         return;
       }
 
+      if (!user) {
+        setConsoleLines((c) => [...c, "Please sign in to run code in this language."]);
+        setRunning(false);
+        return;
+      }
+
       // Use current stdin (which might have been cleared)
       const inputToSend = clearInput ? "" : stdin;
 
@@ -458,7 +498,10 @@ export default function EditorPage() {
       }
       const res = await fetch("/api/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({ code: active.content, language: active.language, testInput: inputToSend }),
       });
       const data = await res.json();
@@ -517,12 +560,15 @@ export default function EditorPage() {
         onCloseTab={closeTab}
         onRun={runActiveFile}
         onDebug={() => handleSendMessage("Debug this code")}
+        onToggleFiles={() => setMobileFilesOpen((v) => !v)}
+        onToggleAI={() => setMobileAIOpen((v) => !v)}
       />
 
       <div style={{ display: "flex", height: `calc(100vh - 56px)`, minHeight: 0, overflow: "hidden" }}>
         <ActivityBar onCreateFile={createNewFileHandler} />
 
-        <div style={{ display: "flex", height: "100%", minHeight: 0, flexShrink: 0 }}>
+        {/* Desktop: persistent file explorer column (md and up) */}
+        <div className="hidden md:flex" style={{ height: "100%", minHeight: 0, flexShrink: 0 }}>
           <FileExplorer
             files={files}
             activeFileId={activeFileId}
@@ -534,27 +580,72 @@ export default function EditorPage() {
             onNewFile={() => setModalOpen({ mode: "new" })}
             onImportFile={() => setModalOpen({ mode: "import" })}
           />
-
-
         </div>
+
+        {/* Mobile: file explorer as an overlay drawer */}
+        {mobileFilesOpen && (
+          <div className="md:hidden" style={{ position: "fixed", inset: 0, zIndex: 55 }}>
+            <div
+              onClick={() => setMobileFilesOpen(false)}
+              style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }}
+            />
+            <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "85vw", maxWidth: 320 }}>
+              <FileExplorer
+                files={files}
+                activeFileId={activeFileId}
+                leftWidth={Math.min(320, typeof window !== "undefined" ? window.innerWidth * 0.85 : 280)}
+                leftTransition={false}
+                onOpenFile={(id) => { openFile(id); setMobileFilesOpen(false); }}
+                onRenameFile={renameFileStart}
+                onDeleteFile={deleteFilePrompt}
+                onNewFile={() => setModalOpen({ mode: "new" })}
+                onImportFile={() => setModalOpen({ mode: "import" })}
+              />
+            </div>
+          </div>
+        )}
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: THEME.bg }}>
           <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0, minWidth: 0 }}>
             <CodeEditor activeFile={activeFile} onUpdateContent={updateFileContent} />
 
-            <AIPanel
-              rightWidth={rightWidth}
-              rightTransition={rightTransition}
-              messages={chatMessages}
-              loading={aiLoading}
-              onSendMessage={handleSendMessage}
-              onApplyCode={handleApplyCode}
-              onDragStart={() => {
-                desiredRightRef.current = rightWidth;
-                setIsDraggingRight(true);
-                setRightTransition(false);
-              }}
-            />
+            {/* Desktop: persistent AI panel column (md and up) */}
+            <div className="hidden md:flex">
+              <AIPanel
+                rightWidth={rightWidth}
+                rightTransition={rightTransition}
+                messages={chatMessages}
+                loading={aiLoading}
+                onSendMessage={handleSendMessage}
+                onApplyCode={handleApplyCode}
+                onDragStart={() => {
+                  desiredRightRef.current = rightWidth;
+                  setIsDraggingRight(true);
+                  setRightTransition(false);
+                }}
+              />
+            </div>
+
+            {/* Mobile: AI panel as an overlay drawer */}
+            {mobileAIOpen && (
+              <div className="md:hidden" style={{ position: "fixed", inset: 0, zIndex: 55 }}>
+                <div
+                  onClick={() => setMobileAIOpen(false)}
+                  style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }}
+                />
+                <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "90vw", maxWidth: 420 }}>
+                  <AIPanel
+                    rightWidth={typeof window !== "undefined" ? Math.min(420, window.innerWidth * 0.9) : 320}
+                    rightTransition={false}
+                    messages={chatMessages}
+                    loading={aiLoading}
+                    onSendMessage={handleSendMessage}
+                    onApplyCode={handleApplyCode}
+                    onDragStart={() => {}}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <ConsolePanel

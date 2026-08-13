@@ -1,0 +1,1694 @@
+{
+  "module_id": "L2-M10",
+  "module_number": 10,
+  "title": "Interval And Greedy Algorithms",
+  "tag": null,
+  "is_optional_for_product_track": false,
+  "estimated_hours": "10–12 hours",
+  "prerequisites": [
+    "L1-M02",
+    "L1-M05"
+  ],
+  "learning_outcomes": [
+    "Sort intervals by start time and apply the canonical merge, overlap, and conflict detection patterns",
+    "Solve Merge Intervals and Non-Overlapping Intervals in O(n log n) with sort-then-scan",
+    "Solve Meeting Rooms II using a min-heap of end times for optimal room assignment",
+    "Prove greedy correctness for Jump Game I and II using the exchange argument",
+    "Apply the greedy reach pattern to solve reachability and minimum-step problems",
+    "Identify when greedy is safe (exchange argument passes) versus when DP is required"
+  ],
+  "notes": [],
+  "spaced_review": "Re-solve 3 DP problems from Modules 1–3 from scratch",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "title": "Interval Problem Framework",
+      "tag": null,
+      "objective": "Understand the interval problem framework: sort by start time, define the overlap condition precisely, and map the three canonical interval operations to their algorithms.",
+      "concepts": [
+        "Interval representation: [start, end] where start <= end",
+        "Overlap condition: two intervals [a,b] and [c,d] overlap if a <= d AND c <= b",
+        "Non-overlap condition: b < c OR d < a (one ends before the other starts)",
+        "Sort by start time: canonical first step for all interval problems",
+        "Three operations: merge, detect conflict, minimum resources",
+        "After sorting: only need to compare each interval with the previous one",
+        "O(n log n) time: dominated by sorting; O(n) post-sort scan",
+        "Coordinate compression: treating start/end as events on a timeline"
+      ],
+      "explanation": "Interval problems operate on a set of [start, end] pairs. The canonical first step is sorting by start time. After sorting, intervals can only overlap with adjacent or near-adjacent intervals, reducing pairwise comparisons from O(n²) to O(n). The overlap condition: intervals [a,b] and [c,d] overlap if and only if a <= d AND c <= b. This is more precisely stated as: they do NOT overlap if b < c (first ends before second starts) or d < a (second ends before first starts). Complement of non-overlap is overlap. Three canonical operations built from this foundation: (1) Merge: combine all overlapping intervals into minimal non-overlapping set. (2) Detect conflicts: find if any two intervals overlap. (3) Minimum resources: find the maximum number of simultaneous intervals (minimum rooms needed). Each has a distinct algorithm but they all start with sorting by start time. The event-based perspective: treat each interval's start and end as separate events on a timeline. Sort all events and process in order. This timeline scan is O(n) after the O(n log n) sort.",
+      "analogy": "Interval problems are like managing a booking calendar. Sorting by start time is like arranging all bookings chronologically. Overlap detection is checking if two appointments clash. Merging is combining adjacent or overlapping bookings into one block. Finding minimum rooms is like asking: at what point in the day are the most meetings happening simultaneously? That peak number is the minimum room count needed.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// INTERVAL FRAMEWORK UTILITIES\n\n// Standard sort: by start time ascending, then by end time ascending for ties\nfunction sortIntervals(intervals) {\n    return intervals.sort((a, b) => a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1]);\n}\n\n// Overlap check: do intervals a and b overlap?\nfunction overlaps(a, b) {\n    // a=[a0,a1], b=[b0,b1]\n    // Overlap iff NOT (a ends before b starts OR b ends before a starts)\n    return !(a[1] < b[0] || b[1] < a[0]);\n    // Equivalent: a[0] <= b[1] && b[0] <= a[1]\n}\n\n// After sorting, only need to check if current interval overlaps with PREVIOUS merged end\n// This is the key simplification that makes O(n) post-sort scan possible\n\n// THREE CANONICAL PATTERNS:\n\n// PATTERN 1: MERGE OVERLAPPING INTERVALS\n// Scan sorted intervals. Extend current merge window or start new.\nfunction mergePattern(intervals) {\n    sortIntervals(intervals);\n    const result = [intervals[0]];\n    for (let i = 1; i < intervals.length; i++) {\n        const prev = result[result.length - 1];\n        const curr = intervals[i];\n        if (curr[0] <= prev[1]) {          // overlap: extend\n            prev[1] = Math.max(prev[1], curr[1]);\n        } else {\n            result.push([...curr]);         // no overlap: new interval\n        }\n    }\n    return result;\n}\n\n// PATTERN 2: COUNT CONFLICTS / REMOVE TO ELIMINATE CONFLICTS\n// Sort, then track end of last non-conflicting interval\nfunction conflictPattern(intervals) {\n    sortIntervals(intervals);\n    let conflicts = 0, lastEnd = -Infinity;\n    for (const [start, end] of intervals) {\n        if (start < lastEnd) conflicts++;         // conflict with previous\n        else lastEnd = end;                        // no conflict: update lastEnd\n    }\n    return conflicts;\n}\n\n// PATTERN 3: MINIMUM RESOURCES (rooms needed)\n// Track active intervals with a min-heap of end times\nfunction resourcePattern(intervals) {\n    sortIntervals(intervals);\n    const heap = []; // min-heap of end times (active interval ends)\n    for (const [start, end] of intervals) {\n        // Free rooms whose meeting ended before this starts\n        // heap.sort() for interview clarity; use proper MinHeap in production\n        heap.sort((a,b) => a-b);\n        if (heap.length > 0 && heap[0] <= start) heap.shift();\n        heap.push(end);\n    }\n    return heap.length; // max simultaneous = rooms needed\n}\n\nconsole.log(mergePattern([[1,3],[2,6],[8,10],[15,18]]));  // [[1,6],[8,10],[15,18]]\nconsole.log(conflictPattern([[1,2],[2,3],[3,4],[1,3]]));  // 1 (remove [1,3])\nconsole.log(resourcePattern([[0,30],[5,10],[15,20]]));    // 2",
+        "explanation": "The three patterns differ in what they track after sorting. Merge tracks the rightmost end of the current merged interval. Conflict counts how many intervals cannot fit without overlapping with the previous. Resource tracking uses a heap of all currently active intervals' end times. The heap in resource tracking tells you: when the next meeting starts, which meetings have already ended (min-heap top <= start)?"
+      },
+      "common_mistakes": [
+        "Not sorting before applying interval algorithms — the O(n) post-sort scan only works because sorted intervals only need comparison with the previous; unsorted intervals require O(n²) pairwise comparison",
+        "Using strict less-than for overlap check when the problem uses inclusive endpoints — intervals [1,3] and [3,5] share point 3; they overlap if the problem treats endpoints as inclusive (curr[0] <= prev[1]); if exclusive, use curr[0] < prev[1]",
+        "Not taking Math.max of end times when merging — if a later interval is contained within the current merge (e.g., [1,10] followed by [2,5]), prev[1] must remain 10, not be updated to 5"
+      ],
+      "interview_relevance": "The interval framework is the entry point for all 5 interval Blind 75 / NeetCode 150 problems. Stating 'sort by start time, then scan in O(n)' within 30 seconds of reading any interval problem is the target reflex. The overlap condition (curr[0] <= prev[1] after sorting by start) must be automatic.",
+      "mini_challenge": "For each pattern, derive the overlap condition from first principles without looking at the code: (1) After sorting by start, when does interval [start, end] overlap with the currently tracked end value lastEnd? (2) When does it NOT overlap? Draw a timeline with two intervals and trace both cases. Then verify: does the overlap condition change if endpoints are exclusive ([start, end) instead of [start, end])?",
+      "flashcards": [
+        {
+          "front": "Interval overlap condition: when do [a,b] and [c,d] overlap?",
+          "back": "They overlap if and only if a ≤ d AND c ≤ b. Equivalently: they do NOT overlap if b < c (first ends before second starts) OR d < a (second ends before first starts). Negating the non-overlap gives the overlap condition."
+        },
+        {
+          "front": "Interval sort: sort by start or end?",
+          "back": "Sort by START time for: Merge Intervals, Insert Interval, counting overlaps. Sort by END time for: Non-Overlapping Intervals (greedy keep earliest-ending), Meeting Rooms II (greedy assign rooms). The choice depends on the greedy strategy."
+        },
+        {
+          "front": "Interval: open vs closed endpoints — LeetCode convention?",
+          "back": "LeetCode uses CLOSED intervals [start, end] where both endpoints are included. Overlap: [1,3] and [3,5] DO overlap (they share point 3). Non-overlap requires strictly b < c."
+        },
+        {
+          "front": "Four core interval operations?",
+          "back": "1) MERGE overlapping intervals (union). 2) INTERSECT two sets of intervals. 3) INSERT a new interval into a sorted list. 4) COUNT minimum rooms/resources needed. All start with sorting."
+        },
+        {
+          "front": "Why sort before processing intervals?",
+          "back": "Sorting guarantees that for any interval, all intervals that COULD overlap with it are adjacent in the sorted list. Without sorting, you'd need O(n²) comparisons to find all overlapping pairs. Sorting enables O(n) single-pass solutions."
+        },
+        {
+          "front": "Sweep line technique: when is it used?",
+          "back": "When you need to track how many intervals are ACTIVE at any point in time. Convert each interval to two events: +1 at start, -1 at end. Sort all events. Running sum = number of active intervals at any moment."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Do intervals [2,6] and [5,9] overlap?",
+          "options": [
+            "No — 6 ≠ 5",
+            "Yes — 2 ≤ 9 AND 5 ≤ 6 (overlap condition met)",
+            "No — they share only a boundary",
+            "Cannot determine without knowing direction"
+          ],
+          "answer": 1,
+          "explanation": "Overlap check: a≤d AND c≤b → 2≤9 ✓ AND 5≤6 ✓. They overlap in the range [5,6]. Merged interval would be [2,9]."
+        },
+        {
+          "question": "Do [1,3] and [4,6] overlap?",
+          "options": [
+            "Yes — consecutive intervals overlap",
+            "No — 3 < 4 (first ends strictly before second starts)",
+            "Yes if closed intervals",
+            "Depends on sort order"
+          ],
+          "answer": 1,
+          "explanation": "Non-overlap condition: b < c → 3 < 4 ✓. First interval ends at 3, second starts at 4. No shared point. They do NOT overlap."
+        },
+        {
+          "question": "intervals=[[1,4],[0,4]] sorted by start. Result?",
+          "options": [
+            "[[0,4],[1,4]]",
+            "[[1,4],[0,4]] (unchanged)",
+            "[[0,4]] (merged)",
+            "[[0,4],[1,4]] (sorted but not merged)"
+          ],
+          "answer": 0,
+          "explanation": "Sorted by start: [0,4] comes before [1,4]. Result: [[0,4],[1,4]]. They overlap (0≤4 AND 1≤4), so merging gives [[0,4]]. Sorting first is always the first step."
+        },
+        {
+          "question": "Sweep line for [1,5],[2,4],[3,7]: max concurrent intervals?",
+          "options": [
+            "2",
+            "3",
+            "1",
+            "5"
+          ],
+          "answer": 1,
+          "explanation": "Events: +1@1,+1@2,+1@3,-1@4,-1@5,-1@7. Running sum: 1→2→3→2→1→0. Max=3. At time 3: all three intervals active simultaneously."
+        }
+      ],
+      "visual_aid": {
+        "type": "interval_framework",
+        "description": "Interval overlap, sort keys, and sweep line visualised",
+        "diagram": "OVERLAP CHECK: [a,b] and [c,d] overlap iff a≤d AND c≤b\n\n  [1,3] and [4,6]:   3 < 4 → NO OVERLAP\n  ─────|====|────────|====|─────\n       1    3        4    6\n\n  [2,6] and [5,9]:   2≤9 ✓ and 5≤6 ✓ → OVERLAP [5,6]\n  ─────|========|───────────\n       2        6\n  ──────────|========|───\n             5        9\n\nSORT KEY SELECTION:\n  Merge Intervals     → sort by START (find candidates to merge)\n  Non-Overlapping     → sort by END   (keep earliest-ending first)\n  Meeting Rooms II    → sort starts, sort ends separately (two-pointer)\n\nSWEEP LINE [1,5],[2,4],[3,7]:\n  Events: +1@1, +1@2, +1@3, -1@4, -1@5, -1@7\n  Time:   1   2   3   4   5   7\n  Active: 1   2   3   2   1   0   ← max=3"
+      },
+      "complexity_summary": {
+        "sort_first": "O(n log n) — sorting always the first step",
+        "single_pass_after_sort": "O(n) — linear scan after sorting",
+        "total": "O(n log n) dominated by sort",
+        "overlap_check": "O(1) — a≤d AND c≤b"
+      },
+      "practice_problems": [
+        {
+          "id": "custom-iv1",
+          "title": "Classify 5 intervals as overlapping or not: manual overlap check",
+          "difficulty": "Easy",
+          "pattern": "Overlap condition drill"
+        },
+        {
+          "id": "lc-56",
+          "title": "Merge Intervals — first interval problem",
+          "difficulty": "Medium",
+          "pattern": "Sort by start, single scan merge"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M10-L1-TH-1",
+            "question": "What is the OVERLAP CONDITION between intervals [a,b] and [c,d], and what is the equivalent NON-OVERLAP condition?",
+            "options": [
+              "Overlap: a < c; Non-overlap: a >= c",
+              "OVERLAP: a <= d AND c <= b — each interval's start is before or at the other's end; NON-OVERLAP (complement): b < c OR d < a — one interval ends entirely before the other starts; the overlap condition is easier to compute via the non-overlap negation: `!(a[1] < b[0] || b[1] < a[0])`; note that touching intervals (e.g., [1,2] and [2,3]) ARE considered overlapping since 2<=2 satisfies the condition",
+              "Overlap: a == c; Non-overlap: a != c",
+              "Overlap: b > c; Non-overlap: b <= c"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concepts: 'Overlap condition: two intervals [a,b] and [c,d] overlap if a <= d AND c <= b' and 'Non-overlap: b < c OR d < a (one ends before the other starts)' — the lesson's code uses the negation form `!(a[1] < b[0] || b[1] < a[0])` which is logically equivalent; touching intervals (b==c) are overlapping."
+          },
+          {
+            "id": "L2M10-L1-TH-2",
+            "question": "After SORTING by start time, why does the interval scan only need to compare each interval with the PREVIOUS interval (not all prior intervals)?",
+            "options": [
+              "The scan must compare with all prior intervals; sorting only speeds up the initial check",
+              "After sorting by start, any interval i's start >= all previous intervals' starts; the only potential overlap is with the interval that has the LATEST END among all processed intervals — which is tracked by the current merge window or the last-kept interval; a new interval starting at time t cannot overlap with any previous interval ending before t (they ended too early); it can only potentially overlap with the one having the latest end, which we track explicitly",
+              "Sorting ensures no two intervals can overlap at all",
+              "The comparison is with the next interval, not the previous one"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'After sorting: only need to compare each interval with the previous one' — sorting enables the key simplification: since intervals are ordered by start time, any new interval either overlaps with the most recently added/merged interval (the one with the maximum end seen so far) or starts a new non-overlapping group; intervals further back in the result list ended earlier and cannot overlap."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M10-L1-LG-1",
+            "question": "For `mergePattern([[1,3],[2,6],[8,10],[15,18]])`, trace the merge scan. What happens at interval [2,6]?",
+            "options": [
+              "[2,6] starts a new merged interval since 2 > 3",
+              "After sorting (already sorted), result=[[[1,3]]]; processing [2,6]: start=2 <= prev[1]=3 → OVERLAP; prev[1]=max(3,6)=6; result=[[[1,6]]]; then [8,10]: start=8 > 6 → new interval; result=[[[1,6],[8,10]]]; then [15,18]: new; result=[[[1,6],[8,10],[15,18]]] — confirmed by direct execution",
+              "[2,6] extends the interval to [1,3+6=9]",
+              "The scan skips [2,6] because it starts inside [1,3]"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: mergePattern returns [[1,6],[8,10],[15,18]]; at [2,6]: curr[0]=2 <= prev[1]=3 (overlap detected); prev[1] updated to max(3,6)=6; the merged interval [1,6] replaces [1,3] in the result."
+          },
+          {
+            "id": "L2M10-L1-LG-2",
+            "question": "For `resourcePattern([[0,30],[5,10],[15,20]])`, trace the heap state after each meeting. How many rooms are needed?",
+            "options": [
+              "3 rooms needed: each meeting requires a separate room",
+              "Sorted by start: [0,30],[5,10],[15,20]; [0,30]: heap empty → push 30, heap=[30], rooms=1; [5,10]: heap[0]=30 > 5 → no free room → push 10, heap=[10,30], rooms=2; [15,20]: heap sorted=[10,30], heap[0]=10 ≤ 15 → room free! remove 10, push 20, heap=[20,30], rooms=2; answer=2 — confirmed by direct execution",
+              "1 room: meetings can all be scheduled sequentially",
+              "2 rooms during first half but 3 at the peak"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution and matching the lesson's trace: heap after [0,30]=[30]; after [5,10]=[10,30] (room 30 not free, need new room); after [15,20]: 10<=15 so room 10 freed and reused for 20 → heap=[20,30]; size=2."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M10-L1-SY-1",
+            "question": "The sort comparator `(a,b) => a[0] !== b[0] ? a[0]-b[0] : a[1]-b[1]` sorts by start then by end for ties. Why sort by end for ties?",
+            "options": [
+              "Tie-breaking by end is required for correctness in all interval algorithms",
+              "When two intervals share the SAME START TIME, sorting by end time ascending ensures the shorter interval comes first; this tie-breaking matters in specific algorithms (like Non-Overlapping Intervals sorted by end, or Insert Interval) but is primarily a STABILITY/DETERMINISM convention; for Merge Intervals, tie-breaking doesn't affect correctness since both orderings of same-start intervals produce the same merged result; the secondary sort makes the behavior deterministic and consistent",
+              "Tie-breaking by end ensures O(n log n) instead of O(n²) time complexity",
+              "Tie-breaking is required to prevent infinite loops in the scan"
+            ],
+            "answer": 1,
+            "explanation": "Secondary sort by end time for ties is a convention for deterministic output; for Merge Intervals specifically, the order of same-start intervals doesn't affect the final merged result (both get merged regardless); for Non-Overlapping Intervals and similar problems that are sensitive to ordering within ties, consistent tie-breaking ensures deterministic correct output."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M10-L1-CC-1",
+            "title": "Interval Framework: Three Canonical Patterns",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the three canonical interval patterns from this lesson.",
+            "requirements": [
+              "Implement `mergePatternImpl(intervals)` — sort and scan, merge overlapping",
+              "Implement `conflictPatternImpl(intervals)` — count conflicts",
+              "Implement `resourcePatternImpl(intervals)` — count peak simultaneous resources"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function mergePatternImpl(intervals) {\n  // TODO: sort by start, scan and merge overlapping\n}\n\nfunction conflictPatternImpl(intervals) {\n  // TODO: sort by start, count intervals conflicting with previous lastEnd\n}\n\nfunction resourcePatternImpl(intervals) {\n  // TODO: sort by start, heap of end times, return max simultaneous\n}"
+            },
+            "test_cases": [
+              {
+                "input": "JSON.stringify(mergePatternImpl([[1,3],[2,6],[8,10],[15,18]]))",
+                "expected": "[[1,6],[8,10],[15,18]]",
+                "type": "visible"
+              },
+              {
+                "input": "conflictPatternImpl([[1,2],[2,3],[3,4],[1,3]])",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "resourcePatternImpl([[0,30],[5,10],[15,20]])",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "conflictPatternImpl([[1,2],[1,2],[1,2]])",
+                "expected": 2,
+                "type": "hidden"
+              },
+              {
+                "input": "resourcePatternImpl([[7,10],[2,4]])",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function mergePatternImpl(intervals) {\n  intervals.sort((a,b)=>a[0]-b[0]);\n  const r=[intervals[0].slice()];\n  for(let i=1;i<intervals.length;i++){\n    const p=r[r.length-1],c=intervals[i];\n    if(c[0]<=p[1])p[1]=Math.max(p[1],c[1]);\n    else r.push([...c]);\n  }\n  return r;\n}\n\nfunction conflictPatternImpl(intervals) {\n  intervals.sort((a,b)=>a[0]-b[0]);\n  let conf=0,lastEnd=-Infinity;\n  for(const[s,e]of intervals){\n    if(s<lastEnd)conf++;\n    else lastEnd=e;\n  }\n  return conf;\n}\n\nfunction resourcePatternImpl(intervals) {\n  intervals.sort((a,b)=>a[0]-b[0]);\n  const heap=[];\n  for(const[s,e]of intervals){\n    heap.sort((a,b)=>a-b);\n    if(heap.length>0&&heap[0]<=s)heap.shift();\n    heap.push(e);\n  }\n  return heap.length;\n}"
+            },
+            "complexity_analysis": "All three: O(n log n) for sort; O(n log n) for resource pattern (heap ops). O(n) additional space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "mergePatternImpl: sort by start; result starts with first interval; for each next: if start<=prev.end, extend; else push new."
+              },
+              {
+                "level": 2,
+                "text": "conflictPatternImpl: sort by start; if current start < lastEnd → conflict (don't update lastEnd); else no conflict (update lastEnd=end)."
+              },
+              {
+                "level": 3,
+                "text": "resourcePatternImpl: sort by start; maintain sorted heap of end times; remove earliest end if <=current start; always add current end; return heap.length."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 2,
+      "title": "Merge Intervals",
+      "tag": null,
+      "objective": "Solve Merge Intervals in O(n log n) by sorting and scanning, and handle the containment case (a smaller interval fully inside a larger one) correctly.",
+      "concepts": [
+        "Merge Intervals: combine all overlapping intervals",
+        "Sort by start time, scan left to right",
+        "Two cases: overlap (extend end) vs no overlap (start new interval)",
+        "Containment case: curr end < prev end -> prev end unchanged",
+        "Math.max(prev[1], curr[1]): handles both overlap and containment",
+        "O(n log n) time: sort dominates; O(n) scan",
+        "O(n) space: result array up to size n",
+        "Insert Interval: insert into already-sorted list, merge as needed"
+      ],
+      "explanation": "Merge Intervals (#56) takes a list of intervals and merges all overlapping ones. After sorting by start time, scan left to right maintaining a result list. For each interval: if its start is <= the previous interval's end (overlap or containment), merge by extending the end to max(prev end, curr end). Otherwise, add the current interval as a new entry. The Math.max handles both simple overlap ([1,3] and [2,5] → [1,5]) and containment ([1,5] and [2,3] → [1,5]). Insert Interval (#57) inserts a new interval into an already-sorted, non-overlapping list. Three phases: (1) Add all intervals ending before the new interval starts. (2) Merge all intervals overlapping with the new interval (extend new interval's end repeatedly). (3) Add all remaining intervals. O(n) time since the list is already sorted.",
+      "analogy": "Merge Intervals is like highlighting a text passage. You have several highlighted sections. Any that touch or overlap are merged into one continuous highlight. Start from the leftmost highlight and extend it rightward whenever the next highlight begins before the current one ends. When there is a gap, the current highlight is finalised and you start a new one.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// MERGE INTERVALS (#56) — O(n log n) time, O(n) space\nfunction merge(intervals) {\n    if (intervals.length <= 1) return intervals;\n    intervals.sort((a,b) => a[0] - b[0]); // sort by start time\n\n    const result = [intervals[0].slice()]; // copy first interval\n\n    for (let i = 1; i < intervals.length; i++) {\n        const [start, end] = intervals[i];\n        const prev = result[result.length - 1];\n\n        if (start <= prev[1]) {\n            // OVERLAP or CONTAINMENT: extend end if needed\n            prev[1] = Math.max(prev[1], end);\n        } else {\n            // NO OVERLAP: start new interval\n            result.push([start, end]);\n        }\n    }\n    return result;\n}\n\nconsole.log(merge([[1,3],[2,6],[8,10],[15,18]])); // [[1,6],[8,10],[15,18]]\nconsole.log(merge([[1,4],[4,5]]));                // [[1,5]] (touching = overlap)\nconsole.log(merge([[1,4],[2,3]]));                // [[1,4]] (containment)\n\n// INSERT INTERVAL (#57) — insert into sorted non-overlapping list O(n)\nfunction insert(intervals, newInterval) {\n    const result = [];\n    let i = 0;\n    const [ns, ne] = newInterval;\n\n    // Phase 1: add all intervals ending BEFORE new interval starts\n    while (i < intervals.length && intervals[i][1] < ns) {\n        result.push(intervals[i++]);\n    }\n\n    // Phase 2: merge all overlapping intervals with newInterval\n    let [mergedS, mergedE] = [ns, ne];\n    while (i < intervals.length && intervals[i][0] <= mergedE) {\n        mergedS = Math.min(mergedS, intervals[i][0]);\n        mergedE = Math.max(mergedE, intervals[i][1]);\n        i++;\n    }\n    result.push([mergedS, mergedE]);\n\n    // Phase 3: add remaining intervals\n    while (i < intervals.length) result.push(intervals[i++]);\n\n    return result;\n}\n\nconsole.log(insert([[1,3],[6,9]], [2,5]));          // [[1,5],[6,9]]\nconsole.log(insert([[1,2],[3,5],[6,7],[8,10],[12,16]], [4,8])); // [[1,2],[3,10],[12,16]]",
+        "explanation": "In Insert Interval, Phase 2 uses intervals[i][0] <= mergedE (not < mergedE) because touching intervals ([3,5] and [5,7]) should be merged. The merged start takes the minimum (the existing interval might start before the new interval) and the merged end takes the maximum. Both min and max are needed because the new interval could be contained within an existing one."
+      },
+      "common_mistakes": [
+        "Using prev[1] = end instead of prev[1] = Math.max(prev[1], end) in the merge step — if a later interval is contained within the current merged interval (e.g., merging [1,10] with [2,5]), the end should stay at 10, not be reduced to 5",
+        "Not copying the first interval (using result = [intervals[0]] not [...]) — if the original array is modified during the algorithm (e.g., intervals[0] is pushed to result and then prev[1] is updated), the original array gets modified; always push a copy",
+        "In Insert Interval, mixing up the condition for phases 1 and 2 — Phase 1 ends when intervals[i][1] >= ns (current interval could overlap); Phase 2 continues while intervals[i][0] <= mergedE (overlap with expanded merged interval)"
+      ],
+      "interview_relevance": "Merge Intervals (#56) and Insert Interval (#57) are both Blind 75. They are used at every major company as medium-difficulty warm-up problems. The containment case (Math.max for the end) and the three-phase Insert Interval structure are specifically evaluated. Clean implementation in under 15 minutes is the target.",
+      "mini_challenge": "Implement merge and verify all three test cases. Implement insert and verify both test cases. Then solve Employee Free Time (LeetCode #759): given schedules for n employees as lists of intervals, find all gaps that are free for ALL employees. Merge all employee schedules into one sorted list and find gaps between merged intervals. State the time complexity.",
+      "flashcards": [
+        {
+          "front": "Merge Intervals: algorithm in two steps?",
+          "back": "1) Sort by start time. 2) Iterate: if current interval overlaps with last in result (curr.start ≤ last.end), merge by extending last.end = max(last.end, curr.end). Otherwise, push current as new interval."
+        },
+        {
+          "front": "Merge Intervals: merge condition and merge action?",
+          "back": "CONDITION: curr.start ≤ result.last.end (current starts before or when last ends — they overlap). ACTION: result.last.end = max(result.last.end, curr.end) (extend to cover both). Use max() not just curr.end — the last interval may already extend beyond curr."
+        },
+        {
+          "front": "Why max(last.end, curr.end) not just curr.end?",
+          "back": "If last=[1,10] and curr=[3,5]: curr.end=5 < last.end=10. Assigning last.end=5 would SHRINK the merged interval incorrectly. max(10,5)=10 preserves the correct merged extent."
+        },
+        {
+          "front": "Insert Interval (#57): three phases?",
+          "back": "1) Add all intervals that END before newInterval.start (no overlap). 2) Merge all intervals that OVERLAP with newInterval (update newInterval.start/end). 3) Add all remaining intervals (start after newInterval.end). O(n) total."
+        },
+        {
+          "front": "Merge Intervals: what does result.at(-1) represent?",
+          "back": "The LAST interval in the result array (the one currently being potentially extended). In JavaScript: result[result.length-1] or result.at(-1). Always check if current interval overlaps with this last result interval."
+        },
+        {
+          "front": "Merge Intervals: when does a new interval get pushed without merging?",
+          "back": "When curr.start > result.last.end: the current interval starts strictly AFTER the last merged interval ends. No overlap possible. Push curr as a new independent interval."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Merge [[1,3],[2,6],[8,10],[15,18]]. How many merged intervals?",
+          "options": [
+            "4",
+            "3",
+            "2",
+            "1"
+          ],
+          "answer": 1,
+          "explanation": "[1,3] and [2,6]: 2≤3 → merge to [1,6]. [1,6] and [8,10]: 8>6 → no merge. [8,10] and [15,18]: 15>10 → no merge. Result: [[1,6],[8,10],[15,18]]. 3 intervals."
+        },
+        {
+          "question": "merge([[1,4],[4,5]]). These two overlap?",
+          "options": [
+            "No — they only touch at boundary 4",
+            "Yes — 4≤4 AND 4≤4 (closed intervals share point 4)",
+            "Depends on implementation",
+            "No — LeetCode uses open intervals"
+          ],
+          "answer": 1,
+          "explanation": "Closed intervals: [1,4] and [4,5] share point 4. curr.start(4) ≤ result.last.end(4): condition true → merge. Result: [[1,5]]."
+        },
+        {
+          "question": "During merge: last=[1,8], curr=[3,5]. What is the updated last.end?",
+          "options": [
+            "5 (curr.end)",
+            "8 (max(8,5)=8, unchanged)",
+            "6 (average)",
+            "Error — curr is inside last"
+          ],
+          "answer": 1,
+          "explanation": "max(last.end, curr.end) = max(8,5) = 8. last remains [1,8]. curr=[3,5] is completely contained within last=[1,8]. The merge doesn't shrink the interval."
+        },
+        {
+          "question": "Insert Interval [[1,3],[6,9]] with newInterval=[2,5]. Which intervals get merged?",
+          "options": [
+            "None — [2,5] fits between existing intervals",
+            "[1,3] merges with [2,5] → [1,5]. [6,9] starts after [1,5] ends, no merge. Result: [[1,5],[6,9]]",
+            "All three merge to [1,9]",
+            "[6,9] merges with [2,5]"
+          ],
+          "answer": 1,
+          "explanation": "[1,3] and [2,5]: 2≤3 → overlap → merge to [min(1,2),max(3,5)]=[1,5]. [6,9] starts at 6 > 5=new end → no merge. Result: [[1,5],[6,9]]."
+        }
+      ],
+      "visual_aid": {
+        "type": "merge_trace",
+        "description": "Merge Intervals step-by-step",
+        "diagram": "intervals=[[1,3],[2,6],[8,10],[15,18]] (already sorted by start)\n\nresult=[], iterate:\n\n[1,3]: result empty → push. result=[[1,3]]\n\n[2,6]: curr.start(2) ≤ last.end(3) → MERGE\n  last.end = max(3,6) = 6\n  result=[[1,6]]\n\n[8,10]: curr.start(8) > last.end(6) → NO MERGE, push\n  result=[[1,6],[8,10]]\n\n[15,18]: curr.start(15) > last.end(10) → NO MERGE, push\n  result=[[1,6],[8,10],[15,18]]\n\nFinal: [[1,6],[8,10],[15,18]] ✓\n\nCRITICAL: use max(last.end, curr.end)\n  Counter-example: last=[1,10], curr=[3,5]\n  curr.start(3) ≤ last.end(10) → MERGE\n  last.end = max(10,5) = 10  ← NOT 5!"
+      },
+      "complexity_summary": {
+        "time": "O(n log n) — sort + O(n) scan",
+        "space": "O(n) — result array (O(1) extra beyond output)",
+        "merge_condition": "curr.start ≤ last.end",
+        "merge_action": "last.end = max(last.end, curr.end)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-56",
+          "title": "Merge Intervals",
+          "difficulty": "Medium",
+          "pattern": "Sort by start + single scan with max()",
+          "blind75": true
+        },
+        {
+          "id": "lc-57",
+          "title": "Insert Interval",
+          "difficulty": "Medium",
+          "pattern": "Three-phase scan: before, overlap, after",
+          "blind75": true
+        },
+        {
+          "id": "lc-986",
+          "title": "Interval List Intersections",
+          "difficulty": "Medium",
+          "pattern": "Two-pointer on two sorted interval lists"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M10-L2-TH-1",
+            "question": "Why does the merge condition use `start <= prev[1]` (not `start < prev[1]`) to detect overlap?",
+            "options": [
+              "< is correct; using <= is a bug that merges touching intervals incorrectly",
+              "TOUCHING INTERVALS (e.g., [1,4] and [4,5]) ARE considered overlapping in Merge Intervals: the interval [1,4] ends at 4 and [4,5] starts at 4; they share a point; using `start <= prev[1]` correctly merges them into [1,5]; using `start < prev[1]` would treat [4,5] as non-overlapping with [1,4] and output [[1,4],[4,5]] which violates the problem definition that touching intervals merge",
+              "The <= condition only matters for floating-point intervals",
+              "start <= prev[1] is used for performance; < would also be correct"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's example: 'merge [[1,4],[4,5]]: [[1,5]] (touching = overlap)' — the condition `start <= prev[1]` captures both true overlaps (start < prev[1]) and touching intervals (start == prev[1]); the lesson confirms touching as overlap; using strict < would incorrectly separate touching intervals."
+          },
+          {
+            "id": "L2M10-L2-TH-2",
+            "question": "Why does the merge use `Math.max(prev[1], curr[1])` instead of just `curr[1]` when extending the end?",
+            "options": [
+              "curr[1] is always larger than prev[1] after sorting; Math.max is redundant",
+              "CONTAINMENT: if one interval is fully inside another (e.g., [1,4] followed by [2,3]), curr[1]=3 < prev[1]=4; using just `curr[1]` would SHRINK the merged interval to [1,3] (incorrect); `Math.max(prev[1], curr[1])` correctly handles both the standard overlap case (curr[1] > prev[1] → extend) and the containment case (curr[1] < prev[1] → keep prev[1] unchanged)",
+              "Math.max is only needed when intervals are in descending order",
+              "curr[1] is always correct; Math.max prevents array reallocation"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's example: 'merge [[1,4],[2,3]]: [[1,4]] (containment)' and concept 'Math.max(prev[1], curr[1]): handles both overlap and containment' — after sorting by start, intervals with the same start or overlapping starts can have their end before the current merged end; Math.max ensures the merged interval never shrinks."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M10-L2-LG-1",
+            "question": "For `insert([[1,3],[6,9]], [2,5])`, trace the three phases. Which intervals are added in each phase?",
+            "options": [
+              "Phase 1 (before): nothing (2<1[1]=3? No); Phase 2 (overlap): merge with [1,3] and [2,5]→[1,5]; Phase 3 (after): [6,9]; result [[1,5],[6,9]] ✓",
+              "Phase 1: add [1,3]; Phase 2: add [2,5]; Phase 3: add [6,9]; result [[1,3],[2,5],[6,9]]",
+              "Phase 1: add nothing; Phase 2: no merge; Phase 3: add all",
+              "Phase 1: add [6,9]; Phase 2: merge [1,3] and [2,5]; Phase 3: nothing"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: insert([[1,3],[6,9]],[2,5])=[[1,5],[6,9]]; Phase 1: i=0, intervals[0][1]=3 >= ns=2 → stop immediately (no intervals end before new starts); Phase 2: intervals[0][0]=1<=mergedE=5 → merge: mergedS=min(2,1)=1, mergedE=max(5,3)=5, i=1; intervals[1][0]=6>mergedE=5 → stop; push [1,5]; Phase 3: push [6,9]."
+          },
+          {
+            "id": "L2M10-L2-LG-2",
+            "question": "For `insert([[1,2],[3,5],[6,7],[8,10],[12,16]], [4,8])`, which existing intervals does [4,8] overlap with?",
+            "options": [
+              "[4,8] overlaps only with [3,5]",
+              "[4,8] overlaps with [3,5] (4<=5), [6,7] (6<=8), and [8,10] (8<=8 touching); Phase 2 merges all three: mergedS=min(4,3)=3, mergedE=max(8,5,7,10)=10; result [[1,2],[3,10],[12,16]] — confirmed by direct execution",
+              "[4,8] overlaps with all intervals",
+              "[4,8] creates a new standalone interval; no merging occurs"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: [[1,2],[3,10],[12,16]]; Phase 1 adds [1,2] (ends at 2 < ns=4); Phase 2: [3,5]: 3<=mergedE=8→merge to [3,8]; [6,7]: 6<=8→merge to [3,8] (max(8,7)=8); [8,10]: 8<=8 (touching)→merge to [3,10]; [12,16]: 12>10→stop; push [3,10]; Phase 3: push [12,16]."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M10-L2-SY-1",
+            "question": "In Merge Intervals, `const result = [intervals[0].slice()]` creates a SHALLOW COPY of the first interval. Why is `.slice()` (or spread) needed here?",
+            "options": [
+              "slice() converts the array to a string for faster comparison",
+              "Without `.slice()`, `result[0]` would be the SAME REFERENCE as `intervals[0]`; when the merge algorithm later modifies `result[result.length-1][1]` to extend the end, it would MUTATE the original `intervals[0]` array (a side effect violating immutability); `.slice()` creates an independent copy of the [start, end] pair so the result array can be modified freely without affecting the input intervals",
+              "slice() is required because intervals are stored as linked lists",
+              "slice() converts the interval from 1-indexed to 0-indexed"
+            ],
+            "answer": 1,
+            "explanation": "Defensive copying is critical here: `result.push([start, end])` for new intervals creates fresh arrays, but the first interval is directly referenced via `intervals[0]` without `.slice()` it would be the same object; subsequent `prev[1] = Math.max(...)` would mutate `intervals[0][1]` in-place, which is a hidden side effect; `.slice()` or `[...intervals[0]]` ensures the first element is an independent copy."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M10-L2-CC-1",
+            "title": "Merge Intervals and Insert Interval",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both interval problems from this lesson.",
+            "requirements": [
+              "Implement `mergeImpl(intervals)` matching the lesson's sort+scan approach",
+              "Implement `insertImpl(intervals, newInterval)` matching the lesson's three-phase approach"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function mergeImpl(intervals) {\n  // TODO: sort by start; scan using Math.max for containment\n}\n\nfunction insertImpl(intervals, newInterval) {\n  // TODO: three phases: before, overlap-merge, after\n}"
+            },
+            "test_cases": [
+              {
+                "input": "JSON.stringify(mergeImpl([[1,3],[2,6],[8,10],[15,18]]))",
+                "expected": "[[1,6],[8,10],[15,18]]",
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(mergeImpl([[1,4],[4,5]]))",
+                "expected": "[[1,5]]",
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(insertImpl([[1,3],[6,9]], [2,5]))",
+                "expected": "[[1,5],[6,9]]",
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(insertImpl([[1,2],[3,5],[6,7],[8,10],[12,16]], [4,8]))",
+                "expected": "[[1,2],[3,10],[12,16]]",
+                "type": "hidden"
+              },
+              {
+                "input": "JSON.stringify(mergeImpl([[1,4],[2,3]]))",
+                "expected": "[[1,4]]",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function mergeImpl(intervals) {\n  if (intervals.length<=1) return intervals;\n  intervals.sort((a,b)=>a[0]-b[0]);\n  const r=[intervals[0].slice()];\n  for(let i=1;i<intervals.length;i++){\n    const [s,e]=intervals[i],p=r[r.length-1];\n    if(s<=p[1]) p[1]=Math.max(p[1],e);\n    else r.push([s,e]);\n  }\n  return r;\n}\n\nfunction insertImpl(intervals, newInterval) {\n  const r=[];let i=0;\n  const [ns,ne]=newInterval;\n  while(i<intervals.length&&intervals[i][1]<ns) r.push(intervals[i++]);\n  let [ms,me]=[ns,ne];\n  while(i<intervals.length&&intervals[i][0]<=me){\n    ms=Math.min(ms,intervals[i][0]);\n    me=Math.max(me,intervals[i][1]);\n    i++;\n  }\n  r.push([ms,me]);\n  while(i<intervals.length) r.push(intervals[i++]);\n  return r;\n}"
+            },
+            "complexity_analysis": "mergeImpl: O(n log n). insertImpl: O(n) — list already sorted.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "mergeImpl: sort by start; result=[first.slice()]; if curr.start<=prev.end extend (Math.max), else push new."
+              },
+              {
+                "level": 2,
+                "text": "insertImpl phase 1: while intervals[i].end < ns → add to result; phase 2: while intervals[i].start <= me → expand merged; phase 3: add remaining."
+              },
+              {
+                "level": 3,
+                "text": "Containment: Math.max(prev.end, curr.end) handles the case where curr is fully inside prev — prev.end must not shrink."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 3,
+      "title": "Non-Overlapping Intervals",
+      "tag": null,
+      "objective": "Solve Non-Overlapping Intervals using a greedy strategy of keeping intervals with the earliest end time, and prove this greedy choice is optimal via the exchange argument.",
+      "concepts": [
+        "Non-Overlapping Intervals: minimum removals to make all intervals non-overlapping",
+        "Equivalent: maximum number of non-overlapping intervals to KEEP",
+        "Greedy: sort by end time, keep intervals that don't conflict with last kept",
+        "Why sort by end time (not start): earlier end leaves more room for future intervals",
+        "Exchange argument proof: swapping any chosen interval for its unchosen alternative cannot improve the count",
+        "Answer: n - max_non_overlapping_count",
+        "O(n log n) sort + O(n) scan",
+        "Connection to LIS: same greedy structure"
+      ],
+      "explanation": "Non-Overlapping Intervals (#435) asks for the minimum number of intervals to remove so no two overlap. Equivalently, maximise the number of intervals to keep. Greedy: sort by end time. Scan left to right. Keep an interval if its start is >= the last kept interval's end (no conflict). Otherwise, skip it (remove it). Track the end of the last kept interval. Always prefer the interval with the earlier end time when a conflict arises: keeping the interval with the later end time would block more future intervals. Exchange argument proof: suppose an optimal solution keeps interval B (with later end) instead of A (with earlier end) in some position. Replacing B with A keeps the same count but gives a smaller end time, which can only help future interval selection. Therefore A is at least as good as B, and the greedy choice (earliest end) is optimal. The minimum removals = total count - count of kept intervals.",
+      "analogy": "Non-Overlapping Intervals is like scheduling the maximum number of activities in a day. When two activities conflict, keep the one that ends earlier: it frees up more time for subsequent activities. This is the Activity Selection Problem from classical algorithm design, and the greedy-by-end-time strategy is the canonical solution.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// NON-OVERLAPPING INTERVALS (#435)\n// Minimum removals = n - max_kept\n// O(n log n) time, O(1) space\nfunction eraseOverlapIntervals(intervals) {\n    if (!intervals.length) return 0;\n    // Sort by END time (not start!): greedy keeps earliest-ending intervals\n    intervals.sort((a,b) => a[1] - b[1]);\n\n    let kept = 1;                        // keep the first interval (earliest end)\n    let lastEnd = intervals[0][1];       // end time of last kept interval\n\n    for (let i = 1; i < intervals.length; i++) {\n        const [start, end] = intervals[i];\n        if (start >= lastEnd) {          // NO CONFLICT: can keep this one\n            kept++;\n            lastEnd = end;               // update last kept end\n        }\n        // CONFLICT: skip this interval (remove it)\n        // Greedy: since sorted by end, the kept interval has a smaller end\n        // which is ALWAYS better for future intervals\n    }\n    return intervals.length - kept;      // minimum removals\n}\n\nconsole.log(eraseOverlapIntervals([[1,2],[2,3],[3,4],[1,3]])); // 1 (remove [1,3])\nconsole.log(eraseOverlapIntervals([[1,2],[1,2],[1,2]]));       // 2\nconsole.log(eraseOverlapIntervals([[1,2],[2,3]]));             // 0 (touching, not overlapping)\n\n// WHY SORT BY END (not start) — proof by example:\n// intervals: [[1,10],[2,3],[3,4]]\n// Sort by START: [[1,10],[2,3],[3,4]]\n//   Keep [1,10] (first), conflict [2,3] (remove), conflict [3,4] (remove) -> kept=1, remove=2\n//   But optimal is: remove [1,10], keep [2,3] and [3,4] -> remove=1\n// Sort by END: [[2,3],[3,4],[1,10]]\n//   Keep [2,3], keep [3,4] (start=3 >= end=3), conflict [1,10] (remove) -> kept=2, remove=1 ✓\n\n// MINIMUM NUMBER OF ARROWS TO BURST BALLOONS (#452)\n// Similar greedy: sort by end, shoot arrow when overlap ends\nfunction findMinArrowShots(points) {\n    points.sort((a,b) => a[1] - b[1]);\n    let arrows = 1, arrowPos = points[0][1];\n    for (let i = 1; i < points.length; i++) {\n        if (points[i][0] > arrowPos) { // balloon starts after current arrow\n            arrows++;\n            arrowPos = points[i][1]; // new arrow at this balloon's end\n        }\n    }\n    return arrows;\n}",
+        "explanation": "Minimum Number of Arrows to Burst Balloons uses the same greedy: sort by end time, greedily shoot an arrow at the last possible position (end of current balloon). This arrow bursts all balloons that overlap with it. When a balloon starts after the current arrow position, shoot a new arrow. The key difference from Non-Overlapping: arrows burst overlapping balloons simultaneously; here the greedy is maximising how many balloons are burst per arrow."
+      },
+      "common_mistakes": [
+        "Sorting by start time instead of end time — sorting by start greedily keeps the earliest-starting interval which is NOT optimal; sorting by end keeps the earliest-ending interval, which leaves maximum room for future intervals",
+        "Using start > lastEnd (strict) instead of start >= lastEnd — touching intervals ([1,2] and [2,3]) do not overlap; use >= to allow keeping touching intervals without counting them as conflicts",
+        "Counting removals as the number of conflicts instead of n - kept — tracking 'removals++' on conflict works but is equivalent to n - kept; the latter is cleaner because 'kept' is the primary greedy count"
+      ],
+      "interview_relevance": "Non-Overlapping Intervals (#435) is Blind 75. The sort-by-end greedy is specifically evaluated. Interviewers ask 'Why sort by end time and not start time?' requiring the exchange argument explanation. Minimum Number of Arrows to Burst Balloons (#452) is NeetCode 150 and uses the same greedy with a slightly different semantics (arrows vs removals).",
+      "mini_challenge": "Implement eraseOverlapIntervals and verify all three test cases. Implement findMinArrowShots and verify it returns 2 for [[10,16],[2,8],[1,6],[7,12]]. Then prove the exchange argument for Non-Overlapping Intervals: given any optimal solution that keeps interval B (later end) but not interval A (earlier end, same position in sorted order), show that replacing B with A produces a solution with at least as many kept intervals.",
+      "flashcards": [
+        {
+          "front": "Non-Overlapping Intervals: what greedy choice gives minimum removals?",
+          "back": "Sort by END time. Keep an interval if its start ≥ last kept end. Greedily prefer intervals that end EARLIEST (finish sooner, leave more room for future intervals). This maximises the number of KEPT intervals, minimising removals."
+        },
+        {
+          "front": "Non-Overlapping Intervals: why sort by END (not start)?",
+          "back": "Sorting by end and greedily keeping the earliest-ending interval maximises the number of non-overlapping intervals that fit (the Activity Selection Problem proof). Sorting by start and keeping the shortest doesn't always work — a short interval can still block more future intervals than an early-ending one."
+        },
+        {
+          "front": "Non-Overlapping Intervals: removal formula?",
+          "back": "removals = n - kept. Track 'kept' count: when curr.start ≥ lastEnd, keep it (kept++, update lastEnd). When overlap, skip current (it's the one we 'remove'). Final answer: n - kept."
+        },
+        {
+          "front": "Activity Selection Problem: what greedy strategy is optimal?",
+          "back": "Sort activities by FINISH TIME. Greedily select the next activity that starts at or after the last selected activity's finish time. This is provably optimal (exchange argument): replacing any selected activity with a later-finishing one can only reduce future opportunities."
+        },
+        {
+          "front": "Non-Overlapping Intervals: when you see an overlap, WHICH interval do you remove?",
+          "back": "Remove the one with the LATER end time — keep the earlier-ending one (which is the current 'lastEnd' interval). Since we sort by end time, the CURRENT interval always has end ≥ lastEnd. So when overlap occurs, we skip (remove) the CURRENT interval."
+        },
+        {
+          "front": "Non-Overlapping Intervals: what is lastEnd initialised to?",
+          "back": "Initially: lastEnd = first interval's end (intervals[0][1]) after sorting. Alternative: lastEnd = -Infinity, and process all intervals. First approach is slightly cleaner — start 'keeping' from interval 0, then check from interval 1 onward."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Sorted by end: [[1,2],[2,3],[3,4],[1,3]]. Actually sorted: [[1,2],[2,3],[1,3],[3,4]]. Min removals?",
+          "options": [
+            "1",
+            "2",
+            "0",
+            "3"
+          ],
+          "answer": 0,
+          "explanation": "Sort by end: [[1,2],[2,3],[1,3],[3,4]]. Keep [1,2] (lastEnd=2). [2,3]: start(2)≥lastEnd(2) → keep, lastEnd=3. [1,3]: start(1)<lastEnd(3) → SKIP (remove). [3,4]: start(3)≥lastEnd(3) → keep. Kept=3, removals=4-3=1."
+        },
+        {
+          "question": "Why doesn't sorting by start work for Non-Overlapping Intervals?",
+          "options": [
+            "Sorting by start is correct and easier",
+            "Counter-example: [[1,100],[2,3],[3,4]] sorted by start → keeps [1,100] first, must remove 2 intervals. Sorted by end → keeps [2,3],[3,4], removes 1.",
+            "Sorting by start always removes too many",
+            "Both approaches give the same result"
+          ],
+          "answer": 1,
+          "explanation": "Sort by start, greedy keep: [1,100] is first, lastEnd=100. [2,3]: 2<100 → remove. [3,4]: 3<100 → remove. 2 removals. Sort by end: [2,3] first (end=3), then [3,4] (end=4), then [1,100] (end=100, but start=1<4 → remove). 1 removal. Sorting by end is optimal."
+        },
+        {
+          "question": "[[0,2],[1,3],[2,4],[3,5],[4,6]]: minimum removals?",
+          "options": [
+            "2",
+            "3",
+            "1",
+            "4"
+          ],
+          "answer": 0,
+          "explanation": "Sorted by end: [0,2],[1,3],[2,4],[3,5],[4,6]. Keep [0,2] (lastEnd=2). [1,3]: 1<2 → remove. [2,4]: 2≥2 → keep (lastEnd=4). [3,5]: 3<4 → remove. [4,6]: 4≥4 → keep. Kept=3, removals=5-3=2."
+        },
+        {
+          "question": "Non-Overlapping Intervals is equivalent to 'maximum non-overlapping intervals'. If max kept = k, removals = ?",
+          "options": [
+            "k",
+            "n-k",
+            "n+k",
+            "k/n"
+          ],
+          "answer": 1,
+          "explanation": "Total intervals = n. Kept = k. Removed = n - k. This is the direct relationship: maximising kept intervals is equivalent to minimising removals."
+        }
+      ],
+      "visual_aid": {
+        "type": "greedy_trace",
+        "description": "Non-Overlapping Intervals greedy trace on sorted-by-end intervals",
+        "diagram": "intervals=[[1,2],[2,3],[3,4],[1,3]] after sort-by-end:\n  [[1,2],[2,3],[1,3],[3,4]]\n\nTimeline:\n  [1,2]:  |==|\n  [2,3]:     |==|\n  [1,3]:  |=====|\n  [3,4]:        |==|\n\nGreedy (sort by end, keep non-overlapping):\n  Start: lastEnd = -∞\n\n  [1,2]: start(1) ≥ lastEnd(-∞) → KEEP. lastEnd=2. kept=1\n\n  [2,3]: start(2) ≥ lastEnd(2) → KEEP. lastEnd=3. kept=2\n\n  [1,3]: start(1) < lastEnd(3) → REMOVE ✗ (overlaps with kept set)\n\n  [3,4]: start(3) ≥ lastEnd(3) → KEEP. lastEnd=4. kept=3\n\nkept=3, removals=4-3=1 ✓\nRemoved: [1,3] (the long interval that spans the kept [1,2]+[2,3])"
+      },
+      "complexity_summary": {
+        "time": "O(n log n) — sort by end + O(n) scan",
+        "space": "O(1) extra — only lastEnd and kept counter",
+        "greedy_key": "Sort by END — keep earliest-ending to maximise future choices",
+        "answer_formula": "n - kept (minimum removals)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-435",
+          "title": "Non-Overlapping Intervals",
+          "difficulty": "Medium",
+          "pattern": "Sort by end, greedy keep, count removals",
+          "blind75": true
+        },
+        {
+          "id": "lc-452",
+          "title": "Minimum Number of Arrows to Burst Balloons",
+          "difficulty": "Medium",
+          "pattern": "Same greedy — sort by end, count non-overlapping groups"
+        },
+        {
+          "id": "lc-646",
+          "title": "Maximum Length of Pair Chain",
+          "difficulty": "Medium",
+          "pattern": "Activity selection — sort by end, greedy keep"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M10-L3-TH-1",
+            "question": "Why does Non-Overlapping Intervals sort by END TIME (not start time), and why is this critical for the greedy strategy?",
+            "options": [
+              "End time sorting is identical to start time sorting for this problem",
+              "SORT BY END enables the EARLIEST-ENDING greedy: keeping the interval with the smallest end time leaves the MOST ROOM for future intervals; an interval with a smaller end creates less future conflict; if instead we sorted by start and kept the first interval (e.g., [1,10]), we'd block all future intervals starting before 10 even though a shorter interval [2,3] would leave more space; the lesson's counterexample: sort by end on [[1,10],[2,3],[3,4]] keeps [2,3] and [3,4], removing only [1,10] — optimal",
+              "Sort by end is just a convention; sort by start produces the same result",
+              "Sort by end is required to handle touching intervals correctly"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's proof-by-example: 'Sort by START: keep [1,10], conflict [2,3] remove, conflict [3,4] remove → remove=2; Sort by END: [[2,3],[3,4],[1,10]] keep [2,3], keep [3,4] (3>=3), conflict [1,10] remove → remove=1 ✓' — earliest-end greedy is provably optimal via exchange argument."
+          },
+          {
+            "id": "L2M10-L3-TH-2",
+            "question": "How is Non-Overlapping Intervals related to MINIMUM ARROWS TO BURST BALLOONS?",
+            "options": [
+              "They are completely different problems requiring different algorithms",
+              "Both use the SAME GREEDY STRUCTURE: sort by end time, scan left to right tracking the current 'boundary'; in Non-Overlapping Intervals: when a conflict occurs, increment remove count (don't update lastEnd); in Min Arrows: when a balloon starts AFTER the current arrow position, fire a new arrow (increment arrows, update arrowPos to new balloon's end); the key difference is the condition: Non-Overlapping uses `start >= lastEnd` (>=, touching = non-conflicting); Min Arrows uses `start > arrowPos` (>, touching means the arrow still hits both balloons)",
+              "Min Arrows is a 2D problem; Non-Overlapping is 1D",
+              "Both problems always have the same numerical answer for the same input"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's connection: both sort by end time; both use the 'keep the earliest-ending interval/arrow' greedy; the structural difference is: Non-Overlapping keeps an interval and updates lastEnd when no conflict; Min Arrows fires an arrow at the current balloon's end when a new balloon starts after the current arrow; touching creates a conflict in arrows (> not >=) but not in non-overlapping (>= not >)."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M10-L3-LG-1",
+            "question": "For `eraseOverlapIntervals([[1,2],[2,3],[3,4],[1,3]])`, after sorting by end, what is the order and how many are removed?",
+            "options": [
+              "Sorted: [[1,2],[2,3],[1,3],[3,4]]; kept=[1,2],[2,3],[3,4]=3; removed=1 (remove [1,3]) — confirmed",
+              "Sorted: [[1,3],[1,2],[2,3],[3,4]]; all overlap, remove 3",
+              "Sorted: [[1,2],[1,3],[2,3],[3,4]]; removed=2",
+              "The intervals are already non-overlapping; removed=0"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution returning 1; after sort by end: [[1,2],[2,3],[1,3],[3,4]]; kept=1, lastEnd=2; [2,3]: start=2>=lastEnd=2→keep, lastEnd=3, kept=2; [1,3]: start=1<lastEnd=3→conflict, skip; [3,4]: start=3>=3→keep, kept=3; removed=4-3=1."
+          },
+          {
+            "id": "L2M10-L3-LG-2",
+            "question": "The lesson states Non-Overlapping Intervals is connected to LIS (Longest Increasing Subsequence). What is the connection?",
+            "options": [
+              "Both use binary search on a sorted array",
+              "Non-Overlapping Intervals asks for the MAXIMUM NUMBER OF NON-OVERLAPPING INTERVALS TO KEEP — which is equivalent to finding the longest chain of intervals where each interval starts at or after the previous ends; this 'longest chain of compatible intervals' is structurally identical to LIS: treating intervals as sequence elements where 'compatible' replaces 'increasing'; both problems can be solved with the same greedy (earliest-end strategy for intervals = patience sorting for LIS) or O(n²) DP",
+              "Both problems always require sorting by start time",
+              "LIS only applies when all intervals have unit length"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Connection to LIS: same greedy structure' — the maximum number of non-overlapping intervals (n - eraseOverlapIntervals) is the 'interval scheduling maximisation' problem, a classic whose structure mirrors LIS; both select the longest sequence satisfying a compatibility condition, solvable by the same greedy or DP approaches."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M10-L3-SY-1",
+            "question": "The conflict check uses `start >= lastEnd` (>=, not >) for Non-Overlapping Intervals but `start > arrowPos` (>) for Min Arrows. What is the semantic difference?",
+            "options": [
+              "Both should use >= for consistency; using > is a bug in Min Arrows",
+              "TOUCHING INTERVALS are treated differently: in Non-Overlapping Intervals, [1,2] and [2,3] TOUCHING at point 2 is NOT a conflict (you can keep both, start at 2 after ending at 2); `>=` correctly allows touching; in Min Arrows, an arrow AT position 2 hits BOTH [1,2] and [2,3] simultaneously (they share point 2); so a balloon starting at arrowPos is still hit by the current arrow; `>` correctly fires a new arrow only when the balloon starts STRICTLY after the current arrow",
+              "The difference is due to 0-indexed vs 1-indexed arrays",
+              "Both conditions are equivalent for integer intervals"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concepts: for Non-Overlapping Intervals, `start >= lastEnd` means touching (sharing an endpoint) is non-conflicting (both intervals can coexist); for Min Arrows, `start > arrowPos` means an arrow at position p hits any balloon with start <= p <= end, so a balloon starting exactly at arrowPos is already covered by the current arrow; the semantics of 'conflict' differ between the two problems."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M10-L3-CC-1",
+            "title": "Non-Overlapping Intervals and Min Arrows",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both greedy interval problems from this lesson.",
+            "requirements": [
+              "Implement `eraseOverlapIntervalsImpl(intervals)` — sort by end, keep earliest-ending, return removal count",
+              "Implement `findMinArrowShotsImpl(points)` — sort by end, count arrows needed"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function eraseOverlapIntervalsImpl(intervals) {\n  // TODO: sort by END; keep if start>=lastEnd; return n-kept\n}\n\nfunction findMinArrowShotsImpl(points) {\n  // TODO: sort by END; new arrow when start>arrowPos\n}"
+            },
+            "test_cases": [
+              {
+                "input": "eraseOverlapIntervalsImpl([[1,2],[2,3],[3,4],[1,3]])",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "eraseOverlapIntervalsImpl([[1,2],[2,3]])",
+                "expected": 0,
+                "type": "visible"
+              },
+              {
+                "input": "findMinArrowShotsImpl([[10,16],[2,8],[1,6],[7,12]])",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "eraseOverlapIntervalsImpl([[1,2],[1,2],[1,2]])",
+                "expected": 2,
+                "type": "hidden"
+              },
+              {
+                "input": "findMinArrowShotsImpl([[1,2],[3,4],[5,6],[7,8]])",
+                "expected": 4,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function eraseOverlapIntervalsImpl(intervals) {\n  if (!intervals.length) return 0;\n  intervals.sort((a,b)=>a[1]-b[1]);\n  let kept=1, lastEnd=intervals[0][1];\n  for(let i=1;i<intervals.length;i++){\n    const [s,e]=intervals[i];\n    if(s>=lastEnd){kept++;lastEnd=e;}\n  }\n  return intervals.length-kept;\n}\n\nfunction findMinArrowShotsImpl(points) {\n  if(!points.length)return 0;\n  points.sort((a,b)=>a[1]-b[1]);\n  let arrows=1,pos=points[0][1];\n  for(let i=1;i<points.length;i++){\n    if(points[i][0]>pos){arrows++;pos=points[i][1];}\n  }\n  return arrows;\n}"
+            },
+            "complexity_analysis": "Both: O(n log n) for sort, O(n) scan. O(1) additional space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "eraseOverlapIntervalsImpl: sort by END time (not start!); keep if start>=lastEnd (touching=OK); return n-kept."
+              },
+              {
+                "level": 2,
+                "text": "findMinArrowShotsImpl: sort by END; arrow at points[0][1]; for each next balloon if start>arrowPos, fire new arrow."
+              },
+              {
+                "level": 3,
+                "text": "Key difference: erase uses >= (touching not conflicting); arrows uses > (arrow hits touching balloons)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 4,
+      "title": "Meeting Rooms I And II",
+      "tag": null,
+      "objective": "Solve Meeting Rooms I (can one person attend all?) using overlap detection and Meeting Rooms II (minimum rooms needed) using a min-heap of end times.",
+      "concepts": [
+        "Meeting Rooms I: can one person attend all meetings? = no overlapping intervals",
+        "Meeting Rooms I: sort by start, check each pair for conflict",
+        "Meeting Rooms II: minimum number of conference rooms required",
+        "Simultaneous meetings = resource conflict = need separate room",
+        "Min-heap approach: heap holds end times of all ongoing meetings",
+        "When new meeting starts: if heap top (earliest ending) <= start, that room is free",
+        "Heap size at end = rooms needed (peak simultaneous meetings)",
+        "O(n log n) time: sort + heap operations"
+      ],
+      "explanation": "Meeting Rooms I (#252): determine if one person can attend all meetings without any overlap. After sorting by start time, check each adjacent pair: if meetings[i][0] < meetings[i-1][1], there is a conflict. Return false if any conflict found, true otherwise. Meeting Rooms II (#253): find the minimum number of conference rooms required. A new meeting needs a new room unless some existing meeting ends before (or when) the new one starts. Min-heap of end times: maintain a heap where the minimum is the earliest-ending ongoing meeting. For each new meeting (start, end) sorted by start: if the heap is non-empty and heap top <= start, reuse that room (pop the earliest end, no new room needed). Otherwise, allocate a new room. Push the current meeting's end time to the heap. After processing all meetings, the heap size equals the maximum number of simultaneous meetings = minimum rooms required. The heap size at any point represents the number of currently ongoing meetings.",
+      "analogy": "Meeting Rooms II is like managing a hotel's conference rooms. You have a whiteboard for each room showing when its current booking ends. When a new meeting arrives, check if the room with the earliest end time is now free. If yes, erase its booking and write the new meeting. If no room is free, open a new room. The number of rooms open at the end equals the peak simultaneous demand.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// MEETING ROOMS I (#252) — can one person attend all?\n// O(n log n) time, O(1) space\nfunction canAttendMeetings(intervals) {\n    intervals.sort((a,b) => a[0] - b[0]); // sort by start\n    for (let i = 1; i < intervals.length; i++) {\n        if (intervals[i][0] < intervals[i-1][1]) return false; // conflict\n    }\n    return true;\n}\n\nconsole.log(canAttendMeetings([[0,30],[5,10],[15,20]])); // false (0-30 conflicts with 5-10)\nconsole.log(canAttendMeetings([[7,10],[2,4]]));           // true (sorted: [2,4],[7,10] no conflict)\n\n// MEETING ROOMS II (#253) — minimum rooms needed\n// O(n log n) time, O(n) space\nfunction minMeetingRooms(intervals) {\n    if (!intervals.length) return 0;\n    intervals.sort((a,b) => a[0] - b[0]); // sort by start\n\n    // Min-heap of end times for ongoing meetings\n    const heap = []; // sorted ascending in interview (proper heap in production)\n\n    for (const [start, end] of intervals) {\n        // Reuse the room whose meeting ends earliest if it finishes before this starts\n        if (heap.length > 0) heap.sort((a,b) => a-b); // maintain min-heap order\n        if (heap.length > 0 && heap[0] <= start) {\n            heap.shift(); // reuse this room: remove its old end time\n        }\n        heap.push(end); // add this meeting to some room\n    }\n    return heap.length; // rooms in use = max simultaneous\n}\n\nconsole.log(minMeetingRooms([[0,30],[5,10],[15,20]])); // 2\nconsole.log(minMeetingRooms([[7,10],[2,4]]));           // 1\n\n// TRACE for [[0,30],[5,10],[15,20]] sorted by start:\n// [0,30]: heap empty. Push 30. heap=[30]. rooms=1.\n// [5,10]: heap=[30]. 30>5 (no free room). Push 10. heap=[10,30]. rooms=2.\n// [15,20]: heap=[10,30]. 10<=15 (room free!). Remove 10, push 20. heap=[20,30]. rooms=2.\n// Final heap size=2. Answer=2.\n\n// ALTERNATIVE: TWO SORTED ARRAYS (start times and end times separately)\nfunction minMeetingRoomsAlt(intervals) {\n    const starts = intervals.map(i => i[0]).sort((a,b)=>a-b);\n    const ends   = intervals.map(i => i[1]).sort((a,b)=>a-b);\n    let rooms = 0, endPtr = 0;\n    for (const start of starts) {\n        if (start < ends[endPtr]) rooms++;  // new room needed\n        else endPtr++;                        // reuse: advance end pointer\n    }\n    return rooms;\n}",
+        "explanation": "The two-sorted-arrays alternative avoids the heap entirely. Sort starts and ends separately. Use a pointer into the ends array. For each start: if the current start is before the earliest end (ends[endPtr]), we need a new room. Otherwise, a room is freed (advance endPtr). This achieves the same result as the heap approach but with O(1) per meeting iteration after sorting."
+      },
+      "common_mistakes": [
+        "Forgetting to sort by start time before Meeting Rooms I — two non-overlapping meetings in reverse order would appear to conflict without sorting; always sort first",
+        "Using heap[0] < start (strict less-than) instead of heap[0] <= start — a meeting ending at exactly the new meeting's start does not conflict; meetings [1,3] and [3,5] can be attended by the same person",
+        "Returning the maximum heap size reached during iteration instead of the final heap size — both approaches give the same answer since the heap only grows when a new room is needed and only shrinks when a room is reused; the final size equals the peak size for meeting room problems"
+      ],
+      "interview_relevance": "Meeting Rooms I (#252) and Meeting Rooms II (#253) are NeetCode 150. They are the most direct application of interval resource scheduling. The min-heap approach for Meeting Rooms II and the two-sorted-arrays alternative are both expected. Interviewers ask 'Can you solve it without a heap?' — the two-sorted-arrays approach is the answer.",
+      "mini_challenge": "Implement both canAttendMeetings and minMeetingRooms. Verify canAttendMeetings returns false for [[0,30],[5,10],[15,20]] and true for [[7,10],[2,4]]. Verify minMeetingRooms returns 2 for [[0,30],[5,10],[15,20]]. Then implement minMeetingRoomsAlt (two sorted arrays) and verify it gives the same answers. Explain why sorting starts and ends separately (rather than sorting intervals by start) enables this approach.",
+      "flashcards": [
+        {
+          "front": "Meeting Rooms I (#252): what does it ask?",
+          "back": "Can one person attend all meetings? = Do any two meetings overlap? Sort by start. Check consecutive pairs: if intervals[i].start < intervals[i-1].end → overlap → return false."
+        },
+        {
+          "front": "Meeting Rooms II (#253): what does it ask?",
+          "back": "Minimum number of conference rooms needed = maximum number of overlapping meetings at any single point in time. Use: (A) sweep line with events, (B) min-heap tracking room end times, or (C) two-pointer on sorted start and end arrays."
+        },
+        {
+          "front": "Meeting Rooms II: two-pointer approach?",
+          "back": "Sort starts and ends separately. Use pointer s=0 (starts) and e=0 (ends). For each meeting: if starts[s] < ends[e]: need new room (rooms++, s++). Else: recycle a room (e++, s++). Final rooms = answer."
+        },
+        {
+          "front": "Meeting Rooms II: min-heap approach?",
+          "back": "Sort by start. Min-heap of END TIMES of currently occupied rooms. For each meeting: if heap.peek() ≤ curr.start, the earliest-ending room is free — pop it (reuse). Push curr.end to heap (assign/reassign). Heap size = rooms used = answer."
+        },
+        {
+          "front": "Meeting Rooms II: min-heap vs two-pointer — which is cleaner in interviews?",
+          "back": "Min-heap: more intuitive (directly models rooms being reused). Two-pointer: O(n log n) same complexity but O(1) extra space (no heap). Both correct. Min-heap is easier to explain and implement in ~10 minutes."
+        },
+        {
+          "front": "Sweep line for Meeting Rooms II: events format?",
+          "back": "+1 at each meeting START, -1 at each meeting END. Sort all events (break ties: -1 before +1 if end and start are same time — a room freed before the next one starts). Running maximum of cumulative sum = minimum rooms needed."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "meetings=[[0,30],[5,10],[15,20]]. Can one person attend all?",
+          "options": [
+            "Yes — sort and check",
+            "No — [0,30] overlaps with both [5,10] and [15,20]",
+            "Yes — [5,10] and [15,20] don't overlap",
+            "Depends on meeting order"
+          ],
+          "answer": 1,
+          "explanation": "Sort by start: [0,30],[5,10],[15,20]. [0,30] and [5,10]: 5<30 → overlap. Return false. One person cannot attend all."
+        },
+        {
+          "question": "Meeting Rooms II: [[0,30],[5,10],[15,20]]. Min rooms?",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "answer": 1,
+          "explanation": "At time 5: meetings 1([0,30]) and 2([5,10]) are both active → 2 rooms needed. At time 15: meetings 1([0,30]) and 3([15,20]) are both active → 2 rooms. Max concurrent = 2."
+        },
+        {
+          "question": "Min-heap Meeting Rooms II: [[0,30],[5,10],[15,20]] sorted by start. After processing [0,30] and [5,10]: heap = ?",
+          "options": [
+            "[10,30] (two rooms used, heap has end times)",
+            "[30,10]",
+            "[5,30]",
+            "[10] (only one room)"
+          ],
+          "answer": 0,
+          "explanation": "Process [0,30]: heap empty → push 30. heap=[30]. Process [5,10]: heap.peek()=30 > start=5 → no reuse → push 10. heap=[10,30]. Two rooms in use."
+        },
+        {
+          "question": "Min-heap Meeting Rooms II: now process [15,20]. heap=[10,30]. Reuse or new room?",
+          "options": [
+            "New room — 3 rooms total",
+            "Reuse: heap.peek()=10 ≤ start=15 → pop 10 (room freed), push 20. heap=[20,30]. 2 rooms.",
+            "Reuse: pop 30, push 20",
+            "Cannot determine"
+          ],
+          "answer": 1,
+          "explanation": "heap.peek()=10 (earliest room ending) ≤ curr.start=15 → room ending at 10 is FREE at time 15. Pop 10, push 20. heap=[20,30]. Still 2 rooms in use."
+        }
+      ],
+      "visual_aid": {
+        "type": "meeting_rooms_trace",
+        "description": "Meeting Rooms II min-heap approach traced",
+        "diagram": "intervals=[[0,30],[5,10],[15,20]] sorted by start\nMin-heap tracks END TIMES of occupied rooms:\n\nTimeline:\n  Room 1: |================30=================|\n  Room 2:      |=10=|       |=20=|\n  Time:  0    5   10  15  20       30\n\nAlgorithm trace:\n  heap=[]\n\n  [0,30]: heap empty → no room to reuse → push 30\n    heap=[30]  rooms_used=1\n\n  [5,10]: peek=30 > 5 → no room free → push 10\n    heap=[10,30]  rooms_used=2  ← max so far!\n\n  [15,20]: peek=10 ≤ 15 → room 2 is FREE → pop 10, push 20\n    heap=[20,30]  rooms_used=2  (same room reused)\n\nAnswer: max heap size = 2 ✓"
+      },
+      "complexity_summary": {
+        "meeting_rooms_I_time": "O(n log n) — sort + O(n) scan",
+        "meeting_rooms_II_heap_time": "O(n log n) — sort + O(n log n) heap operations",
+        "meeting_rooms_II_twoptr_time": "O(n log n) — two separate sorts + O(n) two-pointer",
+        "space": "O(n) heap or O(1) two-pointer"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-252",
+          "title": "Meeting Rooms",
+          "difficulty": "Easy",
+          "pattern": "Sort by start, check consecutive overlap"
+        },
+        {
+          "id": "lc-253",
+          "title": "Meeting Rooms II",
+          "difficulty": "Medium",
+          "pattern": "Min-heap of end times OR two-pointer"
+        },
+        {
+          "id": "lc-1353",
+          "title": "Maximum Number of Events That Can Be Attended",
+          "difficulty": "Medium",
+          "pattern": "Greedy with min-heap of event end days"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M10-L4-TH-1",
+            "question": "In Meeting Rooms II, the min-heap stores END TIMES. What does removing `heap[0]` when `heap[0] <= start` represent physically?",
+            "options": [
+              "Removing the earliest end time represents destroying a room permanently",
+              "Removing `heap[0]` represents REUSING THE ROOM whose meeting ended earliest — if the earliest-ending meeting finishes at time heap[0] and the new meeting starts at time 'start' >= heap[0], that room is NOW FREE; removing its old end time and adding the new meeting's end time represents the same room transitioning from its old meeting to the new one; if no room is free (heap[0] > start), we add a new room (push without removing), increasing the room count",
+              "Removing heap[0] represents cancelling the current meeting",
+              "heap[0] is the room number, not the end time"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's trace comment: 'Reuse room whose meeting ends earliest if it finishes before this starts' — the heap models 'rooms in use, identified by when their current meeting ends'; when heap[0] (smallest end time) <= new meeting's start, that room is free; removing its end time and adding the new end time represents booking the same physical room for the new meeting."
+          },
+          {
+            "id": "L2M10-L4-TH-2",
+            "question": "Meeting Rooms I uses `intervals[i][0] < intervals[i-1][1]` for conflict detection. Why `<` (not `<=`)?",
+            "options": [
+              "Using < is wrong; <= should be used for correctness",
+              "A conflict for ONE PERSON attending ALL MEETINGS means two meetings OVERLAP IN TIME — not just touch; if meeting A ends at time 5 and meeting B starts at time 5, one person can finish A and immediately start B (back-to-back meetings are OK for one person); `start < prev_end` means B starts BEFORE A ends (actual time overlap = can't attend both); `start <= prev_end` would incorrectly reject touching meetings where one person can attend both consecutively",
+              "< is used because meetings are stored in 0-indexed arrays",
+              "< is a convention; both < and <= produce the same result for integer times"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson: canAttendMeetings checks `intervals[i][0] < intervals[i-1][1]` — strict less-than means 'starts before the previous ends'; meeting A ending at exactly time T and meeting B starting at T is NOT a conflict (one person can attend back-to-back); this contrasts with Meeting Rooms II where `heap[0] <= start` (<=) means a room is free when a meeting ends at exactly the new start time."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M10-L4-LG-1",
+            "question": "For `minMeetingRooms([[0,30],[5,10],[15,20]])`, trace the heap state precisely. When does [15,20] reuse a room?",
+            "options": [
+              "[15,20] always needs a new room; 3 rooms are needed",
+              "After sorting by start: [0,30],[5,10],[15,20]; after [0,30]: heap=[30], rooms=1; after [5,10]: heap[0]=30>5→no free, push 10→heap=[10,30], rooms=2; after [15,20]: sort heap→[10,30], heap[0]=10≤15→free room! shift 10, push 20→heap=[20,30], rooms=2; ANSWER=2 — [15,20] reuses the room that had [5,10]",
+              "[15,20] reuses the room that had [0,30]",
+              "All three meetings are simultaneous; 3 rooms needed"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution and the lesson's explicit trace: the room that held [5,10] (ending at time 10) is free when [15,20] starts at 15 (10<=15); that room is reused for [15,20]; [0,30] is still ongoing when [15,20] starts (30>15), so that room remains occupied; final heap=[20,30], size=2."
+          },
+          {
+            "id": "L2M10-L4-LG-2",
+            "question": "The TWO SORTED ARRAYS alternative approach for Meeting Rooms II tracks a `rooms` counter and `endPtr`. Why does `endPtr` advance when `start >= ends[endPtr]` (not when `start > ends[endPtr]`)?",
+            "options": [
+              "endPtr should advance on > not >=; using >= is a bug",
+              "When a meeting ends at time ends[endPtr] and a new meeting starts at time start with start >= ends[endPtr], the room is FREE (meeting ended AT or BEFORE new start); advancing endPtr marks this room as reused; if start == ends[endPtr], the room ended exactly at the new start time (touching = can reuse); if start > ends[endPtr], the room ended before the new start (can definitely reuse); `>=` correctly captures both cases; NOT advancing endPtr (leaving rooms++) would incorrectly add a new room when one is actually available",
+              "endPtr advances on >=  only for meetings with even start times",
+              "endPtr and rooms are independent; endPtr advancement has no effect on rooms"
+            ],
+            "answer": 1,
+            "explanation": "In the two-sorted-arrays approach: `if (start < ends[endPtr]) rooms++` (new room needed); `else endPtr++` (reuse: advance past the freed end time); the condition `start < ends[endPtr]` (equivalent to `start >= ends[endPtr]` for reuse) matches the min-heap approach where `heap[0] <= start` frees a room; both use non-strict comparison for 'ended at exactly start time = free'."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M10-L4-SY-1",
+            "question": "In the heap-based Meeting Rooms II, the heap is sorted (O(n log n)) at each iteration. The lesson notes 'use proper MinHeap in production'. What makes a proper MinHeap better?",
+            "options": [
+              "A proper MinHeap produces different results than the sorted-array approach",
+              "A PROPER MIN-HEAP (e.g., binary heap) provides O(log n) insertion and O(log n) extraction of the minimum; the lesson's array-sort approach costs O(n log n) PER INSERTION (re-sorting the entire heap each time); for n meetings: O(n²log n) total vs O(n log n) with a proper heap; both produce IDENTICAL RESULTS but the heap is orders of magnitude faster for large inputs; the sort-based approach is pedagogically clear for interviews but inappropriate for production code",
+              "A proper MinHeap uses less memory than an array",
+              "Only a proper MinHeap can correctly identify the earliest-ending meeting"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's note: 'heap.sort() for interview clarity; use proper MinHeap in production' — the sort-based approach sorts the entire array at each step (O(n log n) per meeting), giving O(n² log n) total; a proper binary min-heap maintains heap-order property with O(log n) push/pop operations, achieving O(n log n) total for all n meetings; both are correct, but production code requires the proper implementation."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M10-L4-CC-1",
+            "title": "Meeting Rooms I and II",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both Meeting Rooms variants from this lesson.",
+            "requirements": [
+              "Implement `canAttendMeetingsImpl(intervals)` matching the lesson's sort+conflict-check",
+              "Implement `minMeetingRoomsImpl(intervals)` matching the lesson's heap-based approach"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function canAttendMeetingsImpl(intervals) {\n  // TODO: sort by start; check intervals[i][0] < intervals[i-1][1]\n}\n\nfunction minMeetingRoomsImpl(intervals) {\n  // TODO: sort by start; maintain sorted heap of end times\n}"
+            },
+            "test_cases": [
+              {
+                "input": "canAttendMeetingsImpl([[0,30],[5,10],[15,20]])",
+                "expected": false,
+                "type": "visible"
+              },
+              {
+                "input": "canAttendMeetingsImpl([[7,10],[2,4]])",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "minMeetingRoomsImpl([[0,30],[5,10],[15,20]])",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "minMeetingRoomsImpl([[7,10],[2,4]])",
+                "expected": 1,
+                "type": "hidden"
+              },
+              {
+                "input": "canAttendMeetingsImpl([[1,5],[5,10]])",
+                "expected": true,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function canAttendMeetingsImpl(intervals) {\n  intervals.sort((a,b)=>a[0]-b[0]);\n  for(let i=1;i<intervals.length;i++)\n    if(intervals[i][0]<intervals[i-1][1])return false;\n  return true;\n}\n\nfunction minMeetingRoomsImpl(intervals) {\n  if(!intervals.length)return 0;\n  intervals.sort((a,b)=>a[0]-b[0]);\n  const heap=[];\n  for(const[s,e]of intervals){\n    if(heap.length>0)heap.sort((a,b)=>a-b);\n    if(heap.length>0&&heap[0]<=s)heap.shift();\n    heap.push(e);\n  }\n  return heap.length;\n}"
+            },
+            "complexity_analysis": "canAttendMeetingsImpl: O(n log n). minMeetingRoomsImpl: O(n² log n) naive sort; O(n log n) with proper MinHeap.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "canAttendMeetingsImpl: sort by start; if any intervals[i][0] < intervals[i-1][1] return false; else true."
+              },
+              {
+                "level": 2,
+                "text": "minMeetingRoomsImpl: for each meeting, sort heap, check if earliest-ending room is free (heap[0]<=start); reuse or add new; return heap.length."
+              },
+              {
+                "level": 3,
+                "text": "Touching meetings: canAttend uses strict < (touching=OK for one person); minRooms uses <= (touching=room freed for reuse)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 5,
+      "title": "Jump Game I And II",
+      "tag": null,
+      "objective": "Solve Jump Game I using greedy reach tracking and Jump Game II using greedy minimum-jumps with a current-reach/next-reach window, and prove correctness via the exchange argument.",
+      "concepts": [
+        "Jump Game I: can you reach the last index? (reachability)",
+        "Greedy reach: maxReach = max reach from any previously visited position",
+        "If i > maxReach: stuck, return false",
+        "If maxReach >= last index: return true",
+        "Jump Game II: minimum number of jumps to reach last index",
+        "Greedy window: track current jump range and farthest reach in that range",
+        "When reaching current jump boundary: increment jumps, extend to next range",
+        "O(n) time, O(1) space for both"
+      ],
+      "explanation": "Jump Game I (#55): given array where nums[i] is the maximum jump length from position i, can you reach the last index? Greedy: maintain maxReach, the farthest index reachable from any visited position. For each index i from 0 to n-1: if i > maxReach, return false (stuck). Update maxReach = max(maxReach, i + nums[i]). If maxReach >= n-1, return true. Jump Game II (#45): minimum number of jumps to reach the end. Greedy with a window: maintain curEnd (end of current jump's reach) and farthest (farthest reachable from any position in current window). For each index i from 0 to n-2: update farthest = max(farthest, i + nums[i]). When i reaches curEnd (boundary of current jump): increment jumps, extend curEnd = farthest. This greedy is optimal because: at each jump boundary, we always extend to the farthest reachable position, which minimises the number of additional jumps needed. Exchange argument: any strategy that does NOT extend to the farthest position at a jump boundary can be improved by greedily extending there.",
+      "analogy": "Jump Game I is like exploring a series of stepping stones where each stone lets you jump up to a certain distance forward. You track the farthest stone you can ever reach from your current position. If a stone is beyond your maximum reach, you are stuck. Jump Game II is like taking the minimum number of taxi rides across a city: at each stop, take the taxi that gets you farthest, minimising the total number of rides.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// JUMP GAME I (#55) — can you reach the end?\n// O(n) time, O(1) space\nfunction canJump(nums) {\n    let maxReach = 0;\n    for (let i = 0; i < nums.length; i++) {\n        if (i > maxReach) return false; // stuck: can't reach position i\n        maxReach = Math.max(maxReach, i + nums[i]);\n        if (maxReach >= nums.length - 1) return true;\n    }\n    return true; // survived entire array\n}\n\nconsole.log(canJump([2,3,1,1,4])); // true\nconsole.log(canJump([3,2,1,0,4])); // false (stuck at index 3: nums[3]=0)\n\n// JUMP GAME II (#45) — minimum jumps to reach end\n// O(n) time, O(1) space\nfunction jump(nums) {\n    let jumps = 0;\n    let curEnd = 0;    // end of current jump's reachable window\n    let farthest = 0;  // farthest reachable from any position in current window\n\n    for (let i = 0; i < nums.length - 1; i++) {\n        // Update farthest reachable from position i\n        farthest = Math.max(farthest, i + nums[i]);\n\n        if (i === curEnd) {\n            // Reached boundary of current jump: must make another jump\n            jumps++;\n            curEnd = farthest; // next jump extends to farthest reachable\n            if (curEnd >= nums.length - 1) break; // reached end\n        }\n    }\n    return jumps;\n}\n\nconsole.log(jump([2,3,1,1,4])); // 2 (jump from 0->1->4 or 0->4)\nconsole.log(jump([2,3,0,1,4])); // 2\nconsole.log(jump([1]));          // 0 (already at end)\n\n// TRACE for [2,3,1,1,4]:\n// i=0: farthest=max(0,0+2)=2. i==curEnd(0): jumps=1, curEnd=2.\n// i=1: farthest=max(2,1+3)=4. i<curEnd(2), no jump.\n// i=2: farthest=max(4,2+1)=4. i==curEnd(2): jumps=2, curEnd=4>=4: break.\n// Answer: 2 jumps\n\n// GAS STATION (#134) — greedy start point\nfunction canCompleteCircuit(gas, cost) {\n    let total = 0, curr = 0, start = 0;\n    for (let i = 0; i < gas.length; i++) {\n        const net = gas[i] - cost[i]; // net gain at station i\n        total += net;\n        curr  += net;\n        if (curr < 0) { // can't continue from current start\n            start = i + 1; // try starting from next station\n            curr = 0;\n        }\n    }\n    return total >= 0 ? start : -1; // total>=0 means a solution exists\n}",
+        "explanation": "Gas Station's greedy insight: if the total gas minus total cost is non-negative, a solution always exists. The greedy finds the correct starting station by: whenever cumulative gas goes negative from the current start, abandon that start and try the next station. The last tried start is the answer because: if we can complete the circuit from any station, it must be the station where the previous segment failed."
+      },
+      "common_mistakes": [
+        "In Jump Game II, iterating to nums.length-1 (not nums.length-2) — the loop goes to n-2 because when at position n-1 (last), you have already reached it; the last position never needs to jump anywhere",
+        "In Jump Game I, not checking i > maxReach before updating maxReach — if you update maxReach from a position beyond maxReach, you are implicitly 'teleporting' to a reachable position; check reachability first",
+        "In Gas Station, not verifying total >= 0 before returning start — if total gas < total cost, no circuit is possible; total < 0 means return -1 regardless of where start landed"
+      ],
+      "interview_relevance": "Jump Game (#55) and Jump Game II (#45) are both Blind 75. Gas Station (#134) is NeetCode 150. All three use the greedy reach or greedy start-point pattern. The exchange argument proof for Jump Game II — 'any strategy that doesn't extend to farthest at the boundary can be improved' — is specifically asked as a follow-up to the greedy solution.",
+      "mini_challenge": "Implement canJump, jump, and canCompleteCircuit. Verify canJump([3,2,1,0,4])=false. Verify jump([2,3,1,1,4])=2. Verify canCompleteCircuit([1,2,3,4,5],[3,4,5,1,2])=3. Trace Gas Station step by step for that input showing total, curr, and start after each station. Then prove: why is the greedy for Gas Station correct? Specifically, why is it guaranteed that starting from the last candidate start will work if total >= 0?",
+      "flashcards": [
+        {
+          "front": "Jump Game I: greedy approach?",
+          "back": "Track maxReach (furthest index reachable from any position visited so far). For each index i: if i > maxReach: stuck, return false. Otherwise: maxReach = max(maxReach, i + nums[i]). If loop completes: return true."
+        },
+        {
+          "front": "Jump Game I: why does this greedy work?",
+          "back": "maxReach represents the frontier of reachability. If position i is reachable (i ≤ maxReach), we can use its jump to extend maxReach. If i > maxReach at any point, no previously reachable position could reach i — we're stuck."
+        },
+        {
+          "front": "Jump Game II: what does the greedy track?",
+          "back": "Three variables: jumps (count), currEnd (end of current jump range), farthest (furthest reachable from current range). When i reaches currEnd: make a jump (jumps++, currEnd=farthest). Never jump beyond the last index."
+        },
+        {
+          "front": "Jump Game II: key insight?",
+          "back": "At each position i within the current jump range [prev+1, currEnd], we can extend farthest = max(farthest, i+nums[i]). When i reaches currEnd: we MUST make a jump to reach positions beyond currEnd. The optimal jump lands at farthest."
+        },
+        {
+          "front": "Jump Game II: why is greedy optimal (no DP needed)?",
+          "back": "We always jump as far as possible within the current range. Any other choice (jumping less than farthest) leaves strictly fewer positions reachable in the next step. By the exchange argument: the greedy choice is never worse than any alternative."
+        },
+        {
+          "front": "Jump Game I vs II: key difference?",
+          "back": "Jump Game I: CAN you reach the end? (boolean). Jump Game II: minimum JUMPS to reach the end (integer). I uses maxReach only. II uses maxReach (farthest) + currEnd (jump boundary) + jump counter."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "canJump([2,3,1,1,4]): at index 0, maxReach=2. At index 1, maxReach=max(2,1+3)=4. At index 2, maxReach=max(4,2+1)=4. At index 3, maxReach=max(4,3+1)=4. Can you reach index 4?",
+          "options": [
+            "No — maxReach never exceeds 4",
+            "Yes — index 4 ≤ maxReach=4",
+            "No — maxReach must exceed n-1",
+            "Yes — but only through index 1"
+          ],
+          "answer": 1,
+          "explanation": "maxReach=4 at the end. n-1=4. Since we never have i > maxReach (4 ≤ 4 ✓ at each step) and maxReach ≥ n-1=4, we can reach the last index. Return true."
+        },
+        {
+          "question": "canJump([3,2,1,0,4]): at index 3, nums[3]=0. maxReach at this point?",
+          "options": [
+            "3",
+            "4",
+            "maxReach=3 (0+3=3 from idx 0). When i=4: 4 > maxReach=3 → false",
+            "maxReach=6"
+          ],
+          "answer": 2,
+          "explanation": "idx 0: maxReach=3. idx 1: max(3,1+2)=3. idx 2: max(3,2+1)=3. idx 3: max(3,3+0)=3. i=4: 4 > maxReach=3 → stuck. Return false."
+        },
+        {
+          "question": "Jump II [2,3,1,1,4]: jumps, currEnd, farthest at each step?",
+          "options": [
+            "Answer is 2 jumps",
+            "Answer is 3 jumps",
+            "Answer is 1 jump",
+            "Answer is 4 jumps"
+          ],
+          "answer": 0,
+          "explanation": "Init: jumps=0, currEnd=0, farthest=0. i=0: farthest=max(0,0+2)=2. i=currEnd=0: jumps=1, currEnd=2. i=1: farthest=max(2,1+3)=4. i=2: farthest=max(4,2+1)=4. i=currEnd=2: jumps=2, currEnd=4. i=3,4: i≥n-1=4 → done. Answer: 2 jumps."
+        },
+        {
+          "question": "Jump II: when does 'jumps++' trigger?",
+          "options": [
+            "At every index",
+            "When i === currEnd (current jump range exhausted — must jump to farthest to reach beyond currEnd)",
+            "When farthest > currEnd",
+            "When nums[i] > 0"
+          ],
+          "answer": 1,
+          "explanation": "i===currEnd: we've processed all positions reachable from the previous jump. To progress further, we MUST jump. Jump to farthest (the optimal next position). jumps++, currEnd=farthest."
+        }
+      ],
+      "visual_aid": {
+        "type": "jump_game_trace",
+        "description": "Jump Game II greedy trace",
+        "diagram": "nums=[2,3,1,1,4]  (n=5, target index=4)\n\nInit: jumps=0, currEnd=0, farthest=0\n\nIndex 0: nums[0]=2. farthest=max(0,0+2)=2\n  i==currEnd(0)? YES → JUMP! jumps=1, currEnd=2\n\nIndex 1: nums[1]=3. farthest=max(2,1+3)=4\nIndex 2: nums[2]=1. farthest=max(4,2+1)=4\n  i==currEnd(2)? YES → JUMP! jumps=2, currEnd=4\n\nIndex 3: nums[3]=1. farthest=max(4,3+1)=4\nIndex 4: i=4=n-1 → DONE (at last index)\n\nReturn jumps=2 ✓\n\nJump path: idx 0 → jump to idx 1 (reach 2-range)\n           idx 1 or 2 → jump to idx 4 (reach 4-range)"
+      },
+      "complexity_summary": {
+        "jump_game_I_time": "O(n)",
+        "jump_game_I_space": "O(1)",
+        "jump_game_II_time": "O(n)",
+        "jump_game_II_space": "O(1)",
+        "note": "Both O(n) time O(1) space — single pass, no DP array needed"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-55",
+          "title": "Jump Game",
+          "difficulty": "Medium",
+          "pattern": "Greedy maxReach scan",
+          "blind75": true
+        },
+        {
+          "id": "lc-45",
+          "title": "Jump Game II",
+          "difficulty": "Medium",
+          "pattern": "Greedy BFS levels — currEnd + farthest",
+          "blind75": true
+        },
+        {
+          "id": "lc-1306",
+          "title": "Jump Game III",
+          "difficulty": "Medium",
+          "pattern": "BFS/DFS reachability — can reach index with value 0?"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M10-L5-TH-1",
+            "question": "In Jump Game I, why is checking `if (i > maxReach) return false` BEFORE updating maxReach the correct order?",
+            "options": [
+              "The order doesn't matter; maxReach can be checked after updating",
+              "If `i > maxReach`, position i is UNREACHABLE — no previous jump could reach it; there is no point updating maxReach from position i (we can't be at position i to jump from it); checking BEFORE the update immediately returns false when stuck, without performing a meaningless maxReach update from an unreachable position; if the check came AFTER the update, we'd compute `maxReach = max(maxReach, i + nums[i])` from a position we can't actually reach, potentially giving a false optimistic maxReach",
+              "Updating maxReach before checking prevents off-by-one errors",
+              "The order is irrelevant; the check and update are in the same loop body"
+            ],
+            "answer": 1,
+            "explanation": "The if-then-update order enforces the 'can we reach position i?' invariant: only if i <= maxReach can we actually be at i and make a jump; checking first ensures we immediately detect unreachability; updating first would use nums[i] from an unreachable position — semantically invalid (you can't jump from a position you can't reach)."
+          },
+          {
+            "id": "L2M10-L5-TH-2",
+            "question": "In Jump Game II, what do `curEnd` and `farthest` represent, and why is the loop `for (let i = 0; i < nums.length - 1; i)` (not including the last index)?",
+            "options": [
+              "curEnd is the current position; farthest is the target; the loop excludes the last index arbitrarily",
+              "`curEnd` = the BOUNDARY of positions reachable by the current number of jumps; `farthest` = the FARTHEST position reachable from any position in [0..curEnd]; when i reaches curEnd, we MUST jump to extend the reach to farthest — this counts as one more jump; the loop excludes `nums.length - 1` because we don't need to jump FROM the last position (we've already arrived); including it would increment jumps unnecessarily when already at or past the target",
+              "curEnd is the start of the current window; farthest is the current position",
+              "The loop excludes the last index to prevent array out-of-bounds"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's trace and concepts: curEnd marks the reachability frontier of the current jump level; farthest tracks the best next frontier; when i==curEnd, we've exhausted positions at the current level and must jump; excluding `nums.length-1` prevents a spurious jump increment when we've already confirmed reaching the destination."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M10-L5-LG-1",
+            "question": "Trace `jump([2,3,1,1,4])`. What are curEnd, farthest, and jumps at each step?",
+            "options": [
+              "i=0: far=2, i==curEnd(0)→jumps=1, curEnd=2; i=1: far=max(2,4)=4, i<2; i=2: far=4, i==curEnd(2)→jumps=2, curEnd=4>=4 break; return 2 ✓",
+              "i=0: jump immediately, jumps=1; i=1: jump, jumps=2; answer=2",
+              "The algorithm scans all 5 positions before returning 3 jumps",
+              "i=0: far=2; i=1: far=4; i=2: jump; i=3: jump; return 4 jumps"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution returning 2 and matching the lesson's exact trace: 'i=0: farthest=max(0,0+2)=2. i==curEnd(0): jumps=1, curEnd=2. i=1: farthest=max(2,1+3)=4. i<curEnd(2). i=2: farthest=max(4,2+1)=4. i==curEnd(2): jumps=2, curEnd=4>=4: break. Answer: 2 jumps.'"
+          },
+          {
+            "id": "L2M10-L5-LG-2",
+            "question": "For Gas Station `gas=[1,2,3,4,5]`, `cost=[3,4,5,1,2]`, explain why starting at station 3 (index 3) works.",
+            "options": [
+              "Station 3 works because it has the most gas (gas[3]=4)",
+              "Net gains: [1-3=-2, 2-4=-2, 3-5=-2, 4-1=3, 5-2=3]; from station 3: net=3 (reach 4), net=3 (reach 0), net=-2 (reach 1), net=-2 (reach 2), net=-2 (reach 3=start); running sum from 3: 3→6→4→2→0; never goes negative; total net=sum=(-2+-2+-2+3+3)=-1+5=1>0 so a solution exists; the greedy correctly sets start=3 because curr goes negative at stations 0,1,2 — confirmed by direct execution returning 3",
+              "Station 3 is the last station; we always start from the last",
+              "Any station with positive net gain can be the start"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: canCompleteCircuit([1,2,3,4,5],[3,4,5,1,2])=3; total net=1>=0 (solution exists); the greedy resets start whenever curr<0: after station 0 (curr=-2<0), start=1; after station 1 (curr=-2<0), start=2; after station 2 (curr=-2<0), start=3; stations 3 and 4 keep curr positive; start=3 is the answer."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M10-L5-SY-1",
+            "question": "In Gas Station, `total >= 0 ? start : -1` is returned. Why does `total >= 0` guarantee a solution EXISTS (not just that `start` is valid)?",
+            "options": [
+              "total >= 0 means the specific start station will always work",
+              "If `total >= 0`, the SUM OF ALL NET GAINS is non-negative — meaning the circuit provides at least as much gas as it costs globally; a classic result in circular-array problems: if the total is non-negative, the greedy start point (the last reset point) is ALWAYS a valid starting station; this is because the greedy ensures: (1) all stations before `start` were 'dead ends' (caused curr to go negative), (2) from `start` onward, curr stayed non-negative; together with total>=0, the wrap-around (going through earlier stations after completing the circuit from start) is also guaranteed sufficient",
+              "total >= 0 only means a partial circuit is possible, not a full one",
+              "total >= 0 is a necessary but not sufficient condition; additional checks are needed"
+            ],
+            "answer": 1,
+            "explanation": "The proof sketch: if total >= 0, the greedy algorithm guarantees the last `start` value is a valid starting station; intuitively, the segments before `start` all caused curr to go negative (they're locally insufficient), but the global total being non-negative means the 'positive tail' (stations from `start` onward) compensates for the 'negative prefix'; this is the greedy correctness proof for Gas Station."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M10-L5-CC-1",
+            "title": "Jump Game I, II, and Gas Station",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the three greedy array problems from this lesson.",
+            "requirements": [
+              "Implement `canJumpImpl(nums)` matching the lesson's greedy maxReach",
+              "Implement `jumpImpl(nums)` matching the lesson's curEnd/farthest window",
+              "Implement `canCompleteCircuitImpl(gas, cost)` matching the lesson's reset-and-total approach"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function canJumpImpl(nums) {\n  // TODO: maxReach greedy; return false if i>maxReach\n}\n\nfunction jumpImpl(nums) {\n  // TODO: curEnd/farthest window; jump when i===curEnd\n}\n\nfunction canCompleteCircuitImpl(gas, cost) {\n  // TODO: track total and curr; reset start when curr<0\n}"
+            },
+            "test_cases": [
+              {
+                "input": "canJumpImpl([2,3,1,1,4])",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "canJumpImpl([3,2,1,0,4])",
+                "expected": false,
+                "type": "visible"
+              },
+              {
+                "input": "jumpImpl([2,3,1,1,4])",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "canCompleteCircuitImpl([1,2,3,4,5],[3,4,5,1,2])",
+                "expected": 3,
+                "type": "hidden"
+              },
+              {
+                "input": "jumpImpl([1])",
+                "expected": 0,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function canJumpImpl(nums) {\n  let maxReach=0;\n  for(let i=0;i<nums.length;i++){\n    if(i>maxReach)return false;\n    maxReach=Math.max(maxReach,i+nums[i]);\n    if(maxReach>=nums.length-1)return true;\n  }\n  return true;\n}\n\nfunction jumpImpl(nums) {\n  let jumps=0,curEnd=0,farthest=0;\n  for(let i=0;i<nums.length-1;i++){\n    farthest=Math.max(farthest,i+nums[i]);\n    if(i===curEnd){\n      jumps++;\n      curEnd=farthest;\n      if(curEnd>=nums.length-1)break;\n    }\n  }\n  return jumps;\n}\n\nfunction canCompleteCircuitImpl(gas,cost){\n  let total=0,curr=0,start=0;\n  for(let i=0;i<gas.length;i++){\n    const net=gas[i]-cost[i];\n    total+=net;\n    curr+=net;\n    if(curr<0){start=i+1;curr=0;}\n  }\n  return total>=0?start:-1;\n}"
+            },
+            "complexity_analysis": "All three: O(n) time, O(1) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "canJumpImpl: check i>maxReach BEFORE updating; return true early if maxReach>=last."
+              },
+              {
+                "level": 2,
+                "text": "jumpImpl: loop to nums.length-1 (exclusive); update farthest each step; when i===curEnd, jump, set curEnd=farthest."
+              },
+              {
+                "level": 3,
+                "text": "canCompleteCircuitImpl: when curr<0, reset start=i+1 and curr=0; after loop, return start if total>=0, else -1."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 6,
+      "title": "Greedy Thinking And Proofs",
+      "tag": null,
+      "objective": "Prove greedy correctness using the exchange argument, identify when greedy is safe versus when DP is required, and map all Module 10 NeetCode 150 problems to their greedy patterns.",
+      "concepts": [
+        "Exchange argument: assume an optimal solution; show that any deviation from greedy can be 'swapped' to the greedy choice without worsening the result",
+        "Greedy safe: when local optimal choices lead to global optimum",
+        "Greedy unsafe: when local optimal is not globally optimal (need DP)",
+        "Matroid structure: formal condition for greedy optimality",
+        "Greedy vs DP: greedy when exchange argument holds; DP for counting or when future choices affect cost",
+        "Common greedy signals: sorting enables local comparison, minimise maximum, maximise minimum",
+        "Module 10 NeetCode 150 problems mapped",
+        "Skills unlocked: Interval Algorithms, Greedy Optimization"
+      ],
+      "explanation": "The exchange argument is the standard proof technique for greedy algorithms. Structure: (1) Assume an optimal solution O exists. (2) Find the first position where O differs from the greedy solution G (takes different choice). (3) Show that swapping O's choice for G's choice at that position produces a solution at least as good as O. (4) By induction, G is at least as good as O. If G is not worse than O, and O is optimal, G is also optimal. Greedy is unsafe when: (1) Coin change with arbitrary denominations (greedy picks largest coin, which is not always optimal). (2) 0/1 knapsack (taking the highest-value-per-weight item first is not always optimal). (3) Shortest path with negative edges (greedy Dijkstra fails). Greedy is safe when: (1) Activity selection (earliest finish). (2) Huffman coding (greedy by frequency). (3) Fractional knapsack (take fractions of items by value/weight). (4) Jump Game (greedy farthest reach). The formal condition for greedy optimality is the matroid structure, but the exchange argument is sufficient for most interview proofs.",
+      "analogy": "The exchange argument is like proving a chess player's strategy is optimal. You imagine a rival player makes a different first move. You show that swapping their move for your greedy move cannot hurt them. If this is true for every position, your greedy strategy is globally optimal. The rival's 'different move' is the optimal solution differing from greedy; showing the swap is safe proves greedy matches optimal.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// EXCHANGE ARGUMENT DEMONSTRATIONS\n\n// GREEDY SAFE: Non-Overlapping Intervals\n// Assume optimal keeps interval B (end=10) instead of A (end=5) at some position.\n// Swapping B for A: A has earlier end (5 < 10) -> future intervals are more likely valid\n// -> the number of kept intervals cannot decrease\n// -> greedy (earliest end) is at least as good as optimal\n\n// GREEDY UNSAFE: Coin Change\n// coins=[1,3,4], target=6\n// Greedy: take 4 -> remaining 2 -> take 1,1 -> total 3 coins\n// Optimal: take 3,3 -> total 2 coins\n// Exchange argument FAILS: taking the largest coin (4) blocks the 2-coin solution\n// -> Use DP for coin change\n\n// GREEDY SAFE: Jump Game II\n// Assume optimal takes a shorter jump at position i (reaches j < farthest)\n// We could swap to go to farthest instead -> farthest >= j -> at least as good\n// -> greedy (always extend to farthest) is at least as good as any other strategy\n\n// MODULE 10 NEETCODE 150 PROBLEMS:\nconst module10_problems = [\n    { id: 56,  title: 'Merge Intervals',                pattern: 'sort + scan',           nc150: true },\n    { id: 57,  title: 'Insert Interval',                pattern: 'three-phase scan',       nc150: true },\n    { id: 435, title: 'Non-Overlapping Intervals',      pattern: 'sort by end + greedy',   nc150: true },\n    { id: 452, title: 'Min Arrows to Burst Balloons',   pattern: 'sort by end + greedy',   nc150: true },\n    { id: 252, title: 'Meeting Rooms',                  pattern: 'sort + overlap check',   nc150: true },\n    { id: 253, title: 'Meeting Rooms II',               pattern: 'min-heap end times',     nc150: true },\n    { id: 55,  title: 'Jump Game',                      pattern: 'greedy maxReach',        nc150: true },\n    { id: 45,  title: 'Jump Game II',                   pattern: 'greedy window',          nc150: true },\n    { id: 134, title: 'Gas Station',                    pattern: 'greedy start point',     nc150: true },\n    { id: 763, title: 'Partition Labels',               pattern: 'last occurrence map',    nc150: true },\n];\nconsole.log('Module 10 NeetCode 150:', module10_problems.filter(p=>p.nc150).length); // 10\n\n// PARTITION LABELS (#763) — greedy last-occurrence\nfunction partitionLabels(s) {\n    // Last occurrence of each character\n    const last = {};\n    for (let i = 0; i < s.length; i++) last[s[i]] = i;\n\n    const result = [];\n    let start = 0, end = 0;\n    for (let i = 0; i < s.length; i++) {\n        end = Math.max(end, last[s[i]]); // extend partition to include all of this char\n        if (i === end) {                   // reached the end of current partition\n            result.push(end - start + 1);\n            start = i + 1;\n        }\n    }\n    return result;\n}\nconsole.log(partitionLabels('ababcbacadefegdehijhklij')); // [9,7,8]",
+        "explanation": "Partition Labels greedy: extend the current partition end to the last occurrence of every character seen so far. When the current index equals the partition end, all characters in this partition have their last occurrence within it — the partition can be safely closed. This is greedy because we always extend to the minimum safe boundary."
+      },
+      "common_mistakes": [
+        "Applying greedy to a DP problem because 'the greedy seems to work on small examples' — always attempt the exchange argument proof; if it fails, use DP",
+        "Not sorting before interval greedy algorithms — the exchange argument for interval problems assumes sorted order; without sorting, the greedy 'earliest end' choice is undefined",
+        "Skipping the correctness proof and only verifying with test cases — test cases cannot distinguish a correct greedy from a greedy that happens to work on all provided examples; the exchange argument is the rigorous verification"
+      ],
+      "interview_relevance": "Module 10 covers 10 NeetCode 150 problems, making it one of the richest modules. Greedy algorithms are a significant portion of every interview problem bank. The exchange argument proof is specifically requested at Google, Meta, and Jane Street when a candidate proposes a greedy solution: 'How do you know greedy is optimal here?' Being able to sketch the proof in 2 minutes is the expected response.",
+      "mini_challenge": "Implement partitionLabels and verify it returns [9,7,8] for 'ababcbacadefegdehijhklij'. Then attempt the exchange argument for Partition Labels: assume optimal uses a different partition boundary at some position. Show that swapping to the greedy boundary (last occurrence of all contained characters) cannot reduce the partition quality. Finally, identify which of these problems require DP vs greedy and explain why: (1) Maximum Subarray. (2) House Robber. (3) Jump Game. (4) Coin Change. (5) Activity Selection.",
+      "flashcards": [
+        {
+          "front": "Greedy algorithm: definition and two conditions?",
+          "back": "Makes the locally optimal choice at each step without reconsidering. Provably correct when: (1) GREEDY CHOICE PROPERTY: a globally optimal solution can be constructed by making locally optimal choices. (2) OPTIMAL SUBSTRUCTURE: optimal solution to subproblems combines to optimal global solution."
+        },
+        {
+          "front": "Exchange argument proof: how does it work?",
+          "back": "Assume an optimal solution O differs from greedy G. Show that swapping any choice in O with the greedy choice gives a solution that is at least as good. By repeated exchange, O can be transformed into G without losing optimality — therefore G is optimal."
+        },
+        {
+          "front": "Greedy vs DP: when does greedy fail?",
+          "back": "Greedy fails when: local optimality ≠ global optimality. Classic failure: Coin Change [1,3,4], target=6. Greedy picks 4+1+1=3 coins; optimal is 3+3=2 coins. DP evaluates ALL possibilities; greedy commits to one choice."
+        },
+        {
+          "front": "Gas Station (#134): greedy insight?",
+          "back": "If total gas ≥ total cost: a solution exists. To find the starting station: track runningSum. When runningSum < 0, the current start is invalid — reset start to next station and runningSum to 0. The last valid start is the answer."
+        },
+        {
+          "front": "Maximum Subarray (Kadane's): greedy at each step?",
+          "back": "At each element: either extend the current subarray (currSum += num) or start fresh (currSum = num). Keep currSum = max(currSum + num, num). This is equivalent to: if currSum < 0, it's better to start a new subarray at num."
+        },
+        {
+          "front": "Interval greedy vs DP: when is greedy correct?",
+          "back": "Interval problems: sorting by end time and greedy selecting is provably optimal for Activity Selection, Minimum Removals, and Arrow problems. Exchange argument proof: if we replaced an early-ending selection with a later-ending one, it could only block MORE future intervals."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Gas Station [1,2,3,4,5] costs=[3,4,5,1,2]. Does a valid starting station exist?",
+          "options": [
+            "No — some stations have more cost than gas",
+            "Yes — total gas(15) ≥ total cost(15). Start at station 3 (0-indexed).",
+            "Yes — start at station 0",
+            "Cannot determine without simulation"
+          ],
+          "answer": 1,
+          "explanation": "Total gas=1+2+3+4+5=15. Total cost=3+4+5+1+2=15. 15≥15 → solution exists. Greedy: runningSum goes negative before station 3, so reset start=3. From station 3: 4-1=3, 3+5-2=6, 6+1-3=4, 4+2-4=2, 2+3-5=0. Completes the circuit."
+        },
+        {
+          "question": "Maximum Subarray of [-2,1,-3,4,-1,2,1,-5,4]: answer?",
+          "options": [
+            "4",
+            "6",
+            "7",
+            "8"
+          ],
+          "answer": 1,
+          "explanation": "Kadane's: max subarray is [4,-1,2,1] = 6. After reaching -3, currSum < 0 → restart at 4. Then 4-1=3, 3+2=5, 5+1=6, 6-5=1, 1+4=5. Max seen = 6."
+        },
+        {
+          "question": "Greedy for coins [1,3,4], target=6 picks 4+1+1=3 coins. Why does DP give 2 coins (3+3)?",
+          "options": [
+            "DP makes a different greedy choice",
+            "Greedy commits to 4 first (locally optimal) but 4 leaves remainder 2 which needs 2 ones. DP evaluates all possibilities including 3+3.",
+            "DP uses backtracking",
+            "Greedy is correct for this case"
+          ],
+          "answer": 1,
+          "explanation": "Greedy: pick largest ≤ remaining → 4 (remainder=2) → 1 (remainder=1) → 1 (remainder=0) = 3 coins. DP: dp[6] = 1+dp[5] = 1+1+dp[4] = 2+1+dp[3] = ... eventually finds dp[3]=1 (one 3-coin), dp[6]=dp[3]+dp[3]=2. Local optimality (pick 4 first) ≠ global optimality."
+        },
+        {
+          "question": "Exchange argument for Activity Selection (sort by end, keep non-overlapping): if we swap an early-ending kept interval for a later-ending one, what happens?",
+          "options": [
+            "Result is the same — exchange doesn't matter",
+            "The later-ending interval blocks more future intervals → same or fewer total intervals kept → greedy is at least as good",
+            "The later-ending interval might allow more future intervals",
+            "Exchange argument doesn't apply here"
+          ],
+          "answer": 1,
+          "explanation": "If we replace interval A (ends at t1) with B (ends at t2 > t1): B ends later, so any interval that was compatible with A and starts in (t1, t2] is now BLOCKED by B. We lose potential future intervals. Therefore A is always at least as good as B. By exchange argument: greedy (keep earliest-ending) is optimal."
+        }
+      ],
+      "visual_aid": {
+        "type": "greedy_vs_dp",
+        "description": "Greedy proof structure and failure mode",
+        "diagram": "GREEDY CORRECTNESS REQUIRES:\n  1. Greedy Choice Property: local best → global best\n  2. Optimal Substructure: subproblem optima compose\n\nACTIVITY SELECTION (greedy provably optimal):\n  Exchange argument: replacing early-ending A with later-ending B\n  → B blocks all intervals starting in (end_A, end_B]\n  → can only lose future selections, never gain\n  → A is always at least as good as B ✓\n\nCOIN CHANGE [1,3,4] target=6 (greedy FAILS):\n  Greedy: 4+1+1 = 3 coins\n          Picks largest first (locally optimal)\n  DP:     3+3   = 2 coins\n          Explores ALL combinations\n\n  Why fails: after choosing 4, remaining=2\n  No combination of {1,3,4} makes 2 in fewer than 2 coins\n  But avoiding 4 entirely allows 3+3=2 total\n  Local optimality ≠ global optimality\n\nGREEDY SAFE SIGNALS:\n  'Minimum removals' + interval sorting → Activity Selection\n  'Maximum reach' + single scan → Jump Game\n  'Gas station circuit' + running sum → Gas Station\n  'Minimum rooms' + heap → Meeting Rooms"
+      },
+      "complexity_summary": {
+        "greedy_interval_problems": "O(n log n) — sort dominates",
+        "jump_game_I_II": "O(n) — single pass greedy",
+        "gas_station": "O(n) — single pass with running sum",
+        "kadane_max_subarray": "O(n) — single pass greedy",
+        "greedy_correctness": "Requires exchange argument proof or known-correct pattern"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-55",
+          "title": "Jump Game",
+          "difficulty": "Medium",
+          "pattern": "Greedy maxReach",
+          "blind75": true
+        },
+        {
+          "id": "lc-45",
+          "title": "Jump Game II",
+          "difficulty": "Medium",
+          "pattern": "Greedy BFS-level jumps",
+          "blind75": true
+        },
+        {
+          "id": "lc-134",
+          "title": "Gas Station",
+          "difficulty": "Medium",
+          "pattern": "Greedy running sum — reset start when negative"
+        },
+        {
+          "id": "lc-53",
+          "title": "Maximum Subarray",
+          "difficulty": "Medium",
+          "pattern": "Kadane's greedy — extend or restart",
+          "blind75": true
+        },
+        {
+          "id": "lc-435",
+          "title": "Non-Overlapping Intervals",
+          "difficulty": "Medium",
+          "pattern": "Greedy sort-by-end activity selection",
+          "blind75": true
+        },
+        {
+          "id": "lc-763",
+          "title": "Partition Labels",
+          "difficulty": "Medium",
+          "pattern": "Greedy last-occurrence tracking"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M10-L6-TH-1",
+            "question": "What is the EXCHANGE ARGUMENT proof technique, and how does it prove greedy optimality?",
+            "options": [
+              "The exchange argument shows that greedy is always faster than DP",
+              "EXCHANGE ARGUMENT: assume there exists an OPTIMAL SOLUTION that differs from the greedy solution at some point; show that you can SWAP the optimal choice at that point with the greedy choice without WORSENING the result (the number of kept intervals/jumps/etc. stays the same or improves); by repeatedly applying swaps, the optimal solution is transformed into the greedy solution while never decreasing quality — proving greedy is AT LEAST AS GOOD as optimal",
+              "The exchange argument proves greedy always beats DP by a constant factor",
+              "Exchange argument shows two solutions have equal cost by induction on input size"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Exchange argument: assume an optimal solution; show that any deviation from greedy can be swapped to the greedy choice without worsening the result' — the lesson demonstrates this for Non-Overlapping Intervals: swapping an interval with a later end for one with an earlier end cannot decrease the kept count; for Jump Game II: swapping a shorter jump for the greedy farthest cannot increase the jump count."
+          },
+          {
+            "id": "L2M10-L6-TH-2",
+            "question": "The lesson shows greedy FAILS for Coin Change (coins=[1,3,4], target=6). What is the formal reason?",
+            "options": [
+              "Coin change fails because coins are not sorted",
+              "The EXCHANGE ARGUMENT FAILS for coin change: taking the largest coin (4) blocks the 2-coin (3+3) solution; swapping the greedy choice (4) for the optimal choice (3) IMPROVES the result (needs fewer coins) — the swap argument goes in the wrong direction; formally, the greedy doesn't have the MATROID structure that guarantees optimality; the locally-optimal choice (largest coin = fewest immediate coins used) doesn't lead to the globally-optimal choice (minimum total coins)",
+              "Greedy fails only when coins are not powers of 2",
+              "Greedy always fails for coin change regardless of denominations"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's example: 'Greedy takes 4, leaving 2 → takes 1,1 → 3 coins. Optimal: 3+3 = 2 coins. Exchange argument FAILS: taking largest coin (4) blocks the 2-coin solution' — the exchange argument in the reverse direction (swap greedy choice 4 for optimal choice 3) IMPROVES the result, meaning greedy is NOT optimal; this is why DP is required for coin change."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M10-L6-LG-1",
+            "question": "For `partitionLabels('ababcbacadefegdehijhklij')`, the answer is [9,7,8]. Trace why the first partition has length 9.",
+            "options": [
+              "The first 'a' appears at index 0; the first partition ends at its last occurrence",
+              "Character 'a' appears at indices 0,2,4,7,8 (last=8); 'b' appears at 1,3,5 (last=5); 'c' appears at 6 (last=6); the partition must extend to include ALL occurrences of every character it contains; starting at 0, the end is extended as each character's last occurrence is checked: max(last['a']=8, last['b']=5, last['c']=6)=8; at i=8 (==end=8), partition closes with length 8-0+1=9; confirmed by direct execution",
+              "The first partition contains exactly 9 distinct characters",
+              "The first partition ends when a space character is found"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: partitionLabels('ababcbacadefegdehijhklij')=[9,7,8]; first partition: start=0, end tracked by max(last[s[i]]) for i=0..8; last['a']=8, last['b']=5, last['c']=6; end reaches 8 at i=2 (last['a']); when i==end==8, partition length=8-0+1=9, start=9."
+          },
+          {
+            "id": "L2M10-L6-LG-2",
+            "question": "How many NC150 problems are in Module 10, and which pattern is most common?",
+            "options": [
+              "10 NC150 problems; 'sort by end + greedy' is the most common pattern (2 problems: #435, #452)",
+              "10 NC150 problems (#56,#57,#435,#452,#252,#253,#55,#45,#134,#763); 'sort by end + greedy' appears for #435 and #452; other patterns: 'sort+scan' (#56), 'three-phase scan' (#57), 'sort+overlap check' (#252), 'min-heap end times' (#253), 'greedy maxReach' (#55), 'greedy window' (#45), 'greedy start point' (#134), 'last occurrence map' (#763)",
+              "8 NC150 problems; 2 are excluded",
+              "10 problems but only 5 are nc150:true"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: module10_problems.filter(p=>p.nc150).length=10; all 10 problems have nc150:true; the unique patterns span: sort-based scans, min-heap, greedy maxReach, greedy window, start-point reset, and last-occurrence map — Module 10 covers the broadest set of algorithmic patterns in Level 2."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M10-L6-SY-1",
+            "question": "In `partitionLabels`, `end = Math.max(end, last[s[i]])` extends the partition boundary. Why is `if (i === end)` used as the partition-close condition rather than checking if `i === last[s[i]]`?",
+            "options": [
+              "Both conditions are equivalent; the choice is stylistic",
+              "`i === end` checks whether we've reached the CURRENT PARTITION BOUNDARY (the maximum last-occurrence of any character seen so far in this partition); `i === last[s[i]]` only checks if the CURRENT CHARACTER's last occurrence is here — but the partition can't close until ALL characters started in this partition have had their last occurrence included; `end` tracks the maximum over all characters, ensuring the partition includes all occurrences of all contained characters; closing at `last[s[i]]` would incorrectly split partitions too early when other characters have later occurrences",
+              "i===last[s[i]] would work if the string had no repeated characters",
+              "i===end is needed to prevent negative partition lengths"
+            ],
+            "answer": 1,
+            "explanation": "The partition boundary `end` is the MAXIMUM of all `last[character]` values for characters seen so far; when i reaches end, every character that started in this partition has had its FINAL OCCURRENCE at or before index end; closing the partition at `i===last[s[i]]` would close prematurely if another character in the same partition has a later last occurrence — `end` correctly tracks the global maximum."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M10-L6-CC-1",
+            "title": "Greedy Capstone: Partition Labels and Module 10 Classifier",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+            "problem_statement": "Implement Partition Labels and build the Module 10 pattern classifier.",
+            "requirements": [
+              "Implement `partitionLabelsImpl(s)` matching the lesson's last-occurrence map approach",
+              "Implement `module10Summary()` returning {total, nc150, patterns} from the module10_problems array",
+              "Implement `isGreedySafe(problem)` returning true for problems solvable by greedy (not requiring DP)"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "const MODULE10_PROBLEMS = [\n  {id:56,  title:'Merge Intervals',             pattern:'sort + scan',          nc150:true,  needsDP:false},\n  {id:57,  title:'Insert Interval',             pattern:'three-phase scan',      nc150:true,  needsDP:false},\n  {id:435, title:'Non-Overlapping Intervals',   pattern:'sort by end + greedy',  nc150:true,  needsDP:false},\n  {id:452, title:'Min Arrows',                  pattern:'sort by end + greedy',  nc150:true,  needsDP:false},\n  {id:252, title:'Meeting Rooms',               pattern:'sort + overlap check',  nc150:true,  needsDP:false},\n  {id:253, title:'Meeting Rooms II',            pattern:'min-heap end times',    nc150:true,  needsDP:false},\n  {id:55,  title:'Jump Game',                   pattern:'greedy maxReach',       nc150:true,  needsDP:false},\n  {id:45,  title:'Jump Game II',                pattern:'greedy window',         nc150:true,  needsDP:false},\n  {id:134, title:'Gas Station',                 pattern:'greedy start point',    nc150:true,  needsDP:false},\n  {id:763, title:'Partition Labels',            pattern:'last occurrence map',   nc150:true,  needsDP:false},\n];\n\nfunction partitionLabelsImpl(s) {\n  // TODO: build last-occurrence map; scan tracking end; close partition at i===end\n}\n\nfunction module10Summary() {\n  // TODO: return {total, nc150, patterns} — patterns as unique pattern strings\n}\n\nfunction isGreedySafe(problemId) {\n  // TODO: return true if problem does not need DP (all module10 problems are greedy-safe)\n}"
+            },
+            "test_cases": [
+              {
+                "input": "JSON.stringify(partitionLabelsImpl('ababcbacadefegdehijhklij'))",
+                "expected": "[9,7,8]",
+                "type": "visible"
+              },
+              {
+                "input": "module10Summary().nc150",
+                "expected": 10,
+                "type": "visible"
+              },
+              {
+                "input": "isGreedySafe(55)",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "module10Summary().total",
+                "expected": 10,
+                "type": "hidden"
+              },
+              {
+                "input": "JSON.stringify(partitionLabelsImpl('eccbbbbdec'))",
+                "expected": "[10]",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "const MODULE10_PROBLEMS = [\n  {id:56,  title:'Merge Intervals',             pattern:'sort + scan',          nc150:true,  needsDP:false},\n  {id:57,  title:'Insert Interval',             pattern:'three-phase scan',      nc150:true,  needsDP:false},\n  {id:435, title:'Non-Overlapping Intervals',   pattern:'sort by end + greedy',  nc150:true,  needsDP:false},\n  {id:452, title:'Min Arrows',                  pattern:'sort by end + greedy',  nc150:true,  needsDP:false},\n  {id:252, title:'Meeting Rooms',               pattern:'sort + overlap check',  nc150:true,  needsDP:false},\n  {id:253, title:'Meeting Rooms II',            pattern:'min-heap end times',    nc150:true,  needsDP:false},\n  {id:55,  title:'Jump Game',                   pattern:'greedy maxReach',       nc150:true,  needsDP:false},\n  {id:45,  title:'Jump Game II',                pattern:'greedy window',         nc150:true,  needsDP:false},\n  {id:134, title:'Gas Station',                 pattern:'greedy start point',    nc150:true,  needsDP:false},\n  {id:763, title:'Partition Labels',            pattern:'last occurrence map',   nc150:true,  needsDP:false},\n];\n\nfunction partitionLabelsImpl(s) {\n  const last={};\n  for(let i=0;i<s.length;i++)last[s[i]]=i;\n  const r=[];let start=0,end=0;\n  for(let i=0;i<s.length;i++){\n    end=Math.max(end,last[s[i]]);\n    if(i===end){r.push(end-start+1);start=i+1;}\n  }\n  return r;\n}\n\nfunction module10Summary() {\n  return {\n    total: MODULE10_PROBLEMS.length,\n    nc150: MODULE10_PROBLEMS.filter(p=>p.nc150).length,\n    patterns: [...new Set(MODULE10_PROBLEMS.map(p=>p.pattern))]\n  };\n}\n\nfunction isGreedySafe(problemId) {\n  const p = MODULE10_PROBLEMS.find(p=>p.id===problemId);\n  return p ? !p.needsDP : false;\n}"
+            },
+            "complexity_analysis": "partitionLabelsImpl: O(n). module10Summary: O(n). isGreedySafe: O(n).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "partitionLabelsImpl: build last-occurrence map; track start and end; when i===end close partition (push end-start+1, set start=i+1)."
+              },
+              {
+                "level": 2,
+                "text": "module10Summary: total=length, nc150=filter nc150, patterns=unique pattern strings via Set."
+              },
+              {
+                "level": 3,
+                "text": "isGreedySafe: find problem by id; return !needsDP; all Module 10 problems are greedy-safe (needsDP:false)."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "module_summary": {
+    "total_lessons": 6,
+    "level": "L2",
+    "blind75_problems_in_module": 6,
+    "neetcode150_additional": 4,
+    "core_patterns": [
+      "Overlap condition: [a,b] and [c,d] overlap iff a≤d AND c≤b",
+      "Sort by START for merge/insert; sort by END for non-overlapping/activity selection",
+      "Merge Intervals: curr.start ≤ last.end → last.end = max(last.end, curr.end)",
+      "Non-Overlapping: sort by end, greedy keep earliest-ending, answer = n - kept",
+      "Meeting Rooms II: min-heap of end times (pop to reuse, push curr.end)",
+      "Jump Game I: track maxReach, return false if i > maxReach",
+      "Jump Game II: track currEnd + farthest; jump when i===currEnd",
+      "Greedy correctness: requires greedy choice property + exchange argument proof",
+      "Greedy fails when local optimum ≠ global optimum (Coin Change [1,3,4])",
+      "Kadane's/Gas Station: single-pass greedy with running state reset on negative"
+    ],
+    "prerequisite_modules": [
+      "L1-M02 (two pointers/sorting basics)",
+      "L2-M01 to M03 (DP for contrast with greedy)"
+    ],
+    "unlocks_modules": [
+      "L2 complete — Level 3 topics: advanced DP (tree DP, bitmask), competitive-programming patterns"
+    ],
+    "recommended_problem_order": [
+      "lc-56",
+      "lc-57",
+      "lc-252",
+      "lc-253",
+      "lc-435",
+      "lc-55",
+      "lc-45",
+      "lc-134",
+      "lc-53"
+    ],
+    "spaced_review_target": "Re-solve 3 problems from Modules 8–9 from scratch before attempting Level 3",
+    "module_difficulty": "Medium — interval problems are learnable with the sort-key framework; greedy proofs (L6) are conceptually harder. Jump Game II is the most subtle implementation. This is the final L2 module.",
+    "honest_time_estimate": "12-14 hours. Interval framework (L1): 1.5 hrs. Merge (L2): 2 hrs. Non-overlapping (L3): 2 hrs. Meeting Rooms (L4): 2 hrs. Jump Games (L5): 2.5 hrs. Greedy thinking (L6): 2.5 hrs.",
+    "l2_completion_note": "Completing M10 finishes Level 2. L2 covers 40+ NeetCode 150 problems across DP, backtracking, advanced binary search, shortest paths, Union-Find, topological sort, intervals, and greedy. Combined with Level 1: senior-level interview readiness for all major DSA categories.",
+    "sort_key_rule": "Sort by START when you need to process intervals in arrival order (merge, count overlaps). Sort by END when you're making greedy selections (non-overlapping, activity selection, arrows). This single rule resolves the most common interval confusion."
+  },
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "intermediate": "Lessons 1-4 (3 canonical interval patterns, merge+insert, non-overlapping+arrows, meeting rooms I/II with heap)",
+      "intermediate_advanced": "Lesson 5 (Jump Game I/II greedy window, Gas Station start-point reset)",
+      "capstone": "Lesson 6 (exchange argument proof, greedy vs DP decision, Partition Labels, 10-problem Module 10 classifier)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

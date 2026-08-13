@@ -1,24 +1,29 @@
 // app/api/files/delete/route.ts
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseServiceClient } from "@/lib/supabase-server";
+import { guardAuthedRequest } from "@/lib/api-guard";
+import { fileDeleteSchema } from "@/lib/validation";
 
 export async function POST(req: Request) {
   try {
-    const { user_id, file_id } = await req.json();
+    const guard = await guardAuthedRequest(req, {
+      rateLimitPrefix: "files",
+      limit: 60,
+      windowMs: 60_000,
+      schema: fileDeleteSchema,
+    });
+    if (!guard.ok) return guard.response;
+    const { userId, data: { file_id } } = guard;
 
-    if (!user_id || !file_id) {
-      return NextResponse.json({ error: "user_id and file_id required" }, { status: 400 });
+    const supabase = createSupabaseServiceClient();
+    if (!supabase) {
+      return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
     }
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
 
     const { error } = await supabase
       .from("files")
       .delete()
-      .eq("user_id", user_id)
+      .eq("user_id", userId)
       .eq("file_id", file_id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

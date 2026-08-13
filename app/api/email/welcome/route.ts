@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
+import { welcomeEmailSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json();
+    const ip = getClientIp(request);
+    const { ok, retryAfterSec } = rateLimit(`welcome-email:${ip}`, 5, 60_000);
+    if (!ok) return rateLimitResponse(retryAfterSec);
+
+    const parsed = welcomeEmailSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid email" }, { status: 400 });
+    }
+    const { email } = parsed.data;
 
     if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
       console.log("SMTP not configured, skipping welcome email");

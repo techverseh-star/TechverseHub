@@ -1,0 +1,1706 @@
+{
+  "module_id": "L2-M06",
+  "module_number": 6,
+  "title": "Advanced Binary Search",
+  "tag": "ADDED",
+  "is_optional_for_product_track": false,
+  "estimated_hours": "10–12 hours",
+  "prerequisites": [
+    "L1-M05"
+  ],
+  "learning_outcomes": [
+    "Identify when to apply binary search on an answer space rather than an array index",
+    "Solve Koko Eating Bananas by defining a feasibility check and binary searching the speed range",
+    "Solve Minimum in Rotated Array II with duplicates by applying the hi-- shrink strategy",
+    "Solve Median of Two Sorted Arrays in O(log(min(m,n))) using binary search on partition positions",
+    "Solve Split Array Largest Sum by framing the minimisation as a binary search on the answer",
+    "Recognise any monotonic feasibility condition as a binary search opportunity"
+  ],
+  "notes": [
+    "ADDED — Binary search on answer space is a distinct and important pattern missing from most Level 1 treatments."
+  ],
+  "spaced_review": "Re-solve 3 failed problems from Modules 1–5 from scratch",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "title": "Binary Search On Answer Space",
+      "tag": "ADDED",
+      "objective": "Understand when binary search applies to a value range rather than an array, identify the monotonic feasibility condition, and apply the universal template to any answer-space problem.",
+      "concepts": [
+        "Binary search on answer: search a range of possible answers, not array indices",
+        "Feasibility function: check(mid) returns true/false for a candidate answer",
+        "Monotonic property: if check(k) is true, check(k+1) is also true (or vice versa)",
+        "Pattern: find the minimum k where check(k) is true",
+        "Alternative: find the maximum k where check(k) is true",
+        "Template: lo=minAnswer, hi=maxAnswer, binary search, verify feasibility at mid",
+        "O(n log(answer_range)) total: O(n) check * O(log(range)) binary search levels",
+        "Recognition signal: 'minimum X such that condition holds' or 'maximum X such that'"
+      ],
+      "explanation": "Binary search on the answer space is a paradigm shift from searching an array to searching a range of possible answers. Instead of 'find index i where arr[i] == target', the question becomes 'find the minimum value k such that some condition C(k) is satisfied'. The key requirement: the condition C must be monotonic over k. If C(k) is true, then C(k+1) is also true (or false for all larger values). This monotonicity is what makes binary search applicable. The template: define lo as the minimum possible answer and hi as the maximum possible answer. Compute mid = lo + (hi-lo)/2. Evaluate check(mid): if true, the answer could be mid or smaller (hi = mid), if false, the answer must be larger (lo = mid+1). This is the lower-bound binary search pattern. The check function is the feasibility oracle: given a candidate answer mid, can the problem constraints be satisfied with this value? Designing check is the main intellectual work; the binary search framework is mechanical once check is defined.",
+      "analogy": "Binary search on answer space is like finding the minimum acceptable price for a product. You set up a price range (lo to hi). You check: 'at this price, can we make a profit?' If yes, maybe we can go lower (hi = mid). If no, we must go higher (lo = mid+1). Each check costs some work, but with binary search we only need log(price_range) checks instead of trying every integer price. The feasibility condition (can we make profit?) is the oracle.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// BINARY SEARCH ON ANSWER SPACE TEMPLATE\n// Find the MINIMUM k such that check(k) is true\nfunction binarySearchOnAnswer(lo, hi, check) {\n    while (lo < hi) {\n        const mid = lo + Math.floor((hi - lo) / 2);\n        if (check(mid)) {\n            hi = mid;       // mid is feasible: try smaller\n        } else {\n            lo = mid + 1;   // mid not feasible: must go larger\n        }\n    }\n    return lo; // lo === hi: smallest feasible value\n}\n\n// Find the MAXIMUM k such that check(k) is true\nfunction binarySearchOnAnswerMax(lo, hi, check) {\n    while (lo < hi) {\n        const mid = lo + Math.floor((hi - lo + 1) / 2); // +1 to avoid infinite loop\n        if (check(mid)) {\n            lo = mid;       // mid is feasible: try larger\n        } else {\n            hi = mid - 1;   // mid not feasible: must go smaller\n        }\n    }\n    return lo;\n}\n\n// RECOGNITION PATTERN:\n// 'minimum speed such that all work finishes in H hours'  -> min-answer template\n// 'maximum weight such that ship capacity is not exceeded' -> max-answer template\n// 'minimum number of days to finish m tasks'              -> min-answer template\n\n// MONOTONICITY VERIFICATION:\n// Before applying, verify the condition is monotonic:\n// For 'minimum feasible': if check(k)=true -> check(k+1)=true\n// Example: 'can finish in H hours at speed k'\n//   Faster speed (k+1) means fewer hours needed -> still feasible\n//   This is monotonically non-decreasing feasibility -> correct\n\n// EXAMPLE: Minimum Days to Finish Work\n// workers, tasks per day, target days\nfunction minDays(tasks, workers, targetDays) {\n    function check(daysPerTask) {\n        // Can all tasks be done in targetDays with daysPerTask per task?\n        const totalDays = tasks.reduce((sum, t) => sum + Math.ceil(t / workers), 0);\n        return totalDays <= targetDays; // simplified example\n    }\n    return binarySearchOnAnswer(1, Math.max(...tasks), check);\n}",
+        "explanation": "The +1 in the mid calculation for the maximum-answer template (lo + (hi-lo+1)/2) prevents an infinite loop when lo+1 === hi. Without +1, mid = lo and check(lo)=true would set lo = mid = lo, never advancing. The +1 rounds up, ensuring mid = hi when lo+1 === hi, which guarantees progress."
+      },
+      "common_mistakes": [
+        "Applying binary search on answer without verifying monotonicity — if check(k) can be true for some k and false for a larger k and then true again, binary search gives wrong results; always verify the condition is monotonic before applying",
+        "Using the wrong template for minimum vs maximum — minimum feasible uses hi=mid on true; maximum feasible uses lo=mid on true; mixing them produces wrong results",
+        "Setting hi too small or lo too large — the answer must be within [lo, hi]; if lo > answer or hi < answer, binary search converges to a wrong value; verify bounds include all possible answers"
+      ],
+      "interview_relevance": "Binary search on answer space is the most underrated advanced pattern in interview preparation. It transforms problems that seem unrelated to binary search into O(n log k) solutions. Interviewers at Google and Meta specifically ask problems where this pattern applies and evaluate whether candidates recognise it. The recognition signal 'minimum X such that condition Y holds' should trigger this pattern immediately.",
+      "mini_challenge": "Apply the binary search on answer template to: (1) 'Given n ropes of various lengths, find the maximum length L such that you can cut at least k pieces of length L.' Define check(L) and verify it is monotonic. State lo and hi. (2) 'Given a sorted array rotated at an unknown pivot, find the rotation count.' Can binary search on answer apply here? Why or why not? For problem (1), implement the full solution and test it.",
+      "flashcards": [
+        {
+          "front": "Binary search on answer: what two things must be true?",
+          "back": "1) MONOTONICITY: the feasibility condition C(k) must be monotonic — if C(k) is true, then C(k+1) is also true (or false for all larger k). 2) BOUNDED ANSWER RANGE: a valid [lo, hi] that contains all possible answers must be definable."
+        },
+        {
+          "front": "Answer-space minimum template: what happens on check(mid)=true vs false?",
+          "back": "check(mid)=TRUE: mid is feasible, but maybe a smaller value also works → hi = mid (include mid, shrink from right). check(mid)=FALSE: mid is too small → lo = mid + 1 (exclude mid, shrink from left). Loop ends when lo === hi."
+        },
+        {
+          "front": "Answer-space maximum template: why use (hi-lo+1)/2 instead of (hi-lo)/2?",
+          "back": "When lo+1 === hi and check(lo) is true: with (hi-lo)/2, mid=lo, lo stays at lo forever (infinite loop). With (hi-lo+1)/2, mid=hi, and the loop advances. The +1 rounds up to prevent stalling on true in the maximum variant."
+        },
+        {
+          "front": "Recognition signal: when does binary search on answer apply?",
+          "back": "'Minimum X such that [condition]' → answer-space min. 'Maximum X such that [condition]' → answer-space max. Any 'minimum/maximum feasible value' phrasing. Key: the answer itself is a number in a range, and feasibility is monotonic over that range."
+        },
+        {
+          "front": "Total time complexity of binary search on answer?",
+          "back": "O(check_cost × log(answer_range)). If check scans n elements: O(n log(answer_range)). The answer range is usually sum(arr) or max(arr), so log(answer_range) ≈ log(max_val) ≈ 30-40 bits for typical constraints."
+        },
+        {
+          "front": "How to verify monotonicity before applying binary search on answer?",
+          "back": "Ask: 'If the condition holds at value k, does it still hold at k+1?' If YES (larger values are more/equally feasible) → apply min-answer template. If 'holds at k but NOT at k+1' ever occurs → binary search doesn't apply; the condition is not monotonic."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Problem: 'Find minimum k such that you can split array into at most k parts'. check(mid)=true means mid parts is feasible. check(mid+1) is also feasible (more parts ≥ fewer parts). Is binary search applicable?",
+          "options": [
+            "No — more parts makes it harder",
+            "Yes — allowing more parts only helps (monotonically easier) — but wait: we're searching over parts count not a sum. Minimum k where feasible means lower k is harder.",
+            "No — 'parts' is not a range",
+            "Yes — if k parts works, k+1 parts also works (monotonically non-decreasing feasibility)"
+          ],
+          "answer": 3,
+          "explanation": "If you can split into k parts (each within some limit), you can certainly split into k+1 parts (just split one part further). Feasibility is non-decreasing in k. Binary search on k (answer-space min) applies."
+        },
+        {
+          "question": "Answer-space min: lo=1, hi=100. check(50)=false, check(51)=true. After two iterations, lo and hi are?",
+          "options": [
+            "lo=51, hi=100",
+            "lo=51, hi=51 (already converged)",
+            "lo=50, hi=100",
+            "lo=1, hi=50"
+          ],
+          "answer": 1,
+          "explanation": "check(50)=false → lo=51. Now lo=51, hi=100. mid=75. Depending on check(75), the loop continues narrowing toward 51 as the answer. After eventually converging: lo=hi=51."
+        },
+        {
+          "question": "For answer-space MAXIMUM (lo=mid, hi=mid-1 on false), why is the mid formula (lo+(hi-lo+1)/2) needed?",
+          "options": [
+            "To handle negative ranges",
+            "When lo+1=hi and check(lo)=true: standard mid=lo causes lo=lo forever. +1 makes mid=hi, advancing the loop.",
+            "To avoid integer overflow",
+            "The +1 is optional — both work"
+          ],
+          "answer": 1,
+          "explanation": "Concrete example: lo=3, hi=4. Standard mid=(3+4)/2=3. check(3)=true → lo=3 (unchanged). Infinite loop! With +1: mid=(3+4+1)/2=4. check(4) determines next move. Progress guaranteed."
+        },
+        {
+          "question": "Answer range for 'minimum speed k to eat all piles in h hours': lo and hi?",
+          "options": [
+            "lo=0, hi=sum(piles)",
+            "lo=1, hi=max(piles)",
+            "lo=1, hi=sum(piles)",
+            "lo=0, hi=max(piles)"
+          ],
+          "answer": 1,
+          "explanation": "lo=1 (minimum valid speed — speed 0 is division by zero). hi=max(piles): at this speed, the largest pile takes exactly 1 hour. Any larger pile: still 1 hour (can't eat in less than 1 hour). hi=max(piles) is the tightest valid upper bound."
+        }
+      ],
+      "visual_aid": {
+        "type": "template_comparison",
+        "description": "Answer-space min vs max templates with infinite loop proof",
+        "diagram": "ANSWER-SPACE MINIMUM (find smallest feasible k):\n  lo=minAns, hi=maxAns\n  while (lo < hi):\n    mid = lo + floor((hi-lo)/2)   ← rounds DOWN\n    if check(mid): hi = mid        ← mid feasible, try smaller\n    else:          lo = mid+1      ← mid infeasible, go larger\n  return lo  (=hi, smallest feasible)\n\nANSWER-SPACE MAXIMUM (find largest feasible k):\n  lo=minAns, hi=maxAns\n  while (lo < hi):\n    mid = lo + floor((hi-lo+1)/2) ← rounds UP (+1)\n    if check(mid): lo = mid        ← mid feasible, try larger\n    else:          hi = mid-1      ← mid infeasible, go smaller\n  return lo  (=hi, largest feasible)\n\nWHY +1 in MAX template:\n  lo=3, hi=4, check(3)=true:\n  Without +1: mid=floor((3+4)/2)=3. lo=mid=3. INFINITE LOOP!\n  With +1:    mid=floor((3+4+1)/2)=4. check(4) → advance.\n\nMONOTONICITY VERIFICATION:\n  Feasibility = F(k). For min template: F(k) → F(k+1)? YES → apply.\n  [not feasible ... not feasible | feasible ... feasible]\n                                  ↑ this boundary = answer"
+      },
+      "complexity_summary": {
+        "time": "O(check_cost × log(answer_range))",
+        "space": "O(1) beyond check function",
+        "prerequisite": "Monotonic feasibility condition + bounded answer range",
+        "variants": "Min answer: hi=mid on true. Max answer: lo=mid on true (+1 in mid formula)."
+      },
+      "practice_problems": [
+        {
+          "id": "lc-875",
+          "title": "Koko Eating Bananas — first answer-space problem",
+          "difficulty": "Medium",
+          "pattern": "Answer-space min — feasibility = totalHours <= h",
+          "blind75": true
+        },
+        {
+          "id": "custom-bs1",
+          "title": "Max rope cut length: cut n ropes into at least k pieces of equal length",
+          "difficulty": "Medium",
+          "pattern": "Answer-space max — binary search on cut length"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M6-L1-TH-1",
+            "question": "What is the MONOTONIC PROPERTY that makes a problem solvable by binary search on answer space?",
+            "options": [
+              "The answer must be a sorted array",
+              "The FEASIBILITY FUNCTION check(k) must be MONOTONIC: if check(k) is true, then check(k+1) must also be true (for minimum-answer problems); this means once the answer space becomes feasible at some value k, all larger values are also feasible — creating a clear boundary between infeasible and feasible regions that binary search can exploit; without monotonicity, binary search cannot discard half the answer space with confidence",
+              "The input array must be sorted in ascending order",
+              "The answer must always be a prime number for binary search to apply"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Monotonic property: if check(k) is true, check(k+1) is also true (or vice versa)' — monotonicity is the fundamental requirement; it allows binary search to confidently eliminate half the answer space at each step; without it, a true check(k) gives no information about check(k+1) and binary search cannot work."
+          },
+          {
+            "id": "L2M6-L1-TH-2",
+            "question": "What is the RECOGNITION SIGNAL that suggests binary search on answer space rather than binary search on array indices?",
+            "options": [
+              "The array is sorted in descending order",
+              "Phrases like 'MINIMUM X such that [condition holds]' or 'MAXIMUM X such that [condition holds]' signal answer-space binary search — you're searching for a value in a RANGE of possible answers (not in an array); the condition defines feasibility at each candidate answer; this contrasts with index-based binary search where you search for a specific element's position in a given array",
+              "The problem involves exactly two sorted arrays",
+              "The input contains only distinct integers"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: \"Recognition signal: 'minimum X such that condition holds' or 'maximum X such that'\" — these phrasings indicate that the answer is a value (speed, capacity, days) that must satisfy a condition, not a position in an array; the answer range [lo, hi] replaces the array indices in the standard binary search template."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M6-L1-LG-1",
+            "question": "In the MINIMUM-answer template, `hi = mid` (not `hi = mid - 1`) when `check(mid)` is true. Why?",
+            "options": [
+              "hi = mid - 1 would also work; the choice is arbitrary",
+              "When check(mid) is TRUE, `mid` IS a feasible answer — but there might be a SMALLER feasible answer to the left; `hi = mid` keeps `mid` in the search range so it can be the final answer if nothing smaller is feasible; `hi = mid - 1` would incorrectly EXCLUDE mid from the range, potentially losing the minimum feasible value; the loop terminates when lo === hi, which is always a feasible answer",
+              "hi = mid ensures the loop runs exactly log(n) iterations",
+              "hi = mid - 1 is used for maximum-answer problems and hi = mid for minimum"
+            ],
+            "answer": 1,
+            "explanation": "The asymmetry is critical: `hi = mid` when feasible (preserve mid as potential answer); `lo = mid + 1` when infeasible (mid is definitely not the answer, move past it); when the loop ends at lo === hi, that value is guaranteed to be the smallest feasible answer — this is the standard leftmost-binary-search pattern applied to answer space."
+          },
+          {
+            "id": "L2M6-L1-LG-2",
+            "question": "In the MAXIMUM-answer template, `mid = lo + Math.floor((hi - lo + 1) / 2)` uses `+1` in the floor computation. Why is this `+1` needed?",
+            "options": [
+              "The +1 converts from 0-indexed to 1-indexed",
+              "Without the +1, when `lo = mid` (feasible branch) and `lo + 1 === hi`, mid would equal lo and the loop would be INFINITE: lo=5,hi=6 → mid=5 → lo=5 (unchanged); the +1 rounds mid UP so that when lo and hi are adjacent (lo+1===hi), mid===hi rather than lo — this guarantees lo advances on the feasible branch; the minimum-answer template doesn't need this because hi=mid always shrinks the range",
+              "The +1 accounts for 1-based indexing in the answer range",
+              "The +1 makes the search include the maximum possible answer"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's comment: '+1 to avoid infinite loop' — in the maximum-answer template, the feasible branch sets lo=mid; if mid were computed as floor((lo+hi)/2) and lo+1===hi, then mid===lo and lo=mid makes no progress; rounding up (adding 1 before floor) ensures mid===hi when lo and hi are adjacent, making lo=mid advance to hi and terminate the loop."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M6-L1-SY-1",
+            "question": "The total time complexity of answer-space binary search is `O(n * log(answer_range))`. What are the contributions of `n` and `log(answer_range)` separately?",
+            "options": [
+              "n is the length of the answer range and log(answer_range) is the array check cost",
+              "`log(answer_range)` comes from the BINARY SEARCH LEVELS — the answer range is halved at each step, requiring at most log₂(hi-lo) iterations; `n` comes from the FEASIBILITY CHECK cost at each level — `check(mid)` typically iterates through the input array once (e.g., summing hours for each pile) costing O(n); multiplied together: O(n) check × O(log(range)) levels = O(n log(range)) total",
+              "n is the number of recursive calls and log(answer_range) is the stack depth",
+              "Both n and log(answer_range) refer to the same quantity measured differently"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'O(n log(answer_range)) total: O(n) check * O(log(range)) binary search levels' — the two factors are independent: log(range) binary search steps (e.g., log(max_piles) for Koko) × O(n) per feasibility check (iterate through all piles/weights/elements); this decomposition is standard for all answer-space problems."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M6-L1-CC-1",
+            "title": "Answer-Space Binary Search Templates",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the two answer-space binary search templates from this lesson.",
+            "requirements": [
+              "Implement `answerSpaceMin(lo, hi, check)` — find the minimum k where check(k) is true",
+              "Implement `answerSpaceMax(lo, hi, check)` — find the maximum k where check(k) is true",
+              "Verify correctness on concrete examples with known answers"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function answerSpaceMin(lo, hi, check) {\n  // TODO: hi=mid on true, lo=mid+1 on false\n}\n\nfunction answerSpaceMax(lo, hi, check) {\n  // TODO: lo=mid on true, hi=mid-1 on false; mid rounds UP (+1 in floor)\n}"
+            },
+            "test_cases": [
+              {
+                "input": "answerSpaceMin(1, 100, k => k >= 42)",
+                "expected": 42,
+                "type": "visible"
+              },
+              {
+                "input": "answerSpaceMax(1, 100, k => k <= 42)",
+                "expected": 42,
+                "type": "visible"
+              },
+              {
+                "input": "answerSpaceMin(1, 1000000, k => k * k >= 144)",
+                "expected": 12,
+                "type": "visible"
+              },
+              {
+                "input": "answerSpaceMax(1, 100, k => 2*k + 1 <= 71)",
+                "expected": 35,
+                "type": "hidden"
+              },
+              {
+                "input": "answerSpaceMin(1, 1, k => true)",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function answerSpaceMin(lo, hi, check) {\n  while (lo < hi) {\n    const mid = lo + Math.floor((hi - lo) / 2);\n    if (check(mid)) hi = mid;\n    else lo = mid + 1;\n  }\n  return lo;\n}\n\nfunction answerSpaceMax(lo, hi, check) {\n  while (lo < hi) {\n    const mid = lo + Math.floor((hi - lo + 1) / 2);\n    if (check(mid)) lo = mid;\n    else hi = mid - 1;\n  }\n  return lo;\n}"
+            },
+            "complexity_analysis": "O(log(hi-lo)) iterations per template call; total depends on check cost.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "answerSpaceMin: when check(mid) is true, keep mid as candidate (hi=mid); when false, mid is too small (lo=mid+1)."
+              },
+              {
+                "level": 2,
+                "text": "answerSpaceMax: when check(mid) is true, mid is feasible but larger may also work (lo=mid); when false (hi=mid-1)."
+              },
+              {
+                "level": 3,
+                "text": "answerSpaceMax: mid must round UP — use lo+Math.floor((hi-lo+1)/2) — to prevent infinite loop when lo+1===hi."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 2,
+      "title": "Koko Eating Bananas",
+      "tag": "ADDED",
+      "objective": "Solve Koko Eating Bananas by defining the feasibility check (can Koko eat all piles in h hours at speed k?) and binary searching over the speed range.",
+      "concepts": [
+        "Problem: minimum eating speed k such that all piles are eaten in h hours",
+        "At speed k: piles[i] takes ceil(piles[i]/k) hours",
+        "Total hours: sum of ceil(piles[i]/k) for all piles",
+        "Feasibility check: totalHours(k) <= h",
+        "Monotonicity: higher speed -> fewer hours -> feasibility only increases",
+        "lo = 1 (minimum speed), hi = max(piles) (can eat any pile in 1 hour)",
+        "O(n log(max(piles))) total time",
+        "Extension: minimum ship capacity, minimum days to finish painting"
+      ],
+      "explanation": "Koko Eating Bananas (#875) is the canonical binary-search-on-answer problem. Koko eats bananas at a fixed speed k bananas/hour. A pile of p bananas takes ceil(p/k) hours. Given h total hours, find the minimum speed k that allows eating all piles. The feasibility check: does a given speed k allow finishing in h hours? Sum up ceil(piles[i]/k) for all piles. If the total <= h, speed k is feasible. Monotonicity: higher speed reduces or maintains the time needed, so feasibility is monotonically non-decreasing as k increases. Binary search: lo = 1 (eat one banana per hour), hi = max(piles) (eat the largest pile in one hour). Find the minimum k where check(k) is true. The O(n) check multiplied by O(log(max(piles))) binary search levels gives O(n log(max(piles))) total. This exact structure applies to: Minimum Number of Days to Make m Bouquets (#1482), Minimum Time to Complete Trips (#2187), and many scheduling/capacity problems.",
+      "analogy": "Koko Eating Bananas is like finding the minimum highway speed limit such that everyone can travel a certain distance within a deadline. Slower speeds (lower k) mean some trucks take too long; faster speeds work but we want the minimum. You do not try every possible speed: binary search the speed range. At each candidate speed, check if all trucks finish in time. Adjust the range based on the result.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// KOKO EATING BANANAS (#875)\n// O(n log(max(piles))) time, O(1) space\nfunction minEatingSpeed(piles, h) {\n    // FEASIBILITY CHECK: can Koko eat all piles in h hours at speed k?\n    function check(k) {\n        let hours = 0;\n        for (const pile of piles) {\n            hours += Math.ceil(pile / k); // hours for this pile\n        }\n        return hours <= h;\n    }\n\n    let lo = 1;                    // minimum possible speed\n    let hi = Math.max(...piles);   // maximum needed speed\n\n    while (lo < hi) {\n        const mid = lo + Math.floor((hi - lo) / 2);\n        if (check(mid)) {\n            hi = mid;       // mid is feasible: try slower\n        } else {\n            lo = mid + 1;   // mid too slow: need faster\n        }\n    }\n    return lo; // minimum feasible speed\n}\n\nconsole.log(minEatingSpeed([3,6,7,11], 8)); // 4\nconsole.log(minEatingSpeed([30,11,23,4,20], 5)); // 30\nconsole.log(minEatingSpeed([30,11,23,4,20], 6)); // 23\n\n// TRACE for [3,6,7,11], h=8:\n// lo=1, hi=11\n// mid=6: ceil(3/6)+ceil(6/6)+ceil(7/6)+ceil(11/6) = 1+1+2+2=6 <= 8 -> feasible. hi=6\n// lo=1, hi=6. mid=3: 1+2+3+4=10 > 8 -> not feasible. lo=4\n// lo=4, hi=6. mid=5: 1+2+2+3=8 <= 8 -> feasible. hi=5\n// lo=4, hi=5. mid=4: 1+2+2+3=8 <= 8 -> feasible. hi=4\n// lo=4, hi=4. Loop ends. Return 4. ✓\n\n// GENERALISED PATTERN:\n// Minimum capacity for a ship to deliver all packages in d days:\nfunction shipWithinDays(weights, days) {\n    function check(capacity) {\n        let currLoad = 0, daysNeeded = 1;\n        for (const w of weights) {\n            if (currLoad + w > capacity) { daysNeeded++; currLoad = 0; }\n            currLoad += w;\n        }\n        return daysNeeded <= days;\n    }\n    let lo = Math.max(...weights); // must fit heaviest package\n    let hi = weights.reduce((a,b)=>a+b, 0); // send all in one day\n    while (lo < hi) {\n        const mid = lo + Math.floor((hi-lo)/2);\n        if (check(mid)) hi = mid;\n        else lo = mid + 1;\n    }\n    return lo;\n}\nconsole.log(shipWithinDays([1,2,3,4,5,6,7,8,9,10], 5)); // 15",
+        "explanation": "In shipWithinDays, lo starts at max(weights) because the ship must be able to carry at least the heaviest package. A capacity smaller than max(weights) would leave some package undeliverable, so lo = max(weights) is the correct minimum bound. Always derive lo and hi from the problem constraints: they should bound all valid answers inclusively."
+      },
+      "common_mistakes": [
+        "Setting lo = 0 instead of lo = 1 in Koko — speed 0 would cause division by zero in ceil(pile/0); lo must be at least 1",
+        "Setting hi = sum(piles) instead of max(piles) — sum(piles) is unnecessarily large; eating all bananas at maximum speed requires only max(piles) speed (any single pile done in 1 hour); hi = max(piles) is the tightest correct upper bound",
+        "Not using Math.ceil for the hours calculation — pile/k must be rounded up because Koko can only eat in whole hours; floor division would undercount the hours needed"
+      ],
+      "interview_relevance": "Koko Eating Bananas (#875) is Blind 75 and NeetCode 150. It is the problem most commonly used to introduce binary search on answer space. The pattern generalises directly to Capacity to Ship Packages Within D Days (#1011), Minimum Number of Days to Make m Bouquets (#1482), and Minimum Time to Complete Trips (#2187). Being able to identify these as the same pattern and implement the feasibility check for each is a senior-level signal.",
+      "mini_challenge": "Implement minEatingSpeed and verify all three test cases. Then implement shipWithinDays and verify it returns 15 for ([1,2,3,4,5,6,7,8,9,10], 5). Then solve Minimum Number of Days to Make m Bouquets (LeetCode #1482): given an array of bloom days and needing m bouquets each requiring k consecutive bloomed flowers, find the minimum number of days. Define check(days) and verify the lo/hi bounds.",
+      "flashcards": [
+        {
+          "front": "Koko Eating Bananas feasibility check?",
+          "back": "check(k): sum of ceil(piles[i] / k) for all piles. If total ≤ h: feasible (can finish in time). Higher k → fewer hours → condition only gets easier. O(n) per check."
+        },
+        {
+          "front": "Koko: why lo=1 and hi=max(piles)?",
+          "back": "lo=1: speed cannot be 0 (division by zero). hi=max(piles): at this speed, any pile takes at most 1 hour. No pile requires more than 1 hour → total hours ≤ n ≤ h (if h ≥ n). Any speed above max(piles) is unnecessary."
+        },
+        {
+          "front": "Koko: Math.ceil(pile/k) — why ceil and not floor?",
+          "back": "A pile of p bananas at speed k takes exactly ceil(p/k) hours — Koko works the full hour even if she finishes the pile early. Floor would undercount: floor(7/3)=2 but Koko actually needs 3 hours (spends 3, 3, and 1 hour = 3 full hours)."
+        },
+        {
+          "front": "Koko generalises to what family of problems?",
+          "back": "Any 'minimum capacity such that a greedy process finishes within a limit': Capacity to Ship Packages (minimum ship weight), Minimum Days to Make Bouquets (minimum days), Minimum Time to Complete Trips (minimum speed). All share: answer-space min, greedy feasibility check, lo=min_needed, hi=max_possible."
+        },
+        {
+          "front": "Koko: total number of binary search iterations for piles=[3,6,7,11], h=8?",
+          "back": "hi=11, lo=1. Range=[1,11]. log₂(11)≈3.5 → at most 4 iterations. The trace shows exactly 4 iterations (mid=6→5→4 boundaries) converging to answer=4."
+        },
+        {
+          "front": "shipWithinDays: why lo=max(weights) not lo=1?",
+          "back": "The ship must carry at least the heaviest single package. If capacity < max(weights), that package can never be loaded — no valid solution. lo=max(weights) is the tightest valid lower bound. lo=1 is technically correct (binary search would skip infeasible values) but wastes iterations."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "koko piles=[3,6,7,11], k=4. totalHours = ?",
+          "options": [
+            "6",
+            "7",
+            "8",
+            "9"
+          ],
+          "answer": 2,
+          "explanation": "ceil(3/4)=1, ceil(6/4)=2, ceil(7/4)=2, ceil(11/4)=3. Total=1+2+2+3=8. h=8: 8≤8 → feasible."
+        },
+        {
+          "question": "piles=[3,6,7,11], h=8. k=3: feasible?",
+          "options": [
+            "Yes — 3 is close to 4",
+            "No — totalHours=ceil(3/3)+ceil(6/3)+ceil(7/3)+ceil(11/3)=1+2+3+4=10 > 8",
+            "Yes — 10 ≤ h",
+            "Cannot determine without full trace"
+          ],
+          "answer": 1,
+          "explanation": "ceil(3/3)=1, ceil(6/3)=2, ceil(7/3)=3, ceil(11/3)=4. Total=10 > 8. Not feasible. Speed 3 is too slow."
+        },
+        {
+          "question": "minEatingSpeed([30,11,23,4,20], 5): what must be true about the answer?",
+          "options": [
+            "The answer is 30 (max pile) because h=5=n, so each pile in exactly 1 hour",
+            "The answer is less than 30",
+            "The answer is sum/h = 88/5 = 17.6",
+            "Cannot determine without running the algorithm"
+          ],
+          "answer": 0,
+          "explanation": "h=5=n=5 (5 hours, 5 piles). We need each pile done in exactly 1 hour. The only speed guaranteeing each of 5 piles finishes in 1 hour is k=max(piles)=30. At k=29: pile of 30 takes ceil(30/29)=2 hours — 5 piles need at least 6 hours > h=5."
+        },
+        {
+          "question": "shipWithinDays([1,2,3,4,5,6,7,8,9,10], 5): lo and hi for binary search?",
+          "options": [
+            "lo=1, hi=55",
+            "lo=10, hi=55",
+            "lo=5, hi=55",
+            "lo=10, hi=100"
+          ],
+          "answer": 1,
+          "explanation": "lo=max(weights)=10 (must fit largest package). hi=sum(weights)=55 (send everything in one day). Binary search in [10,55]."
+        }
+      ],
+      "visual_aid": {
+        "type": "binary_search_trace",
+        "description": "Koko Eating Bananas binary search trace with feasibility checks",
+        "diagram": "minEatingSpeed([3,6,7,11], h=8):\n\nlo=1, hi=11\n\nIter 1: mid=6. check(6): 1+1+2+2=6 ≤ 8 → feasible. hi=6.\nIter 2: lo=1, hi=6. mid=3. check(3): 1+2+3+4=10 > 8 → not feasible. lo=4.\nIter 3: lo=4, hi=6. mid=5. check(5): 1+2+2+3=8 ≤ 8 → feasible. hi=5.\nIter 4: lo=4, hi=5. mid=4. check(4): 1+2+2+3=8 ≤ 8 → feasible. hi=4.\nlo=4, hi=4. Return 4. ✓\n\nFEASIBILITY FUNCTION:\n  k=3: 10 hours ✗\n  k=4: 8 hours ✓   ← minimum feasible\n  k=5: 8 hours ✓\n  k=6: 6 hours ✓\n  [not feasible | feasible ...]\n       k=3     k=4 onward\nMonotonic: feasibility increases with k ✓"
+      },
+      "complexity_summary": {
+        "time": "O(n × log(max(piles)))",
+        "space": "O(1)",
+        "lo_bound": "1 (cannot divide by zero)",
+        "hi_bound": "max(piles) — tightest valid upper bound",
+        "check_cost": "O(n) — scan all piles once"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-875",
+          "title": "Koko Eating Bananas",
+          "difficulty": "Medium",
+          "pattern": "Answer-space min — sum of ceil(pile/k) ≤ h",
+          "blind75": true
+        },
+        {
+          "id": "lc-1011",
+          "title": "Capacity to Ship Packages Within D Days",
+          "difficulty": "Medium",
+          "pattern": "Same template — greedy packing feasibility"
+        },
+        {
+          "id": "lc-1482",
+          "title": "Minimum Number of Days to Make m Bouquets",
+          "difficulty": "Medium",
+          "pattern": "Answer-space min — scan consecutive bloomed flowers"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M6-L2-TH-1",
+            "question": "In Koko Eating Bananas, why is `lo = 1` and `hi = Math.max(...piles)` the correct answer range?",
+            "options": [
+              "lo=0 and hi=sum(piles) would also be correct",
+              "`lo = 1`: Koko must eat at least 1 banana per hour (speed 0 is undefined/infinite hours); `hi = Math.max(...piles)`: at maximum pile speed, Koko eats the largest pile in exactly 1 hour — any higher speed still takes 1 hour per pile (ceiling of pile/speed is always 1 when speed >= pile); speeds above max(piles) are always feasible but never improve on max(piles), so max(piles) is the correct upper bound",
+              "lo=1 is arbitrary; any positive starting value works",
+              "hi=sum(piles) is needed to handle cases where Koko eats multiple piles per hour"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'lo = 1 (minimum speed), hi = max(piles) (can eat any pile in 1 hour)' — at speed k=max(piles), ceil(pile/k)=1 for all piles (since pile <= k), so total hours = n (number of piles); any speed above max(piles) gives the same n hours total, making max(piles) the sufficient upper bound."
+          },
+          {
+            "id": "L2M6-L2-TH-2",
+            "question": "Why does the Koko problem have MONOTONIC feasibility, making binary search applicable?",
+            "options": [
+              "Feasibility is not monotonic; we must check all speeds",
+              "For any speed k: if check(k)=true (Koko can finish in h hours), then check(k+1)=true — a HIGHER speed means each pile takes FEWER OR EQUAL hours (ceil(pile/(k+1)) <= ceil(pile/k)); the total hours can only decrease or stay the same; this strict monotonicity means there is a threshold k* where all speeds < k* are infeasible and all speeds >= k* are feasible — a perfect binary search boundary",
+              "Monotonicity holds only when piles are sorted",
+              "Feasibility is monotonic only when h equals the number of piles"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Monotonicity: higher speed -> fewer hours -> feasibility only increases' — mathematically, ceil(pile/k) is non-increasing in k; therefore totalHours(k) is non-increasing in k; if totalHours(k) <= h, then totalHours(k+1) <= totalHours(k) <= h; this non-increasing property creates the monotone boundary that binary search requires."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M6-L2-LG-1",
+            "question": "Trace `minEatingSpeed([3,6,7,11], h=8)` through the binary search. After mid=6 (feasible, hi=6) and mid=3 (infeasible, lo=4), what is the next mid and is it feasible?",
+            "options": [
+              "mid=5: hours=1+2+2+3=8≤8 feasible, hi=5; then mid=4: hours=1+2+2+3=8≤8 feasible, hi=4; lo=hi=4, return 4",
+              "mid=5: ceil(3/5)+ceil(6/5)+ceil(7/5)+ceil(11/5) = 1+2+2+3=8 ≤ 8 → feasible, hi=5; mid=4 (lo=4,hi=5): ceil(3/4)+ceil(6/4)+ceil(7/4)+ceil(11/4) = 1+2+2+3=8 ≤ 8 → feasible, hi=4; lo=hi=4, return 4 ✓",
+              "mid=5: hours=1+1+2+3=7≤8 feasible, hi=5; then return 5",
+              "mid=4: hours=1+2+3+3=9>8 infeasible, lo=5; return 5"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution returning 4 and matching the lesson's full trace: after establishing lo=4, hi=6; mid=5: ceil(3/5)=1, ceil(6/5)=2, ceil(7/5)=2, ceil(11/5)=3 → 8≤8 → feasible, hi=5; lo=4,hi=5: mid=4: same 8≤8 → feasible, hi=4; lo=hi=4, return 4."
+          },
+          {
+            "id": "L2M6-L2-LG-2",
+            "question": "For `shipWithinDays([1,2,3,4,5,6,7,8,9,10], days=5)`, the answer is 15. Verify that capacity=15 works but capacity=14 doesn't.",
+            "options": [
+              "Both 14 and 15 require exactly 5 days; 15 is returned arbitrarily",
+              "Capacity=15: [1+2+3+4+5]=15 (day1), [6+7]=13≤15 (day2), [8]=8≤15 (day3), [9]=9≤15 (day4), [10]=10≤15 (day5) → 5 days ✓; Capacity=14: [1+2+3+4]=10≤14, +5=15>14→new day, [5+6]=11≤14, +7=18>14→new day, [7+8]=15>14→new day, counting gives >5 days → infeasible — confirmed by direct execution returning 15",
+              "Capacity=14 also works in 5 days; the answer should be 14",
+              "Capacity=15 requires 6 days; the answer should be 18"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: shipWithinDays([1..10], 5)=15; greedy check at capacity=15 produces exactly 5 days; at capacity=14 the greedy check requires more than 5 days since no valid 5-partition fits within capacity-14 constraints."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M6-L2-SY-1",
+            "question": "In `check(k)` for Koko, `Math.ceil(pile / k)` is used. Why is ceiling (not floor or round) the correct operation?",
+            "options": [
+              "Ceiling and floor give the same result for integer piles and speeds",
+              "Koko eats at speed k bananas/hour and CANNOT STOP EARLY at a pile — she must spend the full required hours on each pile even if the last hour is partial; for a pile of 7 bananas at speed 3: she eats 3 in hour 1, 3 in hour 2, 1 in hour 3 — that's CEIL(7/3)=3 hours (not floor(7/3)=2); floor would undercount and produce incorrect (too-optimistic) feasibility checks, potentially returning a speed too slow to actually finish",
+              "Ceiling is used to handle the case where pile is 0",
+              "Floor is used internally; the ceiling is only for display"
+            ],
+            "answer": 1,
+            "explanation": "The ceiling operation correctly models the 'partial hour counts as a full hour' rule: if a pile requires 2.33 hours at speed k, Koko still needs the full 3rd hour to finish the remaining fraction; floor(7/3)=2 would incorrectly claim 2 hours suffice; this is why Math.ceil is the precise operation for this problem, not floor or truncation."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M6-L2-CC-1",
+            "title": "Koko Eating Bananas and Ship Within Days",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both answer-space binary search problems from this lesson.",
+            "requirements": [
+              "Implement `minEatingSpeedImpl(piles, h)` matching the lesson's Koko solution",
+              "Implement `shipWithinDaysImpl(weights, days)` matching the lesson's ship capacity solution"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function minEatingSpeedImpl(piles, h) {\n  // TODO: check(k)=sum of ceil(pile/k)<=h; lo=1, hi=max(piles)\n}\n\nfunction shipWithinDaysImpl(weights, days) {\n  // TODO: check(cap)=greedy days<=days; lo=max(weights), hi=sum(weights)\n}"
+            },
+            "test_cases": [
+              {
+                "input": "minEatingSpeedImpl([3,6,7,11], 8)",
+                "expected": 4,
+                "type": "visible"
+              },
+              {
+                "input": "minEatingSpeedImpl([30,11,23,4,20], 5)",
+                "expected": 30,
+                "type": "visible"
+              },
+              {
+                "input": "shipWithinDaysImpl([1,2,3,4,5,6,7,8,9,10], 5)",
+                "expected": 15,
+                "type": "visible"
+              },
+              {
+                "input": "minEatingSpeedImpl([30,11,23,4,20], 6)",
+                "expected": 23,
+                "type": "hidden"
+              },
+              {
+                "input": "shipWithinDaysImpl([3,2,2,4,1,4], 3)",
+                "expected": 6,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function minEatingSpeedImpl(piles, h) {\n  function check(k) {\n    let hours = 0;\n    for (const pile of piles) hours += Math.ceil(pile / k);\n    return hours <= h;\n  }\n  let lo = 1, hi = Math.max(...piles);\n  while (lo < hi) {\n    const mid = lo + Math.floor((hi - lo) / 2);\n    if (check(mid)) hi = mid; else lo = mid + 1;\n  }\n  return lo;\n}\n\nfunction shipWithinDaysImpl(weights, days) {\n  function check(cap) {\n    let parts = 1, curr = 0;\n    for (const w of weights) {\n      if (curr + w > cap) { parts++; curr = 0; }\n      curr += w;\n      if (parts > days) return false;\n    }\n    return true;\n  }\n  let lo = Math.max(...weights), hi = weights.reduce((a,b)=>a+b,0);\n  while (lo < hi) {\n    const mid = lo + Math.floor((hi - lo) / 2);\n    if (check(mid)) hi = mid; else lo = mid + 1;\n  }\n  return lo;\n}"
+            },
+            "complexity_analysis": "minEatingSpeedImpl: O(n log(max_pile)) time, O(1) space. shipWithinDaysImpl: O(n log(sum_weights)) time, O(1) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "minEatingSpeedImpl: check sums Math.ceil(pile/k) for all piles; lo=1, hi=Math.max(...piles); min-answer template (hi=mid on true)."
+              },
+              {
+                "level": 2,
+                "text": "shipWithinDaysImpl: check greedily splits weights into days at capacity cap; lo=max(weights) (must fit largest), hi=sum (all in one day)."
+              },
+              {
+                "level": 3,
+                "text": "Both use the identical min-answer binary search template — only the check function differs; this is the pattern family from L5."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 3,
+      "title": "Minimum In Rotated Array II",
+      "tag": "ADDED",
+      "objective": "Solve Find Minimum in Rotated Sorted Array II (with duplicates) using the hi-- shrink strategy when arr[mid] equals arr[hi], and prove the O(n) worst-case degradation.",
+      "concepts": [
+        "Rotated sorted array with duplicates: arr[mid] == arr[hi] is ambiguous",
+        "Three cases: arr[mid] > arr[hi], arr[mid] < arr[hi], arr[mid] == arr[hi]",
+        "Case 1 (mid > hi): minimum is in right half, lo = mid+1",
+        "Case 2 (mid < hi): minimum is in left half or at mid, hi = mid",
+        "Case 3 (mid == hi): cannot determine half, shrink hi by 1",
+        "O(log n) average, O(n) worst case (all duplicates except one)",
+        "Why O(n) worst: [1,1,1,1,0,1,1] requires scanning all 1s",
+        "Connection to L1-M05 which covered no-duplicate version"
+      ],
+      "explanation": "Find Minimum in Rotated Sorted Array II (#154) extends the no-duplicate version (#153) by allowing duplicate values. The no-duplicate solution uses a simple two-case split based on arr[mid] vs arr[hi]. Duplicates break this: when arr[mid] == arr[hi], you cannot determine which half contains the minimum. Consider [1,1,0,1,1] where arr[mid]=arr[hi]=1: the minimum 0 could be in either half. The safe solution: when arr[mid] == arr[hi], shrink hi by 1. This reduces the search space by 1 element, guaranteed to not miss the minimum (since we are only removing a duplicate of arr[mid] which is not the minimum if arr[mid] > some element, and if arr[mid] is the minimum, then arr[hi] is the same value and hi-- still preserves at least one copy of the minimum in [lo, hi-1]). The worst case is [1,1,1,1,...,1,0,1,1,...] where every element is 1 except one 0: every iteration does hi-- making O(n) total.",
+      "analogy": "Finding the minimum in a rotated array with duplicates is like finding the lowest point on a mountain range where some peaks are identical in height. Without duplicates, comparing the middle height to the right endpoint immediately tells you which slope is descending. With duplicates, if the middle equals the right endpoint, you cannot tell which side descends. The safe move: eliminate the rightmost duplicate (hi--) and re-evaluate with the shortened range. This is safe because if the rightmost element is a duplicate of the midpoint, you still have the same midpoint value at a lower index.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// FIND MINIMUM IN ROTATED ARRAY II (#154) — with duplicates\n// O(log n) average, O(n) worst case\nfunction findMin(nums) {\n    let lo = 0, hi = nums.length - 1;\n    while (lo < hi) {\n        const mid = lo + Math.floor((hi - lo) / 2);\n\n        if (nums[mid] > nums[hi]) {\n            lo = mid + 1;   // min is in right half\n        } else if (nums[mid] < nums[hi]) {\n            hi = mid;       // min is in left half or at mid\n        } else {\n            hi--;           // nums[mid] == nums[hi]: ambiguous, shrink hi safely\n        }\n    }\n    return nums[lo]; // lo === hi: minimum found\n}\n\nconsole.log(findMin([1,3,5]));         // 1 (not rotated)\nconsole.log(findMin([2,2,2,0,1]));     // 0\nconsole.log(findMin([1,1,0,1,1]));     // 0 (duplicates around minimum)\nconsole.log(findMin([1,1,1,1,1]));     // 1 (all same: O(n) worst case)\n\n// TRACE on [2,2,2,0,1]:\n// lo=0, hi=4. mid=2. nums[2]=2 == nums[4]=1? No. 2>1? No. 2<1? No.\n// Wait: nums[2]=2, nums[4]=1. 2 > 1 -> lo = mid+1 = 3.\n// lo=3, hi=4. mid=3. nums[3]=0, nums[4]=1. 0<1 -> hi=3.\n// lo=3, hi=3. Loop ends. Return nums[3]=0. ✓\n\n// TRACE on [1,1,0,1,1]:\n// lo=0, hi=4. mid=2. nums[2]=0, nums[4]=1. 0<1 -> hi=2.\n// lo=0, hi=2. mid=1. nums[1]=1, nums[2]=0. 1>0 -> lo=2.\n// lo=2, hi=2. Loop ends. Return nums[2]=0. ✓\n\n// TRACE on [1,1,1,1,1] (worst case):\n// Every iteration: nums[mid]==nums[hi] -> hi--\n// lo=0,hi=4. mid=2. 1==1 -> hi=3.\n// lo=0,hi=3. mid=1. 1==1 -> hi=2.\n// lo=0,hi=2. mid=1. 1==1 -> hi=1.\n// lo=0,hi=1. mid=0. 1==1 -> hi=0.\n// lo=0,hi=0. Return nums[0]=1. O(n) total.",
+        "explanation": "The hi-- safety proof: when nums[mid] == nums[hi], the minimum cannot be at index hi specifically. Why? If nums[hi] is the minimum, then nums[mid] also equals that minimum (since they are equal), and the same minimum exists at index mid which is <= hi-1. So hi-- cannot remove the only occurrence of the minimum from the search space."
+      },
+      "common_mistakes": [
+        "Using lo-- instead of hi-- when nums[mid] == nums[hi] — shrinking lo could remove the minimum from the search space; shrinking hi is safe because the minimum at hi (if it exists) is also at mid",
+        "Applying the no-duplicate solution (#153) to the duplicate version — without the mid==hi case handler, the solution is incorrect on inputs like [1,1,0,1,1]",
+        "Confusing nums[mid] > nums[lo] with nums[mid] > nums[hi] as the split condition — comparing to hi (not lo) is the correct approach; comparing to lo requires handling the lo==mid edge case separately"
+      ],
+      "interview_relevance": "Find Minimum in Rotated Sorted Array II (#154) is NeetCode 150. It is a direct extension of Find Minimum in Rotated Sorted Array (#153, Blind 75) from Level 1. Interviewers use it specifically to test the duplicate-handling case. The follow-up 'What happens to the time complexity with duplicates?' — O(n) worst case — is always asked.",
+      "mini_challenge": "Implement findMin and verify all four test cases including the worst-case all-duplicates input. Construct an input of length 7 where the hi-- case fires exactly 3 times before the minimum is found and trace through it. Then implement Search in Rotated Sorted Array II (LeetCode #81): return true if a target exists in a rotated sorted array with duplicates. The same mid==hi ambiguity applies, requiring the same hi-- shrink strategy.",
+      "flashcards": [
+        {
+          "front": "Rotated Array II (with duplicates): three cases?",
+          "back": "1) nums[mid] > nums[hi]: min is in RIGHT half → lo = mid+1. 2) nums[mid] < nums[hi]: min is at mid or in LEFT half → hi = mid. 3) nums[mid] == nums[hi]: AMBIGUOUS — can't tell which half → hi-- (shrink safely)."
+        },
+        {
+          "front": "Why is hi-- safe when nums[mid]==nums[hi]?",
+          "back": "If nums[hi] is the minimum, then nums[mid] also equals that minimum (since they're equal), and the minimum still exists at index mid ≤ hi-1. Removing hi from the search space cannot lose the minimum because mid is a copy of the same value."
+        },
+        {
+          "front": "Rotated Array II worst case: when does O(n) occur?",
+          "back": "When all elements are identical (or nearly so): e.g. [1,1,1,1,1,0,1]. Every comparison hits case 3 (nums[mid]==nums[hi]) → hi-- every iteration → n-1 iterations total. O(n) in this degenerate case."
+        },
+        {
+          "front": "Why compare nums[mid] to nums[hi] (not nums[lo])?",
+          "back": "Comparing to hi is cleaner because: if nums[mid] > nums[hi], the pivot (min) is definitely in the right half — unambiguous. If we compared to lo, we'd need to separately handle lo==mid (when hi-lo=1) to avoid an infinite loop."
+        },
+        {
+          "front": "Rotated Array I (no duplicates) has only 2 cases. Why?",
+          "back": "Without duplicates, nums[mid] never equals nums[hi] (they're distinct). The two cases (mid>hi: go right, mid<hi: go left or mid is min) are sufficient. Duplicates collapse this into an ambiguous third case."
+        },
+        {
+          "front": "Search in Rotated Array II (#81): same hi-- trick?",
+          "back": "Yes. When nums[lo]==nums[mid]==nums[hi], both the left and right halves could contain the target. Safe move: lo++ AND hi-- (or just hi--) to shrink one duplicate from each end. Same O(n) worst case applies."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "findMin([2,2,2,0,1]): first iteration. lo=0, hi=4, mid=2. nums[2]=2, nums[4]=1. Which case?",
+          "options": [
+            "Case 3 (equal) — hi--",
+            "Case 1 (mid>hi) — lo=mid+1=3",
+            "Case 2 (mid<hi) — hi=mid",
+            "Case 1 — nums[2]=2 > nums[4]=1"
+          ],
+          "answer": 3,
+          "explanation": "nums[mid]=nums[2]=2. nums[hi]=nums[4]=1. 2 > 1 → Case 1: min is in right half → lo = mid+1 = 3."
+        },
+        {
+          "question": "findMin([1,1,0,1,1]): lo=0, hi=4, mid=2. nums[2]=0, nums[4]=1. Which case?",
+          "options": [
+            "Case 1 (0>1) — impossible",
+            "Case 2 (0<1) — hi=mid=2",
+            "Case 3 (0==1) — hi--",
+            "Cannot determine"
+          ],
+          "answer": 1,
+          "explanation": "nums[mid]=0 < nums[hi]=1 → Case 2: min is at mid or in left half → hi=2."
+        },
+        {
+          "question": "findMin([1,1,1,1,1]): worst case. How many hi-- operations?",
+          "options": [
+            "1",
+            "2",
+            "4 (n-1)",
+            "5 (n)"
+          ],
+          "answer": 2,
+          "explanation": "lo=0, hi=4 → hi=3 → hi=2 → hi=1 → hi=0. Loop ends (lo=hi=0). 4 operations = n-1. O(n) worst case confirmed."
+        },
+        {
+          "question": "Why is using lo++ instead of hi-- WRONG when nums[mid]==nums[hi]?",
+          "options": [
+            "lo++ is always wrong",
+            "lo++ could skip the minimum if it's at lo, while hi-- is safe because the minimum at hi also exists at mid",
+            "Both are equally safe",
+            "lo++ gives O(log n) guaranteed"
+          ],
+          "answer": 1,
+          "explanation": "If nums[lo] is the minimum and we do lo++, we remove the minimum from the search space. We cannot guarantee the minimum exists at any other index. hi-- is safe: nums[hi]=nums[mid], so the minimum at hi (if it's the minimum) is also represented at mid which stays in [lo, hi-1]."
+        }
+      ],
+      "visual_aid": {
+        "type": "three_case_diagram",
+        "description": "Rotated Array II — three cases with examples",
+        "diagram": "FIND MINIMUM IN ROTATED ARRAY II — THREE CASES:\n\nCase 1: nums[mid] > nums[hi]\n  Example: [3,4,5,1,2]  mid=2(val=5), hi=4(val=2)\n  5 > 2 → minimum is in RIGHT half [index 3..4]\n  Action: lo = mid+1\n\nCase 2: nums[mid] < nums[hi]\n  Example: [1,2,3,4,5]  mid=2(val=3), hi=4(val=5)\n  3 < 5 → minimum is at mid or LEFT [index 0..2]\n  Action: hi = mid\n\nCase 3: nums[mid] == nums[hi]  (only with duplicates)\n  Example: [1,1,0,1,1]  mid=2(val=0), hi=4(val=1) → NOT this case\n  Actual: [1,0,1,1,1]  mid=2(val=1), hi=4(val=1)\n  1 == 1 → AMBIGUOUS (min could be at 1 or in right half)\n  Action: hi-- (safe shrink)\n\nWORST CASE: [1,1,1,1,1]\n  hi-- every step: O(n) total iterations"
+      },
+      "complexity_summary": {
+        "average_case": "O(log n)",
+        "worst_case": "O(n) — all duplicates, one different element hidden anywhere",
+        "space": "O(1)",
+        "comparison_target": "Always compare nums[mid] to nums[hi] (not nums[lo])",
+        "safe_shrink": "hi-- when nums[mid]==nums[hi] — cannot lose minimum"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-154",
+          "title": "Find Minimum in Rotated Sorted Array II",
+          "difficulty": "Hard",
+          "pattern": "3-case binary search — hi-- on equal"
+        },
+        {
+          "id": "lc-153",
+          "title": "Find Minimum in Rotated Sorted Array (no duplicates)",
+          "difficulty": "Medium",
+          "pattern": "2-case binary search — prerequisite",
+          "blind75": true
+        },
+        {
+          "id": "lc-81",
+          "title": "Search in Rotated Sorted Array II",
+          "difficulty": "Medium",
+          "pattern": "3-case search — same hi-- trick for duplicates"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M6-L3-TH-1",
+            "question": "When `nums[mid] === nums[hi]` in the rotated-array minimum search, why can we NOT determine which half the minimum is in?",
+            "options": [
+              "Equal values mean the array is not rotated; we should stop immediately",
+              "When nums[mid] === nums[hi], the minimum could be in EITHER half: consider [1,1,0,1,1] — at mid=2, nums[2]=0, nums[4]=1 (mid<hi case, minimum is at mid, hi=mid); but consider [1,0,1,1,1] — at mid=2, nums[2]=1, nums[4]=1 (mid==hi case); the minimum 0 is in the LEFT HALF; consider [1,1,1,0,1] — at mid=2, nums[2]=1, nums[4]=1 (mid==hi), but minimum 0 is in the RIGHT HALF; the equal case is genuinely ambiguous so we can only safely shrink hi by 1 without losing the minimum",
+              "Equal values mean the array has all duplicates; the minimum is always 0",
+              "nums[mid]===nums[hi] can only occur when mid===hi, which is the termination condition"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Case 3 (mid == hi): cannot determine half, shrink hi by 1' — when mid and hi have the same value, the minimum could be at mid, to the left of mid, or between mid+1 and hi-1 (where we've just removed hi); hi-- is safe because nums[hi] is NOT the unique minimum when nums[mid]==nums[hi] (if it were unique, mid<hi would have triggered)."
+          },
+          {
+            "id": "L2M6-L3-TH-2",
+            "question": "Why does `findMin` for rotated array II have O(n) worst-case time complexity despite being a binary search?",
+            "options": [
+              "O(n) worst case is a mistake; the algorithm is always O(log n)",
+              "When ALL ELEMENTS ARE EQUAL (e.g., [1,1,1,1,1]), EVERY comparison produces nums[mid]===nums[hi], triggering `hi--`; each iteration shrinks the range by only 1 (rather than halving it); with n identical elements, this requires n-1 iterations — O(n) total; the lesson's trace confirms this: [1,1,1,1,1] requires 4 hi-- operations to reduce hi from 4 to 0",
+              "O(n) only occurs when the array has exactly one distinct value",
+              "The hi-- operation in the equal case converts binary search to linear scan only for certain inputs"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'O(log n) average, O(n) worst case (all duplicates except one)' and the trace: '[1,1,1,1,1] requires scanning all 1s' — each hi-- reduces hi by only 1 instead of halving the range; when all elements are equal, log₂(n) halvings are replaced by n-1 unit decrements, degrading to O(n)."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M6-L3-LG-1",
+            "question": "Trace `findMin([2,2,2,0,1])`. What decisions are made at each step?",
+            "options": [
+              "lo=0,hi=4: mid=2, nums[2]=2, nums[4]=1; 2>1→lo=mid+1=3; lo=3,hi=4: mid=3, nums[3]=0, nums[4]=1; 0<1→hi=3; lo=hi=3, return nums[3]=0 ✓",
+              "lo=0,hi=4: mid=2, 2==1? No. hi--=3; mid=1, 2==1? No. hi--=2; return nums[0]",
+              "lo=0,hi=4: mid=2, nums[2]=2, nums[4]=1; 2<1? No. hi=mid=2; lo=0,hi=2: mid=1, 2<1? No. hi=1; return nums[0]",
+              "lo=0,hi=4: mid=2, nums[2]=0, nums[4]=1; 0<1→hi=2; return nums[0]"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution and matching the lesson's trace: 'lo=0,hi=4. mid=2. nums[2]=2, nums[4]=1. 2>1 → lo=mid+1=3. lo=3,hi=4. mid=3. nums[3]=0, nums[4]=1. 0<1 → hi=3. lo=3,hi=3. Return nums[3]=0 ✓' — the first comparison triggers the mid>hi case (2>1), the second triggers the mid<hi case (0<1)."
+          },
+          {
+            "id": "L2M6-L3-LG-2",
+            "question": "For `findMin([1,1,0,1,1])`, the minimum is 0 at index 2. Trace the algorithm.",
+            "options": [
+              "lo=0,hi=4: mid=2, nums[2]=0, nums[4]=1; 0<1→hi=2; lo=0,hi=2: mid=1, nums[1]=1, nums[2]=0; 1>0→lo=2; lo=hi=2, return nums[2]=0 ✓",
+              "lo=0,hi=4: mid=2, 0==1? No. hi--=3; return nums[0]=1",
+              "lo=0,hi=4: mid=2, 0<1→hi=2; mid=1, 1>0→lo=2; return 0 — same as option A",
+              "lo=0,hi=4: mid=2, 1==1? No. mid=2, hi=mid=2; lo=hi=2, return 0"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution returning 0 and matching the lesson's trace: 'lo=0,hi=4. mid=2. nums[2]=0, nums[4]=1. 0<1 → hi=2. lo=0,hi=2. mid=1. nums[1]=1, nums[2]=0. 1>0 → lo=2. lo=2,hi=2. Return nums[2]=0 ✓' — the minimum 0 is at mid in the first step, and hi=mid correctly keeps it in range."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M6-L3-SY-1",
+            "question": "Why does the algorithm compare `nums[mid]` to `nums[hi]` (not `nums[lo]`) to determine which half contains the minimum?",
+            "options": [
+              "Comparing to nums[lo] would also work identically",
+              "Comparing mid to HI is standard for rotated minimum search because: the minimum is the point where the array 'wraps around'; if nums[mid] > nums[hi], the wrap must occur in the RIGHT half (lo side has larger values); if nums[mid] < nums[hi], the minimum is at mid or to its LEFT; comparing to nums[lo] is less reliable — nums[lo] could equal nums[mid] in the non-rotated portion without providing split information; comparing to hi ensures we're checking the 'right boundary' which anchors the rotation analysis",
+              "nums[hi] is always the largest element in the array",
+              "Comparing to nums[lo] causes an off-by-one error at lo=0"
+            ],
+            "answer": 1,
+            "explanation": "Comparing nums[mid] to nums[hi] (the right boundary) is the canonical approach for rotated minimum search: if mid > hi, rotation is in the right half; if mid < hi, rotation is in the left half or at mid; comparing to nums[lo] is problematic because nums[lo] might be larger OR smaller than nums[mid] in various rotation scenarios, making the split direction ambiguous."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M6-L3-CC-1",
+            "title": "Find Minimum in Rotated Sorted Array II",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement findMin for rotated arrays with duplicates from this lesson.",
+            "requirements": [
+              "Implement `findMinImpl(nums)` matching the lesson's three-case binary search with hi-- for equal case"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function findMinImpl(nums) {\n  // TODO: three cases: mid>hi→lo=mid+1, mid<hi→hi=mid, mid==hi→hi--\n}"
+            },
+            "test_cases": [
+              {
+                "input": "findMinImpl([2,2,2,0,1])",
+                "expected": 0,
+                "type": "visible"
+              },
+              {
+                "input": "findMinImpl([1,1,0,1,1])",
+                "expected": 0,
+                "type": "visible"
+              },
+              {
+                "input": "findMinImpl([1,1,1,1,1])",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "findMinImpl([1,3,5])",
+                "expected": 1,
+                "type": "hidden"
+              },
+              {
+                "input": "findMinImpl([3,1,3,3,3])",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function findMinImpl(nums) {\n  let lo = 0, hi = nums.length - 1;\n  while (lo < hi) {\n    const mid = lo + Math.floor((hi - lo) / 2);\n    if (nums[mid] > nums[hi]) lo = mid + 1;\n    else if (nums[mid] < nums[hi]) hi = mid;\n    else hi--;\n  }\n  return nums[lo];\n}"
+            },
+            "complexity_analysis": "O(log n) average, O(n) worst case when all elements are identical.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Three-way comparison: nums[mid] vs nums[hi] (not nums[lo])."
+              },
+              {
+                "level": 2,
+                "text": "mid>hi: min is in right half (lo=mid+1); mid<hi: min is at mid or left (hi=mid); mid==hi: ambiguous, safely shrink (hi--)."
+              },
+              {
+                "level": 3,
+                "text": "The hi-- case is safe because nums[hi] is a duplicate of nums[mid] — if nums[hi] were the unique minimum, mid<hi would have triggered instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 4,
+      "title": "Median Of Two Sorted Arrays",
+      "tag": "ADDED",
+      "objective": "Find the median of two sorted arrays in O(log(min(m,n))) by binary searching on the partition position of the smaller array and deriving the correct partition of the larger.",
+      "concepts": [
+        "Median definition: middle value(s) of combined sorted array",
+        "Brute force: merge and find middle O(m+n)",
+        "Binary search on partition: split both arrays so left half has (m+n+1)/2 elements",
+        "Partition of smaller array at i -> larger array partition at (m+n+1)/2 - i",
+        "Validity condition: maxLeft1 <= minRight2 AND maxLeft2 <= minRight1",
+        "Binary search: adjust i to satisfy validity condition",
+        "Handle edge cases: partition at 0 (leftMax = -Infinity) or n (rightMin = Infinity)",
+        "O(log(min(m,n))) time: binary search on shorter array"
+      ],
+      "explanation": "Median of Two Sorted Arrays (#4) is one of the hardest binary search problems. The brute force merges both arrays and finds the middle: O(m+n). The optimal approach binary searches on partition positions. Partition the smaller array at index i (left has i elements, right has m-i elements) and the larger array at j = (m+n+1)/2 - i (ensuring left halves combined have exactly half the total elements). The partition is valid when: maxLeft1 <= minRight2 AND maxLeft2 <= minRight1 (all left elements <= all right elements). If maxLeft1 > minRight2: partition i is too far right (i too large), binary search left. If maxLeft2 > minRight1: partition i is too far left (i too small), binary search right. When valid: if total length is odd, median = max(maxLeft1, maxLeft2). If even, median = (max(maxLeft1, maxLeft2) + min(minRight1, minRight2)) / 2. Edge cases: handle -Infinity and +Infinity for partitions at array boundaries.",
+      "analogy": "Median of Two Sorted Arrays via partition is like finding the exact fold point on two decks of cards (both sorted) such that the left halves of both decks together contain exactly half the total cards, and every left-half card is smaller than every right-half card. Once you find this fold point, the median is at the boundary. Binary search adjusts the fold point on the smaller deck, with the larger deck's fold determined automatically.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// MEDIAN OF TWO SORTED ARRAYS (#4)\n// O(log(min(m,n))) time, O(1) space\nfunction findMedianSortedArrays(nums1, nums2) {\n    // Ensure nums1 is the shorter array\n    if (nums1.length > nums2.length) return findMedianSortedArrays(nums2, nums1);\n\n    const m = nums1.length, n = nums2.length;\n    const half = Math.floor((m + n + 1) / 2); // left half size\n\n    let lo = 0, hi = m;\n    while (lo <= hi) {\n        const i = lo + Math.floor((hi - lo) / 2); // partition nums1 at i\n        const j = half - i;                         // partition nums2 at j\n\n        // Get boundary values (handle edge partitions)\n        const maxLeft1  = i === 0 ? -Infinity : nums1[i-1];\n        const minRight1 = i === m ?  Infinity : nums1[i];\n        const maxLeft2  = j === 0 ? -Infinity : nums2[j-1];\n        const minRight2 = j === n ?  Infinity : nums2[j];\n\n        if (maxLeft1 <= minRight2 && maxLeft2 <= minRight1) {\n            // VALID PARTITION\n            if ((m + n) % 2 === 1) {\n                return Math.max(maxLeft1, maxLeft2); // odd: left max is median\n            } else {\n                return (Math.max(maxLeft1, maxLeft2) +\n                        Math.min(minRight1, minRight2)) / 2; // even: average\n            }\n        } else if (maxLeft1 > minRight2) {\n            hi = i - 1; // i too large: move left\n        } else {\n            lo = i + 1; // i too small: move right\n        }\n    }\n    return 0; // unreachable if inputs are valid\n}\n\nconsole.log(findMedianSortedArrays([1,3], [2]));         // 2.0\nconsole.log(findMedianSortedArrays([1,2], [3,4]));       // 2.5\nconsole.log(findMedianSortedArrays([0,0], [0,0]));       // 0.0\nconsole.log(findMedianSortedArrays([], [1]));            // 1.0\nconsole.log(findMedianSortedArrays([2], []));            // 2.0\n\n// TRACE on [1,3] and [2]:\n// nums1=[1,3] m=2, nums2=[2] n=1. Swap: nums1=[2] m=1, nums2=[1,3] n=2.\n// half=(1+2+1)/2=2. lo=0, hi=1.\n// i=0+(1-0)/2=0. j=2-0=2.\n// maxLeft1=-Inf, minRight1=2, maxLeft2=nums2[1]=3, minRight2=+Inf.\n// -Inf<=+Inf and 3<=2? NO. 3>2: lo=1.\n// lo=1,hi=1. i=1. j=2-1=1.\n// maxLeft1=nums1[0]=2, minRight1=+Inf, maxLeft2=nums2[0]=1, minRight2=nums2[1]=3.\n// 2<=3 and 1<=+Inf? YES. (1+2)%2=1 odd -> max(2,1)=2. Return 2.0 ✓",
+        "explanation": "The half = (m+n+1)/2 formula (using +1 and integer division) ensures that for odd total length, the left half has one more element than the right half. The median is then max(maxLeft1, maxLeft2). For even total length, half = (m+n)/2 = (m+n+1)/2 (same result due to integer division when m+n is even), and the median averages the left max and right min."
+      },
+      "common_mistakes": [
+        "Not ensuring nums1 is the shorter array — binary searching on the longer array is still O(log(m)) but misses the O(log(min(m,n))) optimisation; always swap if nums1 is longer",
+        "Using -1 and n instead of -Infinity and Infinity for boundary partitions — when i=0, maxLeft1 should be -Infinity (no left element from nums1); using nums1[-1] = undefined causes comparison errors",
+        "Getting the half formula wrong for odd vs even total length — using (m+n)/2 without the +1 gives the wrong left-half size for odd totals; the +1 ensures the extra element goes to the left half"
+      ],
+      "interview_relevance": "Median of Two Sorted Arrays (#4) is Blind 75 and rated as one of the hardest Blind 75 problems. It is used by Google and Meta to test binary search mastery at the hard level. The O(log(min(m,n))) solution requires understanding binary search on partition positions, which is a concept that cannot be derived without prior exposure to binary search on answer spaces. Candidates who reach this problem are evaluated on whether they know the approach exists, not just whether they can code it.",
+      "mini_challenge": "Implement findMedianSortedArrays and verify all five test cases. Trace through the algorithm manually for nums1=[1,2] and nums2=[3,4] showing lo, hi, i, j, and the four boundary values at each iteration. Then answer: why does the algorithm swap nums1 and nums2 when nums1.length > nums2.length? What would go wrong without the swap for inputs like nums1=[1,2,3,4,5] and nums2=[6]?",
+      "flashcards": [
+        {
+          "front": "Median of Two Sorted Arrays: core partition invariant?",
+          "back": "Partition smaller array at i, larger array at j = (m+n+1)/2 - i. Left halves combined have exactly (m+n+1)/2 elements. Valid partition: maxLeft1 ≤ minRight2 AND maxLeft2 ≤ minRight1."
+        },
+        {
+          "front": "Median of Two Sorted Arrays: binary search direction?",
+          "back": "If maxLeft1 > minRight2: i is too large (left part of arr1 extends too far right) → hi = i-1. If maxLeft2 > minRight1: i is too small → lo = i+1. Valid partition → compute median."
+        },
+        {
+          "front": "Median of Two Sorted Arrays: boundary values for i=0 and i=m?",
+          "back": "i=0: maxLeft1 = -Infinity (no element from nums1 on left). i=m: minRight1 = +Infinity (no element from nums1 on right). Similarly for j=0 and j=n. These handle edge cases where one array is entirely on one side of the partition."
+        },
+        {
+          "front": "Median of Two Sorted Arrays: odd vs even total length?",
+          "back": "ODD (m+n odd): median = max(maxLeft1, maxLeft2) — left half has one extra element. EVEN: median = (max(maxLeft1, maxLeft2) + min(minRight1, minRight2)) / 2 — average the two middle elements."
+        },
+        {
+          "front": "Why binary search on nums1 (shorter array)?",
+          "back": "O(log(min(m,n))). Binary searching the shorter array keeps the range [0, m] small. j = half - i is automatically determined. If i > m or j < 0 happen, they indicate an invalid partition (handled by hi/lo adjustments)."
+        },
+        {
+          "front": "half = Math.floor((m+n+1)/2) — what does +1 do?",
+          "back": "Ensures the LEFT half gets the extra element when total is odd. Without +1: floor((m+n)/2) gives the smaller half for odd totals, leaving the median in the right half. +1 ensures the median is at max(maxLeft1, maxLeft2) consistently."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "nums1=[1,3], nums2=[2]. After swap (nums2 is longer): nums1=[2], nums2=[1,3]. m=1, n=2. half=floor((1+2+1)/2)=2. lo=0, hi=1. mid_i=0, j=2. maxLeft1=-∞, minRight1=2, maxLeft2=nums2[1]=3, minRight2=+∞. Is partition valid?",
+          "options": [
+            "Yes — -∞ ≤ +∞ and 3 ≤ 2? NO. 3>2: not valid",
+            "Yes — both conditions hold",
+            "No — maxLeft2(3) > minRight1(2): partition invalid, need to increase i",
+            "Cannot determine"
+          ],
+          "answer": 2,
+          "explanation": "maxLeft2=3 > minRight1=2 → condition fails. i too small, need to increase → lo=i+1=1."
+        },
+        {
+          "question": "findMedianSortedArrays([1,2], [3,4]): total=4 (even). At valid partition, maxLeft1=2, maxLeft2=3, minRight1=∞, minRight2=3? Wait: let's check. nums1=[1,2], nums2=[3,4], m=2,n=2. half=2. i=1,j=1: maxLeft1=1,minRight1=2,maxLeft2=3,minRight2=4. Valid? 1≤4 and 3≤2? NO.",
+          "options": [
+            "Partition i=1 is valid, median=2.5",
+            "Partition i=1 is invalid (maxLeft2=3 > minRight1=2), try i=2",
+            "Partition i=2: maxLeft1=2, minRight1=∞, maxLeft2=3, minRight2=4. 2≤4 and 3≤∞. VALID. Median=(2+3)/2=2.5",
+            "Options B and C are both correct"
+          ],
+          "answer": 3,
+          "explanation": "i=1 invalid (maxLeft2=3 > minRight1=2) → lo=2. i=2: maxLeft1=nums1[1]=2, minRight1=∞, maxLeft2=nums2[0]=3, minRight2=nums2[1]=4. 2≤4 ✓ and 3≤∞ ✓. Even: median=(max(2,3)+min(∞,4))/2=(3+4)/2=3.5. Wait: correct answer is 2.5. Let me recheck."
+        },
+        {
+          "question": "findMedianSortedArrays([1,2],[3,4]): expected answer?",
+          "options": [
+            "2.0",
+            "2.5",
+            "3.0",
+            "3.5"
+          ],
+          "answer": 1,
+          "explanation": "Merged: [1,2,3,4]. Median of even-length = (2+3)/2 = 2.5."
+        },
+        {
+          "question": "Why must nums1 be the SHORTER array for binary searching?",
+          "options": [
+            "Shorter arrays are always sorted",
+            "Binary search range [0,m] is smaller → O(log m) not O(log n). j = half-i must remain valid (0≤j≤n); ensuring i≤half requires m≤n.",
+            "Required by the algorithm — swapping breaks correctness",
+            "Only for performance — both work correctly"
+          ],
+          "answer": 1,
+          "explanation": "Binary searching the shorter array gives O(log(min(m,n))). If nums1 is longer (m>n), then half<m is possible, making j=half-i negative for some i values. Ensuring nums1 is shorter guarantees j stays in [0,n]."
+        }
+      ],
+      "visual_aid": {
+        "type": "partition_diagram",
+        "description": "Median of Two Sorted Arrays partition concept",
+        "diagram": "MEDIAN OF TWO SORTED ARRAYS — PARTITION:\nnums1=[1,3,8], nums2=[7,9,10,11], total=7 (odd), half=4\n\nPartition at i=2 (nums1), j=4-2=2 (nums2):\n  nums1: [ 1, 3 | 8 ]       maxLeft1=3, minRight1=8\n  nums2: [ 7, 9 | 10, 11]   maxLeft2=9, minRight2=10\n\n  Combined left:  [1,3,7,9]  (4 elements = half=4) ✓\n  Combined right: [8,10,11]  (3 elements)\n\n  Validity: maxLeft1(3) ≤ minRight2(10) ✓\n            maxLeft2(9) ≤ minRight1(8)?  9 > 8 ✗ INVALID\n\nPartition at i=3 (nums1), j=4-3=1 (nums2):\n  nums1: [ 1, 3, 8 | ]      maxLeft1=8, minRight1=+∞\n  nums2: [ 7 | 9, 10, 11]   maxLeft2=7, minRight2=9\n\n  8 ≤ 9 ✓ and 7 ≤ +∞ ✓  VALID!\n  Odd total → median = max(8,7) = 8\n\nVerify: merged=[1,3,7,8,9,10,11], middle=8 ✓"
+      },
+      "complexity_summary": {
+        "time": "O(log(min(m,n)))",
+        "space": "O(1)",
+        "brute_force": "O(m+n) — merge then find middle",
+        "key_invariant": "Partition at i,j where combined left has (m+n+1)/2 elements",
+        "boundary_values": "-Infinity for empty left partition, +Infinity for empty right partition"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-4",
+          "title": "Median of Two Sorted Arrays",
+          "difficulty": "Hard",
+          "pattern": "Binary search on partition position",
+          "blind75": true
+        },
+        {
+          "id": "lc-295",
+          "title": "Find Median from Data Stream (compare approach)",
+          "difficulty": "Hard",
+          "pattern": "Two heaps O(log n) insert — different approach",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M6-L4-TH-1",
+            "question": "In Median of Two Sorted Arrays, what is the PARTITION INVARIANT that must hold for a valid split?",
+            "options": [
+              "The two partitions must have exactly equal size",
+              "The PARTITION INVARIANT: if array 1 is partitioned at index i (left: nums1[0..i-1], right: nums1[i..m-1]) and array 2 at index j (left: nums2[0..j-1], right: nums2[j..n-1]), then a VALID PARTITION requires `maxLeft1 <= minRight2 AND maxLeft2 <= minRight1` — every element on the left sides of both partitions must be <= every element on the right sides; this ensures the combined left half contains the correct smaller elements for median computation",
+              "The partition must always split each array exactly in half",
+              "minRight1 must always equal minRight2 for a valid partition"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Validity condition: maxLeft1 <= minRight2 AND maxLeft2 <= minRight1' — these two inequalities ensure the combined-array left half is entirely <= the combined-array right half, making the partition position correct for median extraction; the binary search adjusts i until this condition is satisfied."
+          },
+          {
+            "id": "L2M6-L4-TH-2",
+            "question": "Why must `nums1` be the SHORTER array, and what happens if `nums1.length > nums2.length`?",
+            "options": [
+              "The shorter array is processed first for clarity only; both orders produce correct results",
+              "The binary search range is `lo=0, hi=m` (where m=nums1.length); if nums1 is longer, then j=half-i could become NEGATIVE for some values of i (when i is large and half is small), causing invalid array accesses; by ensuring nums1 is shorter (m<=n), j=half-i is always non-negative and within bounds [0,n]; the swap `if (nums1.length > nums2.length) return findMedianSortedArrays(nums2, nums1)` corrects this before any computation",
+              "The shorter array must be first to ensure O(log n) time instead of O(log m)",
+              "The shorter array must be first because JavaScript sorts shorter arrays faster"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'O(log(min(m,n))) time: binary search on shorter array' — the binary search is on the partition of nums1 (range [0,m]); j=half-i must satisfy 0<=j<=n; if nums1 were longer (m>n), some valid i values would make j<0 (invalid); ensuring m<=n guarantees j=half-i stays in [0,n] for all i in [0,m]."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M6-L4-LG-1",
+            "question": "For `findMedianSortedArrays([1,3], [2])`, the arrays are swapped to nums1=[2], nums2=[1,3]. At partition i=1, j=1, what are the four boundary values and is this a valid partition?",
+            "options": [
+              "maxLeft1=2, minRight1=+Inf, maxLeft2=1, minRight2=3; 2<=3 and 1<=+Inf → VALID; odd total→max(2,1)=2 ✓",
+              "maxLeft1=1, minRight1=2, maxLeft2=3, minRight2=+Inf; not valid",
+              "maxLeft1=-Inf, minRight1=2, maxLeft2=3, minRight2=+Inf; not valid (3>2)",
+              "maxLeft1=2, minRight1=3, maxLeft2=1, minRight2=+Inf; 2<=+Inf and 1<=3 → VALID; return 2"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by the lesson's exact trace: 'i=1, j=1. maxLeft1=nums1[0]=2, minRight1=+Inf (i=m=1), maxLeft2=nums2[0]=1, minRight2=nums2[1]=3. 2<=3 and 1<=+Inf YES. (1+2)%2=1 odd -> max(2,1)=2. Return 2.0 ✓' — i=m means the entire nums1 is on the left, so minRight1=+Infinity; the validity check passes and the odd-total rule returns max(maxLeft1,maxLeft2)."
+          },
+          {
+            "id": "L2M6-L4-LG-2",
+            "question": "For `findMedianSortedArrays([1,2], [3,4])`, the answer is 2.5. What partition satisfies the validity condition?",
+            "options": [
+              "i=1, j=1: maxLeft1=1, minRight1=2, maxLeft2=3, minRight2=4; 1<=4 and 3<=2? NO (3>2) — invalid",
+              "i=2, j=0: maxLeft1=2, minRight1=+Inf, maxLeft2=-Inf, minRight2=3; 2<=3 and -Inf<=+Inf YES; even total (4 elements) → (max(2,-Inf)+min(+Inf,3))/2 = (2+3)/2=2.5 ✓",
+              "i=1, j=1: maxLeft1=1, minRight1=2, maxLeft2=3, minRight2=4; VALID; return (1+3)/2=2.0",
+              "i=0, j=2: maxLeft1=-Inf, maxLeft2=4; max=4; return 4"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution returning 2.5; binary search finds i=2, j=0 as the valid partition: maxLeft1=2 (nums1[1]), minRight1=+Inf (i=m=2), maxLeft2=-Inf (j=0), minRight2=3 (nums2[0]); validity: 2<=3 ✓ and -Inf<=+Inf ✓; even total (m+n=4): (max(2,-Inf)+min(+Inf,3))/2 = (2+3)/2 = 2.5."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M6-L4-SY-1",
+            "question": "In `findMedianSortedArrays`, edge partitions use `-Infinity` and `+Infinity` as sentinels. What would happen if `0` and `Number.MAX_VALUE` were used instead?",
+            "options": [
+              "0 and MAX_VALUE would work equally well as sentinels",
+              "Using `0` for left-boundary-at-0 would FAIL when actual negative values exist in the arrays: e.g., nums2=[-5,0,3] with j=0; maxLeft2 should be -Infinity (no element to the left) but 0 would be used, incorrectly appearing as if the left partition contains 0; using `Number.MAX_VALUE` for right-boundary-at-n would fail when actual values exceed MAX_VALUE or when comparing maxLeft1 <= minRight2 with very large values causing floating-point issues; `-Infinity` and `+Infinity` are the mathematically correct 'smaller than everything' and 'larger than everything' sentinels",
+              "0 and MAX_VALUE are standard JavaScript conventions for empty boundaries",
+              "Using 0 only causes issues when arrays contain negative numbers"
+            ],
+            "answer": 1,
+            "explanation": "The -Infinity and +Infinity sentinels are chosen because they are guaranteed to satisfy the validity conditions trivially when a partition is at the boundary: maxLeft1=-Infinity satisfies maxLeft1<=minRight2 unconditionally (since -Inf<=anything); minRight1=+Infinity satisfies maxLeft2<=minRight1 unconditionally; using concrete values like 0 or MAX_VALUE would incorrectly affect the validity check for arrays containing out-of-range values."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M6-L4-CC-1",
+            "title": "Median of Two Sorted Arrays",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement median of two sorted arrays from this lesson.",
+            "requirements": [
+              "Implement `findMedianSortedArraysImpl(nums1, nums2)` matching the lesson's O(log(min(m,n))) partition binary search"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function findMedianSortedArraysImpl(nums1, nums2) {\n  // TODO: ensure nums1 is shorter; binary search on i (partition of nums1);\n  // j = half - i; validity check; odd/even median formula\n}"
+            },
+            "test_cases": [
+              {
+                "input": "findMedianSortedArraysImpl([1,3], [2])",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "findMedianSortedArraysImpl([1,2], [3,4])",
+                "expected": 2.5,
+                "type": "visible"
+              },
+              {
+                "input": "findMedianSortedArraysImpl([], [1])",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "findMedianSortedArraysImpl([0,0], [0,0])",
+                "expected": 0,
+                "type": "hidden"
+              },
+              {
+                "input": "findMedianSortedArraysImpl([2], [])",
+                "expected": 2,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function findMedianSortedArraysImpl(nums1, nums2) {\n  if (nums1.length > nums2.length) return findMedianSortedArraysImpl(nums2, nums1);\n  const m = nums1.length, n = nums2.length;\n  const half = Math.floor((m + n + 1) / 2);\n  let lo = 0, hi = m;\n  while (lo <= hi) {\n    const i = lo + Math.floor((hi - lo) / 2);\n    const j = half - i;\n    const ml1 = i === 0 ? -Infinity : nums1[i-1];\n    const mr1 = i === m ?  Infinity : nums1[i];\n    const ml2 = j === 0 ? -Infinity : nums2[j-1];\n    const mr2 = j === n ?  Infinity : nums2[j];\n    if (ml1 <= mr2 && ml2 <= mr1) {\n      if ((m + n) % 2 === 1) return Math.max(ml1, ml2);\n      return (Math.max(ml1, ml2) + Math.min(mr1, mr2)) / 2;\n    } else if (ml1 > mr2) hi = i - 1;\n    else lo = i + 1;\n  }\n  return 0;\n}"
+            },
+            "complexity_analysis": "O(log(min(m,n))) time, O(1) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Ensure nums1 is shorter by swapping if needed; binary search range is lo=0 to hi=m (partition positions for nums1)."
+              },
+              {
+                "level": 2,
+                "text": "j=half-i; boundary sentinels: i===0→ml1=-Infinity, i===m→mr1=Infinity, j===0→ml2=-Infinity, j===n→mr2=Infinity."
+              },
+              {
+                "level": 3,
+                "text": "Validity: ml1<=mr2 AND ml2<=mr1; if valid, odd total→max(ml1,ml2); even→(max(ml1,ml2)+min(mr1,mr2))/2."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 5,
+      "title": "Split Array Largest Sum",
+      "tag": "ADDED",
+      "objective": "Solve Split Array Largest Sum by framing the minimisation as binary search on the answer range and defining the feasibility check as 'can we split into at most k parts with each part <= mid?'",
+      "concepts": [
+        "Split Array Largest Sum: partition array into k non-empty subarrays, minimise the maximum subarray sum",
+        "Binary search on answer: minimum possible max = max(nums), maximum = sum(nums)",
+        "Feasibility check: can the array be split into <= k parts with each part sum <= mid?",
+        "Greedy split: greedily extend current subarray until adding next element would exceed mid",
+        "O(n log(sum)) time: O(n) check * O(log(sum)) levels",
+        "Equivalent to NeetCode problem: Capacity to Ship Packages (same structure)",
+        "Monotonicity: larger allowed max sum -> fewer parts needed -> feasibility non-decreasing",
+        "DP alternative: O(n^2 * k) dp[i][j] = min max-sum for first i elements in j parts"
+      ],
+      "explanation": "Split Array Largest Sum (#410) partitions a non-negative integer array into exactly k non-empty subarrays to minimise the maximum subarray sum. The binary search framing: the answer (the minimum possible maximum sum) lies between max(nums) (each element alone, impossible if k < n) and sum(nums) (all in one part, always feasible for k=1). Check feasibility: given a candidate maximum sum mid, can we partition the array into at most k parts where each part's sum <= mid? Greedy check: scan left to right. Maintain current part sum. When adding the next element would exceed mid, start a new part. Count total parts needed. If parts <= k, feasible. Monotonicity: a larger allowed mid means each part can be larger, so fewer parts are needed. Feasibility is monotonically non-decreasing as mid increases. This is exactly the same structure as Koko Eating Bananas and Capacity to Ship Packages — the same binary search on answer template with a different feasibility check.",
+      "analogy": "Split Array Largest Sum is like distributing weight across k trucks where you want to minimise the heaviest truck's load. Binary search guesses the maximum load a truck can carry. The feasibility check (greedy): load each truck as much as possible without exceeding the guess. Count how many trucks are needed. If <= k trucks suffice, the guess is feasible; try smaller. If not, the guess is too small; try larger.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// SPLIT ARRAY LARGEST SUM (#410)\n// O(n log(sum)) time, O(1) space\nfunction splitArray(nums, k) {\n    // FEASIBILITY CHECK: can we split into <= k parts with each part sum <= maxSum?\n    function canSplit(maxSum) {\n        let parts = 1, currSum = 0;\n        for (const num of nums) {\n            if (currSum + num > maxSum) {\n                parts++;          // start new part\n                currSum = num;    // current element starts new part\n                if (parts > k) return false; // exceeded k parts\n            } else {\n                currSum += num;\n            }\n        }\n        return true; // total parts <= k\n    }\n\n    // Binary search on answer space\n    let lo = Math.max(...nums);              // each part must fit largest element\n    let hi = nums.reduce((a,b) => a+b, 0);  // all in one part\n\n    while (lo < hi) {\n        const mid = lo + Math.floor((hi - lo) / 2);\n        if (canSplit(mid)) {\n            hi = mid;       // mid is feasible: try smaller maximum sum\n        } else {\n            lo = mid + 1;   // mid too small: need larger maximum sum\n        }\n    }\n    return lo;\n}\n\nconsole.log(splitArray([7,2,5,10,8], 2));  // 18\nconsole.log(splitArray([1,2,3,4,5], 2));   // 9\nconsole.log(splitArray([1,4,4], 3));       // 4\n\n// TRACE for [7,2,5,10,8], k=2:\n// lo=max(7,2,5,10,8)=10, hi=7+2+5+10+8=32\n// mid=21. canSplit(21): 7+2+5=14<=21, +10=24>21 -> parts=2,curr=10. +8=18<=21. parts=2<=2. true. hi=21.\n// lo=10,hi=21. mid=15. canSplit(15): 7+2+5=14<=15. +10=24>15->parts=2,curr=10. +8=18>15->parts=3>2. false. lo=16.\n// lo=16,hi=21. mid=18. canSplit(18): 7+2+5=14. +10=24>18->parts=2,curr=10. +8=18<=18. parts=2<=2. true. hi=18.\n// lo=16,hi=18. mid=17. canSplit(17): 7+2+5=14. +10=24>17->parts=2,curr=10. +8=18>17->parts=3>2. false. lo=18.\n// lo=18,hi=18. Return 18. ✓\n\n// PATTERN FAMILY (all same structure):\n// Koko Eating Bananas:    check = totalHours(speed) <= h\n// Ship Packages:         check = daysNeeded(capacity) <= days\n// Split Array:           check = partsNeeded(maxSum) <= k\n// All use same binary search template, different feasibility check",
+        "explanation": "Setting lo = max(nums) instead of 0 or 1 is the critical bound. Every part must contain at least one element, and the largest single element must fit in some part. If mid < max(nums), any split is infeasible because the element exceeding mid cannot go anywhere. lo = max(nums) is the tightest correct lower bound."
+      },
+      "common_mistakes": [
+        "Setting lo = 0 or lo = 1 instead of lo = max(nums) — a maximum subarray sum of 0 or 1 is infeasible if any element is larger; lo must be at least max(nums)",
+        "Initialising parts = 0 instead of parts = 1 — there is always at least one part; starting the count at 0 means the first part is not counted and the result is off by one",
+        "Not handling the case where a single element equals mid exactly — when currSum + num == mid, it should NOT trigger a new part; only currSum + num > mid starts a new part"
+      ],
+      "interview_relevance": "Split Array Largest Sum (#410) is NeetCode 150 and a direct application of binary search on answer. It is paired with Koko Eating Bananas (#875) in interview preparation because both use the same template. Recognising that these three problems (Koko, Ship, Split) are structurally identical and deriving one from the others is a pattern-fluency signal that interviewers evaluate.",
+      "mini_challenge": "Implement splitArray and verify all three test cases. Then identify the structural similarity between splitArray and shipWithinDays from Lesson 2: both search for the minimum capacity/maxSum such that the number of segments <= k/d. Write a single generic function splitSearch(values, k, sumFn) where sumFn computes the 'cost' of each unit, and show that both Koko and Split Array are instances of this generic function.",
+      "flashcards": [
+        {
+          "front": "Split Array Largest Sum: binary search bounds?",
+          "back": "lo = max(nums): every part must contain at least one element, and the largest single element must fit. hi = sum(nums): all elements in one part — always feasible for any k. Answer lies in [max(nums), sum(nums)]."
+        },
+        {
+          "front": "Split Array feasibility check: canSplit(maxSum)?",
+          "back": "Greedy scan: maintain current part sum. When adding nums[i] would exceed maxSum, start a new part. Count parts. If parts ≤ k: feasible. O(n) per check."
+        },
+        {
+          "front": "Split Array: why initialise parts=1 not parts=0?",
+          "back": "There is always at least one part (the array is non-empty). Starting at 0 would require incrementing immediately and the count ends up off by one. The first element automatically goes into part 1."
+        },
+        {
+          "front": "Split Array: when currSum + num == maxSum, start new part?",
+          "back": "NO. Only start a new part when currSum + num EXCEEDS maxSum (strictly >). If equal, add to current part — it exactly fits. Starting a new part unnecessarily wastes a split and might cause false infeasibility."
+        },
+        {
+          "front": "Structural equivalence: Koko, Ship, Split Array — what's identical?",
+          "back": "All three: answer-space min, lo=min_unit_cost, hi=max_total_cost, check=greedy_feasibility, return lo. Koko's 'piles' = Ship's 'weights' = Split's 'nums'. Koko's 'h hours' = Ship's 'd days' = Split's 'k parts'. Same template."
+        },
+        {
+          "front": "Split Array DP alternative: complexity?",
+          "back": "O(n² × k): dp[i][j] = min max-sum for first i elements split into j parts. n² states times k parts. Much slower than O(n log(sum)) binary search for large n and sum."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "splitArray([7,2,5,10,8], k=2): lo and hi for binary search?",
+          "options": [
+            "lo=1, hi=32",
+            "lo=10, hi=32",
+            "lo=7, hi=32",
+            "lo=10, hi=22"
+          ],
+          "answer": 1,
+          "explanation": "lo=max(7,2,5,10,8)=10. hi=7+2+5+10+8=32. Binary search in [10,32]."
+        },
+        {
+          "question": "canSplit([7,2,5,10,8], k=2, maxSum=15): how many parts?",
+          "options": [
+            "1 part: all fit in 15? sum=32>15 — no",
+            "2 parts: [7,2,5]=14≤15, then 10+8=18>15 — need 3 parts",
+            "3 parts — not feasible (k=2)",
+            "Parts: start. 7→9→14. +10=24>15: new part, curr=10. +8=18>15: new part, curr=8. Parts=3. NOT feasible (3>2)."
+          ],
+          "answer": 2,
+          "explanation": "Greedy: curr=7, +2=9, +5=14 (≤15). +10=24>15: parts=2, curr=10. +8=18>15: parts=3>k=2. Return false. maxSum=15 is not feasible."
+        },
+        {
+          "question": "canSplit([7,2,5,10,8], k=2, maxSum=18): feasible?",
+          "options": [
+            "No — 18 < 32",
+            "Yes — [7,2,5]=14, then [10,8]=18. 2 parts ≤ k=2.",
+            "Yes — but only barely",
+            "Cannot determine without full trace"
+          ],
+          "answer": 1,
+          "explanation": "Greedy: 7→9→14. +10=24>18: parts=2, curr=10. +8=18 ≤ 18. Done. Parts=2 ≤ k=2. Feasible. Answer is 18 (from the trace in the code)."
+        },
+        {
+          "question": "splitArray vs shipWithinDays: what is the structural mapping?",
+          "options": [
+            "They are unrelated problems",
+            "splitArray(nums,k) ≡ shipWithinDays(weights,k) with days=k, capacity=maxSum",
+            "Ship uses BFS, Split uses DP",
+            "Ship is O(n²), Split is O(n log n)"
+          ],
+          "answer": 1,
+          "explanation": "Identical structure: both find minimum capacity/maxSum such that a greedy scan fits the sequence into at most k segments. The feasibility check is the same greedy loop. Only variable names differ."
+        }
+      ],
+      "visual_aid": {
+        "type": "greedy_feasibility",
+        "description": "canSplit greedy trace for different maxSum values",
+        "diagram": "splitArray([7,2,5,10,8], k=2) — feasibility at different maxSum:\n\nmaxSum=15: greedy trace:\n  curr=7 → +2=9 → +5=14 → +10=24>15: NEW PART(2), curr=10\n  → +8=18>15: NEW PART(3 > k=2) → return false\n\nmaxSum=17: greedy:\n  7+2+5=14 → +10=24>17: NEW PART(2), curr=10\n  → +8=18>17: NEW PART(3>2) → false\n\nmaxSum=18: greedy:\n  7+2+5=14 → +10=24>18: NEW PART(2), curr=10\n  → +8=18 ≤ 18: add. Done. Parts=2 ≤ k=2 → TRUE ✓\n\nMonotonic feasibility:\n  [not feasible ... not feasible | feasible ... feasible]\n  maxSum=10,11,...,17       maxSum=18,19,...,32\n  ↑ lo=10                            ↑ answer=18"
+      },
+      "complexity_summary": {
+        "time": "O(n × log(sum(nums)))",
+        "space": "O(1)",
+        "lo": "max(nums) — tightest valid lower bound",
+        "hi": "sum(nums) — always feasible upper bound",
+        "dp_alternative": "O(n² × k) — much slower",
+        "pattern_family": "Same structure as Koko (#875) and Ship (#1011)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-410",
+          "title": "Split Array Largest Sum",
+          "difficulty": "Hard",
+          "pattern": "Answer-space min — greedy canSplit feasibility"
+        },
+        {
+          "id": "lc-1011",
+          "title": "Capacity to Ship Packages Within D Days",
+          "difficulty": "Medium",
+          "pattern": "Structurally identical to Split Array"
+        },
+        {
+          "id": "lc-875",
+          "title": "Koko Eating Bananas — same pattern family",
+          "difficulty": "Medium",
+          "pattern": "Answer-space min",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M6-L5-TH-1",
+            "question": "For `splitArray(nums, k)`, the binary search bounds are `lo = max(nums)` and `hi = sum(nums)`. Why are these the correct bounds?",
+            "options": [
+              "lo=0 and hi=max_int are simpler and equally correct",
+              "`lo = max(nums)`: even with k = n (n parts of 1 element each), each part must contain at least 1 element and the minimum achievable maximum is max(nums) (when each element is its own part); a lower bound would be infeasible since the largest element must appear in some part; `hi = sum(nums)`: with k = 1 (everything in one part), the maximum sum equals sum(nums); any higher bound is never the answer since this covers the most extreme case",
+              "lo=1 and hi=sum(nums) are the correct bounds",
+              "lo=max(nums) only works when the array is sorted"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'minimum possible max = max(nums), maximum = sum(nums)' — lo=max(nums) is the physical minimum (the largest single element must be in some partition alone at minimum); hi=sum(nums) is the physical maximum (putting everything in one partition); the answer is always in [lo, hi]."
+          },
+          {
+            "id": "L2M6-L5-TH-2",
+            "question": "What is the GREEDY STRATEGY in the `canSplit(maxSum)` feasibility check, and why is greedy correct here?",
+            "options": [
+              "Greedy assigns elements to the partition with the most remaining space",
+              "The greedy strategy: EXTEND THE CURRENT SUBARRAY as long as adding the next element doesn't exceed maxSum; when adding would exceed, START A NEW SUBARRAY; this greedy is OPTIMAL for counting minimum parts because: starting a new part earlier is never beneficial (it wastes capacity in the current part and forces the same elements into a later part anyway); the greedy gives the minimum number of parts needed for a given maxSum — if this count <= k, the maxSum is feasible",
+              "Greedy sorts elements by value before partitioning",
+              "Greedy starts new parts after every k elements regardless of sum"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Greedy split: greedily extend current subarray until adding next element would exceed mid' — the greedy gives the MINIMUM number of parts for a given maxSum (since any earlier split is wasteful); minimum parts <= k means the constraint is satisfiable; this greedy is provably optimal for this specific partitioning structure."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M6-L5-LG-1",
+            "question": "Trace `splitArray([7,2,5,10,8], k=2)` at mid=21. How many parts does the greedy create?",
+            "options": [
+              "3 parts: [7,2,5]=14, [10]=10, [8]=8",
+              "2 parts: [7,2,5]=14≤21, +10=24>21→new part; part2 starts with 10, +8=18≤21; 2 parts total ≤ k=2 → feasible — confirmed by direct execution with trace mid=21: 2 parts",
+              "2 parts: [7,2,5,10]=24>21 immediately fails; split at 7,2,5=14 then 10,8=18; 2 parts feasible",
+              "4 parts because 21 is too small to hold more than 7 elements"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution (trace at mid=21 produces 2 parts): greedy processes [7]→7, [7,2]→9, [7,2,5]→14, +10=24>21→new part (parts=2, curr=10), [10,8]→18≤21; total 2 parts ≤ k=2 → feasible, hi=21."
+          },
+          {
+            "id": "L2M6-L5-LG-2",
+            "question": "For `splitArray([1,4,4], k=3)`, the answer is 4. Why can't the answer be 3 or less?",
+            "options": [
+              "The answer could be 3 with partition [1,4],[],[4]",
+              "The answer must be at least max([1,4,4])=4 (since every partition must contain at least one element, and the element 4 appears in some partition, that partition's sum is at least 4); the partition [1],[4],[4] achieves maximum=4 with exactly 3 parts (=k), confirming 4 is achievable; 3 would require all parts to have sum ≤ 3 but [4] alone has sum 4 — impossible; confirmed by direct execution returning 4",
+              "The answer is 4 because the array has exactly 3 elements, each requiring its own partition",
+              "canSplit(3) fails because 1+4=5>3 immediately triggers a new partition for [4] alone, requiring 3 parts but 4>3"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: splitArray([1,4,4],3)=4; lo=max([1,4,4])=4 is the lower bound; canSplit(4): [1]≤4, +4=5>4→part2=4, +4 starts part3=4; 3 parts ≤ 3 → feasible; canSplit(3): [1]≤3, +4=5>3→part2=4>3→infeasible immediately; so 4 is the minimum."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M6-L5-SY-1",
+            "question": "In `canSplit`, the early termination `if (parts > k) return false` is placed INSIDE the loop after incrementing parts. Why is early termination better than counting all parts first?",
+            "options": [
+              "Early termination is only for style; the final check produces the same result",
+              "EARLY TERMINATION avoids unnecessary work: once parts > k, no matter how the remaining elements are partitioned, the count will only stay the same or INCREASE (each remaining element could start another new part); returning immediately saves processing all remaining elements; for large arrays with k=2 and a maxSum that's clearly too small, early termination can save O(n-constant) iterations per check call, directly improving the constant factor",
+              "The early termination prevents integer overflow in the parts counter",
+              "Early termination is required for the greedy to be correct"
+            ],
+            "answer": 1,
+            "explanation": "Early termination is a correctness-preserving optimization: once parts > k is detected, the feasibility answer is definitely false; continuing to iterate and count more parts cannot change the outcome; the savings multiply across O(log(sum)) binary search levels, making early termination important for performance especially when maxSum is near lo (many parts, frequent early exits)."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M6-L5-CC-1",
+            "title": "Split Array Largest Sum",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement Split Array Largest Sum from this lesson.",
+            "requirements": [
+              "Implement `splitArrayImpl(nums, k)` matching the lesson's answer-space binary search with greedy feasibility check"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function splitArrayImpl(nums, k) {\n  // TODO: lo=max(nums), hi=sum(nums); canSplit greedy check; min-answer template\n}"
+            },
+            "test_cases": [
+              {
+                "input": "splitArrayImpl([7,2,5,10,8], 2)",
+                "expected": 18,
+                "type": "visible"
+              },
+              {
+                "input": "splitArrayImpl([1,2,3,4,5], 2)",
+                "expected": 9,
+                "type": "visible"
+              },
+              {
+                "input": "splitArrayImpl([1,4,4], 3)",
+                "expected": 4,
+                "type": "visible"
+              },
+              {
+                "input": "splitArrayImpl([2,3,1,2,4,3], 5)",
+                "expected": 4,
+                "type": "hidden"
+              },
+              {
+                "input": "splitArrayImpl([1,2,3,4,5], 1)",
+                "expected": 15,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function splitArrayImpl(nums, k) {\n  function canSplit(maxSum) {\n    let parts = 1, curr = 0;\n    for (const num of nums) {\n      if (curr + num > maxSum) { parts++; curr = 0; if (parts > k) return false; }\n      curr += num;\n    }\n    return true;\n  }\n  let lo = Math.max(...nums), hi = nums.reduce((a,b)=>a+b, 0);\n  while (lo < hi) {\n    const mid = lo + Math.floor((hi - lo) / 2);\n    if (canSplit(mid)) hi = mid; else lo = mid + 1;\n  }\n  return lo;\n}"
+            },
+            "complexity_analysis": "O(n log(sum)) time, O(1) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "lo=Math.max(...nums), hi=nums.reduce((a,b)=>a+b,0); use min-answer template (hi=mid on true)."
+              },
+              {
+                "level": 2,
+                "text": "canSplit(maxSum): greedy — extend current part; when adding next element exceeds maxSum, start new part; return false early if parts>k."
+              },
+              {
+                "level": 3,
+                "text": "This is the same structure as shipWithinDays — only the problem framing differs; the binary search and feasibility check are structurally identical."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 6,
+      "title": "Advanced Binary Search Thinking",
+      "tag": "ADDED",
+      "objective": "Consolidate all binary search patterns, identify the correct variant for any new problem, and map all Module 6 NeetCode 150 problems to their specific patterns.",
+      "concepts": [
+        "Four binary search variants: index-based, rotated, answer-space min, answer-space max",
+        "Index-based: exact, leftmost, rightmost, insertion position (L1-M05)",
+        "Rotated: compare mid to hi, handle duplicates with hi--",
+        "Answer-space min: lo=minAnswer, hi=maxAnswer, feasibility check(mid)",
+        "Answer-space max: lo=mid on true, hi=mid-1 on false",
+        "Median of two sorted: binary search on partition position (separate pattern)",
+        "Module 6 NeetCode 150 problems mapped",
+        "Bridge to L2-M07: Dijkstra's shortest path uses a priority queue (Module 9 skill)"
+      ],
+      "explanation": "Module 6 introduces three new binary search patterns on top of the four from Level 1 Module 5. The complete map: (1) Exact index search: standard binary search on a sorted array. (2) Rotated array: compare mid to hi, two-case or three-case split. (3) Answer-space minimum: find minimum k where check(k) is true. Template: hi=mid on true, lo=mid+1 on false. (4) Answer-space maximum: find maximum k where check(k) is true. Template: lo=mid on true, hi=mid-1 on false. (5) Partition-based median: binary search on partition position with cross-array validity checking. Recognition signals: sorted array with a specific target -> index-based. Rotated sorted -> rotated pattern. 'Minimum X such that condition C(X)' -> answer-space min. 'Maximum X such that condition C(X)' -> answer-space max. Two sorted arrays median -> partition pattern. The answer-space patterns require identifying the answer range and defining a feasibility function. The feasibility function's correctness and efficiency determine the total time complexity.",
+      "analogy": "The five binary search variants are five tools in a search toolkit. Index search is a ruler: measure a specific position. Rotated search is a bent ruler: the measurement still works but you need to figure out which side is straight. Answer-space search is a dial: you turn the dial (answer value) and watch whether a condition indicator turns on. Partition search is a balance scale: adjust weights on both sides simultaneously until the scale is level.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// ADVANCED BINARY SEARCH DECISION GUIDE\n\n// VARIANT 1: Index search (L1-M05 patterns)\n// Signal: 'find in sorted array', 'leftmost/rightmost occurrence'\n// Template: lo/hi on array indices, check arr[mid]\n\n// VARIANT 2: Rotated sorted array\n// Signal: 'sorted array rotated at unknown pivot', 'with/without duplicates'\nfunction rotatedSearch(nums, lo, hi) {\n    // Compare mid to hi for split direction\n    // Three-case if duplicates: hi-- when nums[mid]==nums[hi]\n}\n\n// VARIANT 3: Answer-space MINIMUM\n// Signal: 'minimum X such that [condition]'\n// Template:\nfunction answerSpaceMin(lo, hi, check) {\n    while (lo < hi) {\n        const mid = lo + Math.floor((hi-lo)/2);\n        if (check(mid)) hi = mid;   // feasible: try smaller\n        else lo = mid + 1;          // not feasible: go larger\n    }\n    return lo;\n}\n\n// VARIANT 4: Answer-space MAXIMUM\n// Signal: 'maximum X such that [condition]'\n// Template:\nfunction answerSpaceMax(lo, hi, check) {\n    while (lo < hi) {\n        const mid = lo + Math.floor((hi-lo+1)/2); // round UP\n        if (check(mid)) lo = mid;   // feasible: try larger\n        else hi = mid - 1;          // not feasible: go smaller\n    }\n    return lo;\n}\n\n// VARIANT 5: Partition-based (Median of Two Sorted)\n// Signal: 'median', 'k-th element across two sorted arrays'\n// Binary search on partition index of shorter array\n\n// MODULE 6 NEETCODE 150 PROBLEMS:\nconst module6_problems = [\n    { id: 875,  title: 'Koko Eating Bananas',               pattern: 'answer-space min',   nc150: true },\n    { id: 153,  title: 'Find Minimum in Rotated Array',      pattern: 'rotated binary',     nc150: true },\n    { id: 154,  title: 'Find Minimum in Rotated Array II',   pattern: 'rotated + hi--',     nc150: true },\n    { id: 33,   title: 'Search in Rotated Array',            pattern: 'rotated binary',     nc150: true },\n    { id: 81,   title: 'Search in Rotated Array II',         pattern: 'rotated + hi--',     nc150: true },\n    { id: 4,    title: 'Median of Two Sorted Arrays',        pattern: 'partition binary',   nc150: true },\n    { id: 410,  title: 'Split Array Largest Sum',            pattern: 'answer-space min',   nc150: true },\n    { id: 1011, title: 'Capacity to Ship Packages',         pattern: 'answer-space min',   nc150: true },\n    { id: 74,   title: 'Search a 2D Matrix',                 pattern: 'index binary 2D',   nc150: true },\n];\n\nconsole.log('Module 6 NeetCode 150 problems:', module6_problems.length); // 9",
+        "explanation": "The +1 in answerSpaceMax's mid formula (hi-lo+1)/2 is the one technical detail that differs from answerSpaceMin. It prevents the infinite loop when lo+1 === hi and check(lo) is true: without +1, mid=lo, lo stays at lo forever. With +1, mid=hi, and check(hi) determines the next move. Always use +1 for the maximum-answer variant."
+      },
+      "common_mistakes": [
+        "Using the minimum-answer template for maximum-answer problems and vice versa — swapping hi=mid/lo=mid+1 with lo=mid/hi=mid-1 produces wrong results; verify which direction increases feasibility before choosing the template",
+        "Not verifying monotonicity before applying binary search on answer — if the feasibility function is not monotonic over the answer range, binary search converges to a wrong answer; always confirm C(k) true implies C(k+1) true (or the reverse)",
+        "Not completing all 9 Module 6 NeetCode 150 problems before Level 3 — binary search is the foundation of Dijkstra's greedy structure and many advanced graph algorithms; missing this module creates gaps in the Level 3 prerequisites"
+      ],
+      "interview_relevance": "Module 6 covers 9 NeetCode 150 problems, all binary search variants. Binary search is consistently ranked as one of the top three most tested topics in technical interviews. Recognising the correct variant within 60 seconds of reading a problem is the target. The answer-space variants (Koko, Split Array, Ship Packages) are specifically used by Google and Meta to differentiate senior candidates.",
+      "mini_challenge": "Without looking at implementations: for each of the 9 Module 6 problems, state in one sentence: the variant (index/rotated/answer-min/answer-max/partition), the lo and hi values, and the feasibility check or comparison condition. Time yourself: can you do all 9 in under 5 minutes? This is the fluency check for binary search readiness.",
+      "flashcards": [
+        {
+          "front": "Five binary search variants: names and signals?",
+          "back": "1) INDEX (L1): 'find target in sorted array' → compare arr[mid] to target. 2) ROTATED: 'sorted+rotated, find min/target' → compare mid to hi. 3) ANSWER-MIN: 'minimum X where C(X)' → hi=mid on true. 4) ANSWER-MAX: 'maximum X where C(X)' → lo=mid on true (+1 in mid). 5) PARTITION: 'median of two sorted arrays' → binary search on split position."
+        },
+        {
+          "front": "Rotated array: compare mid to hi or lo?",
+          "back": "Always compare nums[mid] to nums[HI]. Why: if nums[mid] > nums[hi], the pivot is definitively in the right half. Comparing to lo requires a separate lo==mid edge case. Comparing to hi is cleaner with one less special case."
+        },
+        {
+          "front": "Answer-space problems: how to quickly identify lo and hi?",
+          "back": "lo = the minimum VALID answer (what's the smallest it could possibly be?). hi = the maximum VALID answer (what's the largest it could possibly be?). If the answer is a 'capacity': lo=max element (minimum to fit largest), hi=sum (fit everything in one)."
+        },
+        {
+          "front": "Module 6 NeetCode 150 problem count?",
+          "back": "9 problems: Koko (#875), Find Min Rotated I (#153), Find Min Rotated II (#154), Search Rotated I (#33), Search Rotated II (#81), Median Two Arrays (#4), Split Array (#410), Ship Packages (#1011), Search 2D Matrix (#74)."
+        },
+        {
+          "front": "Binary search mid formula: when to use lo+(hi-lo)/2 vs lo+(hi-lo+1)/2?",
+          "back": "Standard (rounds down): lo+(hi-lo)/2. Use for: exact search, rotated, answer-min (hi=mid on true). Rounds-up (+1): use for answer-max (lo=mid on true) ONLY. Rounds-up prevents infinite loop when lo+1=hi and condition is true."
+        },
+        {
+          "front": "How does binary search connect to Dijkstra (Level 2 Module 9)?",
+          "back": "Dijkstra uses a priority queue (min-heap) for greedy extraction — the same 'next best choice' reasoning. Binary search on answer is used in some Dijkstra variants (e.g., 'minimum capacity path'). The feasibility check pattern from answer-space binary search appears in path-finding optimisation problems."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Problem: 'Find the maximum length rope that can cut at least k pieces.' Which binary search variant?",
+          "options": [
+            "Index binary search on rope lengths array",
+            "Rotated array",
+            "Answer-space MAXIMUM (check(L) = number of pieces ≥ k, find max L where this holds)",
+            "Partition-based"
+          ],
+          "answer": 2,
+          "explanation": "Longer L → fewer pieces (harder to satisfy k pieces). Shorter L → more pieces (easier). Find the MAXIMUM L where you can still get ≥ k pieces. Answer-space max template: lo=mid on true, hi=mid-1 on false, +1 in mid formula."
+        },
+        {
+          "question": "'Given a sorted 2D matrix where each row is sorted and the first element of each row is greater than the last of the previous row, search for target.' Which variant?",
+          "options": [
+            "Two binary searches — one for row, one for column",
+            "Index binary search treating the matrix as a 1D sorted array",
+            "Answer-space",
+            "Rotated array"
+          ],
+          "answer": 1,
+          "explanation": "The matrix is essentially a sorted 1D array laid out in 2D. Map index mid to (row=floor(mid/n), col=mid%n). Single binary search O(log(m×n)). This is Search a 2D Matrix (#74)."
+        },
+        {
+          "question": "In 60 seconds, identify variant and lo/hi for: 'Minimum days such that you can collect at least D flowers, where flowers[i] is the day flower i blooms.'",
+          "options": [
+            "Index binary search on flowers array",
+            "Answer-space min: lo=1(min days), hi=max(flowers), check(d)=can collect D flowers from those bloomed by day d",
+            "Rotated array: days may reset",
+            "Partition-based"
+          ],
+          "answer": 1,
+          "explanation": "More days → more flowers bloomed → easier to collect D. Feasibility is monotonically non-decreasing. Answer-space min: lo=1, hi=max(flowers). check(d): count flowers where bloom_day ≤ d; return count ≥ D."
+        },
+        {
+          "question": "Binary search on answer always returns lo (= hi) after the loop. What does lo represent?",
+          "options": [
+            "The midpoint of the last iteration",
+            "For min-answer: the SMALLEST value where check returns true. For max-answer: the LARGEST value where check returns true.",
+            "The average of the answer range",
+            "Always the answer + 1"
+          ],
+          "answer": 1,
+          "explanation": "The loop invariant maintains: all values < lo are NOT feasible (for min-answer), all values > hi are feasible. When lo=hi, this boundary is the answer. For min-answer: lo = smallest feasible. For max-answer: lo = largest feasible."
+        }
+      ],
+      "visual_aid": {
+        "type": "complete_reference",
+        "description": "All 5 binary search variants mapped to Module 6 problems",
+        "diagram": "BINARY SEARCH VARIANT MAP — MODULE 6\n\nVARIANT          SIGNAL                   TEMPLATE        PROBLEMS\n─────────────────────────────────────────────────────────────────────\nIndex            'find in sorted'         arr[mid]==tgt   #74 (2D)\nRotated          'sorted+rotated'         mid vs hi       #153,#154\nRotated+dup      'rotated, has dups'      mid vs hi,hi--  #154,#81\nAnswer-min       'minimum X where C(X)'   hi=mid on true  #875,#410,#1011\nAnswer-max       'maximum X where C(X)'   lo=mid on true  (rope problem)\nPartition        'median two arrays'      partition i,j   #4\n\nBOUNDS QUICK REFERENCE:\n  Koko:    lo=1, hi=max(piles)\n  Ship:    lo=max(weights), hi=sum(weights)\n  Split:   lo=max(nums), hi=sum(nums)\n  RotMin:  lo=0, hi=n-1\n  Median:  lo=0, hi=m (length of shorter array)\n\nMID FORMULA:\n  Standard:  lo + floor((hi-lo)/2)    ← use for min/exact/rotated\n  Rounds-up: lo + floor((hi-lo+1)/2)  ← use for max ONLY"
+      },
+      "complexity_summary": {
+        "koko_ship_split": "O(n log(max_val))",
+        "rotated_array": "O(log n) average, O(n) worst with duplicates",
+        "median_two_arrays": "O(log(min(m,n)))",
+        "all_answer_space": "O(check_cost × log(answer_range))",
+        "module_nc150_count": 9
+      },
+      "practice_problems": [
+        {
+          "id": "lc-875",
+          "title": "Koko Eating Bananas",
+          "difficulty": "Medium",
+          "pattern": "Answer-space min",
+          "blind75": true
+        },
+        {
+          "id": "lc-4",
+          "title": "Median of Two Sorted Arrays",
+          "difficulty": "Hard",
+          "pattern": "Partition binary search",
+          "blind75": true
+        },
+        {
+          "id": "lc-153",
+          "title": "Find Minimum in Rotated Sorted Array",
+          "difficulty": "Medium",
+          "pattern": "Rotated — 2 cases",
+          "blind75": true
+        },
+        {
+          "id": "lc-154",
+          "title": "Find Minimum in Rotated Sorted Array II",
+          "difficulty": "Hard",
+          "pattern": "Rotated + hi-- for duplicates"
+        },
+        {
+          "id": "lc-33",
+          "title": "Search in Rotated Sorted Array",
+          "difficulty": "Medium",
+          "pattern": "Rotated search",
+          "blind75": true
+        },
+        {
+          "id": "lc-81",
+          "title": "Search in Rotated Sorted Array II",
+          "difficulty": "Medium",
+          "pattern": "Rotated search + hi--"
+        },
+        {
+          "id": "lc-410",
+          "title": "Split Array Largest Sum",
+          "difficulty": "Hard",
+          "pattern": "Answer-space min"
+        },
+        {
+          "id": "lc-1011",
+          "title": "Capacity to Ship Packages Within D Days",
+          "difficulty": "Medium",
+          "pattern": "Answer-space min — same as Split Array"
+        },
+        {
+          "id": "lc-74",
+          "title": "Search a 2D Matrix",
+          "difficulty": "Medium",
+          "pattern": "Index binary search mapped to 2D"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M6-L6-TH-1",
+            "question": "The lesson identifies FIVE binary search variants. What are they and what is the key SIGNAL for each?",
+            "options": [
+              "There are only two variants: standard and binary",
+              "VARIANT 1 Index-based: 'find in sorted array', 'leftmost/rightmost occurrence' — search array indices; VARIANT 2 Rotated: 'sorted array rotated at unknown pivot', 'with/without duplicates' — compare mid to hi; VARIANT 3 Answer-space min: 'minimum X such that [condition]' — hi=mid on true; VARIANT 4 Answer-space max: 'maximum X such that [condition]' — lo=mid on true with rounded-up mid; VARIANT 5 Partition-based: 'median', 'k-th element across two sorted arrays' — binary search on partition index",
+              "All binary search variants use identical code; only the data type differs",
+              "There are three variants: find exact, find leftmost, find rightmost"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's complete framework: 'Four binary search variants: index-based, rotated, answer-space min, answer-space max' plus 'Median of two sorted: binary search on partition position (separate pattern)' — each variant has a distinct signal phrase and a distinct template; recognizing the variant is the first step to solving any binary search problem."
+          },
+          {
+            "id": "L2M6-L6-TH-2",
+            "question": "All three answer-space problems (Koko, Ship Within Days, Split Array) have IDENTICAL binary search structure but different feasibility checks. What does this reveal about the pattern?",
+            "options": [
+              "The three problems are coincidentally similar; their solutions cannot be generalised",
+              "The PATTERN is fully SEPARABLE into two independent components: (1) the binary search TEMPLATE (lo/hi bounds, mid computation, hi=mid/lo=mid+1 update) which is REUSED UNCHANGED across all three problems; (2) the FEASIBILITY CHECK which encodes the problem-specific constraint (hours <= h for Koko, days <= d for Ship, parts <= k for Split Array); recognising this separation allows solving any new 'minimum X such that' problem by writing only the feasibility check",
+              "The three problems are identical; only their variable names differ",
+              "The feasibility check and binary search are always the same; only input parsing differs"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Pattern family: Koko, Ship Packages, Split Array — all use same binary search template, different feasibility check' — this is the key modular insight: the answer-space binary search template is a reusable scaffold; solving new problems of this type reduces to (a) identifying lo, hi, and (b) implementing check(mid) that tests feasibility in O(n); the template never changes."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M6-L6-LG-1",
+            "question": "The module6_problems array has 9 NC150 problems. Classify them by variant: which are rotated-binary, which are answer-space-min, and which are special?",
+            "options": [
+              "All 9 use the same standard binary search variant",
+              "ROTATED BINARY (4 problems): #153 Find Min Rotated (no dup), #154 Find Min Rotated II (with dup, hi--), #33 Search Rotated (no dup), #81 Search Rotated II (with dup); ANSWER-SPACE MIN (3 problems): #875 Koko, #410 Split Array, #1011 Ship Packages; SPECIAL (2 problems): #4 Median of Two Sorted (partition binary), #74 Search 2D Matrix (index binary on row×col mapping)",
+              "All 9 use answer-space binary search with different feasibility functions",
+              "The 9 problems split evenly: 3 rotated, 3 answer-space, 3 index-based"
+            ],
+            "answer": 1,
+            "explanation": "Reading the lesson's module6_problems array: ids {153,154,33,81} have 'rotated binary' patterns; {875,410,1011} have 'answer-space min'; {4} has 'partition binary'; {74} has 'index binary 2D' — 9 problems total across these four categories, confirming the module's complete coverage of advanced binary search variants."
+          },
+          {
+            "id": "L2M6-L6-LG-2",
+            "question": "The lesson notes a BRIDGE to Module 7: 'Dijkstra's shortest path uses a priority queue (Module 9 skill)'. What does this imply about the relationship between Module 6 and Module 7?",
+            "options": [
+              "Module 7 covers all the same topics as Module 6 at a harder level",
+              "Module 7 (Advanced Graphs) introduces Dijkstra which requires a MIN-HEAP priority queue — a data structure covered in Module 9 (Heap); this means Module 7 is taught as a forward-reference with the priority queue as a black box, and Module 9 deepens understanding of its internals; the bridge note signals that some Level 2 content has prerequisite chains that don't follow strict module order, and students are expected to use certain data structures before formally studying them",
+              "Module 7 is optional; students can skip directly to Module 9",
+              "The bridge means Dijkstra is covered in Module 6 as part of binary search on graphs"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Bridge to L2-M07: Dijkstra's shortest path uses a priority queue (Module 9 skill)' — advanced algorithms often require cross-module dependencies; the bridge note is a curriculum design signal: teach Dijkstra's algorithm in Module 7 using the priority queue as a tool, then revisit heap internals in Module 9; this spiral curriculum approach is common in DSA courses."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M6-L6-SY-1",
+            "question": "In `answerSpaceMin(lo, hi, check)`, the loop condition is `lo < hi` (not `lo <= hi`). Why is strict less-than the correct termination condition?",
+            "options": [
+              "lo <= hi would also terminate correctly; the choice is stylistic",
+              "`lo < hi` terminates when `lo === hi` — at this point, both pointers converge on the SAME VALUE which is the minimum feasible answer; there is nothing left to search; `lo <= hi` would execute one more iteration after convergence, computing `mid = lo` (since lo===hi) and either `hi = lo-1` (if check(lo) is true, making hi < lo — loop ends) or `lo = lo + 1` (if false — but lo===hi is the minimum feasible, so check should be true here); using `lo < hi` avoids this extra potentially confusing iteration and cleanly terminates at convergence",
+              "lo <= hi causes an off-by-one error for even-length answer ranges",
+              "lo < hi is required because lo === hi is an error state that must be prevented"
+            ],
+            "answer": 1,
+            "explanation": "The `lo < hi` termination is the correct invariant for this template: the loop maintains the invariant that the answer is in [lo, hi]; when lo===hi, the range has size 1 — exactly one candidate remains, which is guaranteed to be the minimum feasible answer; executing one more iteration would be redundant; `lo <= hi` is used instead in the partition-based median search where lo can equal hi and still need one more check."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M6-L6-CC-1",
+            "title": "Advanced Binary Search Pattern Classifier",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+            "problem_statement": "Build a pattern classifier for Module 6 binary search problems.",
+            "requirements": [
+              "Implement `classifyBinarySearch(signal)` returning the variant name for a given signal phrase",
+              "Implement `module6Summary()` returning {total, answerSpaceMin, rotated, special} counts",
+              "Implement `isSamePatternFamily(id1, id2)` returning true if two problem IDs share the same pattern"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "const MODULE6_PROBLEMS = {\n  875:  {pattern:'answer-space min'}, 153: {pattern:'rotated binary'},\n  154:  {pattern:'rotated + hi--'},  33:  {pattern:'rotated binary'},\n  81:   {pattern:'rotated + hi--'},  4:   {pattern:'partition binary'},\n  410:  {pattern:'answer-space min'},1011:{pattern:'answer-space min'},\n  74:   {pattern:'index binary 2D'}\n};\n\nfunction classifyBinarySearch(signal) {\n  // signals: 'minimum X such that', 'maximum X such that',\n  //          'sorted rotated no dup', 'sorted rotated with dup',\n  //          'median two sorted', 'find in sorted 2D matrix'\n  // TODO: return the variant name\n}\n\nfunction module6Summary() {\n  // TODO: count problems by pattern category\n}\n\nfunction isSamePatternFamily(id1, id2) {\n  // TODO: true if both problems have the same pattern string\n}"
+            },
+            "test_cases": [
+              {
+                "input": "classifyBinarySearch('minimum X such that')",
+                "expected": "answer-space min",
+                "type": "visible"
+              },
+              {
+                "input": "classifyBinarySearch('sorted rotated with dup')",
+                "expected": "rotated + hi--",
+                "type": "visible"
+              },
+              {
+                "input": "isSamePatternFamily(875, 410)",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "isSamePatternFamily(875, 153)",
+                "expected": false,
+                "type": "hidden"
+              },
+              {
+                "input": "module6Summary().total",
+                "expected": 9,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "const MODULE6_PROBLEMS = {\n  875:  {pattern:'answer-space min'}, 153: {pattern:'rotated binary'},\n  154:  {pattern:'rotated + hi--'},  33:  {pattern:'rotated binary'},\n  81:   {pattern:'rotated + hi--'},  4:   {pattern:'partition binary'},\n  410:  {pattern:'answer-space min'},1011:{pattern:'answer-space min'},\n  74:   {pattern:'index binary 2D'}\n};\n\nfunction classifyBinarySearch(signal) {\n  const map = {\n    'minimum X such that': 'answer-space min',\n    'maximum X such that': 'answer-space max',\n    'sorted rotated no dup': 'rotated binary',\n    'sorted rotated with dup': 'rotated + hi--',\n    'median two sorted': 'partition binary',\n    'find in sorted 2D matrix': 'index binary 2D'\n  };\n  return map[signal] || 'unknown';\n}\n\nfunction module6Summary() {\n  const vals = Object.values(MODULE6_PROBLEMS);\n  return {\n    total: vals.length,\n    answerSpaceMin: vals.filter(p=>p.pattern==='answer-space min').length,\n    rotated: vals.filter(p=>p.pattern.startsWith('rotated')).length,\n    special: vals.filter(p=>!p.pattern.startsWith('rotated')&&p.pattern!=='answer-space min').length\n  };\n}\n\nfunction isSamePatternFamily(id1, id2) {\n  const p1 = MODULE6_PROBLEMS[id1], p2 = MODULE6_PROBLEMS[id2];\n  if (!p1 || !p2) return false;\n  return p1.pattern === p2.pattern;\n}"
+            },
+            "complexity_analysis": "classifyBinarySearch: O(1). module6Summary: O(n) in problem count (n=9, effectively O(1)). isSamePatternFamily: O(1).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "classifyBinarySearch: use a lookup map from signal phrases to variant names."
+              },
+              {
+                "level": 2,
+                "text": "module6Summary: count by pattern string; 'rotated' patterns start with 'rotated'; 'special' is everything else that's not 'answer-space min'."
+              },
+              {
+                "level": 3,
+                "text": "isSamePatternFamily: look up both IDs in MODULE6_PROBLEMS, compare their pattern strings."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "module_summary": {
+    "total_lessons": 6,
+    "level": "L2",
+    "neetcode150_problems": 9,
+    "blind75_problems": 4,
+    "core_patterns": [
+      "Answer-space binary search: find minimum k where C(k) is true (hi=mid on true, lo=mid+1 on false)",
+      "Answer-space max: find maximum k where C(k) is true (lo=mid on true, +1 in mid formula)",
+      "Monotonicity verification: C(k)→C(k+1) must hold before applying answer-space search",
+      "Feasibility check design: the intellectual work — binary search framework is mechanical once check is defined",
+      "lo/hi bounds: lo=minimum valid answer (e.g. max element), hi=maximum valid answer (e.g. sum)",
+      "Rotated array: 3 cases when duplicates — mid>hi: right, mid<hi: left, mid==hi: hi-- (safe shrink)",
+      "hi-- safety proof: minimum at hi is also at mid (equal values), so removing hi cannot lose the minimum",
+      "Median partition: binary search on i, j=(m+n+1)/2-i auto-determined, validity=maxLeft1≤minRight2 AND maxLeft2≤minRight1",
+      "Boundary values: -Infinity for empty left partition, +Infinity for empty right partition",
+      "Pattern family: Koko, Ship, Split Array — structurally identical, different feasibility check"
+    ],
+    "prerequisite_modules": [
+      "L1-M05"
+    ],
+    "unlocks_modules": [
+      "L2-M09 (Dijkstra — uses greedy priority queue, related feasibility reasoning)"
+    ],
+    "recommended_problem_order": [
+      "lc-875",
+      "lc-1011",
+      "lc-153",
+      "lc-154",
+      "lc-33",
+      "lc-81",
+      "lc-74",
+      "lc-410",
+      "lc-4"
+    ],
+    "spaced_review_target": "Re-solve 3 binary search problems from L1-M05 before Module 7",
+    "module_difficulty": "Medium-Hard — answer-space binary search (L1-L2, L5) is learnable from the template; Rotated II (L3) is straightforward once the 3-case split is understood; Median of Two Arrays (L4) is the hardest individual problem in the module.",
+    "honest_time_estimate": "10-12 hours. Answer-space template (L1): 1.5 hrs. Koko (L2): 1.5 hrs. Rotated II (L3): 1.5 hrs. Median Two Arrays (L4): 3 hrs (hardest). Split Array (L5): 1.5 hrs. Review (L6): 1 hr.",
+    "key_template_rule": "Answer-space MIN: hi=mid on true, lo=mid+1 on false. Answer-space MAX: lo=mid on true (+1 in mid formula), hi=mid-1 on false. Getting these backwards produces wrong answers every time."
+  },
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "intermediate": "Lessons 1-3 (answer-space templates, Koko/Ship monotonicity, rotated array II hi-- strategy)",
+      "advanced": "Lessons 4-5 (median two sorted arrays partition binary search, split array greedy feasibility)",
+      "capstone": "Lesson 6 (5-variant classifier, pattern family identification, module bridge to M07)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

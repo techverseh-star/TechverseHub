@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { reminderEmailSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json();
+    const cronSecret = process.env.CRON_SECRET;
+    const providedSecret = request.headers.get("x-cron-secret");
+    if (!cronSecret || providedSecret !== cronSecret) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { ok, retryAfterSec } = rateLimit("reminder-email", 10, 60_000);
+    if (!ok) return rateLimitResponse(retryAfterSec);
+
+    const parsed = reminderEmailSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid email" }, { status: 400 });
+    }
+    const { email } = parsed.data;
 
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,

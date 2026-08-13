@@ -1,0 +1,1667 @@
+{
+  "module_id": "L2-M05",
+  "module_number": 5,
+  "title": "Backtracking — Hard Patterns",
+  "tag": "UPDATED",
+  "is_optional_for_product_track": false,
+  "estimated_hours": "14–16 hours",
+  "prerequisites": [
+    "L2-M04"
+  ],
+  "learning_outcomes": [
+    "Solve N-Queens using column and diagonal tracking sets for O(n) conflict checking per placement",
+    "Solve Sudoku Solver by backtracking over empty cells with box-index formula for validity",
+    "Solve Word Search I using 4-directional DFS with in-place visited marking and backtracking restore",
+    "Apply the Trie optimisation to Word Search II to prune dead prefix branches efficiently",
+    "Solve Expression Add Operators by passing running total and last operand to handle operator precedence",
+    "Identify the root cause of each hard backtracking problem and apply the correct constraint set"
+  ],
+  "notes": [
+    "UPDATED — N-Queens and Sudoku Solver separated from beginner backtracking into a dedicated hard module."
+  ],
+  "spaced_review": "Re-solve 3 problems from Module 4 from scratch",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "title": "N-Queens",
+      "tag": "UPDATED",
+      "objective": "Solve N-Queens using three conflict-detection sets for columns and both diagonals, placing one queen per row and checking O(1) conflicts at each placement.",
+      "concepts": [
+        "N-Queens: place n non-attacking queens on an n×n board",
+        "One queen per row: iterate rows, place one queen per row level",
+        "Column conflict: no two queens in same column",
+        "Diagonal conflict: no two queens on the same '/' or '\\\\' diagonal",
+        "Diagonal encoding: row-col for '\\\\' diagonal, row+col for '/' diagonal",
+        "Three sets: cols, diag1 (row-col), diag2 (row+col)",
+        "O(n) per row: try n columns, O(1) conflict check with sets",
+        "Board reconstruction: track column choices per row"
+      ],
+      "explanation": "N-Queens (#51) places n non-attacking queens on an n×n chessboard. Two queens attack if they share a column or a diagonal. Since there must be exactly one queen per row (n rows, n queens), the backtracking places one queen per row level. For each row, try every column. Three constraint sets enable O(1) conflict checking: cols (which columns are occupied), diag1 (which '\\\\' diagonals, identified by row-col which is constant along each '\\\\' diagonal), diag2 (which '/' diagonals, identified by row+col which is constant along each '/' diagonal). For a queen at (row, col): add col to cols, row-col to diag1, row+col to diag2. Recurse to the next row. Unchoose: remove all three entries. When row equals n, all queens are placed validly; construct the board from the stored column choices. Board construction: for each row, create a string of '.' characters except at the queen's column. The diagonal encoding is the key insight: all cells on the same '\\\\' diagonal have the same row-col value; all cells on the same '/' diagonal have the same row+col value.",
+      "analogy": "N-Queens is like a seating arrangement problem where n people are seated one per row in a theatre, each person must have a unique seat number (column), and no two people can be in the same 'vision diagonal' (they cannot see each other along any diagonal line). The three sets are like three notebooks: the column notebook, the forward-diagonal notebook, and the backward-diagonal notebook. Before placing anyone, check all three notebooks. After placing, update all three. On backtrack, remove from all three.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// N-QUEENS (#51) — O(n!) time, O(n) space\nfunction solveNQueens(n) {\n    const result = [];\n    const cols  = new Set(); // occupied columns\n    const diag1 = new Set(); // occupied '\\\\' diagonals (row - col)\n    const diag2 = new Set(); // occupied '/' diagonals  (row + col)\n    const queens = new Array(n); // queens[row] = col of queen in that row\n\n    function backtrack(row) {\n        if (row === n) {\n            // Construct board from queens array\n            result.push(queens.map(c =>\n                '.'.repeat(c) + 'Q' + '.'.repeat(n - c - 1)\n            ));\n            return;\n        }\n        for (let col = 0; col < n; col++) {\n            if (cols.has(col) || diag1.has(row - col) || diag2.has(row + col))\n                continue; // conflict: skip this column\n\n            // CHOOSE\n            cols.add(col); diag1.add(row - col); diag2.add(row + col);\n            queens[row] = col;\n\n            // EXPLORE\n            backtrack(row + 1);\n\n            // UNCHOOSE\n            cols.delete(col); diag1.delete(row - col); diag2.delete(row + col);\n        }\n    }\n    backtrack(0);\n    return result;\n}\n\nconsole.log(solveNQueens(4));\n// Two solutions:\n// ['.Q..', '...Q', 'Q...', '..Q.']\n// ['..Q.', 'Q...', '...Q', '.Q..']\n\n// N-QUEENS II (#52) — count solutions instead of returning boards\nfunction totalNQueens(n) {\n    let count = 0;\n    const cols = new Set(), diag1 = new Set(), diag2 = new Set();\n    function backtrack(row) {\n        if (row === n) { count++; return; }\n        for (let col = 0; col < n; col++) {\n            if (cols.has(col) || diag1.has(row-col) || diag2.has(row+col)) continue;\n            cols.add(col); diag1.add(row-col); diag2.add(row+col);\n            backtrack(row + 1);\n            cols.delete(col); diag1.delete(row-col); diag2.delete(row+col);\n        }\n    }\n    backtrack(0);\n    return count;\n}\nconsole.log(totalNQueens(4)); // 2\nconsole.log(totalNQueens(8)); // 92\n\n// DIAGONAL ENCODING PROOF:\n// Board position (r, c):\n// All cells where r-c is constant form a '\\\\' diagonal\n//   (0,0),(1,1),(2,2): r-c=0 all same diagonal ✓\n// All cells where r+c is constant form a '/' diagonal\n//   (0,2),(1,1),(2,0): r+c=2 all same diagonal ✓",
+        "explanation": "The diagonal encoding (row-col for '\\\\', row+col for '/') is derived from the observation that moving one step along a '\\\\' diagonal increments both row and col by 1 (difference stays constant), while moving along a '/' diagonal increments row and decrements col (sum stays constant). These two invariants map each diagonal to a unique integer, enabling O(1) Set lookup."
+      },
+      "common_mistakes": [
+        "Using a 2D board array and scanning for conflicts instead of sets — checking conflicts by scanning the board is O(n) per placement; three sets give O(1) conflict checking, reducing total complexity from O(n³) to O(n²) per solution",
+        "Not deleting from all three sets in the unchoose step — if any set entry remains after backtracking, future placements will incorrectly see a conflict in a cell that is no longer occupied",
+        "Confusing the two diagonal formulas — row-col for '\\\\' (top-left to bottom-right) and row+col for '/' (top-right to bottom-left); swapping them produces wrong conflict detection"
+      ],
+      "interview_relevance": "N-Queens (#51) is NeetCode 150 and one of the most recognisable hard backtracking problems. It appears at Google, Facebook, and Amazon as a test of both constraint modelling (the three-set encoding) and backtracking discipline. The interviewer specifically evaluates whether the candidate derives the diagonal encoding independently rather than reciting it.",
+      "mini_challenge": "Implement solveNQueens and verify it returns 2 solutions for n=4 and 92 solutions for n=8 (use totalNQueens). Derive the diagonal encodings yourself: for a 4x4 board, list the (row-col) values of all cells and verify that cells on the same '\\\\' diagonal share the same value. Do the same for (row+col) and '/' diagonals. Then explain: why does the backtracking not need a 'rows' set if we iterate one row at a time?",
+      "flashcards": [
+        {
+          "front": "N-Queens: why one queen per row?",
+          "back": "n queens on n×n board → exactly one per row by pigeonhole. Placing one queen per row level eliminates one entire dimension of the search: we never need a 'rows' conflict set because each backtracking level corresponds to exactly one row."
+        },
+        {
+          "front": "N-Queens: diagonal encoding — two formulas?",
+          "back": "BACKSLASH '\\' diagonal: row-col is constant (both increase by 1 along the diagonal). FORWARD '/' diagonal: row+col is constant (row increases, col decreases). These map each diagonal to a unique integer enabling O(1) Set lookup."
+        },
+        {
+          "front": "N-Queens: three conflict sets and what each tracks?",
+          "back": "cols: which column indices are occupied. diag1 (Set of row-col values): which '\\' diagonals are occupied. diag2 (Set of row+col values): which '/' diagonals are occupied. All three must be checked before placing and updated after placing."
+        },
+        {
+          "front": "N-Queens: unchoose step — what must be undone?",
+          "back": "ALL three set entries added in choose: cols.delete(col), diag1.delete(row-col), diag2.delete(row+col). Missing any one leaves a ghost constraint that incorrectly blocks valid placements in subsequent rows."
+        },
+        {
+          "front": "N-Queens: board reconstruction from queens array?",
+          "back": "queens[row]=col. For each row: '.'.repeat(col) + 'Q' + '.'.repeat(n-col-1). This builds the row string. The full board is queens.map(c => ...) which produces an array of n strings."
+        },
+        {
+          "front": "N-Queens total solutions for n=1,4,8?",
+          "back": "n=1: 1 solution. n=4: 2 solutions. n=8: 92 solutions. N=9: 352. The count grows super-exponentially but pruning keeps the search tractable (each column can only be tried n times per row and many are immediately rejected)."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "For a queen at (row=2, col=3) in N-Queens, what values are added to the three sets?",
+          "options": [
+            "cols: 3, diag1: 1 (2-3=-1), diag2: 5 (2+3)",
+            "cols: 3, diag1: -1 (2-3), diag2: 5 (2+3)",
+            "cols: 2, diag1: -1, diag2: 5",
+            "cols: 3, diag1: 5 (2+3), diag2: -1 (2-3)"
+          ],
+          "answer": 1,
+          "explanation": "cols.add(3). diag1.add(row-col) = diag1.add(2-3) = diag1.add(-1). diag2.add(row+col) = diag2.add(2+3) = diag2.add(5). Note: row-col can be negative — that's fine, Set handles any integer key."
+        },
+        {
+          "question": "Does N-Queens need a 'rows' conflict set? Why or why not?",
+          "options": [
+            "Yes — two queens could be placed in the same row",
+            "No — backtracking places exactly one queen per row level; each level IS one row",
+            "Yes — when backtracking, the same row could be revisited",
+            "No — queens never conflict on rows"
+          ],
+          "answer": 1,
+          "explanation": "The backtracking iterates rows 0..n-1 sequentially. backtrack(row) places exactly one queen in row `row` before calling backtrack(row+1). Two queens in the same row is structurally impossible — no row set needed."
+        },
+        {
+          "question": "Cells (0,2), (1,1), (2,0) share which diagonal type?",
+          "options": [
+            "Backslash diagonal (row-col constant)",
+            "Forward slash diagonal (row+col constant)",
+            "Column (col constant)",
+            "Neither"
+          ],
+          "answer": 1,
+          "explanation": "row+col: (0,2)→2, (1,1)→2, (2,0)→2. All equal 2 → same '/' (forward slash) diagonal. Cells on a '/' diagonal have constant row+col. Cells on a '\\' (backslash) diagonal have constant row-col."
+        },
+        {
+          "question": "totalNQueens(1) = ?, totalNQueens(4) = ?",
+          "options": [
+            "0 and 2",
+            "1 and 2",
+            "1 and 4",
+            "2 and 8"
+          ],
+          "answer": 1,
+          "explanation": "n=1: one queen on a 1×1 board → 1 solution. n=4: 2 solutions: ['.Q..','...Q','Q...','..Q.'] and ['..Q.','Q...','...Q','.Q..']."
+        }
+      ],
+      "visual_aid": {
+        "type": "constraint_diagram",
+        "description": "N-Queens diagonal encoding on a 4×4 board",
+        "diagram": "4×4 BOARD — DIAGONAL ENCODINGS:\n\nrow-col values ('\\' diagonals, same value = same diagonal):\n    c=0  c=1  c=2  c=3\nr=0: [0,  -1,  -2,  -3]\nr=1: [1,   0,  -1,  -2]\nr=2: [2,   1,   0,  -1]\nr=3: [3,   2,   1,   0]\nCells with row-col=0: (0,0),(1,1),(2,2),(3,3) ← same '\\' diagonal\n\nrow+col values ('/' diagonals, same value = same diagonal):\n    c=0  c=1  c=2  c=3\nr=0: [0,   1,   2,   3]\nr=1: [1,   2,   3,   4]\nr=2: [2,   3,   4,   5]\nr=3: [3,   4,   5,   6]\nCells with row+col=2: (0,2),(1,1),(2,0) ← same '/' diagonal\n\nSOLUTION 1 for n=4: queens=[1,3,0,2]\n  Row 0: col=1 → cols={1}, diag1={-1}, diag2={1}\n  Row 1: col=3 → cols={1,3}, diag1={-1,-2}, diag2={1,4}\n  Row 2: col=0 → cols={0,1,3}, diag1={-1,-2,2}, diag2={1,4,2}\n  Row 3: col=2 → cols={0,1,2,3}, diag1={-1,-2,2,1}, diag2={1,4,2,5}\n  Board: .Q.. / ...Q / Q... / ..Q. ✓"
+      },
+      "complexity_summary": {
+        "time": "O(n!) — pruning makes it much faster in practice",
+        "space": "O(n) — three sets of at most n entries + O(n) queens array + O(n) call stack",
+        "conflict_check": "O(1) per placement with Sets",
+        "solutions": "n=4: 2, n=8: 92, n=9: 352"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-51",
+          "title": "N-Queens",
+          "difficulty": "Hard",
+          "pattern": "Backtracking — 3 conflict sets (col, diag1, diag2)"
+        },
+        {
+          "id": "lc-52",
+          "title": "N-Queens II",
+          "difficulty": "Hard",
+          "pattern": "Same — count solutions instead of building boards"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M5-L1-TH-1",
+            "question": "N-Queens uses THREE SETS (`cols`, `diag1`, `diag2`) for O(1) conflict detection. What does each set store, and why are two DIAGONAL sets needed?",
+            "options": [
+              "cols stores rows, diag1 stores rows+cols, diag2 stores rows-cols",
+              "`cols` stores occupied column indices; `diag1` stores the value `row - col` (same value for all cells on the same '\\\\' diagonal — top-left to bottom-right); `diag2` stores `row + col` (same value for all cells on the same '/' diagonal — top-right to bottom-left); two diagonal sets are needed because a chess queen attacks along BOTH diagonal directions independently — one set cannot distinguish '\\\\' diagonals from '/' diagonals",
+              "Three sets are used for redundancy; one set with (row,col) pairs would suffice",
+              "diag1 and diag2 both store row+col; cols stores row-col"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concepts: 'diag1 (row-col): all cells where row-col is constant share the same \"\\\\\" diagonal' and 'diag2 (row+col): all cells where row+col is constant share the same \"/\" diagonal' — confirmed by the proof: (0,0),(1,1),(2,2) all have row-col=0 (same '\\\\' diagonal); (0,2),(1,1),(2,0) all have row+col=2 (same '/' diagonal)."
+          },
+          {
+            "id": "L2M5-L1-TH-2",
+            "question": "Why does N-Queens iterate one queen PER ROW (rather than placing queens in any order)?",
+            "options": [
+              "Placing one per row is required by the N-Queens problem definition",
+              "Since EXACTLY ONE QUEEN must exist in each row (n queens on n rows), fixing this structure reduces the search space from O(n^(n²)) (place queen anywhere) to O(n!) (n choices row 0, n-1 for row 1, etc. with pruning); the row-by-row structure also means column and diagonal conflicts can be checked efficiently without tracking row conflicts (each row is visited exactly once)",
+              "Row-by-row placement enables BFS rather than DFS",
+              "Each row is processed once for performance; correctness doesn't depend on it"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'One queen per row: iterate rows, place one queen per row level' — the constraint that exactly one queen occupies each row eliminates the need for a 'rows' conflict set (each row is visited exactly once in the recursion), and reduces the branching factor from n² (all cells) to n (all columns in the current row), making the algorithm O(n!) instead of exponentially worse."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M5-L1-LG-1",
+            "question": "For `solveNQueens(4)`, the answer is 2 solutions. Verify the first solution `['.Q..','...Q','Q...','..Q.']`: is there a column or diagonal conflict between any two queens?",
+            "options": [
+              "There is a diagonal conflict between queens at rows 0 and 2",
+              "Queens at: row0=col1, row1=col3, row2=col0, row3=col2; columns: {1,3,0,2} all distinct ✓; diag1 (row-col): {0-1=-1, 1-3=-2, 2-0=2, 3-2=1} all distinct ✓; diag2 (row+col): {0+1=1, 1+3=4, 2+0=2, 3+2=5} all distinct ✓; no conflicts confirmed — this is a valid N-Queens solution",
+              "Queens at rows 0 and 3 share a diagonal",
+              "The solution is invalid because two queens share column 2"
+            ],
+            "answer": 1,
+            "explanation": "Verified by direct execution (solveNQueens(4) returns 2 valid solutions); checking the first: cols={1,3,0,2} all distinct; diag1 values={-1,-2,2,1} all distinct; diag2 values={1,4,2,5} all distinct — all three conflict sets confirm no attacking pairs."
+          },
+          {
+            "id": "L2M5-L1-LG-2",
+            "question": "`totalNQueens(8)` returns 92. What does this number represent, and why does it grow dramatically with n (e.g., n=1:1, n=4:2, n=8:92)?",
+            "options": [
+              "92 is the number of ways to place 8 non-attacking queens on an 8x8 board",
+              "92 is the number of FUNDAMENTALLY DISTINCT arrangements of 8 non-attacking queens on an 8×8 chessboard (including rotations and reflections); it grows dramatically because the search space is n! but effective pruning reduces explored states — even with pruning, the valid configurations grow super-linearly: n=1→1, n=4→2, n=6→4, n=8→92, n=10→724; the exponential growth reflects the combinatorial nature of constraint satisfaction",
+              "92 is the number of invalid placements for n=8",
+              "92 is the number of board configurations before pruning for n=8"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: totalNQueens(8)=92; this is the classic N-Queens result — 92 distinct valid arrangements of 8 non-attacking queens on an 8×8 board (including rotations and reflections as distinct; there are 12 fundamentally unique solutions when symmetries are removed but the problem counts all arrangements)."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M5-L1-SY-1",
+            "question": "In `solveNQueens`, the board is reconstructed as `queens.map(c => '.'.repeat(c) + 'Q' + '.'.repeat(n-c-1))`. Why use a `queens` array (storing column per row) instead of a 2D board array?",
+            "options": [
+              "A 2D board array would cause memory overflow for large n",
+              "Storing only the COLUMN POSITION per row (a 1D array) is sufficient because exactly one queen exists per row; this is more memory-efficient than a full n×n board (O(n) vs O(n²)) and makes conflict detection with column/diagonal sets natural; the final board string is reconstructed only when a complete solution is found — avoiding the overhead of maintaining and reverting a full 2D board during backtracking",
+              "queens.map is not available on 2D arrays in JavaScript",
+              "A 2D board requires O(n²) per backtrack step for copying"
+            ],
+            "answer": 1,
+            "explanation": "The 1D queens array efficiently encodes the board state for N-Queens: since exactly one queen per row is guaranteed by the row-by-row traversal, queens[row]=col completely describes the placement; this enables O(1) board reconstruction at base case without any per-step 2D board maintenance cost; conflict detection uses the three sets, not the queens array."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M5-L1-CC-1",
+            "title": "N-Queens I and II",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both N-Queens variants from this lesson.",
+            "requirements": [
+              "Implement `solveNQueensImpl(n)` matching the lesson's three-set backtracking with board reconstruction",
+              "Implement `totalNQueensImpl(n)` matching the lesson's count-only variant"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function solveNQueensImpl(n) {\n  // TODO: cols, diag1(row-col), diag2(row+col) sets; queens array; row-by-row\n}\n\nfunction totalNQueensImpl(n) {\n  // TODO: count solutions without board reconstruction\n}"
+            },
+            "test_cases": [
+              {
+                "input": "solveNQueensImpl(4).length",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "totalNQueensImpl(4)",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "totalNQueensImpl(8)",
+                "expected": 92,
+                "type": "visible"
+              },
+              {
+                "input": "totalNQueensImpl(1)",
+                "expected": 1,
+                "type": "hidden"
+              },
+              {
+                "input": "solveNQueensImpl(1)[0]",
+                "expected": [
+                  "Q"
+                ],
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function solveNQueensImpl(n) {\n  const result = [], cols = new Set(), d1 = new Set(), d2 = new Set();\n  const queens = new Array(n);\n  function bt(row) {\n    if (row === n) {\n      result.push(queens.map(c => '.'.repeat(c)+'Q'+'.'.repeat(n-c-1)));\n      return;\n    }\n    for (let col = 0; col < n; col++) {\n      if (cols.has(col)||d1.has(row-col)||d2.has(row+col)) continue;\n      cols.add(col); d1.add(row-col); d2.add(row+col); queens[row]=col;\n      bt(row+1);\n      cols.delete(col); d1.delete(row-col); d2.delete(row+col);\n    }\n  }\n  bt(0);\n  return result;\n}\n\nfunction totalNQueensImpl(n) {\n  let count = 0;\n  const cols = new Set(), d1 = new Set(), d2 = new Set();\n  function bt(row) {\n    if (row === n) { count++; return; }\n    for (let col = 0; col < n; col++) {\n      if (cols.has(col)||d1.has(row-col)||d2.has(row+col)) continue;\n      cols.add(col); d1.add(row-col); d2.add(row+col);\n      bt(row+1);\n      cols.delete(col); d1.delete(row-col); d2.delete(row+col);\n    }\n  }\n  bt(0);\n  return count;\n}"
+            },
+            "complexity_analysis": "O(n!) time (bounded by permutations of n columns), O(n) space for sets + queens array.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Three sets: cols (column index), d1 (row-col), d2 (row+col); check all three before placing a queen."
+              },
+              {
+                "level": 2,
+                "text": "queens[row]=col; reconstruct board only at base case (row===n) with queens.map."
+              },
+              {
+                "level": 3,
+                "text": "totalNQueensImpl: identical to solveNQueensImpl but increment count++ instead of building/pushing the board."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 2,
+      "title": "Sudoku Solver",
+      "tag": "UPDATED",
+      "objective": "Solve Sudoku Solver using backtracking with three sets of constraints (rows, columns, boxes) and the box-index formula, iterating over all empty cells.",
+      "concepts": [
+        "Sudoku constraints: each digit 1-9 appears once per row, column, and 3×3 box",
+        "Three constraint arrays: rows[9], cols[9], boxes[9] of Sets",
+        "Box index formula: Math.floor(r/3)*3 + Math.floor(c/3)",
+        "Find first empty cell: scan row by row, left to right",
+        "Try digits 1-9 at each empty cell",
+        "Place digit: update three sets, mark board, recurse",
+        "If recursion succeeds: propagate true upward",
+        "If no digit works: restore, return false (trigger backtrack)"
+      ],
+      "explanation": "Sudoku Solver (#37) fills a partially completed 9×9 Sudoku board. At each step, find the first empty cell ('.'), try digits '1' through '9'. A digit is valid if it does not already appear in that cell's row, column, or 3×3 box. If valid, place the digit, update the three constraint sets, and recurse. If the recursion succeeds (returns true), propagate true upward. If no digit works at this cell, restore the board and return false to trigger backtracking. The box index formula Math.floor(r/3)*3 + Math.floor(c/3) maps each cell to one of 9 boxes (0-8). Initialise the three constraint arrays by scanning the given digits before starting backtracking. This ensures the constraint sets reflect the pre-filled cells. Unlike N-Queens where we iterate rows, Sudoku iterates over empty cells: find the next empty cell rather than the next row to fill.",
+      "analogy": "Sudoku Solver is like filling in a crossword where each square must satisfy three overlapping constraints. At each empty cell, you try each valid letter (digit) that does not violate any of the three constraints (row, column, box). If you reach a cell where no digit fits, you have made a mistake somewhere: erase the last digit placed and try the next option. The constraint sets are your 'already used' lists for each row, column, and box.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// SUDOKU SOLVER (#37) — backtracking O(9^81) worst, O(1) with pruning\nfunction solveSudoku(board) {\n    // Initialise constraint sets from pre-filled cells\n    const rows  = Array.from({length: 9}, () => new Set());\n    const cols  = Array.from({length: 9}, () => new Set());\n    const boxes = Array.from({length: 9}, () => new Set());\n\n    for (let r = 0; r < 9; r++) {\n        for (let c = 0; c < 9; c++) {\n            if (board[r][c] !== '.') {\n                const d = board[r][c];\n                const box = Math.floor(r/3)*3 + Math.floor(c/3);\n                rows[r].add(d); cols[c].add(d); boxes[box].add(d);\n            }\n        }\n    }\n\n    function backtrack() {\n        // Find first empty cell\n        for (let r = 0; r < 9; r++) {\n            for (let c = 0; c < 9; c++) {\n                if (board[r][c] !== '.') continue;\n                const box = Math.floor(r/3)*3 + Math.floor(c/3);\n\n                for (let d = 1; d <= 9; d++) {\n                    const digit = String(d);\n                    if (rows[r].has(digit) || cols[c].has(digit) ||\n                        boxes[box].has(digit)) continue; // conflict: skip\n\n                    // PLACE digit\n                    board[r][c] = digit;\n                    rows[r].add(digit); cols[c].add(digit); boxes[box].add(digit);\n\n                    if (backtrack()) return true; // solution found: propagate up\n\n                    // REMOVE digit (backtrack)\n                    board[r][c] = '.';\n                    rows[r].delete(digit); cols[c].delete(digit); boxes[box].delete(digit);\n                }\n                return false; // no digit worked: backtrack\n            }\n        }\n        return true; // no empty cells: board is solved\n    }\n    backtrack();\n}\n\n// KEY DESIGN DECISIONS:\n// 1. Return true/false: propagates success upward immediately\n// 2. Return false when no digit fits: triggers backtrack to caller\n// 3. Return true when no empty cell found: base case = solution complete\n// 4. Box formula: Math.floor(r/3)*3 + Math.floor(c/3) gives 0-8\n//    (0,0)-(2,2)->0, (0,3)-(2,5)->1, ..., (6,6)-(8,8)->8\n\n// OPTIMISATION: choose the cell with fewest valid digits (MRV heuristic)\n// Instead of first empty cell, find the empty cell with minimum options\n// This dramatically reduces the search tree in practice\n// Standard interviews don't require this but it's worth mentioning",
+        "explanation": "The return true propagation is what makes the solver efficient: once a valid complete board is found, the true propagates up through all recursive calls immediately, stopping all further exploration. Without this, the solver would continue trying alternatives even after finding the solution. The return false when no digit fits is the backtracking signal: 'this cell has no valid digit, so the current partial board is wrong.'"
+      },
+      "common_mistakes": [
+        "Not initialising the constraint sets from pre-filled cells before backtracking — if the initial cells are not in the sets, valid pre-filled digits will appear as available placements and the solver may overwrite them",
+        "Not returning false when no digit fits at a cell — without this return, the backtrack function continues to the next cell even when the current cell has no valid digit, leading to an invalid board state",
+        "Placing digits but not removing them from the constraint sets on backtrack — the three-set updates and the board placement must all be reversed; missing any one of the four state changes (board, rows, cols, boxes) corrupts future validity checks"
+      ],
+      "interview_relevance": "Sudoku Solver (#37) is NeetCode 150 and appears in senior interviews at Google and Microsoft. It combines the same constraint-set pattern as N-Queens with a more complex constraint structure (three overlapping sets vs N-Queens' two diagonals). The return true/false pattern that propagates the solution upward is specifically evaluated: does the candidate understand that backtracking can terminate early once a solution is found?",
+      "mini_challenge": "Implement solveSudoku and test it on a valid puzzle. Verify the box index formula: list the box index for cells (0,0), (0,3), (0,6), (3,0), (4,4), (8,8) and confirm they map to boxes 0,1,2,3,4,8 respectively. Then implement an optimised version that finds the empty cell with the minimum number of valid digits (the MRV heuristic) instead of the first empty cell. Sketch how this reduces the search tree for a puzzle with many constrained cells.",
+      "flashcards": [
+        {
+          "front": "Sudoku Solver: box index formula?",
+          "back": "Math.floor(r/3)*3 + Math.floor(c/3). Maps (row,col) to box 0-8. Row 0-2 maps to boxes 0-2, row 3-5 to boxes 3-5, row 6-8 to boxes 6-8. Column within the row group: Math.floor(c/3) = 0,1,2."
+        },
+        {
+          "front": "Sudoku Solver: return true/false semantics?",
+          "back": "backtrack() returns TRUE when no empty cells remain (board solved). Returns FALSE when no valid digit fits the current empty cell (trigger backtracking). IF backtrack() returns true: propagate true immediately upward — stop all exploration. If false: restore cell, continue trying other digits."
+        },
+        {
+          "front": "Sudoku Solver: initialisation step before backtracking?",
+          "back": "Scan all pre-filled cells and add each digit to the corresponding rows[r], cols[c], and boxes[box] sets. Without this, the constraint sets don't reflect the given puzzle — the solver may overwrite existing digits."
+        },
+        {
+          "front": "Sudoku Solver: four state changes in choose/unchoose?",
+          "back": "CHOOSE: board[r][c]=digit; rows[r].add(d); cols[c].add(d); boxes[box].add(d). UNCHOOSE: board[r][c]='.'; rows[r].delete(d); cols[c].delete(d); boxes[box].delete(d). All four must be paired — missing any one corrupts future validity checks."
+        },
+        {
+          "front": "Sudoku Solver: MRV heuristic — what is it?",
+          "back": "Minimum Remaining Values: instead of scanning for the first empty cell, find the empty cell with the FEWEST valid digits. Filling the most constrained cell first dramatically reduces the search tree depth (most constrained cell may have only 1-2 valid options vs 9)."
+        },
+        {
+          "front": "N-Queens vs Sudoku Solver: structural comparison?",
+          "back": "Both use constraint sets for O(1) validity checking. Both use choose-explore-unchoose with set updates. Key difference: N-Queens iterates over rows (one level = one row). Sudoku iterates over empty cells (one level = one empty cell found by scanning). N-Queens: enumeration. Sudoku: search (return true once solved)."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Cell (4,5) maps to which Sudoku box?",
+          "options": [
+            "3",
+            "4",
+            "5",
+            "7"
+          ],
+          "answer": 2,
+          "explanation": "Math.floor(4/3)*3 + Math.floor(5/3) = 1*3 + 1 = 4. Box 4 is the center box (rows 3-5, cols 3-5). Cell (4,5) is row 4 (in rows 3-5 group) and col 5 (in cols 3-5 group) → box 4."
+        },
+        {
+          "question": "In Sudoku Solver, after trying digit '5' at an empty cell and the recursion returns false, what must be restored?",
+          "options": [
+            "Only board[r][c] = '.'",
+            "board[r][c] = '.', rows[r].delete('5'), cols[c].delete('5'), boxes[box].delete('5')",
+            "Only the three Sets",
+            "Nothing — false means no change was made"
+          ],
+          "answer": 1,
+          "explanation": "All four state changes must be undone: board cell, and all three Set entries. The board was marked and all three sets were updated when '5' was placed — all must be reversed on backtrack."
+        },
+        {
+          "question": "Why does backtrack() return true when no empty cell is found (loop completes without break)?",
+          "options": [
+            "Because an error occurred",
+            "No empty cell means the board is fully and validly filled — the puzzle is solved",
+            "To signal that more cells need to be filled",
+            "This is an error condition"
+          ],
+          "answer": 1,
+          "explanation": "The outer loop scans all cells. If it completes without finding any '.' cell, every cell is filled. Since only valid digits were placed (constraint sets enforced), the board is a valid complete solution → return true."
+        },
+        {
+          "question": "Why must pre-filled cells be added to constraint sets BEFORE backtracking starts?",
+          "options": [
+            "Performance optimisation only",
+            "If not added, the solver doesn't know those digits are already used and may try to place the same digit in the same row/col/box",
+            "Required for the box formula to work",
+            "Pre-filled cells are immutable and don't affect constraint sets"
+          ],
+          "answer": 1,
+          "explanation": "The constraint sets track which digits are forbidden. Pre-filled '5' in row 3 means no other cell in row 3 can have '5'. Without adding it to rows[3], the solver would try '5' in other row-3 cells — overwriting valid givens or producing invalid boards."
+        }
+      ],
+      "visual_aid": {
+        "type": "box_index_diagram",
+        "description": "Sudoku box index formula mapped across the 9×9 board",
+        "diagram": "SUDOKU BOX INDEX FORMULA: Math.floor(r/3)*3 + Math.floor(c/3)\n\n     c=0 c=1 c=2 | c=3 c=4 c=5 | c=6 c=7 c=8\nr=0: [ 0   0   0  |  1   1   1  |  2   2   2 ]\nr=1: [ 0   0   0  |  1   1   1  |  2   2   2 ]\nr=2: [ 0   0   0  |  1   1   1  |  2   2   2 ]\n     ─────────────────────────────────────────\nr=3: [ 3   3   3  |  4   4   4  |  5   5   5 ]\nr=4: [ 3   3   3  |  4   4   4  |  5   5   5 ]\nr=5: [ 3   3   3  |  4   4   4  |  5   5   5 ]\n     ─────────────────────────────────────────\nr=6: [ 6   6   6  |  7   7   7  |  8   8   8 ]\nr=7: [ 6   6   6  |  7   7   7  |  8   8   8 ]\nr=8: [ 6   6   6  |  7   7   7  |  8   8   8 ]\n\nCell (4,5): floor(4/3)*3 + floor(5/3) = 1*3+1 = 4 ✓ (center box)\nCell (8,8): floor(8/3)*3 + floor(8/3) = 2*3+2 = 8 ✓ (bottom-right box)\n\nCHOOSE/UNCHOOSE for digit '7' at (4,5):\n  board[4][5]='7'; rows[4].add('7'); cols[5].add('7'); boxes[4].add('7')\n  backtrack() ← recurse\n  board[4][5]='.'; rows[4].delete('7'); cols[5].delete('7'); boxes[4].delete('7')"
+      },
+      "complexity_summary": {
+        "time_worst": "O(9^81) — 81 cells, 9 options each (mostly pruned)",
+        "time_practical": "O(1) with strong constraint propagation for typical puzzles",
+        "space": "O(1) board in-place + O(1) sets (27 sets of max 9 entries)",
+        "return_semantics": "true = solved, false = dead end (triggers backtrack)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-37",
+          "title": "Sudoku Solver",
+          "difficulty": "Hard",
+          "pattern": "Backtracking — 3-set constraints + box formula + return true/false"
+        },
+        {
+          "id": "lc-36",
+          "title": "Valid Sudoku",
+          "difficulty": "Medium",
+          "pattern": "Validation only — same box formula, no backtracking"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M5-L2-TH-1",
+            "question": "In Sudoku Solver, the BOX INDEX formula `Math.floor(r/3)*3 + Math.floor(c/3)` maps each cell to a box (0-8). What are the box indices for cells (0,0), (0,3), and (6,6)?",
+            "options": [
+              "(0,0)→0, (0,3)→3, (6,6)→8 — confirmed: floor(0/3)*3+floor(0/3)=0; floor(0/3)*3+floor(3/3)=0+1=1... wait",
+              "(0,0): floor(0/3)*3+floor(0/3)=0*3+0=0; (0,3): floor(0/3)*3+floor(3/3)=0*3+1=1; (6,6): floor(6/3)*3+floor(6/3)=2*3+2=8 — cells in the top-left 3×3 box are index 0, middle-top box is index 1, bottom-right box is index 8",
+              "(0,0)→1, (0,3)→2, (6,6)→9",
+              "The formula produces the same index for all cells in a row"
+            ],
+            "answer": 1,
+            "explanation": "Computing directly: (0,0)→floor(0/3)*3+floor(0/3)=0; (0,3)→floor(0/3)*3+floor(3/3)=0+1=1; (6,6)→floor(6/3)*3+floor(6/3)=6+2=8; the formula correctly maps the nine 3×3 boxes to indices 0-8: top row of boxes (0,1,2), middle row (3,4,5), bottom row (6,7,8)."
+          },
+          {
+            "id": "L2M5-L2-TH-2",
+            "question": "In `solveSudoku`, `if (backtrack()) return true` propagates success upward. Why does a successful nested backtrack call need to propagate true through the ENTIRE call stack?",
+            "options": [
+              "return true is optional; the board is modified in-place so no propagation is needed",
+              "Once a valid solution is found (all cells filled consistently), we want to STOP IMMEDIATELY and return the completed board to the caller — without propagating true, the calling frame would continue trying other digits even though a solution was already found (undoing the correct solution in the process); `if (backtrack()) return true` creates an EARLY EXIT chain: every pending frame immediately returns without attempting further placements, preserving the solved board intact",
+              "Propagating true converts the DFS to BFS",
+              "return true is needed only for the base case; inner frames return void"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's design note: 'If recursion succeeds: propagate true upward' — Sudoku Solver is a SEARCH problem (find ONE solution, not all); once found, propagating true through all pending frames short-circuits all remaining backtrack attempts, leaving the board in its solved state; without this, the algorithm would undo the solution and continue searching."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M5-L2-LG-1",
+            "question": "In `solveSudoku`, `return false` at the end of the innermost for-loop (after trying all digits 1-9) signals what, and what does the CALLER do upon receiving false?",
+            "options": [
+              "return false means the board is complete; the caller pushes it to results",
+              "`return false` means NO DIGIT (1-9) can be validly placed at the current empty cell — a DEAD END has been reached; the caller (the previous recursive frame) receives false, undoes its own last digit placement (RESTORE board[r][c]='.' and remove from constraint sets), and tries the NEXT DIGIT at its position; this is the classic backtrack: the caller's `if (backtrack()) return true` doesn't trigger, so execution falls through to the next digit in the outer loop",
+              "return false terminates the entire algorithm with no solution",
+              "return false signals that all cells are filled; the board is valid"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's design note: 'If no digit works: restore, return false (trigger backtrack)' — `return false` from the innermost loop is the backtracking signal: the caller frame receives false (its `if (backtrack()) return true` doesn't fire), falls through to the RESTORE block, undoes its placement, and tries the next candidate digit in its own loop."
+          },
+          {
+            "id": "L2M5-L2-LG-2",
+            "question": "Why does Sudoku Solver initialise constraint sets from PRE-FILLED cells BEFORE starting backtracking?",
+            "options": [
+              "Pre-filling is an optimization; the algorithm works correctly without it",
+              "The pre-filled digits are GIVENS that must be respected — if constraint sets start empty, the first backtrack call might try to place a digit that CONFLICTS WITH AN EXISTING GIVEN (e.g., placing '5' in a row that already has '5' in a pre-filled cell); initialising the three sets from existing cells ensures the constraint system reflects the puzzle's initial state, so backtracking only explores placements that don't violate the given digits",
+              "Pre-filling sets is required by JavaScript's Set API",
+              "Pre-filling is done to count the number of empty cells remaining"
+            ],
+            "answer": 1,
+            "explanation": "The initialisation loop reads all pre-filled cells and adds their values to the corresponding rows[r], cols[c], and boxes[box] sets; without this, a candidate digit might not conflict with any BACKTRACKED placement but still conflict with a given — producing an invalid solution; the constraint sets must reflect ALL placements (given and backtracked) for correct conflict detection."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M5-L2-SY-1",
+            "question": "In `solveSudoku`, the backtrack function finds the first empty cell by scanning row by row with nested for-loops AND immediately processes it. What happens when NO empty cell is found (all cells are filled)?",
+            "options": [
+              "The function throws an error when no empty cell is found",
+              "When the scan completes without finding an empty cell (both for-loops exhaust without returning), execution FALLS THROUGH the loops and reaches `return true` at the end — this is the BASE CASE: no empty cell means the board is completely and validly filled; the function returns true, which propagates upward via the `if (backtrack()) return true` chain",
+              "The function returns false when no empty cell is found",
+              "The scan loops indefinitely until an empty cell appears"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's comment: 'Return true when no empty cell found: base case = solution complete' — the nested for-loops scan every cell; if all are filled (no `continue` statements triggered, no `return false`), the loops complete naturally and execution reaches `return true` at the function's end; this is the cleanly designed base case for the Sudoku search."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M5-L2-CC-1",
+            "title": "Sudoku Solver",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement Sudoku Solver from this lesson.",
+            "requirements": [
+              "Implement `solveSudokuImpl(board)` matching the lesson's three-constraint-set backtracking (modifies board in-place)",
+              "Implement `boxIndex(r, c)` returning the 0-8 box index for a given cell"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function boxIndex(r, c) {\n  // TODO: box formula from lesson\n}\n\nfunction solveSudokuImpl(board) {\n  // TODO: initialise constraint sets from givens, then backtrack\n}"
+            },
+            "test_cases": [
+              {
+                "input": "boxIndex(0, 0)",
+                "expected": 0,
+                "type": "visible"
+              },
+              {
+                "input": "boxIndex(0, 3)",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "boxIndex(6, 6)",
+                "expected": 8,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const b=[['5','3','.','.','7','.','.','.','.'],['6','.','.','1','9','5','.','.','.'],['.','9','8','.','.','.','.','6','.'],['8','.','.','.','6','.','.','.','3'],['4','.','.','8','.','3','.','.','1'],['7','.','.','.','2','.','.','.','6'],['.','6','.','.','.','.','2','8','.'],['.','.','.','4','1','9','.','.','5'],['.','.','.','.','8','.','.','7','9']]; solveSudokuImpl(b); return b[0][2]; })()",
+                "expected": "4",
+                "type": "hidden"
+              },
+              {
+                "input": "boxIndex(4, 4)",
+                "expected": 4,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function boxIndex(r, c) {\n  return Math.floor(r/3)*3 + Math.floor(c/3);\n}\n\nfunction solveSudokuImpl(board) {\n  const rows = Array.from({length:9},()=>new Set());\n  const cols = Array.from({length:9},()=>new Set());\n  const boxes = Array.from({length:9},()=>new Set());\n  for (let r=0;r<9;r++) for (let c=0;c<9;c++) {\n    if (board[r][c]!=='.') {\n      const d=board[r][c], box=boxIndex(r,c);\n      rows[r].add(d); cols[c].add(d); boxes[box].add(d);\n    }\n  }\n  function backtrack() {\n    for (let r=0;r<9;r++) for (let c=0;c<9;c++) {\n      if (board[r][c]!=='.') continue;\n      const box=boxIndex(r,c);\n      for (let d=1;d<=9;d++) {\n        const digit=String(d);\n        if (rows[r].has(digit)||cols[c].has(digit)||boxes[box].has(digit)) continue;\n        board[r][c]=digit; rows[r].add(digit); cols[c].add(digit); boxes[box].add(digit);\n        if (backtrack()) return true;\n        board[r][c]='.'; rows[r].delete(digit); cols[c].delete(digit); boxes[box].delete(digit);\n      }\n      return false;\n    }\n    return true;\n  }\n  backtrack();\n}"
+            },
+            "complexity_analysis": "O(9^empty_cells) worst case, O(1) per constraint check. In practice, pruning reduces this dramatically.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "boxIndex: Math.floor(r/3)*3 + Math.floor(c/3) — maps each cell to its 3×3 box index 0-8."
+              },
+              {
+                "level": 2,
+                "text": "Initialise rows/cols/boxes sets from given digits before backtracking; skip pre-filled cells with !== '.'."
+              },
+              {
+                "level": 3,
+                "text": "backtrack: find first empty cell; try digits 1-9; place+recurse; if recurse returns true propagate true; else restore and try next digit; return false if no digit works; return true when no empty cell found."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 3,
+      "title": "Word Search I And II",
+      "tag": "UPDATED",
+      "objective": "Solve Word Search I using 4-directional DFS with in-place visited marking, and Word Search II using a Trie to prune dead-end paths across all words simultaneously.",
+      "concepts": [
+        "Word Search I: find if a single word exists as a connected path in a grid",
+        "DFS from each starting cell matching word[0]",
+        "In-place visited marking: temporarily replace char with '#'",
+        "4-directional expansion with bounds checking",
+        "Restore character on backtrack",
+        "O(m*n*4^L) time where L = word length",
+        "Word Search II: find all words from a list existing in the grid",
+        "Trie optimisation: prune paths that don't match any word prefix"
+      ],
+      "explanation": "Word Search I (#79): determine if a word exists in a 2D character grid, where characters must be connected horizontally or vertically. The backtracking: for each cell matching word[0], start a DFS. At each step, check if the current cell matches the current character in the word. If yes, temporarily mark the cell as visited (replace with '#' in-place), recurse in all 4 directions for the next character, then restore the cell. If all characters matched (index == word.length), return true. The in-place marking prevents revisiting cells within the same path without using extra memory. Word Search II (#212, from Module 8): find all words from a list. The naive approach runs Word Search I for each word: O(W * m*n * 4^L). The Trie optimisation: insert all words into a Trie, then run a single grid DFS. At each cell, check if the current character is a child in the Trie node. If yes, continue. If no, prune immediately. When a Trie node marks isEnd, record the word found. Remove found words from the Trie to avoid duplicates.",
+      "analogy": "Word Search I is like a letter snake: you start at a matching cell and try to extend the snake to spell the word, never reusing a cell. If you hit a dead end, retract the snake's tail to the last branch point and try a different direction. Word Search II is like running multiple snakes simultaneously — one for each word. The Trie is a shared prefix map: any path that does not match any word's prefix gets pruned immediately, preventing redundant exploration.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// WORD SEARCH I (#79) — O(m*n*4^L) time, O(L) space\nfunction exist(board, word) {\n    const m = board.length, n = board[0].length;\n    const DIRS = [[0,1],[0,-1],[1,0],[-1,0]];\n\n    function dfs(r, c, idx) {\n        if (idx === word.length) return true; // all chars matched\n        if (r < 0 || r >= m || c < 0 || c >= n) return false;\n        if (board[r][c] !== word[idx]) return false; // char mismatch\n\n        const temp = board[r][c];\n        board[r][c] = '#'; // mark visited in-place\n\n        for (const [dr, dc] of DIRS) {\n            if (dfs(r+dr, c+dc, idx+1)) {\n                board[r][c] = temp; // restore before returning true\n                return true;\n            }\n        }\n        board[r][c] = temp; // restore on failure\n        return false;\n    }\n\n    for (let r = 0; r < m; r++)\n        for (let c = 0; c < n; c++)\n            if (dfs(r, c, 0)) return true;\n    return false;\n}\n\nconsole.log(exist([['A','B','C','E'],['S','F','C','S'],['A','D','E','E']], 'ABCCED')); // true\nconsole.log(exist([['A','B','C','E'],['S','F','C','S'],['A','D','E','E']], 'SEE'));    // true\nconsole.log(exist([['A','B','C','E'],['S','F','C','S'],['A','D','E','E']], 'ABCB'));   // false\n\n// WORD SEARCH II (#212) — Trie + backtracking O(m*n*4^L) amortised\n// (Same as Module 8 Lesson 9, shown here for context)\nfunction findWords(board, words) {\n    // Build Trie\n    const root = {};\n    for (const word of words) {\n        let node = root;\n        for (const c of word) {\n            if (!node[c]) node[c] = {};\n            node = node[c];\n        }\n        node['$'] = word; // store word at end marker\n    }\n\n    const m = board.length, n = board[0].length;\n    const result = [];\n    const DIRS = [[0,1],[0,-1],[1,0],[-1,0]];\n\n    function dfs(r, c, node) {\n        const char = board[r][c];\n        if (!node[char]) return; // no word with this prefix: prune\n        const next = node[char];\n        if (next['$']) {\n            result.push(next['$']); // found a word\n            delete next['$'];       // remove to avoid duplicates\n        }\n        board[r][c] = '#'; // mark visited\n        for (const [dr,dc] of DIRS) {\n            const nr=r+dr, nc=c+dc;\n            if (nr>=0&&nr<m&&nc>=0&&nc<n&&board[nr][nc]!=='#')\n                dfs(nr, nc, next);\n        }\n        board[r][c] = char; // restore\n        // Prune: remove empty Trie nodes to reduce future work\n        if (Object.keys(next).length === 0) delete node[char];\n    }\n\n    for (let r=0;r<m;r++)\n        for (let c=0;c<n;c++)\n            dfs(r, c, root);\n    return result;\n}",
+        "explanation": "The early return in Word Search I (board[r][c] = temp; return true) is crucial: once a valid path is found, restore the modified cell and propagate true upward without exploring other directions. Without the restore before return, the board would be corrupted for any subsequent calls. Restoring on both success and failure ensures the board is always in its original state after each top-level call."
+      },
+      "common_mistakes": [
+        "Not restoring the cell on the true return path — if the restore only happens on failure and not on success, the board is left modified after finding the word; any subsequent test call to exist on the same board would see corrupted state",
+        "Checking bounds after accessing board[r][c] instead of before — accessing board[r][c] with out-of-bounds r or c causes a runtime error; always check bounds before character comparison",
+        "Not removing found words from the Trie in Word Search II — without deletion, the same word can be added to results multiple times if it appears at different starting cells"
+      ],
+      "interview_relevance": "Word Search (#79) is NeetCode 150 and a classic medium-hard backtracking problem. Word Search II (#212) is Blind 75 and hard. The in-place visited marking technique (avoid extra O(m*n) space) is specifically evaluated in Word Search I. The Trie pruning explanation for Word Search II demonstrates the ability to combine two data structures for an efficiency improvement.",
+      "mini_challenge": "Implement exist and verify all three test cases. For the word 'ABCB', trace the DFS tree and show exactly where backtracking occurs. Then implement a version that does NOT use in-place marking but instead passes a Set of visited coordinates. Compare the space complexity: in-place is O(L) (call stack) vs set-based is O(m*n) (all cells potentially in set). Then verify findWords with the test case from Module 8.",
+      "flashcards": [
+        {
+          "front": "Word Search I: in-place visited marking — how?",
+          "back": "board[r][c] = '#' before recursing. Restores board[r][c] = temp after (both on success and failure). '#' marks the cell as visited within this path. O(1) mark and restore, O(0) extra space vs O(m×n) separate visited set."
+        },
+        {
+          "front": "Word Search I: correct order of checks in dfs(r, c, idx)?",
+          "back": "1) if idx==word.length: return true (all chars matched). 2) Bounds check (r<0 etc). 3) board[r][c] != word[idx] (char mismatch). 4) Mark '#'. 5) Try 4 directions. 6) Restore. Return result. Idx check FIRST to handle single-char words correctly."
+        },
+        {
+          "front": "Word Search I: why restore the cell BEFORE returning true?",
+          "back": "If the cell is not restored on the true path, the board is left with '#' characters. Subsequent top-level calls to exist() on the same board would see corrupted cells. Restore on BOTH success and failure: board[r][c] = temp before any return."
+        },
+        {
+          "front": "Word Search II: Trie pruning — what does it eliminate?",
+          "back": "When board[r][c] has no child in the current Trie node → no word in the dictionary has this prefix → return immediately. This prunes entire subtrees of the DFS. Without Trie, each word requires a full separate grid DFS. With Trie, one DFS serves all words simultaneously."
+        },
+        {
+          "front": "Word Search II: two pruning optimisations in the Trie approach?",
+          "back": "1) Remove isEnd marker after finding a word (prevents duplicates). 2) Remove empty Trie nodes after DFS (dead branches don't slow future searches). Both are O(1) operations that progressively shrink the Trie."
+        },
+        {
+          "front": "Word Search I time complexity?",
+          "back": "O(m×n × 4^L) where L=word.length. For each of m×n starting cells, DFS explores at most 4^L paths (4 directions, L levels deep). In practice far less due to early mismatch pruning."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Word Search I: board=[['A','B'],['C','D']], word='ABDC'. True or false?",
+          "options": [
+            "True — A→B→D→C exists",
+            "False — B and D are not adjacent",
+            "True — all chars present",
+            "False — A is not adjacent to D"
+          ],
+          "answer": 0,
+          "explanation": "A(0,0)→B(0,1): adjacent (right). B(0,1)→D(1,1): adjacent (down). D(1,1)→C(1,0): adjacent (left). All connections valid. 'ABDC' exists. True."
+        },
+        {
+          "question": "Word Search I: word='ABCB' in the standard test board. Why does it return false?",
+          "options": [
+            "B doesn't appear twice",
+            "After A→B→C, returning to B requires revisiting B (already marked '#')",
+            "ABCB is not a valid word",
+            "C is not adjacent to B"
+          ],
+          "answer": 1,
+          "explanation": "Path A(0,0)→B(0,1)→C(0,2)→B: the last B would be at (0,1) which was already used and marked '#'. board[0][1]='#'≠'B' → mismatch. No other B is adjacent to C. Returns false."
+        },
+        {
+          "question": "In Word Search I dfs(), after board[r][c]='#' and the recursion, what MUST happen regardless of the result?",
+          "options": [
+            "board[r][c]=temp only if recursion returns false",
+            "board[r][c]=temp always — on both true and false return",
+            "Leave board modified — it's temporary",
+            "board[r][c]=temp only if recursion returns true"
+          ],
+          "answer": 1,
+          "explanation": "ALWAYS restore board[r][c]=temp. On failure: restore so other paths can use this cell. On success: restore so the board is clean for any subsequent exist() calls. The code must restore before any return statement."
+        },
+        {
+          "question": "Word Search II: after finding word 'oath', what is deleted from the Trie?",
+          "options": [
+            "The entire 'o-a-t-h' path",
+            "The isEnd marker (or '$' marker) at the 'h' node only",
+            "Nothing — the Trie is immutable",
+            "All four characters from the Trie"
+          ],
+          "answer": 1,
+          "explanation": "Only the end marker is removed (delete next['$']). The path o→a→t→h remains for other words that share the prefix. Removing the end marker prevents finding 'oath' a second time from a different starting cell."
+        }
+      ],
+      "visual_aid": {
+        "type": "dfs_trace",
+        "description": "Word Search I in-place marking traced for 'ABCCED'",
+        "diagram": "Board:           Word: 'ABCCED'\n  A B C E\n  S F C S\n  A D E E\n\nDFS from (0,0)='A', idx=0:\n  Match A. Mark (0,0)='#'. Try 4 dirs.\n    DFS (0,1)='B', idx=1:\n      Match B. Mark (0,1)='#'. Try 4 dirs.\n        DFS (0,2)='C', idx=2:\n          Match C. Mark (0,2)='#'. Try 4 dirs.\n            DFS (1,2)='C', idx=3:\n              Match C. Mark (1,2)='#'. Try 4 dirs.\n                DFS (2,2)='E', idx=4:\n                  Match E. Mark (2,2)='#'. Try 4 dirs.\n                    DFS (2,1)='D', idx=5:\n                      Match D. idx+1=6=word.length → return TRUE!\n                    Restore (2,2)='E'\n                  → return true propagates up\n                Restore (1,2)='C'\n              → return true\n            Restore (0,2)='C'\n          → return true\n        Restore (0,1)='B'\n      → return true\n    Restore (0,0)='A'\n  → return true\nResult: true ✓\n\nKEY: board restored to original state before returning true"
+      },
+      "complexity_summary": {
+        "word_search_I_time": "O(m×n × 4^L)",
+        "word_search_I_space": "O(L) call stack, O(0) extra (in-place marking)",
+        "word_search_II_time": "O(m×n × 4^L) amortised with Trie pruning",
+        "word_search_II_space": "O(total_chars) for Trie + O(L) stack"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-79",
+          "title": "Word Search",
+          "difficulty": "Medium",
+          "pattern": "DFS + in-place '#' marking + restore on both paths",
+          "blind75": true
+        },
+        {
+          "id": "lc-212",
+          "title": "Word Search II",
+          "difficulty": "Hard",
+          "pattern": "Trie + grid backtracking + two prunings",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M5-L3-TH-1",
+            "question": "In Word Search I, `board[r][c] = '#'` marks a cell as visited BEFORE recursing, then restores it AFTER. Why is this IN-PLACE marking preferable to maintaining a separate `visited` 2D boolean array?",
+            "options": [
+              "In-place marking is required because JavaScript doesn't support 2D boolean arrays",
+              "In-place marking saves O(m*n) SPACE for the visited array — the board itself serves as the visited tracker, reusing existing memory; crucially, `board[r][c] = temp` (restore on backtrack) undoes the mark so different DFS paths from other starting cells see the original board state; a separate visited array would also work but requires O(m*n) additional memory and two array accesses per cell instead of one",
+              "In-place marking is mandatory to achieve O(4^L) time complexity",
+              "The board must be modified in-place because the function returns void"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'In-place visited marking: temporarily replace char with \"#\"' — the '#' character is chosen because it can never appear in valid word characters, making it an unambiguous visited sentinel; restoring on backtrack ensures other DFS paths from different starting positions see the original board."
+          },
+          {
+            "id": "L2M5-L3-TH-2",
+            "question": "In Word Search II, why does `delete next['$']` after finding a word prevent DUPLICATES, and why does pruning empty Trie nodes `delete node[char]` improve future performance?",
+            "options": [
+              "delete next['$'] removes the word from the board; deleting nodes removes cells",
+              "`delete next['$']` prevents the SAME WORD from being added to results multiple times if the word appears in the grid via different paths (e.g., if 'abc' can be traced starting from two different cells, the second encounter finds no '$' and doesn't add it again); `delete node[char]` when `Object.keys(next).length === 0` removes a Trie subtree with no more words — future DFS calls that would reach this node find no children and terminate immediately, pruning dead-end paths without traversing them",
+              "delete prevents memory leaks in JavaScript's garbage collector",
+              "Both deletes are correctness requirements; without them the algorithm crashes"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's comments: 'remove to avoid duplicates' (after finding a word) and 'Prune: remove empty Trie nodes to reduce future work' — the two deletions serve different purposes: deduplication (same word found via multiple paths) and performance pruning (eliminate Trie subtrees that have no more words to find, reducing future DFS work)."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M5-L3-LG-1",
+            "question": "For `exist(board, 'ABCB')` on the 3×4 board, the answer is false. Why can't 'ABCB' be found even though all four letters exist on the board?",
+            "options": [
+              "'ABCB' cannot be found because 'B' appears only once in the board",
+              "'ABCB' requires visiting 'B' TWICE (at the end) in a connected path, but each cell can only be used once per path; after tracing A(0,0)→B(0,1)→C(0,2), the only reachable 'B' would be (0,1) which is already marked '#' (visited); the other 'B' at (1,2)... wait — 'B' is at (0,1) only; after using B at (0,1), no adjacent 'B' is reachable for the 4th character; confirmed by direct execution returning false",
+              "'ABCB' could be found but the algorithm has a bug",
+              "The board doesn't contain enough 'B' cells for any valid path"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: exist(board,'ABCB')=false; tracing A(0,0)→B(0,1)→C(0,2)→? needs 'B' adjacent to (0,2); neighbors are (0,1)='#' (visited) and (0,3)='E', (1,2)='C'; no 'B' is reachable as the 4th character without revisiting an already-marked cell."
+          },
+          {
+            "id": "L2M5-L3-LG-2",
+            "question": "In Word Search I's `dfs`, the character is restored to `temp` in TWO PLACES — both on success and on failure. Why must restoration happen BOTH when a match is found AND when no match is found?",
+            "options": [
+              "Restoration is only needed on failure; success returns immediately without needing to restore",
+              "Restoration on SUCCESS: even though the recursive call succeeded, the outer calling frame (e.g., the top-level scan loop) might want to try OTHER starting positions after returning — the board must be in its original state for these other searches; restoration on FAILURE: obviously needed to undo the visited mark so sibling recursive calls (other directions from the parent) see the correct board state; both cases require restoration to leave the board unchanged after the DFS",
+              "Only one restoration is needed; duplicating it is a coding style choice",
+              "Restoration happens automatically via JavaScript's garbage collection"
+            ],
+            "answer": 1,
+            "explanation": "The two restoration points handle the two exit paths of the DFS: (1) success path: `board[r][c] = temp; return true` — restoration before returning ensures the board is clean for any subsequent processing; (2) failure path (after loop): `board[r][c] = temp; return false` — restores so parent/sibling calls work correctly; the board must always be in its pre-DFS state after any dfs call returns."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M5-L3-SY-1",
+            "question": "In Word Search II, the Trie uses `node['$'] = word` (storing the actual word string) rather than `node['$'] = true`. What advantage does storing the word provide?",
+            "options": [
+              "Storing the string prevents hash collisions in the Trie object",
+              "When a word is found (base case), `result.push(next['$'])` immediately retrieves the COMPLETE WORD STRING without needing to reconstruct it from the DFS path; this is O(1) retrieval vs O(L) path reconstruction; it also enables `delete next['$']` to effectively de-register the word from future searches without losing any other information; storing `true` would require separately tracking which word was found or reconstructing it from the board path",
+              "JavaScript objects require string values for end-of-word markers",
+              "Storing the string enables the Trie to be used as a hash map for O(1) word lookup"
+            ],
+            "answer": 1,
+            "explanation": "The word-in-node pattern is a standard Trie optimization for Word Search II: it avoids path reconstruction (which requires traversing back up the DFS stack or maintaining a separate string variable); when the '$' marker is found, `next['$']` immediately provides the word; `delete next['$']` prevents future duplicate additions of the same word."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M5-L3-CC-1",
+            "title": "Word Search I and II",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both Word Search variants from this lesson.",
+            "requirements": [
+              "Implement `existImpl(board, word)` matching the lesson's in-place '#' marking with 4-directional DFS",
+              "Implement `findWordsImpl(board, words)` matching the lesson's Trie + backtracking with deduplication and pruning"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function existImpl(board, word) {\n  // TODO: in-place '#' mark, DFS, restore on backtrack\n}\n\nfunction findWordsImpl(board, words) {\n  // TODO: build Trie with '$' end markers storing word; DFS with Trie; prune empty nodes\n}"
+            },
+            "test_cases": [
+              {
+                "input": "existImpl([['A','B','C','E'],['S','F','C','S'],['A','D','E','E']], 'ABCCED')",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "existImpl([['A','B','C','E'],['S','F','C','S'],['A','D','E','E']], 'ABCB')",
+                "expected": false,
+                "type": "visible"
+              },
+              {
+                "input": "findWordsImpl([['o','a','a','n'],['e','t','a','e'],['i','h','k','r'],['i','f','l','v']], ['oath','pea','eat','rain']).sort().toString()",
+                "expected": "eat,oath",
+                "type": "visible"
+              },
+              {
+                "input": "existImpl([['a']], 'a')",
+                "expected": true,
+                "type": "hidden"
+              },
+              {
+                "input": "findWordsImpl([['a','b'],['c','d']], ['abdc','abcd']).sort().toString()",
+                "expected": "abdc",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function existImpl(board, word) {\n  const m=board.length, n=board[0].length;\n  const DIRS=[[0,1],[0,-1],[1,0],[-1,0]];\n  function dfs(r,c,idx){\n    if(idx===word.length) return true;\n    if(r<0||r>=m||c<0||c>=n) return false;\n    if(board[r][c]!==word[idx]) return false;\n    const tmp=board[r][c]; board[r][c]='#';\n    for(const[dr,dc]of DIRS) if(dfs(r+dr,c+dc,idx+1)){board[r][c]=tmp;return true;}\n    board[r][c]=tmp; return false;\n  }\n  for(let r=0;r<m;r++) for(let c=0;c<n;c++) if(dfs(r,c,0)) return true;\n  return false;\n}\n\nfunction findWordsImpl(board, words) {\n  const root={};\n  for(const word of words){\n    let node=root;\n    for(const c of word){if(!node[c])node[c]={};node=node[c];}\n    node['$']=word;\n  }\n  const m=board.length, n=board[0].length, result=[];\n  const DIRS=[[0,1],[0,-1],[1,0],[-1,0]];\n  function dfs(r,c,node){\n    const char=board[r][c];\n    if(!node[char]) return;\n    const next=node[char];\n    if(next['$']){result.push(next['$']);delete next['$'];}\n    board[r][c]='#';\n    for(const[dr,dc]of DIRS){\n      const nr=r+dr,nc=c+dc;\n      if(nr>=0&&nr<m&&nc>=0&&nc<n&&board[nr][nc]!=='#') dfs(nr,nc,next);\n    }\n    board[r][c]=char;\n    if(Object.keys(next).length===0) delete node[char];\n  }\n  for(let r=0;r<m;r++) for(let c=0;c<n;c++) dfs(r,c,root);\n  return result;\n}"
+            },
+            "complexity_analysis": "existImpl: O(m*n*4^L) time, O(L) space. findWordsImpl: O(m*n*4^L + W*L) time amortised with Trie pruning, O(W*L) space for Trie.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "existImpl: dfs returns true/false; mark '#' before recursing, restore temp after; outer loop tries all starting cells."
+              },
+              {
+                "level": 2,
+                "text": "findWordsImpl: build Trie storing word string at '$' node; dfs checks node[char] for Trie match; delete '$' after adding to prevent duplicates."
+              },
+              {
+                "level": 3,
+                "text": "findWordsImpl pruning: after restoring char, if Object.keys(next).length===0, delete node[char] to prune empty Trie subtrees."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 4,
+      "title": "Expression Add Operators",
+      "tag": "UPDATED",
+      "objective": "Solve Expression Add Operators by passing the running total and last operand to correctly handle multiplication's precedence over addition and subtraction.",
+      "concepts": [
+        "Problem: insert +, -, * between digits to reach target",
+        "Backtracking: try splitting the num string at every position",
+        "Running total: current value of the expression so far",
+        "Last operand: needed to undo multiplication for higher-precedence operators",
+        "Multiplication precedence: subtract last, multiply, re-add",
+        "Avoid leading zeros: multi-digit numbers cannot start with '0'",
+        "O(4^n * n) time: 3 operators at each of n positions, O(n) string work",
+        "Path is a string built character by character"
+      ],
+      "explanation": "Expression Add Operators (#282) inserts +, -, * between digits of a string to produce a given target. The backtracking tries every possible split position and every operator. The critical challenge: multiplication has higher precedence than addition and subtraction. When you encounter a * operator, you cannot simply add the product to the running total because the running total already absorbed the last operand with a different operator. The solution: track the last operand used. When applying *, undo the last operand's contribution to total (total - last), then add the product of last * current (total - last + last * current). This correctly recalculates the expression left-to-right while respecting multiplication precedence. Leading zeros: a number like '05' is not valid (only '0' itself or numbers starting with '1'-'9'). Check: if the current number's first digit is '0' and its length > 1, skip.",
+      "analogy": "Expression Add Operators is like a calculator that processes operators left to right. When you hit a multiplication sign, you need to 'undo' the addition of the last number and instead multiply it by the current number. The running total is your calculator display. The last operand is the number on the stack waiting to be multiplied if a * appears next. Without tracking the last operand, you cannot correctly handle multiplication priority.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// EXPRESSION ADD OPERATORS (#282)\n// O(4^n * n) time, O(n) space (call stack + expression string)\nfunction addOperators(num, target) {\n    const result = [];\n\n    // path: expression string built so far\n    // total: current computed value of expression\n    // last: the last operand (for undoing when * appears)\n    function backtrack(index, path, total, last) {\n        if (index === num.length) {\n            if (total === target) result.push(path);\n            return;\n        }\n\n        for (let end = index + 1; end <= num.length; end++) {\n            const str = num.slice(index, end);\n            // LEADING ZERO CHECK: '05' is invalid (only '0' itself is ok)\n            if (str.length > 1 && str[0] === '0') break;\n\n            const curr = Number(str);\n\n            if (index === 0) {\n                // First number: no operator, just set up state\n                backtrack(end, str, curr, curr);\n            } else {\n                // ADDITION: total + curr\n                backtrack(end, path + '+' + str, total + curr, curr);\n\n                // SUBTRACTION: total - curr (last is -curr for future * handling)\n                backtrack(end, path + '-' + str, total - curr, -curr);\n\n                // MULTIPLICATION: undo last, add last*curr\n                // total - last + last*curr\n                backtrack(end, path + '*' + str, total - last + last * curr, last * curr);\n            }\n        }\n    }\n    backtrack(0, '', 0, 0);\n    return result;\n}\n\nconsole.log(addOperators('123', 6));  // ['1+2+3', '1*2*3']\nconsole.log(addOperators('232', 8));  // ['2*3+2', '2+3*2']\nconsole.log(addOperators('105', 5));  // ['1*0+5', '10-5']\nconsole.log(addOperators('00', 0));   // ['0+0', '0-0', '0*0']\n\n// MULTIPLICATION PRECEDENCE PROOF:\n// Expression: 1 + 2 * 3\n// After processing '1+2': total=3, last=2\n// Now process '*3': total = 3 - 2 + 2*3 = 3 - 2 + 6 = 7\n// Verify: 1 + 2*3 = 1 + 6 = 7 ✓\n//\n// Expression: 1 - 2 * 3\n// After processing '1-2': total=-1, last=-2 (note: last is -2 for subtraction)\n// Now process '*3': total = -1 - (-2) + (-2)*3 = -1 + 2 - 6 = -5\n// Verify: 1 - 2*3 = 1 - 6 = -5 ✓",
+        "explanation": "Tracking last as -curr for subtraction is the subtle but correct approach: when a future * is applied, total - last + last * curr correctly computes the precedence. For example, after 1-2, total=-1 and last=-2. For *3: total - last + last*3 = -1-(-2)+(-2*3) = -1+2-6 = -5, which is 1-2*3 = 1-6 = -5. The negation of last for subtraction handles this automatically."
+      },
+      "common_mistakes": [
+        "Not tracking the last operand for multiplication — without last, you cannot undo the previous operand's contribution to total when a * operator appears; total + last*curr would be wrong because it does not account for the previous operator that combined last with total",
+        "Not handling leading zeros — the number '05' is not a valid integer in expression contexts; if str[0] === '0' and str.length > 1, use break (not continue) since extending further would only make more leading-zero numbers",
+        "Using the wrong sign for last in subtraction — when the previous operator was -, last must be stored as -curr (the negated value); this allows future * operations to correctly undo and redo the multiplication with the right sign"
+      ],
+      "interview_relevance": "Expression Add Operators (#282) is NeetCode 150 and a hard backtracking problem that appears at Google and Meta. The multiplication precedence trick (tracking last operand) is the key technical insight. This problem is used to distinguish candidates who understand operator precedence in recursive expression evaluation from those who know only the basic backtracking template.",
+      "mini_challenge": "Implement addOperators and verify all four test cases. Trace the backtracking for '123' target=6 manually: show the path, total, and last at each recursive call that leads to '1*2*3'. Verify the multiplication precedence formula: starting from total=0, last=0 after '1', then processing '2' with *, then '3' with *. At each step verify total matches the correct expression value.",
+      "flashcards": [
+        {
+          "front": "Expression Add Operators: what state is passed down on each recursive call?",
+          "back": "index (current position in num string), path (expression built so far), total (current computed value), last (value of the last operand — needed for multiplication precedence undo)."
+        },
+        {
+          "front": "Expression Add Operators: multiplication precedence formula?",
+          "back": "When applying * with current operand curr: new_total = total - last + last*curr. This undoes last's previous contribution (total-last) and re-adds it multiplied by curr (last*curr). Works correctly whether the previous operator was + or -."
+        },
+        {
+          "front": "Expression Add Operators: subtraction — how is last stored?",
+          "back": "For 'path - curr': last = -curr (negated). This ensures future multiplication correctly handles: total - last + last*curr = (total+curr) - (-curr) + (-curr)*curr = total+curr+curr-curr² ... actually: the key is last=-curr so total - last = total-(-curr) = total+curr, then +(−curr)×future handles chained multiplication."
+        },
+        {
+          "front": "Expression Add Operators: leading zero rule?",
+          "back": "If the current number string str has length > 1 AND starts with '0' → BREAK (not continue). Breaking is correct because extending further (str='05', '056'...) only produces more leading-zero numbers. A single '0' is valid."
+        },
+        {
+          "front": "Expression Add Operators: first number special case?",
+          "back": "When index==0, there is no preceding operator — just set the initial state: backtrack(end, str, curr, curr). No +/-/* applied; curr itself is both the total and the last operand."
+        },
+        {
+          "front": "Expression Add Operators: why break (not continue) on leading zero?",
+          "back": "The inner for loop extends the current number one character at a time. Once str[0]='0' and str.length>1, any further extension (str+'x') still has a leading zero. Break exits the loop; continue would only skip this end position and try a longer number with the same leading zero."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "For expression '1+2*3', after processing '1+2': total=3, last=2. Applying '*3': new total=?",
+          "options": [
+            "9 (3*3)",
+            "7 (1+2*3=7)",
+            "5 (3-2+6=7)",
+            "6"
+          ],
+          "answer": 1,
+          "explanation": "new_total = total - last + last*curr = 3 - 2 + 2*3 = 3 - 2 + 6 = 7. Correct: 1+2*3 = 1+6 = 7 ✓. The formula undoes the +2 contribution and replaces it with +2*3."
+        },
+        {
+          "question": "For expression '1-2*3', after '1-2': total=-1, last=-2. Applying '*3': new total=?",
+          "options": [
+            "-5",
+            "-3",
+            "7",
+            "1"
+          ],
+          "answer": 0,
+          "explanation": "new_total = total - last + last*curr = -1 - (-2) + (-2)*3 = -1+2-6 = -5. Correct: 1-2*3 = 1-6 = -5 ✓. last is stored as -2 for subtraction."
+        },
+        {
+          "question": "addOperators('105', 5): why is '10-5' a valid expression and '1+05' invalid?",
+          "options": [
+            "'1+05' is valid but suboptimal",
+            "'1+05' has a leading zero in '05' — invalid",
+            "'+' operator doesn't work with multi-digit numbers",
+            "Both are invalid"
+          ],
+          "answer": 1,
+          "explanation": "'05' starts with '0' and has length>1 → leading zero → invalid number. '1+05' is rejected. '10-5'=5 is valid: '10' has no leading zero (starts with '1'). '1*0+5'=5 is also valid."
+        },
+        {
+          "question": "addOperators('123', 6): how many valid expressions?",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "answer": 1,
+          "explanation": "'1+2+3'=6 ✓ and '1*2*3'=6 ✓. Two valid expressions. '1*23'=23≠6, '12+3'=15≠6, etc. Answer: ['1+2+3','1*2*3']."
+        }
+      ],
+      "visual_aid": {
+        "type": "expression_trace",
+        "description": "Expression Add Operators multiplication precedence traced",
+        "diagram": "addOperators('123', 6) — path to '1*2*3':\n\nbacktrack(0, '', 0, 0):\n  end=1: str='1'. index==0 (first number).\n    backtrack(1, '1', total=1, last=1):\n      end=2: str='2'. Try operators:\n        '+': backtrack(2, '1+2', total=3, last=2)\n        '-': backtrack(2, '1-2', total=-1, last=-2)\n        '*': backtrack(2, '1*2', total=0-0+0*2? No:\n             total = 0 - last + last*curr\n             Wait: previous call had total=1, last=1\n             Multiply: total=1-1+1*2=2, last=1*2=2\n             backtrack(3, '1*2', total=2, last=2):\n               end=4: str='3'. Try operators:\n                 '+': total=2+3=5 ≠ 6\n                 '-': total=2-3=-1 ≠ 6\n                 '*': total=2-2+2*3=6 ✓ last=6\n                   backtrack(4, '1*2*3', 6, 6):\n                     index=4=num.length, total=6=target\n                     RECORD '1*2*3' ✓\n\nMULTIPLICATION FORMULA CHECK:\n  After '1*2': total=2, last=2\n  Apply '*3': total = 2 - 2 + 2*3 = 2-2+6 = 6 ✓\n  Equivalent to: 1*2*3 = 6 ✓"
+      },
+      "complexity_summary": {
+        "time": "O(4^n × n) — 3 operators at each of n-1 positions, O(n) string work per call",
+        "space": "O(n) call stack + O(n) path string",
+        "key_insight": "Track (total, last) to handle multiplication precedence without eval()",
+        "subtraction_last": "last = -curr for subtraction so future * correctly undoes and re-adds"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-282",
+          "title": "Expression Add Operators",
+          "difficulty": "Hard",
+          "pattern": "Backtracking — (total, last) state for multiplication precedence"
+        },
+        {
+          "id": "lc-241",
+          "title": "Different Ways to Add Parentheses",
+          "difficulty": "Medium",
+          "pattern": "Divide and conquer on operator positions — related expression problem"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M5-L4-TH-1",
+            "question": "In Expression Add Operators, why is `last` (the last operand) passed as a parameter? What does it enable for MULTIPLICATION?",
+            "options": [
+              "last tracks the position in the num string; it has nothing to do with multiplication",
+              "`last` enables CORRECT MULTIPLICATION PRECEDENCE: when processing a '*' operator, we cannot simply add `last * curr` to `total` because `last` was previously added or subtracted; we must UNDO the last operand's contribution and replace it: `total - last + last*curr`; for subtraction, `last` is stored as NEGATIVE (-curr) so the same formula works: undoing -x and adding -x*y correctly handles chained multiplications like `a - b * c`",
+              "last is a boolean flag indicating whether the previous operator was multiplication",
+              "last stores the expression string for display purposes"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept and proof: 'Multiplication precedence: subtract last, multiply, re-add' and the proof trace: 'After processing 1+2: total=3, last=2. Now *3: total=3-2+2*3=7. Verify: 1+2*3=7 ✓' — `last` carries the previous operand's value so multiplication can retroactively correct the running total."
+          },
+          {
+            "id": "L2M5-L4-TH-2",
+            "question": "What is the LEADING ZERO CHECK `if (str.length > 1 && str[0] === '0') break`, and why use BREAK instead of CONTINUE?",
+            "options": [
+              "Leading zeros are valid; the check is an optional optimization",
+              "A number like '05' is not a valid integer representation — the problem prohibits multi-digit numbers starting with '0' (only '0' itself is valid); the check ensures `str.length > 1 && str[0] === '0'` catches '05', '007', etc.; BREAK is used (not continue) because once a zero-leading prefix is found at position `index`, all LONGER substrings starting at `index` will ALSO start with '0' (since `str = num.slice(index, end)` and end only grows); no further extension is possible, so the entire inner loop can be abandoned",
+              "Leading zeros are only invalid for the last operand; earlier ones are fine",
+              "break exits both the inner and outer backtracking, terminating the search"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: \"Avoid leading zeros: multi-digit numbers cannot start with '0'\" — the break is correct because once `num[index] === '0'`, extending `end` further only creates longer strings still starting with '0'; the break avoids trying '05', '056', '0567', etc. all at once rather than continue skipping each individually."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M5-L4-LG-1",
+            "question": "Trace the multiplication precedence for `1 - 2 * 3`. After processing '1-2': total=-1, last=-2. Processing '*3': what is the new total?",
+            "options": [
+              "total = -1 * 3 = -3",
+              "total = -1 - (-2) + (-2)*3 = -1 + 2 - 6 = -5; verify: 1 - 2*3 = 1 - 6 = -5 ✓; the formula `total - last + last*curr` with total=-1, last=-2, curr=3: -1-(-2)+(-2)*3 = -1+2-6 = -5 — note that last=-2 (stored as negative for the subtraction case), which correctly undoes the subtraction of 2 and applies multiplication",
+              "total = -1 + (-2)*3 = -7",
+              "total = (-1 + 2) * 3 = 3"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's proof: 'Expression: 1 - 2*3. After 1-2: total=-1, last=-2. Now *3: total=-1-(-2)+(-2)*3=-1+2-6=-5. Verify: 1-2*3=1-6=-5 ✓' — storing `last` as -curr for subtraction is the key: it allows the same `total - last + last*curr` formula to correctly undo the subtraction AND apply multiplication."
+          },
+          {
+            "id": "L2M5-L4-LG-2",
+            "question": "For `addOperators('105', target=5)`, the result is `['1*0+5','10-5']`. How does '10' appear as a multi-digit operand?",
+            "options": [
+              "'10' cannot appear because leading-zero checking would break at '10'",
+              "When index=0 and end=2, `str = num.slice(0,2) = '10'` — this is valid (doesn't start with '0', it starts with '1'); the inner loop at index=0 tries end=1 ('1'), end=2 ('10'), end=3 ('105'); '10' passes the leading-zero check (str[0]='1'!='0') and is treated as a legitimate operand; from '10', the remaining string '5' is processed with subtraction: 10-5=5=target, producing '10-5'",
+              "'10' is formed by concatenating two separate '1' and '0' operations",
+              "The leading-zero check skips '10' but the loop continues to find '105'"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: addOperators('105',5) returns ['1*0+5','10-5']; when index=0, end=2 produces str='10' which passes the check (starts with '1'); from state (index=2, path='10', total=10, last=10), adding '-' and remaining '5' gives total=10-5=5=target, producing '10-5'."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M5-L4-SY-1",
+            "question": "In `addOperators`, `if (index === 0)` handles the first number WITHOUT an operator. What state is passed to the recursive call `backtrack(end, str, curr, curr)`?",
+            "options": [
+              "index=0 always skips the first number and starts from index=1",
+              "For the first number (no leading operator): `path=str` (the number itself, no operator prefix), `total=curr` (the number's value is the entire expression value so far), `last=curr` (the number is also the last operand, stored for future multiplication use); this correctly seeds the state: subsequent operators build on total=curr and can use last=curr for multiplication precedence; passing last=curr (not 0 or 1) is critical for correct chained multiplication like '2*3' where last needs to be the actual prior operand",
+              "index===0 means the recursive call is skipped entirely",
+              "The first number's total is always 0 and last is always 1"
+            ],
+            "answer": 1,
+            "explanation": "The index===0 special case seeds the initial state: no operator prefix for path (just the number as a string), total=curr (number's value), last=curr (needed if the NEXT operator is '*'); if last were initialised to 0 or 1, `total - last + last*curr` for multiplication would be incorrect for the second operand; seeding with curr ensures all subsequent operations compute correctly."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M5-L4-CC-1",
+            "title": "Expression Add Operators",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement Expression Add Operators from this lesson.",
+            "requirements": [
+              "Implement `addOperatorsImpl(num, target)` matching the lesson's (total, last) state approach with leading-zero prevention"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function addOperatorsImpl(num, target) {\n  // TODO: backtrack(index, path, total, last)\n  // For * operator: total - last + last*curr; for -, store -curr as last\n}"
+            },
+            "test_cases": [
+              {
+                "input": "addOperatorsImpl('123', 6).sort().toString()",
+                "expected": "1*2*3,1+2+3",
+                "type": "visible"
+              },
+              {
+                "input": "addOperatorsImpl('232', 8).sort().toString()",
+                "expected": "2*3+2,2+3*2",
+                "type": "visible"
+              },
+              {
+                "input": "addOperatorsImpl('105', 5).sort().toString()",
+                "expected": "1*0+5,10-5",
+                "type": "visible"
+              },
+              {
+                "input": "addOperatorsImpl('00', 0).sort().toString()",
+                "expected": "0*0,0+0,0-0",
+                "type": "hidden"
+              },
+              {
+                "input": "addOperatorsImpl('3456237490', 9191).length",
+                "expected": 0,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function addOperatorsImpl(num, target) {\n  const result = [];\n  function backtrack(index, path, total, last) {\n    if (index === num.length) {\n      if (total === target) result.push(path);\n      return;\n    }\n    for (let end = index+1; end <= num.length; end++) {\n      const str = num.slice(index, end);\n      if (str.length > 1 && str[0] === '0') break;\n      const curr = Number(str);\n      if (index === 0) {\n        backtrack(end, str, curr, curr);\n      } else {\n        backtrack(end, path+'+'+str, total+curr, curr);\n        backtrack(end, path+'-'+str, total-curr, -curr);\n        backtrack(end, path+'*'+str, total-last+last*curr, last*curr);\n      }\n    }\n  }\n  backtrack(0, '', 0, 0);\n  return result;\n}"
+            },
+            "complexity_analysis": "O(4^n * n) time — at each position, try 3 operators × n positions; O(n) space for path string.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "The key insight: multiplication needs `last` to undo and redo: total-last+last*curr; for subtraction, store last=-curr so the same formula works."
+              },
+              {
+                "level": 2,
+                "text": "index===0: no operator; pass (end, str, curr, curr) as the first number's state."
+              },
+              {
+                "level": 3,
+                "text": "Leading zero break: if str.length>1 && str[0]==='0', break (not continue) — all longer extensions will also start with '0'."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 5,
+      "title": "Remove Invalid Parentheses",
+      "tag": "UPDATED",
+      "objective": "Solve Remove Invalid Parentheses using BFS to find all valid strings with the minimum number of removals, applying visited-set deduplication.",
+      "concepts": [
+        "BFS for minimum removals: first level with any valid string is the answer",
+        "Level-by-level BFS: try removing each character from current strings",
+        "Visited set: prevents processing the same string twice",
+        "Validity check: count open and close parens; never go negative",
+        "Stop expanding BFS once a valid string is found at current level",
+        "O(n * 2^n) time: at most 2^n strings, each check O(n)",
+        "DFS alternative with explicit count of min removals",
+        "Why BFS guarantees minimum removals: first valid level = minimum"
+      ],
+      "explanation": "Remove Invalid Parentheses (#301) removes the minimum number of invalid parentheses to make the string valid. The BFS approach: start with the original string in the queue. At each BFS level, generate all strings with one character removed. If any string is valid, collect all valid strings at this level and return them (do not expand further). BFS guarantees minimum removals because the first level at which valid strings appear has the fewest removals. A visited Set prevents processing the same string twice (many different removal sequences lead to the same string). Validity check: scan left to right counting open and close parentheses. If close count ever exceeds open count, the string is invalid. At the end, if open count is 0, the string is valid. Non-parenthesis characters are passed through unchanged.",
+      "analogy": "Remove Invalid Parentheses BFS is like removing broken tiles from a floor, one at a time, until the pattern is valid. You try removing each tile in turn and check if the result is valid. If any single-tile removal produces a valid floor, you have your answers and stop. If none do, try removing pairs of tiles and check again. BFS ensures you find the minimum number of tiles to remove.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// REMOVE INVALID PARENTHESES (#301) — BFS: O(n * 2^n)\nfunction removeInvalidParentheses(s) {\n    function isValid(str) {\n        let open = 0;\n        for (const c of str) {\n            if (c === '(') open++;\n            else if (c === ')') {\n                open--;\n                if (open < 0) return false; // close before open: invalid\n            }\n        }\n        return open === 0; // must have equal opens and closes\n    }\n\n    if (isValid(s)) return [s]; // already valid\n\n    const result = [];\n    const visited = new Set([s]);\n    let queue = [s];\n    let found = false;\n\n    while (queue.length && !found) {\n        const next = [];\n        for (const curr of queue) {\n            for (let i = 0; i < curr.length; i++) {\n                // Only try removing '(' or ')' (not letters)\n                if (curr[i] !== '(' && curr[i] !== ')') continue;\n                const candidate = curr.slice(0, i) + curr.slice(i + 1);\n                if (visited.has(candidate)) continue;\n                visited.add(candidate);\n                if (isValid(candidate)) {\n                    result.push(candidate);\n                    found = true; // mark: stop expanding at next level\n                } else if (!found) {\n                    next.push(candidate); // only expand if no valid found yet\n                }\n            }\n        }\n        queue = next;\n    }\n    return result;\n}\n\nconsole.log(removeInvalidParentheses('()())()'));\n// ['()()()', '(())()']\nconsole.log(removeInvalidParentheses('(a)())()'));\n// ['(a)()()', '(a())()']\nconsole.log(removeInvalidParentheses(')'));          // ['']\n\n// DFS ALTERNATIVE with explicit min-removal counting:\nfunction removeInvalidParentheses_dfs(s) {\n    // Count minimum removals needed: scan and count mismatched parens\n    let minRemove = 0, open = 0;\n    for (const c of s) {\n        if (c === '(') open++;\n        else if (c === ')') {\n            if (open > 0) open--;\n            else minRemove++; // unmatched ')'\n        }\n    }\n    minRemove += open; // remaining unmatched '('\n\n    const result = new Set();\n    function dfs(idx, currOpen, currClose, removals, path) {\n        if (removals > minRemove) return; // exceeded min removals: prune\n        if (idx === s.length) {\n            if (currOpen === currClose) result.add(path);\n            return;\n        }\n        const c = s[idx];\n        // Option 1: skip this character (remove it)\n        if (c === '(' || c === ')') dfs(idx+1, currOpen, currClose, removals+1, path);\n        // Option 2: keep this character\n        if (c === '(') dfs(idx+1, currOpen+1, currClose, removals, path+c);\n        else if (c === ')' && currClose < currOpen)\n            dfs(idx+1, currOpen, currClose+1, removals, path+c);\n        else if (c !== '(' && c !== ')') dfs(idx+1, currOpen, currClose, removals, path+c);\n    }\n    dfs(0, 0, 0, 0, '');\n    return [...result];\n}",
+        "explanation": "The BFS stops expanding once found = true. This is critical: once any valid string is found at depth d (d removals), all valid strings at depth d must be collected before stopping. The found flag prevents adding new strings to the next BFS level after the first valid is discovered, but the current level's loop continues to find all valid strings at depth d."
+      },
+      "common_mistakes": [
+        "Not using a visited set — removing character at position 0 and position 1 of '()' both produce ')' and '(' respectively; without visited set, ')' is enqueued twice, causing redundant processing",
+        "Stopping the BFS loop immediately when the first valid string is found — the current level may have more valid strings; set found=true to stop EXPANDING but continue processing the current level's queue",
+        "Not checking if the original string is already valid — if s is already valid, return [s] immediately without any BFS"
+      ],
+      "interview_relevance": "Remove Invalid Parentheses (#301) is NeetCode 150 and a hard problem that tests BFS for minimum-removal problems. Most candidates reach for DFS first; knowing that BFS guarantees minimum removals without counting them upfront is the key insight. The visited set optimisation is specifically evaluated.",
+      "mini_challenge": "Implement removeInvalidParentheses using BFS and verify the three test cases. For '()())', trace the first BFS level showing all candidates generated and which are valid. Then implement the DFS alternative with pre-counting minimum removals and verify it produces the same results. Compare the two approaches: BFS is simpler but O(n * 2^n) in worst case; DFS with minRemove pruning is faster in practice but harder to implement.",
+      "flashcards": [
+        {
+          "front": "Remove Invalid Parentheses: why BFS instead of DFS?",
+          "back": "BFS processes levels one at a time. The FIRST level at which a valid string appears = minimum removals. BFS guarantees this without counting removals upfront. DFS would need explicit min-removal counting to achieve the same guarantee."
+        },
+        {
+          "front": "Remove Invalid Parentheses: visited Set purpose?",
+          "back": "Multiple different removal sequences can produce the same string. Without a visited Set, the same string is processed multiple times — exponentially wasted work. visited.has(candidate) before enqueuing prevents duplicates."
+        },
+        {
+          "front": "Remove Invalid Parentheses: found flag behaviour?",
+          "back": "found=true stops EXPANDING (prevents adding to next BFS level) but does NOT stop the current level's processing. All valid strings at the SAME BFS level must be collected. found prevents future levels from being explored but current level continues."
+        },
+        {
+          "front": "Remove Invalid Parentheses: isValid check?",
+          "back": "Scan left-to-right with open counter. '(' → open++. ')' → open--. If open < 0 at any point: return false (unmatched ')' found). End: return open === 0 (equal opens and closes). Non-paren characters are passed through unchanged."
+        },
+        {
+          "front": "Remove Invalid Parentheses: which characters can be removed?",
+          "back": "Only '(' and ')' — never letters or other characters. In the BFS loop, skip removal if curr[i] is not '(' or ')'. Removing letters cannot fix a parenthesis imbalance."
+        },
+        {
+          "front": "Remove Invalid Parentheses BFS vs DFS: complexity comparison?",
+          "back": "BFS: O(n × 2^n) — generates all substrings with one fewer char. DFS with min-count: same worst case but faster with good pruning. BFS: simpler, naturally finds minimum. DFS: harder to implement but can prune more aggressively with exact min-count pre-calculation."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "removeInvalidParentheses(')'): what is returned?",
+          "options": [
+            "[')']",
+            "['']",
+            "[]",
+            "['(']"
+          ],
+          "answer": 1,
+          "explanation": "')' is invalid. BFS: remove the single ')' → candidate = ''. isValid(''): open=0, no parens scanned → open===0 → valid. result=[''] is returned. Found at BFS level 1 (1 removal)."
+        },
+        {
+          "question": "removeInvalidParentheses('()'): what is returned?",
+          "options": [
+            "['()']",
+            "['(', ')']",
+            "['']",
+            "['()', '']"
+          ],
+          "answer": 0,
+          "explanation": "isValid('()'): open starts 0. '('→1. ')'→0. End: open===0 → valid. The guard 'if (isValid(s)) return [s]' returns ['()'] immediately without BFS."
+        },
+        {
+          "question": "At BFS level d, some valid strings are found. What happens to BFS level d+1?",
+          "options": [
+            "Level d+1 is processed normally",
+            "Level d+1 is never enqueued — found=true prevents pushing to next",
+            "Level d+1 contains the same valid strings",
+            "Level d+1 is skipped but level d+2 is processed"
+          ],
+          "answer": 1,
+          "explanation": "found=true prevents adding candidates to 'next' (the d+1 queue). The current level's loop continues to collect all valid strings at depth d, but nothing is enqueued for d+1. The while loop then exits (queue=next=[] or found stops it)."
+        },
+        {
+          "question": "BFS candidates generation: for string '()', how many candidates at level 1?",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "answer": 1,
+          "explanation": "Remove position 0 ('(') → ')'. Remove position 1 (')') → '('. Both are '(' or ')' so both are tried. 2 candidates. (But '()' is already valid so the function returns early — BFS isn't reached.)"
+        }
+      ],
+      "visual_aid": {
+        "type": "bfs_trace",
+        "description": "Remove Invalid Parentheses BFS for '()())'",
+        "diagram": "removeInvalidParentheses('()())'):\n\nLevel 0: queue=['()())']\n  isValid('()()')? Nope, has extra ')' → BFS starts\n\nLevel 1: try removing each '(' or ')' from '()())':\n  remove pos 0 '(' → ')())'  visited.add, isValid? No\n  remove pos 1 ')' → '(())'  visited.add, isValid? YES → result.push, found=true\n  remove pos 2 '(' → '())'   visited.add, isValid? No\n  remove pos 3 ')' → '()()'  visited.add, isValid? YES → result.push\n  remove pos 4 ')' → '()()'  → already in visited! skip\n\nfound=true → don't enqueue anything for level 2\n\nResult: ['(())', '()()'] ✓\n\nNote: Two candidates both produce '()()' but only one\nis processed (visited Set deduplication ✓)"
+      },
+      "complexity_summary": {
+        "time": "O(n × 2^n) — n removals × 2^n possible strings",
+        "space": "O(2^n) visited Set + O(n) for each string",
+        "guarantee": "BFS level = minimum removals — first valid level is the answer",
+        "visited_purpose": "Multiple removal sequences → same string; Set prevents duplicate processing"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-301",
+          "title": "Remove Invalid Parentheses",
+          "difficulty": "Hard",
+          "pattern": "BFS minimum removal + visited Set"
+        },
+        {
+          "id": "lc-20",
+          "title": "Valid Parentheses",
+          "difficulty": "Easy",
+          "pattern": "isValid helper — stack-based",
+          "blind75": true
+        },
+        {
+          "id": "lc-22",
+          "title": "Generate Parentheses",
+          "difficulty": "Medium",
+          "pattern": "Backtracking — open/close count",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M5-L5-TH-1",
+            "question": "Why does Remove Invalid Parentheses use BFS rather than DFS to find ALL MINIMUM-REMOVAL solutions?",
+            "options": [
+              "BFS and DFS would produce the same results; BFS is just preferred for strings",
+              "BFS explores solutions LEVEL BY LEVEL where each level removes ONE MORE character — the FIRST LEVEL where any valid string appears represents the MINIMUM number of removals (since BFS guarantees shortest path from source); DFS would find solutions but cannot easily determine whether a found solution uses the minimum number of removals without explicitly tracking and comparing counts; BFS's level property makes 'minimum removals' a natural guarantee",
+              "DFS cannot handle duplicate strings; only BFS supports the visited set",
+              "BFS runs in O(n) while DFS runs in O(2^n) for this problem"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'BFS for minimum removals: first level with any valid string is the answer' and 'Why BFS guarantees minimum removals: first valid level = minimum' — BFS processes all strings with k removals before any string with k+1 removals; the first level producing a valid string is precisely the minimum."
+          },
+          {
+            "id": "L2M5-L5-TH-2",
+            "question": "The BFS uses a `visited` set to deduplicate candidate strings. Why is this critical for both correctness and efficiency?",
+            "options": [
+              "The visited set is optional; duplicates produce the same result twice",
+              "Multiple different removal POSITIONS can produce the SAME RESULTING STRING (e.g., removing either the first or second '(' from '((' produces '(' — same result two ways); without the visited set: (1) the SAME string would be ADDED TO RESULT MULTIPLE TIMES (correctness issue); (2) the same string would be EXPANDED AGAIN at the next BFS level, creating exponential duplicate work (efficiency issue — time complexity balloons from O(n*2^n) to much worse); the visited set ensures each unique string is processed exactly once",
+              "The visited set converts BFS to DFS for better performance",
+              "Duplicates only arise when the input contains repeated characters"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Visited set: prevents processing the same string twice' — without deduplication, the same string can be reached via different removal sequences, causing: duplicate results in the output and exponential re-expansion at subsequent BFS levels; the visited set makes the algorithm O(n*2^n) tractable."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M5-L5-LG-1",
+            "question": "For `removeInvalidParentheses('()())()')`, the result is `['()()()', '(())()']`. How many characters are removed from the original string, and why are these two specific results returned?",
+            "options": [
+              "One character is removed; there are 4 possible results",
+              "ONE character is removed from the original 7-character string to produce 6-character results; the original string has one extra ')' (at position 4); removing it can be done at position 4 OR equivalent positions that produce the same valid string; '()()()' (remove the ')' after second '()') and '(())()' (remove a ')' differently, keeping the nested structure) — both are all valid 6-character results with exactly 1 removal; confirmed by direct execution",
+              "Two characters are removed; 6-character results require 2 removals from 8 characters",
+              "Only one result is valid; the algorithm has a bug returning two"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: removeInvalidParentheses('()())()') returns ['(())()', '()()()'] (order may vary by implementation); the original has 7 chars with 1 extra unmatched ')'; BFS at level 1 (1 removal) finds two distinct valid 6-character strings, both being minimum-removal solutions."
+          },
+          {
+            "id": "L2M5-L5-LG-2",
+            "question": "In the BFS, `if (!found) next.push(candidate)` only adds to the next queue when NO valid string has been found at the current level. Why is this condition needed?",
+            "options": [
+              "The condition prevents queue overflow for large inputs",
+              "Once a valid string is found at level k (setting `found=true`), we want ALL valid strings at level k but NO strings at level k+1 — the answer requires MINIMUM removals; if we added to `next` even after finding valid strings, the BFS would continue processing level k+1 strings (which have one MORE removal, hence non-minimum); the `!found` guard stops queue expansion for level k+1 while still processing all current-level strings to collect all minimum-removal solutions",
+              "The condition skips non-parenthesis characters from expansion",
+              "Adding to next when found=true would cause an infinite loop"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's comment: 'only expand if no valid found yet' — the `found` flag serves as a level-completion signal: once any valid string is found at level k, we know the minimum is k removals; we collect all valid strings at this level but prevent expanding to level k+1, ensuring all returned results have exactly k (minimum) removals."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M5-L5-SY-1",
+            "question": "In `isValid`, the function tracks `open` (net open count) and returns `open === 0`. Why is checking `open < 0` WITHIN the loop necessary beyond just checking `open === 0` at the end?",
+            "options": [
+              "The open < 0 check is redundant; only the final check matters",
+              "`open < 0` inside the loop catches PREMATURE CLOSE BRACKETS: '())(()' has a ')' before any matching '(' at position 2 (open goes negative); even though the final count might be 0 (equal opens and closes), a string like ')(' has final open=0 but is NOT valid because the ')' appears before any '('; the intermediate check `open < 0` → `return false` correctly rejects these cases; the final `open === 0` only verifies balance, not order",
+              "open < 0 is checked to handle negative indices in the character array",
+              "open < 0 signals that the string is too long; the loop terminates early"
+            ],
+            "answer": 1,
+            "explanation": "The two-condition validity check (no negative intermediate, balanced final) is the standard parenthesis validity pattern: open going negative means a close bracket appeared before its matching open bracket (invalid regardless of final balance); `open === 0` at the end ensures no unmatched opens remain; both conditions are necessary and neither alone is sufficient."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M5-L5-CC-1",
+            "title": "Remove Invalid Parentheses: BFS and DFS",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the Remove Invalid Parentheses BFS approach from this lesson.",
+            "requirements": [
+              "Implement `isValidImpl(s)` matching the lesson's open-counter validity check",
+              "Implement `removeInvalidParenthesesImpl(s)` matching the lesson's BFS with visited set and found flag"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function isValidImpl(s) {\n  // TODO: open counter, return false if open<0, return open===0 at end\n}\n\nfunction removeInvalidParenthesesImpl(s) {\n  // TODO: BFS with visited set; only add to next when !found\n}"
+            },
+            "test_cases": [
+              {
+                "input": "isValidImpl('()()')",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "isValidImpl(')(')",
+                "expected": false,
+                "type": "visible"
+              },
+              {
+                "input": "removeInvalidParenthesesImpl('()())()').sort().toString()",
+                "expected": "(())(),()()()",
+                "type": "visible"
+              },
+              {
+                "input": "removeInvalidParenthesesImpl(')').toString()",
+                "expected": "",
+                "type": "hidden"
+              },
+              {
+                "input": "removeInvalidParenthesesImpl('(a)())()').sort().toString()",
+                "expected": "(a())(),(a)()()",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function isValidImpl(s) {\n  let open = 0;\n  for (const c of s) {\n    if (c === '(') open++;\n    else if (c === ')') { open--; if (open < 0) return false; }\n  }\n  return open === 0;\n}\n\nfunction removeInvalidParenthesesImpl(s) {\n  if (isValidImpl(s)) return [s];\n  const result = [], visited = new Set([s]);\n  let queue = [s], found = false;\n  while (queue.length && !found) {\n    const next = [];\n    for (const curr of queue) {\n      for (let i = 0; i < curr.length; i++) {\n        if (curr[i] !== '(' && curr[i] !== ')') continue;\n        const cand = curr.slice(0,i) + curr.slice(i+1);\n        if (visited.has(cand)) continue;\n        visited.add(cand);\n        if (isValidImpl(cand)) { result.push(cand); found = true; }\n        else if (!found) next.push(cand);\n      }\n    }\n    queue = next;\n  }\n  return result;\n}"
+            },
+            "complexity_analysis": "O(n * 2^n) time — at most 2^n unique strings of decreasing length, each isValid check O(n). O(2^n) space for visited set.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "isValidImpl: track open count; increment on '(', decrement on ')'; return false if open<0 (premature close); return open===0 at end."
+              },
+              {
+                "level": 2,
+                "text": "removeInvalidParenthesesImpl: BFS level by level; only add candidates to next when !found; found=true when first valid string is found at current level."
+              },
+              {
+                "level": 3,
+                "text": "visited set prevents same string from being enqueued twice (crucial for both correctness and performance)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 6,
+      "title": "Backtracking Hard Problem Thinking",
+      "tag": "UPDATED",
+      "objective": "Given any hard backtracking problem, identify the constraint set, the pruning condition, and the correct state to track, applying the decision-tree mental model systematically.",
+      "concepts": [
+        "Hard backtracking: state is richer than simple choose-explore-unchoose",
+        "Constraint identification: what makes a partial solution invalid?",
+        "State enrichment: what extra information must be passed down the tree?",
+        "Pruning strength: better pruning = exponentially faster in practice",
+        "Decision tree shape: branching factor * depth = search space",
+        "Return value semantics: true/false for search, result list for enumeration",
+        "Module 5 NeetCode 150 problems mapped",
+        "Hard backtracking vs DP: when to use each"
+      ],
+      "explanation": "Hard backtracking problems share a common structure but require richer state tracking than foundation problems. The systematic approach: (1) Define the state at each node in the decision tree: what information does the recursive call need besides the current path? For N-Queens: three conflict sets. For Sudoku: the board plus three constraint arrays. For Expression Operators: running total and last operand. (2) Define the pruning condition: what makes a partial solution impossible to extend to a valid solution? For N-Queens: column or diagonal conflict. For Sudoku: no valid digit fits any empty cell. For Expression Operators: leading zero in multi-digit number. (3) Define the base case: when is the search complete? For N-Queens and Sudoku: all cells filled. For expression problems: all characters consumed. (4) Return semantics: search problems (find one solution) return true/false and propagate immediately. Enumeration problems (find all solutions) collect results and continue. Hard backtracking vs DP: backtracking when you need all solutions or cannot define overlapping subproblems. DP when you need only the optimal/count solution and subproblems overlap.",
+      "analogy": "Hard backtracking thinking is expert constraint programming. A beginner sees 'try everything'. An expert sees 'identify the minimal constraint set that prevents invalid extensions, track exactly the state needed to evaluate those constraints, and prune as early as possible'. The decision tree is the same but the expert's tree is 1000x smaller because of early pruning. The difference between O(n!) and O(n^2) practical performance often lies entirely in the pruning quality.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// DECISION FRAMEWORK for hard backtracking\n\n// STEP 1: What are the constraints?\n// N-Queens:          no shared column, no shared diagonal\n// Sudoku:            row/col/box uniqueness per digit\n// Word Search I:     no cell reused in one path\n// Expression Ops:    operator precedence, no leading zeros\n// Remove Invalid ():  valid parenthesis string\n\n// STEP 2: What state enables O(1) constraint checking?\n// N-Queens:          cols Set, diag1 Set, diag2 Set\n// Sudoku:            rows[9] Sets, cols[9] Sets, boxes[9] Sets\n// Word Search:       in-place '#' marker (O(1) check + O(1) restore)\n// Expression Ops:    (total, last) passed as parameters\n// Remove Invalid (): isValid() function or BFS level\n\n// STEP 3: Return true/false (search) or collect (enumeration)?\n// N-Queens:          enumeration -> collect all solutions\n// Sudoku:            search -> return true when found\n// Word Search I:     search -> return true when found\n// Expression Ops:    enumeration -> collect all valid expressions\n// Remove Invalid (): enumeration (min removals) -> BFS collect\n\n// MODULE 5 NEETCODE 150 PROBLEMS:\nconst module5_problems = [\n    { id: 51,  title: 'N-Queens',                      pattern: '3-set constraint',    nc150: true  },\n    { id: 52,  title: 'N-Queens II',                   pattern: 'count solutions',      nc150: true  },\n    { id: 37,  title: 'Sudoku Solver',                 pattern: '3-set + box formula', nc150: true  },\n    { id: 79,  title: 'Word Search',                   pattern: 'DFS in-place mark',   nc150: true  },\n    { id: 212, title: 'Word Search II',                pattern: 'Trie + backtrack',    nc150: true  },\n    { id: 282, title: 'Expression Add Operators',      pattern: '(total, last) state', nc150: true  },\n    { id: 301, title: 'Remove Invalid Parentheses',    pattern: 'BFS min removal',     nc150: true  },\n];\nconsole.log('Module 5 NeetCode 150 problems:', module5_problems.length); // 7\n\n// HARD BACKTRACKING vs DP DECISION:\n// Use BACKTRACKING when:\n//   - Need ALL valid solutions (not just count or optimal)\n//   - No overlapping subproblems structure\n//   - Constraint satisfaction dominates\n// Use DP when:\n//   - Need count or optimal solution only\n//   - Subproblems overlap (same state reached via different paths)\n//   - Memoisation can cache subproblem results",
+        "explanation": "The 3-step framework (constraints -> state -> return semantics) applies to every hard backtracking problem. Spending 2 minutes on this framework before coding produces cleaner solutions than jumping directly to the recursion. In interviews, stating the framework verbally before coding demonstrates architectural thinking that interviewers specifically evaluate."
+      },
+      "common_mistakes": [
+        "Skipping the state analysis and jumping directly to coding — hard backtracking problems consistently have a non-obvious extra state parameter (like last in Expression Operators); spending 2 minutes identifying it saves 30 minutes of debugging",
+        "Treating all backtracking problems as enumeration (always collecting all solutions) — Sudoku Solver should return immediately on success (return true); N-Queens should collect all; mixing these up produces wrong behavior",
+        "Under-pruning — hard backtracking without strong pruning is effectively brute force; the constraint sets in N-Queens and Sudoku are not optional optimisations but necessary components that make the problems tractable at all"
+      ],
+      "interview_relevance": "All 7 Module 5 problems are NeetCode 150. Hard backtracking problems appear in senior and staff-level interviews at every top company. They are used specifically because they require both algorithmic thinking (correct constraint modelling) and engineering discipline (clean recursion, no state leaks). Being able to solve any of these in 40 minutes by applying the 3-step framework is the target performance level for senior roles.",
+      "mini_challenge": "Apply the 3-step framework to a new problem: Generate All Binary Trees with n nodes (LeetCode #95 Unique Binary Search Trees II). Step 1: what are the constraints? (n nodes total, valid BST structure). Step 2: what state is needed? (root value, range [lo, hi]). Step 3: return semantics? (collect all trees, return list of root nodes). Implement this after completing the framework analysis. Verify the count matches Catalan(n) for small n.",
+      "flashcards": [
+        {
+          "front": "3-step hard backtracking framework?",
+          "back": "1) CONSTRAINTS: what makes a partial solution impossible to extend? 2) STATE: what extra data beyond path enables O(1) constraint checking? 3) RETURN SEMANTICS: search (return true/false, propagate immediately) or enumeration (collect all, continue always)?"
+        },
+        {
+          "front": "Hard backtracking state enrichment examples?",
+          "back": "N-Queens: (cols, diag1, diag2) sets. Sudoku: (rows[9], cols[9], boxes[9]) sets. Word Search: board '#' marker (no extra state — in-place). Expression Operators: (total, last). Remove Invalid (): BFS level (no explicit state — implicit in BFS depth)."
+        },
+        {
+          "front": "Search vs Enumeration return semantics in backtracking?",
+          "back": "SEARCH (find one): return true immediately when found; return false to trigger backtrack. Examples: Sudoku Solver, Word Search I. ENUMERATION (find all): push to result and always continue (never propagate early). Examples: N-Queens, Combination Sum, Subsets."
+        },
+        {
+          "front": "Backtracking vs DP: definitive decision rule?",
+          "back": "BACKTRACKING: need ALL solutions; cannot define overlapping subproblems; constraint satisfaction with pruning. DP: need OPTIMAL or COUNT only; subproblems overlap (same state reachable via multiple paths); memoisation is applicable."
+        },
+        {
+          "front": "Why is pruning non-optional in hard backtracking?",
+          "back": "Without pruning: N-Queens = O(n^n) attempts (every column per row), Sudoku = O(9^81) attempts. With pruning: N-Queens ≈ O(n!), Sudoku = practical O(1) for most puzzles. The constraint sets are not optimisations — they are what make these problems tractable."
+        },
+        {
+          "front": "How many NeetCode 150 problems does Module 5 cover?",
+          "back": "7 problems: N-Queens (#51), N-Queens II (#52), Sudoku Solver (#37), Word Search (#79), Word Search II (#212), Expression Add Operators (#282), Remove Invalid Parentheses (#301). All are hard except Word Search (medium-hard)."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "You're solving 'find the minimum number of operations to transform X into Y'. Backtracking or DP?",
+          "options": [
+            "Backtracking — try all operation sequences",
+            "DP — minimum (optimal) + subproblems overlap (same intermediate state reachable via different operations)",
+            "Either works equally",
+            "Greedy — always apply the best operation"
+          ],
+          "answer": 1,
+          "explanation": "Minimum + overlapping subproblems = DP. The intermediate state (partially transformed X) is the same regardless of which sequence of operations led there — classic memoisation target. Backtracking would explore all sequences, missing the subproblem overlap."
+        },
+        {
+          "question": "'Generate all unique permutations of [1,1,2].' Backtracking or DP?",
+          "options": [
+            "DP — count permutations and reconstruct",
+            "Backtracking — ALL solutions needed, constraint is no duplicates",
+            "Greedy — always pick the next largest",
+            "BFS — level by level expansion"
+          ],
+          "answer": 1,
+          "explanation": "ALL solutions needed → backtracking. There's no overlapping subproblem structure — the subsets of elements available at each position are different. DP can count unique permutations (n!/k!) but cannot generate them all efficiently."
+        },
+        {
+          "question": "Sudoku Solver uses 'return true' to propagate solutions upward. What happens if you use 'return void' instead?",
+          "options": [
+            "Same result — solver still terminates correctly",
+            "Solver continues trying other digits after finding a valid board, potentially overwriting with alternative solutions",
+            "Solver fails immediately",
+            "Solver finds more solutions"
+          ],
+          "answer": 1,
+          "explanation": "Without return true propagation, after finding a valid complete board, the function returns void. The caller interprets this as 'no solution found at this branch' and continues trying other digits. The valid board gets overwritten. Always propagate true immediately for search problems."
+        },
+        {
+          "question": "For hard backtracking: what is the first question to ask before coding?",
+          "options": [
+            "What is the time complexity?",
+            "What constraint makes a partial solution invalid, and how can I check it in O(1)?",
+            "How many results will there be?",
+            "Can I use DP instead?"
+          ],
+          "answer": 1,
+          "explanation": "The constraint + O(1) check question drives the entire solution design. For N-Queens: 'column/diagonal conflict, checked via 3 Sets O(1)'. For Sudoku: 'row/col/box uniqueness, checked via 27 Sets O(1)'. Answering this before coding ensures the right data structures are built first."
+        }
+      ],
+      "visual_aid": {
+        "type": "framework_diagram",
+        "description": "3-step framework applied to all Module 5 problems",
+        "diagram": "3-STEP HARD BACKTRACKING FRAMEWORK:\n\nProblem         Constraints            State               Semantics\n─────────────────────────────────────────────────────────────────────\nN-Queens        col+diagonal clash     3 Sets              Enumeration\nSudoku Solver   row/col/box repeat     27 Sets + board     Search (true/false)\nWord Search I   revisit cell in path   board '#' in-place  Search (true/false)\nWord Search II  prefix not in Trie     Trie + '#' mark     Enumeration\nExpr Operators  leading zeros,         (total, last)       Enumeration\n                mult precedence        passed as params\nRemove Invalid  invalid parens         BFS level = depth   Enumeration (min)\n\n DP or BACKTRACK?\n   All solutions? → Backtrack\n   Optimal/count + overlap? → DP\n   Min removal guarantee? → BFS\n\nPRUNING STRENGTH:\n  Without: O(n^n) or O(9^81)\n  With sets: O(n!) or practical O(1)"
+      },
+      "complexity_summary": {
+        "n_queens": "O(n!) with 3-set pruning",
+        "sudoku": "O(9^81) worst, practical O(1) with constraint sets",
+        "word_search_I": "O(m×n × 4^L)",
+        "expression_ops": "O(4^n × n)",
+        "remove_parens": "O(n × 2^n)",
+        "framework": "Constraints → State → Return Semantics (3 steps before coding)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-51",
+          "title": "N-Queens",
+          "difficulty": "Hard",
+          "pattern": "Enumeration — 3 conflict sets"
+        },
+        {
+          "id": "lc-37",
+          "title": "Sudoku Solver",
+          "difficulty": "Hard",
+          "pattern": "Search — 3×9 constraint sets, return true/false"
+        },
+        {
+          "id": "lc-282",
+          "title": "Expression Add Operators",
+          "difficulty": "Hard",
+          "pattern": "Enumeration — (total, last) state"
+        },
+        {
+          "id": "lc-301",
+          "title": "Remove Invalid Parentheses",
+          "difficulty": "Hard",
+          "pattern": "BFS minimum removal"
+        },
+        {
+          "id": "lc-95",
+          "title": "Unique Binary Search Trees II",
+          "difficulty": "Medium",
+          "pattern": "Apply 3-step framework: constraints=BST property, state=range, semantics=enumeration"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M5-L6-TH-1",
+            "question": "The lesson presents a THREE-STEP FRAMEWORK for hard backtracking problems. What are the three questions, and what does each answer determine?",
+            "options": [
+              "Sort, prune, collect — the three mandatory phases of backtracking",
+              "Step 1: 'What are the CONSTRAINTS?' — determines what makes a partial solution invalid (column/diagonal for N-Queens, row/col/box for Sudoku, etc.); Step 2: 'What STATE enables O(1) constraint checking?' — determines the extra data to maintain (sets for N-Queens/Sudoku, in-place '#' for Word Search, (total,last) for Expression Ops); Step 3: 'Return true/false (SEARCH) or collect (ENUMERATION)?' — determines the base case structure and whether to propagate true upward or push to a result list",
+              "Input, output, edge-cases — the three parts of problem analysis",
+              "Time complexity, space complexity, correctness — the three verification steps"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's exact framework: 'STEP 1: What are the constraints? STEP 2: What state enables O(1) constraint checking? STEP 3: Return true/false (search) or collect (enumeration)?' — this framework appears in the lesson's code as explicit decision points for each Module 5 problem."
+          },
+          {
+            "id": "L2M5-L6-TH-2",
+            "question": "When should you choose BACKTRACKING over DP, and vice versa?",
+            "options": [
+              "Always use DP; backtracking is never the optimal choice",
+              "BACKTRACKING when: ALL valid solutions are needed (not just count or optimal); NO OVERLAPPING SUBPROBLEMS (each partial state is unique); CONSTRAINT SATISFACTION dominates (pruning makes search practical); DP when: only COUNT or OPTIMAL solution needed; subproblems OVERLAP (memoisation gives exponential speedup); MEMOISATION is feasible (state space manageable); the lesson notes a key hybrid: Remove Invalid Parentheses uses BFS (not pure backtracking) because only minimum-removal solutions are needed",
+              "Use backtracking for arrays and DP for strings always",
+              "DP and backtracking are always interchangeable; performance is the only difference"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's framework: 'Use BACKTRACKING when: Need ALL valid solutions; No overlapping subproblems; Constraint satisfaction dominates. Use DP when: Need count or optimal solution only; Subproblems overlap; Memoisation can cache results' — this is the key decision criteria from Module 5."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M5-L6-LG-1",
+            "question": "Classify each Module 5 problem: which are SEARCH (return true/false) and which are ENUMERATION (collect all solutions)?",
+            "options": [
+              "All five are enumeration problems; none return true/false",
+              "SEARCH (return true when found): Sudoku Solver (#37) — find ONE valid board arrangement; Word Search I (#79) — does ONE path exist?; ENUMERATION (collect all): N-Queens (#51, #52) — find/count ALL arrangements; Word Search II (#212) — find ALL matching words; Expression Add Operators (#282) — find ALL valid expressions; Remove Invalid Parentheses (#301) — find ALL minimum-removal results",
+              "N-Queens is search; all others are enumeration",
+              "All five are search problems returning true/false"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's framework application: Sudoku and Word Search I use `return true/false` (search for one solution); N-Queens, Word Search II, Expression Operators, and Remove Invalid Parentheses all collect into a result list or set (enumeration of all valid solutions) — the return type directly determines the base case structure and backtracking propagation."
+          },
+          {
+            "id": "L2M5-L6-LG-2",
+            "question": "Per the lesson's `module5_problems` array, how many NC150 problems are covered in Module 5?",
+            "options": [
+              "5 NC150 problems",
+              "7 NC150 problems (ids 51,52,37,79,212,282,301 — all marked nc150:true) — confirmed by direct execution of `module5_problems.length` returning 7",
+              "6 NC150 problems; one problem is excluded",
+              "10 NC150 problems covering all backtracking in NC150"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: module5_problems.length=7, all with nc150:true; the 7 problems are N-Queens (#51), N-Queens II (#52), Sudoku Solver (#37), Word Search (#79), Word Search II (#212), Expression Add Operators (#282), Remove Invalid Parentheses (#301)."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M5-L6-SY-1",
+            "question": "The lesson distinguishes PRUNING STRENGTH as key to practical performance. For N-Queens, the three-set O(1) check is 'strong' pruning. What makes it 'strong' compared to 'weak' alternatives?",
+            "options": [
+              "Strong pruning uses more memory; weak pruning uses less",
+              "STRONG pruning eliminates an entire subtree with O(1) work — if a column or diagonal conflict is detected at row r, ALL permutations of queens below row r with this placement are immediately abandoned without exploration; a 'weak' alternative (like scanning the queens array each time for conflicts in O(n)) achieves the SAME pruning decision but takes O(n) per check; the Sets make the decision O(1) per position rather than O(n), but both eliminate the same subtree; 'strong' refers to making the pruning decision efficiently, not to cutting more branches",
+              "Strong pruning eliminates more branches; weak pruning eliminates fewer",
+              "Pruning strength is measured by the number of set operations performed"
+            ],
+            "answer": 1,
+            "explanation": "Pruning STRENGTH refers to how EARLY and EFFICIENTLY invalid paths are detected — the three Sets enable O(1) conflict detection at each potential placement; a naive approach (scan existing queens array) detects the SAME conflicts but at O(n) cost; the Sets don't make better pruning decisions, they make the same decisions FASTER, which matters because conflict checks happen at every step of the O(n!) search."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M5-L6-CC-1",
+            "title": "Capstone: Hard Backtracking Pattern Classifier",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+            "problem_statement": "Build a pattern classifier for Module 5 backtracking problems using the three-step framework.",
+            "requirements": [
+              "Implement `classifyProblem(problemId)` returning an object {constraint, state, returnType} based on the lesson's framework for the 7 Module 5 NC150 problems",
+              "Implement `isSearchProblem(problemId)` returning true for Sudoku and Word Search I (search), false for enumeration problems",
+              "Implement `module5Summary()` returning {total, searchProblems, enumerationProblems} counts"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "const PROBLEMS = {\n  51: {constraint:'col+diagonal',state:'3 sets',returnType:'enumeration'},\n  52: {constraint:'col+diagonal',state:'3 sets + count',returnType:'count'},\n  37: {constraint:'row+col+box',state:'3 sets arrays',returnType:'search'},\n  79: {constraint:'visited cell',state:'in-place #',returnType:'search'},\n  212:{constraint:'word prefix',state:'Trie',returnType:'enumeration'},\n  282:{constraint:'no leading zeros',state:'(total,last)',returnType:'enumeration'},\n  301:{constraint:'valid parens',state:'BFS visited set',returnType:'enumeration'}\n};\n\nfunction classifyProblem(problemId) {\n  // TODO: return PROBLEMS[problemId] or null if not found\n}\n\nfunction isSearchProblem(problemId) {\n  // TODO: return true for search (37, 79), false otherwise\n}\n\nfunction module5Summary() {\n  // TODO: count total, searchProblems, enumerationProblems from PROBLEMS\n}"
+            },
+            "test_cases": [
+              {
+                "input": "classifyProblem(51).returnType",
+                "expected": "enumeration",
+                "type": "visible"
+              },
+              {
+                "input": "classifyProblem(37).returnType",
+                "expected": "search",
+                "type": "visible"
+              },
+              {
+                "input": "isSearchProblem(79)",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "isSearchProblem(51)",
+                "expected": false,
+                "type": "hidden"
+              },
+              {
+                "input": "module5Summary().total",
+                "expected": 7,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "const PROBLEMS = {\n  51: {constraint:'col+diagonal',state:'3 sets',returnType:'enumeration'},\n  52: {constraint:'col+diagonal',state:'3 sets + count',returnType:'count'},\n  37: {constraint:'row+col+box',state:'3 sets arrays',returnType:'search'},\n  79: {constraint:'visited cell',state:'in-place #',returnType:'search'},\n  212:{constraint:'word prefix',state:'Trie',returnType:'enumeration'},\n  282:{constraint:'no leading zeros',state:'(total,last)',returnType:'enumeration'},\n  301:{constraint:'valid parens',state:'BFS visited set',returnType:'enumeration'}\n};\n\nfunction classifyProblem(problemId) {\n  return PROBLEMS[problemId] || null;\n}\n\nfunction isSearchProblem(problemId) {\n  const p = PROBLEMS[problemId];\n  return p ? p.returnType === 'search' : false;\n}\n\nfunction module5Summary() {\n  const vals = Object.values(PROBLEMS);\n  return {\n    total: vals.length,\n    searchProblems: vals.filter(p=>p.returnType==='search').length,\n    enumerationProblems: vals.filter(p=>p.returnType!=='search').length\n  };\n}"
+            },
+            "complexity_analysis": "All classifier functions: O(1) — hash map lookup. module5Summary: O(n) in number of problems (n=7 → effectively O(1)).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "classifyProblem: simply return PROBLEMS[problemId]; handle not-found with || null."
+              },
+              {
+                "level": 2,
+                "text": "isSearchProblem: look up the problem and check returnType === 'search'; only IDs 37 and 79 qualify."
+              },
+              {
+                "level": 3,
+                "text": "module5Summary: use Object.values(PROBLEMS) to iterate all 7 problems; count by returnType."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "module_summary": {
+    "total_lessons": 6,
+    "level": "L2",
+    "blind75_problems_unlocked": 2,
+    "neetcode150_additional": 7,
+    "core_patterns": [
+      "N-Queens 3-set conflict detection: cols, diag1 (row-col), diag2 (row+col) — O(1) per placement",
+      "Diagonal encoding: row-col constant on '\\' diagonals, row+col constant on '/' diagonals",
+      "Sudoku box formula: Math.floor(r/3)*3 + Math.floor(c/3) → box 0-8",
+      "Sudoku 4-state choose/unchoose: board cell + 3 Set entries — ALL four must be paired",
+      "Word Search in-place marking: board[r][c]='#' before recurse, restore on both success AND failure",
+      "Expression Operators (total, last): last=-curr for subtraction; mult: total-last+last*curr",
+      "Expression Operators leading zero: break (not continue) when str.length>1 && str[0]=='0'",
+      "Remove Invalid Parens BFS: visited Set deduplication + found flag stops expansion not current level",
+      "3-step framework: (1) Constraints → (2) O(1) State → (3) Search true/false vs Enumeration collect",
+      "Search vs Enumeration: return true immediately on success (Sudoku, WordSearch) vs always continue (N-Queens, combos)"
+    ],
+    "prerequisite_modules": [
+      "L2-M04"
+    ],
+    "unlocks_modules": [
+      "L2-M06 (Stock DP + State Machine DP)",
+      "L2-M07 (Advanced Graphs)"
+    ],
+    "recommended_problem_order": [
+      "lc-79",
+      "lc-51",
+      "lc-52",
+      "lc-37",
+      "lc-282",
+      "lc-212",
+      "lc-301"
+    ],
+    "spaced_review_target": "Re-solve 3 problems from Module 4 before Module 6",
+    "module_difficulty": "Hard — all 7 NeetCode 150 problems are hard or medium-hard. N-Queens (L1) and Sudoku (L2) first — they share the constraint-set pattern. Word Search (L3) consolidates in-place marking. Expression Operators (L4) has the hardest state design. Only attempt Remove Invalid Parens (L5) after L1-L4 are solid.",
+    "honest_time_estimate": "14-16 hours. N-Queens (L1): 2.5 hrs. Sudoku (L2): 3 hrs. Word Search I+II (L3): 3 hrs. Expression Operators (L4): 3 hrs. Remove Invalid Parens (L5): 2 hrs. Framework synthesis (L6): 1.5 hrs.",
+    "critical_rules": [
+      "N-Queens: unchoose ALL three sets — missing any one leaves ghost constraints",
+      "Sudoku: unchoose ALL four state changes (board + 3 sets) — missing any corrupts future validity",
+      "Word Search: restore board[r][c]=temp BEFORE any return (success or failure)",
+      "Expression Ops: last=-curr for subtraction; mult formula is total-last+last*curr",
+      "Search problems: return true immediately on success — never continue after solution found"
+    ]
+  },
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "advanced": "Lessons 1-3 (N-Queens 3-set diagonal encoding, Sudoku box formula + true/false propagation, Word Search I/II in-place marking + Trie pruning)",
+      "hard": "Lessons 4-6 (Expression Add Operators (total,last) multiplication precedence, Remove Invalid Parentheses BFS min-removal, hard backtracking framework classifier)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges, with hidden test cases used for final validation"
+  }
+}

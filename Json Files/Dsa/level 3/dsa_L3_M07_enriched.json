@@ -1,0 +1,1666 @@
+{
+  "module_id": "L3-M07",
+  "module_number": 7,
+  "title": "System Design DSA Connections",
+  "tag": "ADDED",
+  "is_optional_for_product_track": false,
+  "estimated_hours": "10–12 hours",
+  "prerequisites": [
+    "L1-M03",
+    "L3-M03"
+  ],
+  "learning_outcomes": [
+    "Explain how hash maps and their collision resolution strategies power database hash indexes",
+    "Connect B+ tree structure directly to SQL index design and explain range query performance",
+    "Explain consistent hashing and why it minimises key remapping when nodes are added or removed",
+    "Implement a Bloom filter and explain the false positive rate formula and its space tradeoff",
+    "Implement both LRU and LFU caches using HashMap + doubly-linked list in O(1) per operation",
+    "Answer any system design question about data structure choice with specific DSA justification"
+  ],
+  "notes": [
+    "ADDED — Bridges DSA knowledge to system design interviews. Most candidates cannot explain how their DS choices affect production systems."
+  ],
+  "spaced_review": "Re-solve 3 problems from Modules 1–5 that you found hardest",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "title": "How Hash Maps Power Databases",
+      "tag": "ADDED",
+      "objective": "Explain how hash maps are implemented in production (open addressing vs chaining), how databases use hash indexes, and when a hash index outperforms a B+ tree index.",
+      "concepts": [
+        "Hash map internals: array of buckets, hash function maps key to bucket index",
+        "Chaining: each bucket is a linked list of (key, value) pairs",
+        "Open addressing: probe sequence (linear, quadratic, double hashing) for collisions",
+        "Load factor: n/m where n = entries, m = buckets; resize when > 0.75",
+        "Rehashing: O(n) amortised over n insertions = O(1) amortised per insert",
+        "Database hash index: hash(key) -> page pointer for O(1) point queries",
+        "Hash join in SQL: build hash table on smaller relation, probe with larger",
+        "When to prefer hash over B+ tree: point queries only, no range queries needed"
+      ],
+      "explanation": "A hash map consists of an array of buckets, a hash function, and a collision resolution strategy. Chaining stores all keys with the same hash in a linked list at that bucket. Open addressing stores all entries in the array itself: on collision, probe the next available slot using a probe sequence (linear: +1, quadratic: +1, +4, +9..., or double hashing: +h2(key)). Rehashing: when the load factor exceeds a threshold (typically 0.75), double the array size and re-insert all entries. This is O(n) work but happens at most n/2 insertions apart, giving O(1) amortised. Database hash indexes: given a key, hash it to find the page (disk block) containing the key. O(1) lookup for exact-match queries. Cannot support range queries (hash destroys ordering). Hash join in SQL: given two tables A and B to join on column k, build a hash table from the smaller table keyed on k. Scan the larger table and probe the hash table for matching k values. O(|A| + |B|) total instead of O(|A| * |B|) for nested loop join.",
+      "analogy": "A hash map is like a multi-storey parking garage where each car's licence plate determines its floor (hash function). Cars with the same hash share a floor (chaining). When the garage is 75% full, the company builds a new garage twice as large and moves all cars (rehashing). A database hash index is the same garage, but each parking spot holds a pointer to a database record rather than the car itself.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// HASH MAP INTERNALS — chaining implementation\nclass HashMap {\n    constructor(initialCapacity = 16, loadFactor = 0.75) {\n        this.capacity = initialCapacity;\n        this.loadFactor = loadFactor;\n        this.size = 0;\n        this.buckets = Array.from({length: this.capacity}, () => []); // chaining\n    }\n\n    _hash(key) {\n        let hash = 0;\n        for (const c of String(key)) hash = (hash * 31 + c.charCodeAt(0)) % this.capacity;\n        return hash;\n    }\n\n    set(key, value) {\n        const idx = this._hash(key);\n        const bucket = this.buckets[idx];\n        for (const pair of bucket) {\n            if (pair[0] === key) { pair[1] = value; return; } // update\n        }\n        bucket.push([key, value]); // insert\n        this.size++;\n        if (this.size / this.capacity > this.loadFactor) this._rehash();\n    }\n\n    get(key) {\n        const bucket = this.buckets[this._hash(key)];\n        for (const [k, v] of bucket) if (k === key) return v;\n        return undefined;\n    }\n\n    _rehash() {\n        const oldBuckets = this.buckets;\n        this.capacity *= 2;\n        this.buckets = Array.from({length: this.capacity}, () => []);\n        this.size = 0;\n        for (const bucket of oldBuckets)\n            for (const [k, v] of bucket) this.set(k, v);\n    }\n}\n\nconst hm = new HashMap();\nhm.set('user:1', {name:'Alice', age:30});\nhm.set('user:2', {name:'Bob', age:25});\nconsole.log(hm.get('user:1')); // {name:'Alice',age:30}\n\n// HASH JOIN SIMULATION\nfunction hashJoin(tableA, tableB, keyA, keyB) {\n    // Build phase: hash the smaller table\n    const hashTable = new Map();\n    for (const rowA of tableA) {\n        const k = rowA[keyA];\n        if (!hashTable.has(k)) hashTable.set(k, []);\n        hashTable.get(k).push(rowA);\n    }\n    // Probe phase: scan larger table\n    const result = [];\n    for (const rowB of tableB) {\n        const matches = hashTable.get(rowB[keyB]) || [];\n        for (const rowA of matches) result.push({...rowA, ...rowB});\n    }\n    return result;\n}\n\nconst users = [{id:1,name:'Alice'},{id:2,name:'Bob'}];\nconst orders = [{userId:1,item:'book'},{userId:1,item:'pen'},{userId:2,item:'cup'}];\nconsole.log(hashJoin(users, orders, 'id', 'userId'));",
+        "explanation": "The hash join builds from the smaller table to minimise memory usage. The hash table fits in memory (or at least fewer cache misses) when smaller. The probe phase scans the larger table sequentially (good cache behaviour). This is why database query planners choose hash join when one table is much smaller than the other and no useful index exists."
+      },
+      "common_mistakes": [
+        "Thinking hash maps always have O(1) operations — hash maps have O(1) amortised average case but O(n) worst case with many collisions (poor hash function or adversarial keys); production implementations use strong hash functions to prevent worst-case attacks",
+        "Not knowing when NOT to use a hash index — hash indexes cannot support range queries (WHERE age BETWEEN 20 AND 30) or ORDER BY; B+ trees handle these; always ask 'do I need range queries?' before recommending a hash index",
+        "Confusing load factor rehashing with the worst-case cost — rehashing takes O(n) time but happens at most once every n/2 operations; the amortised cost per operation remains O(1)"
+      ],
+      "interview_relevance": "Hash map internals are asked in system design interviews as: 'How would you implement a database cache?', 'What data structure does your database use for exact-match queries?', 'Explain hash join'. Being able to connect HashMap implementation (chaining, load factor, rehashing) to database hash indexes and SQL join strategies is a senior-level signal.",
+      "mini_challenge": "Implement the HashMap class and verify set/get operations. Then trace a rehash: insert 13 entries (> 16 * 0.75 = 12 threshold) and show that capacity doubles to 32. Implement hashJoin and verify the result for the users/orders example. Finally, answer: if a table has 1 million rows and you need to support queries like 'find all users between ages 25 and 35', would you use a hash index or B+ tree? Why?",
+      "flashcards": [
+        {
+          "front": "Hash map in a database: what operations does it enable?",
+          "back": "O(1) average point lookups by key (e.g., find row where id=42). Databases use hash indexes for equality queries (=) but NOT range queries (<, >, BETWEEN) — hash functions destroy ordering. PostgreSQL's HASH index type; Redis's core data structure."
+        },
+        {
+          "front": "Hash table collision resolution: chaining vs open addressing?",
+          "back": "CHAINING: each bucket holds a linked list of entries. O(1) average, O(n) worst case. More memory overhead. OPEN ADDRESSING: on collision, probe to next empty slot (linear, quadratic, or double hashing). Better cache locality. Load factor must stay low (< 0.7). Both O(1) average with good hash function."
+        },
+        {
+          "front": "Hash map load factor: what is it and why does it matter?",
+          "back": "Load factor = n/m (n items, m buckets). As load factor increases: more collisions, longer chains → O(n) worst case lookup. Typical threshold: resize (rehash) when load factor exceeds 0.75. Rehashing: O(n) amortised but triggers infrequently → O(1) amortised insert."
+        },
+        {
+          "front": "Why can't a hash index support range queries?",
+          "back": "Hash functions distribute keys uniformly across buckets — keys that are numerically close (e.g., 100 and 101) end up in completely different buckets. No ordering is preserved. Range query (100 ≤ id ≤ 200) would require scanning ALL buckets. B-Tree index preserves order → O(log n + k) range queries."
+        },
+        {
+          "front": "Hash map vs HashMap vs dict: implementation differences?",
+          "back": "Python dict: open addressing, insertion-ordered (Python 3.7+), amortised O(1). Java HashMap: chaining (treeifies at 8+ entries per bucket in Java 8+, i.e., converts to Red-Black tree for O(log n) worst case). JavaScript Object: engine-dependent, often hash table. All O(1) average."
+        },
+        {
+          "front": "Database hash join: how does it work?",
+          "back": "Build phase: scan smaller table, build hash table on join key. Probe phase: scan larger table, probe hash table for matches. O(n+m) expected vs O(n×m) nested-loop join or O((n+m) log(n+m)) sort-merge join. Best for equi-joins on large tables that fit in memory."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "A database query: SELECT * FROM users WHERE age BETWEEN 20 AND 30. Should this use a hash index or B-Tree index on 'age'?",
+          "options": [
+            "Hash index — faster lookup",
+            "B-Tree index — preserves order, supports range scans",
+            "Either works identically",
+            "Neither — use a full table scan"
+          ],
+          "answer": 1,
+          "explanation": "BETWEEN is a range query. Hash indexes hash the key — values in [20,30] hash to unpredictable buckets. B-Tree preserves ordering: find the first key ≥ 20, then scan leaf nodes to 30 → O(log n + k) where k = result count. Hash indexes only support equality (=, IN, IS NULL)."
+        },
+        {
+          "question": "Hash table with m=10 buckets and n=7 entries. Load factor = ? Time to resize?",
+          "options": [
+            "Load factor = 0.7, resize threshold typically at 0.75 — close but not yet",
+            "Load factor = 7/10 = 0.7 < 0.75 threshold → no resize yet",
+            "Load factor = 7, resize immediately",
+            "Load factor = 3/10 = 0.3"
+          ],
+          "answer": 1,
+          "explanation": "Load factor = n/m = 7/10 = 0.7. Standard threshold is 0.75. At 0.7 we're close but haven't crossed it yet → no resize. The next insert (n=8, load=0.8 > 0.75) would trigger rehashing to a larger table."
+        },
+        {
+          "question": "Hash join: tables A (1M rows) and B (10K rows). Which is the 'build' table and why?",
+          "options": [
+            "A (larger) — more data to hash",
+            "B (smaller) — fits in memory, build hash table from B, probe with A",
+            "Either — doesn't matter for correctness",
+            "A if joined on primary key, B otherwise"
+          ],
+          "answer": 1,
+          "explanation": "Build phase: smaller table (B, 10K rows) → hash table fits in memory. Probe phase: scan A (1M rows), probe hash table. If the hash table doesn't fit in memory, 'hybrid hash join' (partition both tables) is used. Building from the smaller table minimises memory usage."
+        },
+        {
+          "question": "Java HashMap converts chain to Red-Black tree when bucket size ≥ 8. Why?",
+          "options": [
+            "Red-Black trees are faster for small lists",
+            "Adversarial hash flooding: attacker forces all keys into one bucket (O(n) chain). Tree fallback gives O(log n) worst case regardless of distribution.",
+            "Reduces memory usage",
+            "Enables range queries"
+          ],
+          "answer": 1,
+          "explanation": "Hash flooding attack: craft input where all keys collide → O(n) chain lookup. Java 8's tree bins: when chain length ≥ 8, convert to Red-Black tree → O(log n) worst case. Amortised O(1) still holds with good hash function but O(n) attacks are mitigated."
+        }
+      ],
+      "visual_aid": {
+        "type": "hash_vs_btree_index",
+        "description": "Hash index vs B-Tree index — when to use each",
+        "diagram": "HASH INDEX vs B-TREE INDEX:\n\n          HASH INDEX           B-TREE INDEX\n          ──────────           ────────────\nStructure Hash table           Balanced tree (B+ Tree)\nLookup    O(1) avg             O(log n)\nRange     ✗ NOT supported      ✓ O(log n + k)\nSort      ✗ Unordered          ✓ Already sorted\nEquality  ✓ Best for =,IN      ✓ Also supports =\nMemory    Lower overhead       More overhead (pointers)\nUse case  id=42, email=...     age BETWEEN 20-30\n          WHERE x = 5          ORDER BY date\n                               WHERE score > 100\n\nDATABASE EXAMPLES:\n  PostgreSQL: CREATE INDEX ON users USING HASH (email);\n              CREATE INDEX ON orders USING BTREE (created_at);\n  MySQL InnoDB: Clustered B-Tree on primary key;\n                Hash index only in MEMORY engine\n  Redis: All top-level keys in a hash table (O(1) GET/SET)\n\nHASH JOIN EXECUTION PLAN:\n  SELECT * FROM A JOIN B ON A.id = B.user_id\n  1. Scan B (10K rows) → build hash table on user_id\n  2. Scan A (1M rows) → probe hash table\n  3. Output matching rows\n  Time: O(|A| + |B|) vs nested loop O(|A| × |B|)"
+      },
+      "complexity_summary": {
+        "hash_lookup": "O(1) average, O(n) worst case (all collisions)",
+        "hash_insert": "O(1) amortised (rehash occasionally)",
+        "hash_range_query": "O(n) — must scan all buckets",
+        "btree_range_query": "O(log n + k) — k = result count",
+        "hash_join": "O(n+m) expected vs O(nm) nested loop"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-706",
+          "title": "Design HashMap",
+          "difficulty": "Easy",
+          "pattern": "Implement hash map with chaining — O(1) amortised"
+        },
+        {
+          "id": "lc-355",
+          "title": "Design Twitter",
+          "difficulty": "Medium",
+          "pattern": "Hash map for user→tweets + heap for timeline merge"
+        },
+        {
+          "id": "lc-380",
+          "title": "Insert Delete GetRandom O(1)",
+          "difficulty": "Medium",
+          "pattern": "Hash map + dynamic array for O(1) random access"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M7-L1-TH-1",
+            "question": "In CHAINING collision resolution, the load factor threshold (default 0.75) triggers REHASHING. Why does the load factor > 0.75 cause performance degradation?",
+            "options": [
+              "Load factor > 0.75 causes hash collisions to increase exponentially",
+              "AVERAGE CHAIN LENGTH GROWS: load factor α = n/m (n entries, m buckets); at α=0.75, the average chain length is 0.75 (expected 0-1 items per bucket); as α increases toward 1 and beyond, the expected chain length approaches α — O(α) per lookup; for α=3: average 3 comparisons per lookup vs O(1) target; BIRTHDAY PARADOX effect: at 75% occupancy, ~52% of buckets have ≥1 item so most new inserts go into non-empty buckets; rehashing at 75% keeps amortised average-case O(1) while the constant factor remains small",
+              "Load factor > 0.75 causes the hash function to produce more collisions",
+              "Load factor > 0.75 means more than 75% of hash values are invalid"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Load factor: n/m; resize when > 0.75' — at load factor α, the expected chain length under uniform hashing is α; 0.75 balances space efficiency vs lookup time; higher α means longer expected chains and slower O(α) lookups; the 0.75 threshold is empirically optimal for most workloads (Java HashMap, Python dict)."
+          },
+          {
+            "id": "L3M7-L1-TH-2",
+            "question": "REHASHING is O(n) for one operation but O(1) AMORTISED. Why does the amortised analysis give O(1)?",
+            "options": [
+              "Rehashing happens rarely so it averages to O(1)",
+              "GEOMETRIC GROWTH AMORTISATION: each rehash doubles capacity (m→2m); the next rehash happens after another n insertions (when size reaches 2m*0.75=1.5m); total work of all rehashes up to n items: n/2 + n/4 + n/8 + ... = n items rehashed across all operations (geometric series sums to n); dividing n total rehash work by n insertions = O(1) amortised per insert; this is the same argument as dynamic array push: each element is rehashed at most O(log n) times total across all doublings",
+              "Amortised O(1) assumes rehashing is done in a background thread",
+              "Rehashing is O(1) because only the changed entry needs moving"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Rehashing: O(n) amortised over n insertions = O(1) amortised per insert' — the doubling strategy ensures total rehash work is O(n): each element is rehashed a constant number of times as capacity doubles through log₂(n/initial) stages; the geometric series 1+2+4+...+n = 2n-1 = O(n) gives O(1) amortised per insertion."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M7-L1-LG-1",
+            "question": "A HASH JOIN builds a hash table on table A and probes with table B. Why build on the SMALLER table?",
+            "options": [
+              "The smaller table has fewer hash collisions so probing is faster",
+              "MEMORY CONSTRAINT: the build phase creates an in-memory hash table of table A; if A is smaller than B, the hash table fits in memory/L3 cache; probing with B (larger) scans B sequentially without requiring B to fit in memory; if A were the larger table, the hash table might not fit in memory requiring an expensive disk-based solution; building on the smaller table minimises the memory footprint of the in-memory hash structure while the larger table is streamed through",
+              "Building on the smaller table reduces the hash function computation time",
+              "The smaller table always has a better hash distribution"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code comment: 'Build phase: hash the smaller table' — hash join's memory requirement is proportional to the build table size; fitting the smaller table in memory enables O(1) probe lookups; building on the larger table risks expensive memory overflows or external hashing; this is why database query optimisers always choose the smaller relation for the build phase."
+          },
+          {
+            "id": "L3M7-L1-LG-2",
+            "question": "A database has two index options for column `age`: a B+ tree index or a hash index. Query: `WHERE age = 25`. Query: `WHERE age BETWEEN 20 AND 30`. Which index is best for each?",
+            "options": [
+              "Hash index for age=25 (O(1) equality lookup); B+ tree for age BETWEEN 20 AND 30 (range scan on sorted leaves)",
+              "B+ tree for both — it supports both equality and range queries",
+              "Hash index for both — it's faster for all query types",
+              "Neither — full table scan is always optimal"
+            ],
+            "answer": 0,
+            "explanation": "Matching the lesson's concept: 'When to prefer hash over B+ tree: point queries only, no range queries needed' — hash index: O(1) equality lookup but cannot support range queries (hash destroys ordering); B+ tree: O(log n) for equality AND efficient range scan via sorted leaf chain; the database would use hash for exact equality workloads and B+ tree for any range-involving workload."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M7-L1-SY-1",
+            "question": "In the HashMap `_hash` method, `hash = (hash * 31 + c.charCodeAt(0)) % this.capacity`. Why use 31 specifically as the multiplier?",
+            "options": [
+              "31 is used because it is a random prime that was chosen arbitrarily",
+              "31 IS A PRIME NUMBER with a POWER-OF-2 OPTIMISATION: 31 = 2^5 - 1, so multiplication by 31 can be computed as `(x << 5) - x` (bit shift + subtract) which is faster than general multiplication on some architectures; being prime means 31 is coprime with all powers of 2 (the common hash table size), reducing periodic collisions; 31 is small enough to avoid overflow in smaller languages (Java uses 31 for String.hashCode); this specific value was empirically found to produce good distribution for ASCII strings",
+              "31 is used because hash tables always have 31 buckets",
+              "31 ensures the hash function maps to odd indices, reducing collisions"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's hash function: `hash = (hash * 31 + c.charCodeAt(0)) % this.capacity` — 31=2^5-1 allows JIT compilers to optimise multiplication; prime values reduce clustering in power-of-2 sized tables; Java's String.hashCode uses 31 for the same reasons; this is the industry-standard polynomial rolling hash for strings."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M7-L1-CC-1",
+            "title": "HashMap with Chaining and Hash Join",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the HashMap and hash join from this lesson.",
+            "requirements": [
+              "Implement `HashMap` class with set(key,value), get(key), and automatic rehashing at load factor 0.75",
+              "Implement `hashJoinImpl(tableA, tableB, keyA, keyB)` matching the lesson's build-probe approach"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "// HashMap class already provided — implement hashJoin\nfunction hashJoinImpl(tableA, tableB, keyA, keyB) {\n  // TODO: build hash table from tableA; probe with tableB rows\n}"
+            },
+            "test_cases": [
+              {
+                "input": "(() => { const hm=new HashMap(); hm.set('k',42); return hm.get('k'); })()",
+                "expected": 42,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const hm=new HashMap(); hm.set('a',1); hm.set('a',2); return hm.get('a'); })()",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "hashJoinImpl([{id:1,n:'A'},{id:2,n:'B'}],[{uid:1,item:'x'},{uid:2,item:'y'}],'id','uid').length",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "hashJoinImpl([{id:1,n:'A'}],[{uid:1,i:'x'},{uid:1,i:'y'}],'id','uid').length",
+                "expected": 2,
+                "type": "hidden"
+              },
+              {
+                "input": "(() => { const hm=new HashMap(); hm.set('x',0); return hm.get('missing')===undefined; })()",
+                "expected": true,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "class HashMap {\n  constructor(initialCapacity=16,loadFactor=0.75){this.capacity=initialCapacity;this.loadFactor=loadFactor;this.size=0;this.buckets=Array.from({length:this.capacity},()=>[]);}\n  _hash(key){let hash=0;for(const c of String(key))hash=(hash*31+c.charCodeAt(0))%this.capacity;return hash;}\n  set(key,value){const idx=this._hash(key);const bucket=this.buckets[idx];for(const pair of bucket){if(pair[0]===key){pair[1]=value;return;}}bucket.push([key,value]);this.size++;if(this.size/this.capacity>this.loadFactor)this._rehash();}\n  get(key){const bucket=this.buckets[this._hash(key)];for(const[k,v]of bucket)if(k===key)return v;return undefined;}\n  _rehash(){const oldBuckets=this.buckets;this.capacity*=2;this.buckets=Array.from({length:this.capacity},()=>[]);this.size=0;for(const bucket of oldBuckets)for(const[k,v]of bucket)this.set(k,v);}\n}\nfunction hashJoinImpl(tableA,tableB,keyA,keyB){const ht=new Map();for(const rowA of tableA){const k=rowA[keyA];if(!ht.has(k))ht.set(k,[]);ht.get(k).push(rowA);}const result=[];for(const rowB of tableB){const matches=ht.get(rowB[keyB])||[];for(const rowA of matches)result.push({...rowA,...rowB});}return result;}"
+            },
+            "complexity_analysis": "HashMap set/get: O(1) amortised. hashJoin: O(|A| + |B|) average.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "HashMap: _hash returns bucket index; bucket is an array of [key,value] pairs; scan for existing key on set."
+              },
+              {
+                "level": 2,
+                "text": "hashJoin build: for each rowA, add to Map under rowA[keyA]. Probe: for each rowB, look up rowB[keyB] in Map."
+              },
+              {
+                "level": 3,
+                "text": "Join result: for each matching rowA, spread both rows ({...rowA,...rowB})."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 2,
+      "title": "B-Trees In SQL Indexes",
+      "tag": "ADDED",
+      "objective": "Connect B+ tree structure to SQL index internals, explain clustered vs non-clustered indexes, and justify specific index choices for given query patterns.",
+      "concepts": [
+        "SQL index: B+ tree mapping column values to row locations",
+        "Clustered index: data rows physically stored in B+ tree leaf order",
+        "Non-clustered index: leaf nodes store (column_value, primary_key) pairs, not data",
+        "Index scan vs table scan: optimizer chooses based on selectivity estimate",
+        "Composite index: (col1, col2) index supports queries on col1 alone or (col1, col2)",
+        "Left-prefix rule: composite index on (a,b,c) used for WHERE a=... or WHERE a=... AND b=...",
+        "Covering index: index contains all columns needed by query (no row lookup)",
+        "Index bloat: too many indexes slow writes; balance read and write performance"
+      ],
+      "explanation": "SQL databases use B+ trees for most indexes. The primary key creates a clustered index: data rows are physically sorted by primary key on disk, stored in leaf nodes. This makes range queries on primary key very fast (linear leaf scan after O(log n) descent). Non-clustered (secondary) indexes store (indexed_column_value, primary_key) pairs in the leaf nodes. A query must first find the primary key from the secondary index, then look up the actual row from the clustered index — two B+ tree traversals (one for secondary, one for primary). Composite indexes (a, b, c): the B+ tree sorts by a first, then b within the same a, then c. A query on (a=5) can use the index (scan all entries with a=5). A query on (b=3) alone cannot (b is only sorted within each distinct a value). The left-prefix rule: composite index on (a,b,c) helps queries filtering on (a), (a,b), or (a,b,c) but not (b) or (c) alone. Covering index: if an index includes all columns in SELECT, no row lookup is needed. For SELECT name, age FROM users WHERE age > 25, an index on (age, name) is covering.",
+      "analogy": "A clustered SQL index is like a telephone directory sorted by last name: the physical book is sorted, so finding 'Smith' is fast and all Smiths are together. A non-clustered index is like a card catalogue in a library: the cards (index) are sorted differently from the books (data), so you find the card (index lookup), then walk to the shelf (row lookup). Two trips instead of one. Composite index left-prefix: a phone book sorted by (last name, first name) helps finding 'John Smith' but not all 'Johns' in the entire book.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// B+ TREE SQL INDEX CONCEPTS (implementation reference)\n\n// CLUSTERED INDEX: leaf nodes contain actual row data\n// Analogy: sorted array where binary search finds rows directly\n\n// NON-CLUSTERED INDEX: leaf nodes contain (indexed_val, primary_key)\n// Two-step lookup: index_tree.find(val) -> primary_key -> data_tree.find(pk)\n\n// QUERY ANALYSIS: which index is used?\nconst queryAnalysis = [\n    {\n        query: 'SELECT * FROM users WHERE id = 42',\n        index: 'Clustered index on id',\n        cost: 'O(log n) = 3 disk reads for 1M rows',\n        note: 'Primary key lookup: best case'\n    },\n    {\n        query: 'SELECT * FROM users WHERE age = 25',\n        index: 'Non-clustered index on age',\n        cost: 'O(log n) index + O(matching rows) row lookups',\n        note: 'Secondary index: two B+ tree traversals per matching row'\n    },\n    {\n        query: 'SELECT name FROM users WHERE age > 20 AND age < 30',\n        index: 'Non-clustered index on age (range scan)',\n        cost: 'O(log n) to find 20, then leaf scan to 30',\n        note: 'Range query: B+ tree leaf chain traversal'\n    },\n    {\n        query: 'SELECT * FROM users WHERE last_name = \"Smith\" AND age = 25',\n        index: 'Composite index on (last_name, age)',\n        cost: 'O(log n) using both columns',\n        note: 'Left-prefix: (last_name, age) uses both columns'\n    },\n    {\n        query: 'SELECT * FROM users WHERE age = 25 AND last_name = \"Smith\"',\n        index: 'Composite index on (last_name, age) -- SAME INDEX reordered by optimizer',\n        cost: 'O(log n) -- optimizer rewrites to use left prefix',\n        note: 'Query optimizer handles column order in WHERE clause'\n    },\n    {\n        query: 'SELECT * FROM users WHERE age = 25',\n        index: 'Composite index on (last_name, age) -- NOT USED',\n        cost: 'Full table scan O(n)',\n        note: 'Left-prefix violation: age alone cannot use (last_name, age) index'\n    },\n];\n\n// COVERING INDEX EXAMPLE:\n// CREATE INDEX idx_covering ON users(age, name);\n// SELECT name FROM users WHERE age > 25;\n// -> No row lookup needed: both columns are in the index leaf nodes\n\n// INDEX CREATION COST:\nconst indexCosts = {\n    create: 'O(n log n) to sort and build the B+ tree',\n    insert: 'O(log n) additional B+ tree insertion per indexed column',\n    delete: 'O(log n) B+ tree deletion per indexed column',\n    query:  'O(log n + matching rows)',\n    space:  'O(n) for each index (roughly one disk page per 100-200 rows)'\n};\nfor (const [op, cost] of Object.entries(indexCosts))\n    console.log(`${op}: ${cost}`);",
+        "explanation": "The left-prefix rule is the most commonly misunderstood SQL index concept. A composite index on (last_name, age) creates a B+ tree sorted by last_name first, then age within each last_name group. Querying WHERE age = 25 without last_name means scanning all last_name groups — effectively a full scan. The index is useless for this query."
+      },
+      "common_mistakes": [
+        "Creating indexes on every column — each additional index adds O(log n) overhead to every write (INSERT, UPDATE, DELETE); over-indexing slows write-heavy workloads",
+        "Not knowing the left-prefix rule for composite indexes — a composite index on (a, b, c) cannot be used for queries filtering on b or c alone; only queries with a as the leftmost filter can use the index",
+        "Confusing clustered and non-clustered indexes — there can be only one clustered index per table (it determines physical row order); all other indexes are non-clustered and require an additional lookup step"
+      ],
+      "interview_relevance": "B+ tree SQL index knowledge is tested in every system design interview involving databases. Questions like 'How would you optimise this query?', 'What index would you create?', 'Why is this query slow?' all require understanding of how B+ tree indexes work. The left-prefix rule and covering index concepts are specifically evaluated at senior level.",
+      "mini_challenge": "For a users table with columns (id, email, age, city, created_at): (1) Which columns should have indexes for the query 'find all users in New York between 25-35 ordered by age'? (2) Would a composite index on (city, age) or (age, city) be better? (3) How would you make this query a covering index query? (4) If the table has 10 million rows and 5 indexes, how many B+ tree operations does a single INSERT require?",
+      "flashcards": [
+        {
+          "front": "B-Tree in SQL indexes: why is it the default?",
+          "back": "B-Trees (specifically B+ Trees) support: O(log n) equality lookup, O(log n + k) range scans, natural sorted order for ORDER BY, index-only scans, and composite index prefix matching. Almost all SQL indexes (PostgreSQL, MySQL InnoDB, SQL Server, Oracle) use B+ Trees by default."
+        },
+        {
+          "front": "Clustered vs non-clustered index?",
+          "back": "CLUSTERED: the table data is physically stored in B-Tree leaf order. Only one per table. In MySQL InnoDB: clustered on primary key. Lookup: one tree traversal. NON-CLUSTERED: separate B-Tree with pointers to table rows. Multiple per table. Lookup: tree traversal + row fetch (extra I/O if not covering)."
+        },
+        {
+          "front": "Covering index: what is it?",
+          "back": "An index that contains all columns needed by the query — no need to access the table. Query: SELECT name, email FROM users WHERE age > 25. Covering index: (age, name, email). The B-Tree leaf nodes contain everything → zero table I/O. Dramatically reduces query time for analytics workloads."
+        },
+        {
+          "front": "Composite index: prefix matching rule?",
+          "back": "Index on (a, b, c): queries can use the index for: WHERE a=?, WHERE a=? AND b=?, WHERE a=? AND b=? AND c=?. But NOT: WHERE b=? (no leading column a), WHERE b=? AND c=?. The index is sorted first by a, then b within a, then c within b — skipping the leading column loses the sorted order."
+        },
+        {
+          "front": "Index selectivity: what is it and why does it matter?",
+          "back": "Selectivity = distinct_values / total_rows. High selectivity (e.g., unique email: selectivity≈1) → index is very useful (finds few rows). Low selectivity (e.g., boolean: selectivity=2/n≈0) → index may not help (query still reads most of the table). Query optimisers skip low-selectivity indexes."
+        },
+        {
+          "front": "Write amplification with B-Tree indexes?",
+          "back": "Every INSERT/UPDATE/DELETE must update ALL indexes on the table. A table with 5 indexes: each write causes 5 B-Tree modifications (each O(log n)). Trade-off: more indexes → faster reads, slower writes. OLTP (many writes): few indexes. OLAP (mostly reads): more indexes acceptable."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Index on (first_name, last_name). Query: WHERE last_name = 'Smith'. Does this use the index?",
+          "options": [
+            "Yes — last_name is in the index",
+            "No — composite index requires leading column first_name; last_name alone cannot use the index prefix",
+            "Yes — with an index skip scan",
+            "Only if first_name has high selectivity"
+          ],
+          "answer": 1,
+          "explanation": "Composite index (first_name, last_name): sorted first by first_name, then last_name within each first_name group. Querying on last_name alone = looking for 'Smith' scattered throughout all first_name groups → full index scan needed. Query optimiser typically reverts to table scan. (Some databases support 'skip scan' but it's not the default.)"
+        },
+        {
+          "question": "MySQL InnoDB: primary key is the clustered index. Secondary index on email stores what in its leaf nodes?",
+          "options": [
+            "The full row data",
+            "A pointer (page+offset) to the row",
+            "The primary key value — secondary index lookup requires a second B-Tree lookup on the PK",
+            "The email value only"
+          ],
+          "answer": 2,
+          "explanation": "InnoDB secondary indexes store the PRIMARY KEY value in leaf nodes (not a direct pointer). Lookup via secondary index: (1) traverse email B-Tree → find PK value. (2) traverse PK clustered index → find row. Two tree traversals per secondary index lookup. PostgreSQL uses heap pointers instead."
+        },
+        {
+          "question": "Covering index for: SELECT user_id, created_at FROM orders WHERE status = 'pending'. Best index?",
+          "options": [
+            "(status) — filters correctly",
+            "(user_id, created_at) — covers SELECT columns",
+            "(status, user_id, created_at) — covers WHERE clause AND all SELECT columns",
+            "(created_at, status)"
+          ],
+          "answer": 2,
+          "explanation": "(status, user_id, created_at): query filter uses leading column 'status' → efficient B-Tree range scan. Leaf nodes contain user_id and created_at → no table access needed (covering index). Option A requires table access for user_id and created_at. Option B misses the WHERE filter."
+        },
+        {
+          "question": "Table with 1M rows, 10 indexes, 1000 writes/second. What is the approximate index-update overhead?",
+          "options": [
+            "1000 updates/sec",
+            "~10,000 index writes/sec (1000 × 10 indexes each O(log n))",
+            "1M updates/sec",
+            "Constant — indexes are updated lazily"
+          ],
+          "answer": 1,
+          "explanation": "Each row write triggers one update per index: 1000 rows/sec × 10 indexes = 10,000 B-Tree modifications/sec. Each is O(log n) ≈ 20 for 1M rows. Heavy write workloads with many indexes are a common performance bottleneck. Solution: drop unnecessary indexes; use partial indexes; batch inserts."
+        }
+      ],
+      "visual_aid": {
+        "type": "btree_index_types",
+        "description": "B-Tree index types and query patterns",
+        "diagram": "B-TREE INDEX IN SQL — KEY CONCEPTS:\n\nCLUSTERED INDEX (InnoDB primary key):\n  B+ Tree leaf nodes = actual row data\n  SELECT * WHERE id=42: ONE tree traversal\n  Table physically ordered by PK\n\n  Internal: [10|30|50]\n             /   |   \\\n  Leaves: [1-9|data] [10-29|data] [30-49|data] [50+|data]\n          ──────────linked list──────────────────────────→\n\nNON-CLUSTERED (secondary) INDEX:\n  B+ Tree leaves = (index_col, PK_value)\n  SELECT * WHERE email='a@b.com': TWO traversals\n  1. Email B-Tree → PK=42\n  2. PK clustered B-Tree → row data\n\nCOVERING INDEX:\n  SELECT user_id, total WHERE status='pending'\n  Index: (status, user_id, total)\n  B-Tree leaf nodes contain all needed columns → ZERO table I/O\n\nCOMPOSITE INDEX PREFIX:\n  Index (a, b, c):\n  ✓ WHERE a=?           → uses index\n  ✓ WHERE a=? AND b=?   → uses index\n  ✗ WHERE b=?           → cannot use (skip a)\n  ✗ WHERE c=?           → cannot use (skip a,b)"
+      },
+      "complexity_summary": {
+        "btree_lookup": "O(log n) I/Os",
+        "btree_range_scan": "O(log n + k) — k = result count",
+        "clustered_index_lookup": "O(log n) — one traversal, gets row directly",
+        "secondary_index_lookup": "O(2 log n) — two traversals (InnoDB)",
+        "covering_index_benefit": "Eliminates table access — O(log n + k) vs O(k×log n)"
+      },
+      "practice_problems": [
+        {
+          "id": "custom-idx1",
+          "title": "Design the optimal indexes for: SELECT * FROM orders WHERE customer_id=? AND status='shipped' ORDER BY created_at DESC",
+          "difficulty": "Medium",
+          "pattern": "Composite index design: leading equality columns, then range, then ORDER BY"
+        },
+        {
+          "id": "custom-idx2",
+          "title": "Explain the difference in execution plan for these two queries on table with index (a,b): WHERE a=1 AND b=2 vs WHERE b=2 AND a=1",
+          "difficulty": "Easy",
+          "pattern": "Composite index prefix — query optimizer can reorder conditions"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M7-L2-TH-1",
+            "question": "The LEFT-PREFIX RULE states that a composite index on (a,b,c) can be used for queries on (a), (a,b), or (a,b,c) but NOT on (b) or (c) alone. Why?",
+            "options": [
+              "SQL optimisers only support left-to-right column matching by design",
+              "B+ TREE SORT ORDER: a composite index (a,b,c) sorts first by a, then by b within same a, then by c within same (a,b); looking up WHERE a=v binary searches by a — valid since the tree is sorted by a at the top level; WHERE a=v AND b=w binary searches by a then b — valid since within a=v, nodes are sorted by b; WHERE b=w requires finding all rows with b=w across all values of a — the B+ tree is NOT sorted by b globally, so no binary search is possible — full scan required; the left prefix is the only portion of the sort key usable for binary search",
+              "The left-prefix rule is a SQL parser limitation, not a data structure property",
+              "Composite indexes (a,b,c) store data sorted by c only"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Left-prefix rule: composite index on (a,b,c) used for WHERE a=... or WHERE a=... AND b=...' — the B+ tree sorts lexicographically: first by a, then by b, then by c; binary search works only along the leading sort key(s); querying b alone requires searching across all a-values (full scan); this explains why index design must match query access patterns."
+          },
+          {
+            "id": "L3M7-L2-TH-2",
+            "question": "A COVERING INDEX includes all columns needed by a query. Why does this eliminate a SECOND B+ TREE traversal?",
+            "options": [
+              "Covering indexes store data in a different format that avoids tree traversal",
+              "WITHOUT COVERING INDEX: a non-clustered index leaf stores (indexed_value, primary_key); finding a row requires (1) search the index B+ tree to get the primary key, (2) search the data B+ tree (clustered index) with that primary key — two separate tree traversals; WITH COVERING INDEX: the index leaf stores (indexed_value, column1, column2, ...) including ALL columns needed by the query; step (2) is skipped because all needed data is in the index leaf itself; for high-selectivity queries on large tables, this cuts disk I/O in half",
+              "Covering indexes enable O(1) lookups by caching the most recent results",
+              "The second traversal is only eliminated for primary key queries"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code comment: 'Covering index: index contains all columns needed by query (no row lookup)' and 'Two-step lookup: index_tree.find(val) -> primary_key -> data_tree.find(pk)' — the covering index stores the required data directly in index leaves, avoiding the expensive second tree traversal to the clustered data; this is one of the most impactful query optimisation techniques in practice."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M7-L2-LG-1",
+            "question": "Query: `SELECT * FROM users WHERE age = 25 AND last_name = 'Smith'` with index (last_name, age). Does the composite index apply? What if only `WHERE age = 25` is queried?",
+            "options": [
+              "Yes for (age=25 AND last_name='Smith') — optimizer reorders columns; NO for age=25 alone — left-prefix violation",
+              "Both queries use the composite index; SQL always optimises composite indexes",
+              "Neither query uses the index; a separate (age) index is needed",
+              "Yes for age=25 alone — the optimizer always uses available indexes"
+            ],
+            "answer": 0,
+            "explanation": "Matching the lesson's queryAnalysis: query5 shows (last_name,age) index with reordered WHERE: 'optimizer rewrites to use left prefix'; query6 shows age=25 alone: 'Left-prefix violation: age alone cannot use (last_name, age) index'; the query optimizer CAN reorder WHERE clause conditions to match the index left prefix, but cannot use an index that lacks the leftmost column entirely."
+          },
+          {
+            "id": "L3M7-L2-LG-2",
+            "question": "The lesson shows index create cost as O(n log n). What are the TWO COMPONENTS of this cost?",
+            "options": [
+              "O(n log n) = O(n) to read data + O(log n) to build the tree",
+              "O(n log n) = SORT PHASE O(n log n) + BUILD PHASE O(n): sorting all n rows by the indexed column value takes O(n log n) (like merge sort); then building the B+ tree from the sorted data takes O(n) (bulk loading in order); the sort phase dominates: O(n log n) + O(n) = O(n log n) total; subsequent inserts into the running index each cost O(log n) for a single B+ tree insertion",
+              "O(n log n) = n insertions each O(log n) into the B+ tree",
+              "O(n log n) = O(log n) for the tree height × O(n) pages"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's indexCosts: `create: 'O(n log n) to sort and build the B+ tree'` — the two phases: (1) sort all n indexed values — the bottleneck at O(n log n); (2) bulk-load the sorted data into the B+ tree — O(n) since we insert in order; however, option C ('n insertions each O(log n)') is also a valid way to reach O(n log n); both are equivalent for the total asymptotic cost."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M7-L2-SY-1",
+            "question": "In the lesson, `queryAnalysis` is an ARRAY OF OBJECTS rather than a Map. What advantage does this design provide for displaying multiple query scenarios?",
+            "options": [
+              "Arrays are faster than Maps for all operations",
+              "ORDERED SEQUENTIAL DISPLAY: query scenarios have a NATURAL PROGRESSION (simple→complex: primary key → range → composite → covering); an array preserves insertion order for sequential display and iteration; a Map keyed by query string would be harder to iterate in a meaningful order and would require string keys for lookup; the array enables `for (const scenario of queryAnalysis)` for display while still supporting `queryAnalysis.filter(...)` for analysis; each scenario object groups related fields (query, index, cost, note) without needing a key",
+              "Arrays support index-based access which is needed for binary search",
+              "Maps cannot store object values; arrays are required"
+            ],
+            "answer": 1,
+            "explanation": "The array structure preserves ordering (simple to complex query types) and enables sequential iteration for display; the scenario objects group all related information (query, index, cost, note) for each case; this is a documentation/display data structure where ordered presentation matters more than keyed lookup — the natural use case for arrays of objects."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M7-L2-CC-1",
+            "title": "SQL Index Advisor",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement an index advisor based on the lesson's query analysis.",
+            "requirements": [
+              "Implement `recommendIndex(query)` returning the best index type for a given query signal",
+              "Implement `canUseCompositeIndex(indexCols, whereCols)` checking left-prefix rule"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function recommendIndex(query) {\n  // query: object with {type: 'equality'|'range'|'both', hasAllCols: bool}\n  // return: 'Hash Index', 'B+ Tree', or 'Covering Index'\n}\n\nfunction canUseCompositeIndex(indexCols, whereCols) {\n  // indexCols: ['last_name', 'age', 'city'] (left to right order)\n  // whereCols: Set of columns in WHERE clause\n  // return: true if left-prefix rule is satisfied\n}"
+            },
+            "test_cases": [
+              {
+                "input": "recommendIndex({type:'equality', hasAllCols:false})",
+                "expected": "Hash Index",
+                "type": "visible"
+              },
+              {
+                "input": "recommendIndex({type:'range', hasAllCols:false})",
+                "expected": "B+ Tree",
+                "type": "visible"
+              },
+              {
+                "input": "recommendIndex({type:'equality', hasAllCols:true})",
+                "expected": "Covering Index",
+                "type": "visible"
+              },
+              {
+                "input": "canUseCompositeIndex(['last_name','age'],new Set(['last_name','age']))",
+                "expected": true,
+                "type": "hidden"
+              },
+              {
+                "input": "canUseCompositeIndex(['last_name','age'],new Set(['age']))",
+                "expected": false,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function recommendIndex(query){\n  if(query.hasAllCols)return'Covering Index';\n  if(query.type==='equality')return'Hash Index';\n  return'B+ Tree';\n}\n\nfunction canUseCompositeIndex(indexCols,whereCols){\n  return whereCols.has(indexCols[0]);\n}"
+            },
+            "complexity_analysis": "Both: O(1).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "recommendIndex: if hasAllCols → Covering; if equality-only → Hash; otherwise → B+ Tree."
+              },
+              {
+                "level": 2,
+                "text": "canUseCompositeIndex: left-prefix rule — whereCols must include the FIRST column of indexCols."
+              },
+              {
+                "level": 3,
+                "text": "The left-prefix check: whereCols.has(indexCols[0]) is the minimum condition; full check would verify a contiguous prefix."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 3,
+      "title": "Consistent Hashing And Distributed Systems",
+      "tag": "ADDED",
+      "objective": "Explain consistent hashing, implement it with virtual nodes, and justify why it minimises data movement when nodes join or leave a distributed system.",
+      "concepts": [
+        "Consistent hashing: map both keys and nodes onto a hash ring [0, 2^32)",
+        "Key assignment: assign key to the next clockwise node on the ring",
+        "When a node leaves: only its keys move to the next clockwise node",
+        "When a node joins: only keys from the next clockwise node's range move",
+        "O(K/N) keys move when a node joins/leaves (K=keys, N=nodes)",
+        "Virtual nodes (vnodes): each physical node maps to multiple ring positions",
+        "Virtual nodes solve load imbalance: spread the ring positions evenly",
+        "Applications: distributed caches (Cassandra, Dynamo), CDN routing"
+      ],
+      "explanation": "Consistent hashing solves the key redistribution problem in distributed systems. Naive hashing (key % N) means changing N nodes requires reassigning almost all keys. Consistent hashing: place both keys and servers on a circular hash ring (values 0 to 2^32). Each key is assigned to the first server clockwise from its hash position. When a server is added: only the keys between the new server's hash position and the previous server (counter-clockwise) need to move. When a server is removed: its keys move to the next clockwise server. In both cases, only K/N keys move on average (where K = total keys, N = total nodes). Virtual nodes: in practice, distributing physical servers at random causes unequal load. Virtual nodes assign each physical server V positions on the ring, distributing load more evenly. Cassandra and Amazon Dynamo use 150+ virtual nodes per physical node. The ring can be implemented as a sorted array of (hash_value, node) pairs with binary search for O(log(N*V)) per key lookup.",
+      "analogy": "Consistent hashing is like a circular seating arrangement at a round table. Each person (key) sits at their assigned seat (hash position) and belongs to the nearest waiter (server) clockwise. When a new waiter joins, only the diners between them and the previous waiter need to move. No one else moves. Virtual nodes are like one waiter having multiple service positions around the table, ensuring no single waiter handles too many diners.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// CONSISTENT HASHING with virtual nodes\nclass ConsistentHash {\n    constructor(virtualNodes = 150) {\n        this.virtualNodes = virtualNodes;\n        this.ring = [];         // sorted array of {hash, node}\n        this.nodeMap = new Map(); // node -> set of hash positions\n    }\n\n    _hash(key) {\n        // Simple hash function (production uses MD5/SHA1)\n        let h = 0;\n        for (const c of String(key)) h = (h * 31 + c.charCodeAt(0)) >>> 0;\n        return h;\n    }\n\n    addNode(node) {\n        const positions = [];\n        for (let i = 0; i < this.virtualNodes; i++) {\n            const hash = this._hash(`${node}:vnode:${i}`);\n            positions.push(hash);\n            this.ring.push({hash, node});\n        }\n        this.ring.sort((a,b) => a.hash - b.hash);\n        this.nodeMap.set(node, positions);\n    }\n\n    removeNode(node) {\n        const positions = new Set(this.nodeMap.get(node) || []);\n        this.ring = this.ring.filter(e => !positions.has(e.hash));\n        this.nodeMap.delete(node);\n    }\n\n    getNode(key) {\n        if (!this.ring.length) return null;\n        const hash = this._hash(key);\n        // Binary search for first ring position >= hash\n        let lo = 0, hi = this.ring.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (this.ring[mid].hash < hash) lo = mid + 1;\n            else hi = mid;\n        }\n        // Wrap around (circular ring)\n        const idx = lo % this.ring.length;\n        return this.ring[idx].node;\n    }\n}\n\nconst ch = new ConsistentHash(150);\nch.addNode('server-A');\nch.addNode('server-B');\nch.addNode('server-C');\n\n// Test key distribution\nconst distribution = {A:0, B:0, C:0};\nfor (let i = 0; i < 10000; i++) {\n    const node = ch.getNode(`user:${i}`);\n    distribution[node.split('-')[1]]++;\n}\nconsole.log('Key distribution:', distribution);\n// Should be roughly 3333 each with 150 virtual nodes\n\n// When server-B is removed: only ~3333/10000 keys need to move\nch.removeNode('server-B');",
+        "explanation": "The binary search on the sorted ring gives O(log(N*V)) per key lookup, where N is the number of physical nodes and V is the number of virtual nodes. With N=100 servers and V=150, that is O(log 15000) ≈ 14 comparisons — very fast. The sorted ring array is maintained in sorted order after each addNode/removeNode, which is O(N*V * log(N*V)) for the sort but this only happens at topology changes."
+      },
+      "common_mistakes": [
+        "Not using virtual nodes — without virtual nodes, the physical servers cluster in small regions of the ring causing extremely uneven load; always use virtual nodes in production",
+        "Using a simple hash function for consistent hashing — a weak hash function creates non-uniform ring positions; use cryptographic hashes (MD5, SHA-1) or well-tested non-cryptographic hashes (MurmurHash, xxHash) for uniform distribution",
+        "Not handling the ring wrap-around — when the key's hash is greater than all ring positions, it must wrap to the first ring position; the modulo (idx % ring.length) handles this but is easy to forget"
+      ],
+      "interview_relevance": "Consistent hashing is one of the most commonly asked system design concepts at senior level. It appears as: 'How would you design a distributed cache?', 'How does Cassandra distribute data?', 'How do you add a new server without massive data migration?'. Being able to draw the ring diagram, explain virtual nodes, and calculate O(K/N) data movement is the expected depth for L5/E5 interviews.",
+      "mini_challenge": "Implement ConsistentHash and verify the distribution is roughly equal across 3 servers (10000 keys, 150 virtual nodes). Then simulate removing server-B: which keys need to move and to which server? Calculate: with 4 servers and 1 million keys, how many keys must move when a 5th server is added with naive hashing (key % N) vs consistent hashing? State the exact formulas.",
+      "flashcards": [
+        {
+          "front": "Consistent hashing: what problem does it solve?",
+          "back": "Distributing data across N servers such that when a server is ADDED or REMOVED, only K/N keys need to be remapped (not all K keys). Standard mod-N hashing: adding/removing a server remaps ≈ K×(N-1)/N ≈ all keys. Consistent hashing: ~K/N remapped."
+        },
+        {
+          "front": "Consistent hashing: the ring structure?",
+          "back": "Map both servers AND keys to a circular hash ring [0, 2^32-1]. Each key is assigned to the FIRST server clockwise from its position on the ring. Adding a server: only keys between the new server and its predecessor are remapped. Removing a server: its keys move to its successor."
+        },
+        {
+          "front": "Consistent hashing: virtual nodes — why?",
+          "back": "With few physical servers, distribution on the ring is uneven → some servers get much more load. VIRTUAL NODES: each physical server maps to multiple (100-200) positions on the ring. Load distributes more uniformly across virtual nodes → more even physical server load. Trade-off: more memory for ring metadata."
+        },
+        {
+          "front": "Consistent hashing: what fraction of keys are remapped when one server is added to an N-server system?",
+          "back": "Approximately K/N keys (K total keys, N servers). Adding one server: it takes over responsibility for the keys between it and its predecessor — about 1/N of the total key space. All other keys remain with their original servers."
+        },
+        {
+          "front": "Consistent hashing implementations: what data structure holds the ring?",
+          "back": "A SORTED map (BST or sorted array) mapping ring positions to server IDs. Lookup: hash(key) → find successor in sorted map (binary search O(log N) or O(log V) for V virtual nodes). Add/remove server: O(V log V) for V virtual nodes."
+        },
+        {
+          "front": "Rendezvous hashing (HRW): alternative to consistent hashing?",
+          "back": "For each key, hash(key, server_i) for all servers. Assign key to the server with the HIGHEST hash value. When a server is removed: only its keys are remapped (to whichever server now has the highest hash for each key). No ring structure needed. O(N) per lookup vs O(log N) consistent hashing."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Standard mod-N hashing: 100K keys on 10 servers. Server 11 is added. Approximately how many keys need remapping?",
+          "options": [
+            "10,000 (1/11 of keys go to new server)",
+            "~90,909 (100K × 10/11 ≈ 91K keys change servers due to mod change)",
+            "0 — mod hashing handles this automatically",
+            "50,000 (half the keys)"
+          ],
+          "answer": 1,
+          "explanation": "mod-10 → mod-11: key k was at server k%10, now at server k%11. For most keys, k%10 ≠ k%11 → remapping. Only keys where k%10 == k%11 (i.e., k%110 is same in both) stay put. In practice: ~90% of keys are remapped. This is the fundamental problem consistent hashing solves."
+        },
+        {
+          "question": "Consistent hashing ring: servers at positions [10, 30, 60, 90]. Key hashes to position 45. Which server handles it?",
+          "options": [
+            "Server at 30 (closest)",
+            "Server at 60 (first server clockwise from 45)",
+            "Server at 10 (first server on the ring)",
+            "Server at 90 (largest position)"
+          ],
+          "answer": 1,
+          "explanation": "Consistent hashing: assign key to the FIRST server clockwise from its position. Key at 45: servers at 60, 90, 10, 30 in clockwise order from 45. First = server at 60."
+        },
+        {
+          "question": "Why are virtual nodes important for consistent hashing with 3 physical servers?",
+          "options": [
+            "Virtual nodes reduce memory usage",
+            "With 3 servers, ring positions may be clustered — one server could hold 50%+ of keys. Virtual nodes (100+ per server) distribute load more evenly",
+            "Virtual nodes enable faster lookups",
+            "Required for correctness"
+          ],
+          "answer": 1,
+          "explanation": "3 servers on ring: if they happen to cluster at [1, 3, 4] (positions), the server before them (position 4) would own [4, 1] wraparound = ~97% of the ring. Virtual nodes (100 per server) scatter positions uniformly → each server owns ~33% of the ring regardless of physical position."
+        },
+        {
+          "question": "Amazon DynamoDB and Apache Cassandra both use consistent hashing. What data is distributed?",
+          "options": [
+            "Query execution plans",
+            "Row data distributed by partition key — consistent hashing determines which node owns each partition key's data",
+            "Index structures",
+            "Schema definitions"
+          ],
+          "answer": 1,
+          "explanation": "Both use consistent hashing on the partition key to distribute row data across nodes. DynamoDB: partition key → consistent hash → node. Cassandra: uses a variant called 'token-based partitioning' which is consistent hashing with tokens on the ring. Adding a node takes over a portion of adjacent token ranges."
+        }
+      ],
+      "visual_aid": {
+        "type": "consistent_hashing_ring",
+        "description": "Consistent hashing ring with server addition",
+        "diagram": "CONSISTENT HASHING RING:\n\n      0 / 2^32\n    ──────────\n   /          \\\nS3(75)       S1(15)\n  \\           |\n   \\   Ring  |\n    \\         |\n     S2(45)──┘\n\nKey at position 25 → first clockwise server → S2(45)\nKey at position 55 → first clockwise server → S3(75)\nKey at position 80 → first clockwise server → S1(15) (wraps around)\n\nADDING SERVER S4 at position 35:\n  Before: keys [15,45) → S2\n  After:  keys [15,35) → S4 (NEW)\n          keys [35,45) → S2 (unchanged)\n  Only ~1/N fraction of keys remapped ✓\n\nVIRTUAL NODES (S1 has 3 virtual nodes):\n  S1_v1 at pos 15, S1_v2 at pos 50, S1_v3 at pos 80\n  More evenly distributed ownership ✓\n\nIMPLEMENTATION:\n  ring = SortedDict()  # pos → server_id\n  ring[15] = 'S1'\n  ring[45] = 'S2'\n  ring[75] = 'S3'\n  def get_server(key):\n    pos = hash(key) % 2^32\n    # find first key in ring >= pos\n    return ring.bisect_left(pos)  # O(log N)"
+      },
+      "complexity_summary": {
+        "key_lookup": "O(log N) — binary search in sorted ring (N = virtual nodes)",
+        "add_remove_server": "O(V log V) — V virtual nodes per server",
+        "keys_remapped_on_change": "~K/N — K total keys, N servers",
+        "mod_n_remapping": "~K×(N-1)/N ≈ all keys"
+      },
+      "practice_problems": [
+        {
+          "id": "custom-ch1",
+          "title": "Implement consistent hashing ring: add_server(id), remove_server(id), get_server(key)",
+          "difficulty": "Hard",
+          "pattern": "SortedDict ring + binary search for successor"
+        },
+        {
+          "id": "custom-ch2",
+          "title": "Consistent hashing with 3 virtual nodes per server: show that load is more balanced than without virtual nodes",
+          "difficulty": "Medium",
+          "pattern": "Virtual node distribution analysis"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M7-L3-TH-1",
+            "question": "In consistent hashing WITHOUT virtual nodes, adding a new server causes some keys to move. Why is the movement O(K/N) (not O(K))?",
+            "options": [
+              "Only keys close to the new server on the ring need to move",
+              "The new server inserts at ONE POSITION on the hash ring and takes over responsibility for keys BETWEEN its predecessor node and itself; if the ring has N servers evenly spaced, the new server's range covers approximately 1/(N+1) of the ring; of K total keys uniformly distributed on the ring, approximately K/(N+1) ≈ K/N keys fall in this range and must move from their previous owner to the new server; all OTHER keys (K - K/N ≈ K*(N-1)/N) stay with their current servers unchanged; this is the key advantage over modulo hashing where a node addition can trigger O(K) key remapping",
+              "Only the keys on the server being replaced move",
+              "Keys move in batches of N so total movement is K/N"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'O(K/N) keys move when a node joins/leaves' — with N nodes, each node owns roughly 1/N of the ring; a new node claims approximately 1/(N+1) ≈ 1/N of the ring from its clockwise neighbour; only those K/N keys need migration; all other K*(N-1)/N keys remain unchanged; compare to modulo hashing where ALL K keys might remap when N changes."
+          },
+          {
+            "id": "L3M7-L3-TH-2",
+            "question": "VIRTUAL NODES (vnodes) solve the load imbalance problem. Why does one physical server having MULTIPLE ring positions improve load balance?",
+            "options": [
+              "Multiple ring positions allow a server to handle more concurrent connections",
+              "STATISTICAL AVERAGING via multiple positions: with 1 position per server, a server's range might cover 5% or 40% of the ring by chance (high variance); with 150 positions per server, each server gets 150 INDEPENDENT random positions; by the law of large numbers, the AVERAGE coverage per server converges to 1/N = 33.3% (for N=3); the variance of coverage decreases as O(1/virtualNodes); 150 vnodes provides sufficient statistical smoothing that real production deployments achieve near-equal load; without vnodes, heterogeneous ring gaps create load hotspots",
+              "Virtual nodes enable the ring to expand beyond its maximum 2^32 positions",
+              "Multiple positions allow a server to cache more keys per position"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Virtual nodes solve load imbalance: spread the ring positions evenly' — with V virtual nodes per server, each server owns V segments of the ring; statistical averaging over V independent positions gives more uniform load; Cassandra and Dynamo use 256 virtual nodes per server for this reason; more vnodes = better balance but higher memory overhead for the ring metadata."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M7-L3-LG-1",
+            "question": "In `ConsistentHash.getNode(key)`, the binary search finds the first position >= hash, then takes `idx = lo % ring.length`. Why is the modulo operation necessary?",
+            "options": [
+              "The modulo prevents array index out of bounds errors",
+              "CIRCULAR RING WRAP-AROUND: when hash is larger than ALL positions in the ring (lo == ring.length after binary search), there is no position >= hash; the binary search returns lo=ring.length (past the end); `% ring.length` wraps this to index 0 — the FIRST (smallest) ring position; this correctly implements the circular ring: if a key's hash is beyond the last node, it wraps around to the first node (clockwise the 'next' node on the ring); without modulo, index ring.length would be an out-of-bounds access",
+              "The modulo converts from a hash value to an array index range",
+              "Modulo is needed to handle collision between two positions with the same hash"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: `const idx = lo % this.ring.length` — the ring is circular; if no ring position is >= hash (hash is larger than all ring positions), lo=ring.length; `ring.length % ring.length = 0` wraps to the first position, correctly implementing the clockwise wrap-around; this is the circular ring property that makes consistent hashing work for all possible hash values."
+          },
+          {
+            "id": "L3M7-L3-LG-2",
+            "question": "The lesson says consistent hashing is used in Cassandra (partition keys) and CDN routing. What SPECIFIC PROPERTY of consistent hashing makes it suitable for BOTH these applications?",
+            "options": [
+              "Consistent hashing is used because it's the fastest O(log n) lookup method",
+              "MINIMAL REMAPPING ON TOPOLOGY CHANGE: both Cassandra and CDN routing deal with DYNAMIC NODE SETS — servers join and leave frequently; when a Cassandra node is added/removed, only O(K/N) data partitions move (not all K); when a CDN edge server goes down, only its assigned client traffic redirects (not all traffic); this stability property is UNIQUE to consistent hashing vs modulo: `key % N` causes O(K) key remapping when N changes by 1; in a system with frequent topology changes, minimising remapping directly minimises data migration and service disruption",
+              "Consistent hashing is used because it supports range queries on keys",
+              "CDN and Cassandra both use consistent hashing because it provides O(1) lookups"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Applications: distributed caches (Cassandra, Dynamo), CDN routing' and 'O(K/N) keys move when a node joins/leaves' — the minimal remapping property is the core value proposition; both Cassandra (replacing a server) and CDN (edge server failure) need minimal traffic disruption on topology change; this is exactly what consistent hashing provides over simpler modulo-based sharding."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M7-L3-SY-1",
+            "question": "In `addNode`, the virtual node hash is computed as `this._hash(\\`${node}:vnode:${i}\\`)`. Why include both the NODE NAME and the vnode INDEX in the hash input?",
+            "options": [
+              "Including the index prevents hash collisions between vnodes of the same server",
+              "DISTINCT RING POSITIONS PER VNODE: each vnode needs a DIFFERENT hash value to occupy a different position on the ring; hashing just the node name would give the same hash for all 150 vnodes of 'server-A'; appending `:vnode:0`, `:vnode:1`, ..., `:vnode:149` produces 150 different strings → 150 different hashes → 150 different ring positions; additionally, including the NODE NAME ensures vnodes from different servers are distinguished: 'server-A:vnode:0' and 'server-B:vnode:0' hash to different positions",
+              "The vnode index is used to track which vnode to evict first",
+              "Including the node name ensures all vnodes of a server hash to adjacent positions"
+            ],
+            "answer": 1,
+            "explanation": "The composite key `node:vnode:i` serves two purposes: (1) different `i` values produce different hashes for the same server, spreading its vnodes across the ring; (2) the node name ensures different servers' same-indexed vnodes are different; this is the standard vnode key generation pattern in production consistent hashing implementations."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M7-L3-CC-1",
+            "title": "Consistent Hashing with Virtual Nodes",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement consistent hashing from this lesson.",
+            "requirements": [
+              "Implement `ConsistentHash` class with addNode, removeNode, and getNode methods"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "class ConsistentHash {\n  constructor(virtualNodes=150) {\n    // TODO: ring (sorted array of {hash, node}), nodeMap\n  }\n  addNode(node) {\n    // TODO: insert virtualNodes ring entries; sort ring\n  }\n  removeNode(node) {\n    // TODO: filter out this node's ring entries\n  }\n  getNode(key) {\n    // TODO: binary search for first position >= hash; wrap with %\n  }\n}"
+            },
+            "test_cases": [
+              {
+                "input": "(() => { const ch=new ConsistentHash(10); ch.addNode('A'); ch.addNode('B'); const n=ch.getNode('test'); return n==='A'||n==='B'; })()",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const ch=new ConsistentHash(10); ch.addNode('A'); ch.removeNode('A'); return ch.getNode('test'); })()",
+                "expected": null,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const ch=new ConsistentHash(10); ch.addNode('A'); return ch.getNode('x')===ch.getNode('x'); })()",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const ch=new ConsistentHash(10); ch.addNode('A'); ch.addNode('B'); ch.removeNode('A'); return ch.getNode('anything')==='B'; })()",
+                "expected": true,
+                "type": "hidden"
+              },
+              {
+                "input": "(() => { const ch=new ConsistentHash(10); ch.addNode('X'); const n=new Set(['X']); return n.has(ch.getNode('somekey')); })()",
+                "expected": true,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "class ConsistentHash {\n  constructor(virtualNodes=150){this.virtualNodes=virtualNodes;this.ring=[];this.nodeMap=new Map();}\n  _hash(key){let h=0;for(const c of String(key))h=(h*31+c.charCodeAt(0))>>>0;return h;}\n  addNode(node){const positions=[];for(let i=0;i<this.virtualNodes;i++){const hash=this._hash(`${node}:vnode:${i}`);positions.push(hash);this.ring.push({hash,node});}this.ring.sort((a,b)=>a.hash-b.hash);this.nodeMap.set(node,positions);}\n  removeNode(node){const positions=new Set(this.nodeMap.get(node)||[]);this.ring=this.ring.filter(e=>!positions.has(e.hash));this.nodeMap.delete(node);}\n  getNode(key){if(!this.ring.length)return null;const hash=this._hash(key);let lo=0,hi=this.ring.length;while(lo<hi){const mid=(lo+hi)>>1;if(this.ring[mid].hash<hash)lo=mid+1;else hi=mid;}const idx=lo%this.ring.length;return this.ring[idx].node;}\n}\n"
+            },
+            "complexity_analysis": "addNode: O(V log(V*N)) — insert V entries and sort. removeNode: O(V*N). getNode: O(log(V*N)) binary search.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "addNode: for each i in 0..virtualNodes-1, hash the string node:vnode:i; push to ring; sort ring by hash."
+              },
+              {
+                "level": 2,
+                "text": "removeNode: get the node's positions from nodeMap; filter ring to exclude those hashes."
+              },
+              {
+                "level": 3,
+                "text": "getNode: binary search for first ring entry with hash >= key_hash; idx = lo % ring.length for wrap-around."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 4,
+      "title": "Bloom Filters",
+      "tag": "ADDED",
+      "objective": "Implement a Bloom filter and explain the false positive rate formula, the optimal number of hash functions, and when Bloom filters are the correct engineering choice.",
+      "concepts": [
+        "Bloom filter: probabilistic set membership test, no false negatives, allows false positives",
+        "Bit array of size m, k hash functions",
+        "Insert: set k bit positions (one per hash function) to 1",
+        "Query: check if all k bit positions are 1; if any is 0, definitely not in set",
+        "False positive: all k positions happen to be set by other insertions",
+        "False positive probability: (1 - e^(-kn/m))^k for n insertions",
+        "Optimal k: k = (m/n) * ln(2) minimises false positive rate",
+        "Space: O(m) bits regardless of element size"
+      ],
+      "explanation": "A Bloom filter answers 'Is this element in the set?' with either 'Definitely NO' or 'Probably YES' (with a tunable false positive probability). Implementation: a bit array of m bits, all initially 0. k independent hash functions. Insert element e: compute h1(e), h2(e), ..., hk(e) and set those k bit positions to 1. Query element e: check all k positions. If any is 0, e was never inserted (definitive NO). If all are 1, e was probably inserted (but could be a false positive). The false positive probability for n inserted elements: P(false positive) = (1 - e^(-kn/m))^k. Choosing parameters: for a desired false positive rate p and n expected insertions, the optimal m = -n * ln(p) / (ln 2)^2 bits, and optimal k = (m/n) * ln(2). Example: for 1 million elements and 1% false positive rate: m ≈ 9.6 million bits = 1.2 MB (vs storing 1M strings at ~50MB). Applications: database query optimisation (pre-check before expensive disk lookup), network packet filtering, distributed cache pre-screening, spell-checkers.",
+      "analogy": "A Bloom filter is like a nightclub bouncer with a photographic memory for faces they have rejected, but who occasionally lets through someone they have never seen before (false positive). The bouncer never rejects someone they have genuinely seen (no false negatives). The filter cannot remove a face from memory once added (no deletion in basic Bloom filter) and occasionally gets confused by coincidental resemblances (false positives).",
+      "code_example": {
+        "language": "javascript",
+        "code": "// BLOOM FILTER implementation\nclass BloomFilter {\n    constructor(m, k) {\n        this.m = m;         // bit array size\n        this.k = k;         // number of hash functions\n        this.bits = new Uint8Array(Math.ceil(m / 8)); // packed bits\n    }\n\n    // Simulate k hash functions using double hashing: h_i(x) = (h1(x) + i*h2(x)) % m\n    _hashes(key) {\n        const s = String(key);\n        let h1 = 0, h2 = 0;\n        for (const c of s) {\n            h1 = (h1 * 31 + c.charCodeAt(0)) >>> 0;\n            h2 = (h2 * 37 + c.charCodeAt(0)) >>> 0;\n        }\n        const positions = [];\n        for (let i = 0; i < this.k; i++) {\n            positions.push(((h1 + i * h2) >>> 0) % this.m);\n        }\n        return positions;\n    }\n\n    _getBit(pos)     { return (this.bits[pos >> 3] >> (pos & 7)) & 1; }\n    _setBit(pos)     { this.bits[pos >> 3] |= 1 << (pos & 7); }\n\n    add(key) {\n        for (const pos of this._hashes(key)) this._setBit(pos);\n    }\n\n    mightContain(key) {\n        return this._hashes(key).every(pos => this._getBit(pos) === 1);\n    }\n\n    // OPTIMAL PARAMETERS for n elements and desired false positive rate p\n    static optimalParams(n, p) {\n        const m = Math.ceil(-n * Math.log(p) / (Math.LN2 ** 2));\n        const k = Math.round((m / n) * Math.LN2);\n        return { m, k, expectedFPRate: (1 - Math.exp(-k*n/m)) ** k };\n    }\n}\n\n// TEST\nconst params = BloomFilter.optimalParams(1_000_000, 0.01);\nconsole.log(`Optimal for 1M elements, 1% FP: m=${params.m} bits (${(params.m/8/1024).toFixed(0)}KB), k=${params.k}`);\n// m ≈ 9,585,059 bits (1170KB ≈ 1.1MB), k ≈ 7\n\nconst bf = new BloomFilter(params.m, params.k);\nbf.add('user:alice@example.com');\nbf.add('user:bob@example.com');\n\nconsole.log(bf.mightContain('user:alice@example.com')); // true\nconsole.log(bf.mightContain('user:charlie@example.com')); // false (probably)\nconsole.log(bf.mightContain('user:nonexistent@test.com')); // false (probably)\n\n// FALSE POSITIVE RATE VERIFICATION (simulation)\nlet falsePositives = 0;\nfor (let i = 0; i < 10000; i++) {\n    if (bf.mightContain(`test:${i}`)) falsePositives++;\n}\nconsole.log(`False positive rate: ${(falsePositives/10000*100).toFixed(2)}%`); // should be ~1%",
+        "explanation": "The double hashing trick (h_i(x) = h1(x) + i*h2(x)) simulates k independent hash functions using only 2 actual hash computations. This is much faster than k separate hash function evaluations while maintaining the statistical properties needed for the false positive rate formula."
+      },
+      "common_mistakes": [
+        "Thinking Bloom filters can delete elements — standard Bloom filters cannot delete because setting bits to 0 might affect other elements; Counting Bloom filters (store counts instead of bits) support deletion but use more space",
+        "Using too few hash functions k — with k=1, the false positive rate is high; the optimal k = (m/n) * ln(2) balances the benefit of more positions checked against more bits set per insertion",
+        "Not knowing the space comparison — a Bloom filter for 1M elements with 1% FP rate uses ~1.1MB; storing the 1M elements directly (as 10-byte keys) would use ~10MB; the 9x space savings is the key selling point"
+      ],
+      "interview_relevance": "Bloom filters appear in system design interviews as: 'How would you efficiently check if a username is already taken without querying the database?', 'How does HBase reduce unnecessary disk reads?', 'What data structure would you use to pre-filter cache misses?'. Being able to explain no-false-negatives, tunable false-positive rate, and the space tradeoff is the expected depth.",
+      "mini_challenge": "Implement BloomFilter and verify mightContain returns true for added elements and false (with rare false positives) for non-added ones. Compute optimal parameters for 100,000 elements at 0.1% false positive rate. Measure the actual false positive rate with your implementation by testing 10,000 non-inserted keys. Then answer: which is worse in your use case — a false positive (checking DB unnecessarily) or a false negative (missing a taken username)? This determines whether Bloom filter is appropriate.",
+      "flashcards": [
+        {
+          "front": "Bloom filter: what is it and what problem does it solve?",
+          "back": "A probabilistic data structure for SET MEMBERSHIP queries. Returns MIGHT BE IN SET or DEFINITELY NOT IN SET. False positives possible (says 'in set' but isn't). NO false negatives (says 'not in set' = definitely not). Space-efficient: O(n) bits vs O(n × key_size) for a hash set."
+        },
+        {
+          "front": "Bloom filter: mechanics?",
+          "back": "k hash functions, m-bit array (initially all 0). ADD element: set bits at positions h₁(x), h₂(x), ..., hₖ(x). QUERY element: check if ALL k positions are 1. If any is 0 → definitely not in set. If all are 1 → probably in set (may be due to other elements)."
+        },
+        {
+          "front": "Bloom filter false positive rate formula?",
+          "back": "FPR ≈ (1 - e^(-kn/m))^k. Where k = hash functions, n = elements inserted, m = bits. Minimised by choosing k = (m/n) × ln(2) ≈ 0.7 × m/n. For FPR=1%: need m/n ≈ 9.6 bits per element. For FPR=0.1%: ≈ 14.4 bits per element."
+        },
+        {
+          "front": "Bloom filter: what operations are NOT supported?",
+          "back": "1) DELETION: cannot remove an element (setting bits to 0 could invalidate other elements). 2) COUNT: cannot count how many times an element was added. 3) ENUMERATE: cannot list all elements. Extensions: Counting Bloom filter (use counters not bits, supports deletion). Cuckoo filter (supports deletion, better FPR)."
+        },
+        {
+          "front": "Bloom filter real-world uses?",
+          "back": "Google Bigtable/LevelDB/RocksDB: check if a key exists in an SSTable before reading from disk (avoid unnecessary disk I/Os). Chrome safe browsing: check if URL is malicious (local Bloom filter, then server check only if positive). Cassandra: avoid reading from SSTables that don't contain the key."
+        },
+        {
+          "front": "Bloom filter size calculation: for n=1M elements with 1% FPR?",
+          "back": "m = -n × ln(FPR) / (ln2)² = -1M × ln(0.01) / 0.48 ≈ 1M × 4.61 / 0.48 ≈ 9.6M bits ≈ 1.2 MB. Optimal k = m/n × ln(2) ≈ 9.6 × 0.693 ≈ 6.6 → use 7 hash functions. 1.2 MB vs 4-8 MB for a hash set with pointers."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Bloom filter query for key X returns 'positive' (all k bits set). What does this mean?",
+          "options": [
+            "X is definitely in the set",
+            "X is probably in the set — could be a false positive",
+            "X is definitely NOT in the set",
+            "The Bloom filter is full"
+          ],
+          "answer": 1,
+          "explanation": "Bloom filter positive: X MIGHT be in the set (false positive possible). Multiple elements can set the same bits — 'all bits set' doesn't prove X was inserted. Only a NEGATIVE result (any bit is 0) is definitive: X is definitely NOT in the set."
+        },
+        {
+          "question": "Why can't you delete an element from a standard Bloom filter?",
+          "options": [
+            "Deletion is too slow",
+            "Clearing a bit could remove evidence of OTHER elements that hash to the same bit positions",
+            "Bloom filters are immutable by design",
+            "The hash functions are not invertible"
+          ],
+          "answer": 1,
+          "explanation": "Multiple elements share bit positions. If element A and element B both set bit 5: deleting A (clearing bit 5) would make B appear absent → false negative. Counting Bloom filter uses a counter per bit: increment on add, decrement on delete, allowing deletion at cost of more memory."
+        },
+        {
+          "question": "RocksDB uses a Bloom filter per SSTable. What specific false positive case is acceptable here?",
+          "options": [
+            "Reporting a key exists when it doesn't → unnecessary disk read (acceptable cost)",
+            "Reporting a key doesn't exist when it does → key loss (not acceptable)",
+            "Both false positives and negatives are acceptable",
+            "No false positives allowed in production"
+          ],
+          "answer": 0,
+          "explanation": "RocksDB usage: 'does this SSTable contain key K?' False positive → unnecessarily read the SSTable from disk (small overhead). False negative → skip the SSTable → miss the key (data loss, unacceptable). This asymmetry makes Bloom filters perfect: false positives are cheap; false negatives are impossible."
+        },
+        {
+          "question": "Bloom filter with m=100 bits and k=3 hash functions. After inserting 50 elements (FPR ≈ 39%). How to reduce FPR to 1%?",
+          "options": [
+            "Double k to 6",
+            "Increase m to ~480 bits (m ≈ -50×ln(0.01)/0.48 ≈ 480 bits)",
+            "Reduce k to 1",
+            "Reduce n to 10 elements"
+          ],
+          "answer": 1,
+          "explanation": "m/n ≈ 9.6 bits per element for 1% FPR. n=50: m ≈ 50 × 9.6 = 480 bits. Current m=100 → 100/50=2 bits per element → very high FPR. Need ~480 bits. Changing k alone doesn't help without increasing m."
+        }
+      ],
+      "visual_aid": {
+        "type": "bloom_filter_mechanics",
+        "description": "Bloom filter bit array with k hash functions",
+        "diagram": "BLOOM FILTER: m=10 bits, k=2 hash functions\n\nInitial state:\n  bit array: [0,0,0,0,0,0,0,0,0,0]\n               0 1 2 3 4 5 6 7 8 9\n\nADD 'apple': h1('apple')=2, h2('apple')=5\n  bit array: [0,0,1,0,0,1,0,0,0,0]\n\nADD 'banana': h1('banana')=1, h2('banana')=7\n  bit array: [0,1,1,0,0,1,0,1,0,0]\n\nQUERY 'apple': check bits 2 and 5 → both 1 → MAYBE IN SET ✓\nQUERY 'cherry': h1('cherry')=1, h2('cherry')=5\n  check bit 1 → 1, bit 5 → 1 → both 1 → MAYBE IN SET\n  (FALSE POSITIVE — 'cherry' was never added!)\n\nQUERY 'grape': h1('grape')=3, h2('grape')=6\n  check bit 3 → 0 → DEFINITELY NOT IN SET ✓\n\nFALSE POSITIVE PROBABILITY:\n  With more insertions, more bits become 1\n  → more random queries look like 'in set'\n  → FPR increases as filter fills up"
+      },
+      "complexity_summary": {
+        "add": "O(k) — k hash function evaluations",
+        "query": "O(k) — k hash function evaluations",
+        "space": "O(m) bits — m/n ≈ 9.6 bits/element for 1% FPR",
+        "false_positive_rate": "(1 - e^(-kn/m))^k ≈ 1% with optimal k and m/n=9.6",
+        "false_negatives": "Impossible by design"
+      },
+      "practice_problems": [
+        {
+          "id": "custom-bf1",
+          "title": "Implement a Bloom filter with k=3 hash functions and m=1000 bits for n=100 elements",
+          "difficulty": "Medium",
+          "pattern": "Bloom filter: bit array + multiple hash functions"
+        },
+        {
+          "id": "custom-bf2",
+          "title": "Calculate required bits for Bloom filter: n=10^6 elements, FPR=0.01%. m=?",
+          "difficulty": "Easy",
+          "pattern": "FPR formula: m = -n×ln(FPR)/(ln2)²"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M7-L4-TH-1",
+            "question": "Bloom filters have FALSE POSITIVES but NO FALSE NEGATIVES. Why is false negative impossible?",
+            "options": [
+              "False negatives are impossible because the bit array only grows",
+              "INSERTION IS MONOTONE: when an element is added, k bit positions are SET TO 1; once set, a bit NEVER goes back to 0 (no deletion in basic Bloom filters); when querying for an element that WAS added: all k positions were set to 1 during insertion; querying checks exactly those k positions; since they were set and never cleared, all k checks return 1 = element MIGHT EXIST (correct); a false negative would require a position to return 0 for an inserted element — impossible since insertions only set bits and never clear them",
+              "False negatives are impossible because the hash functions are perfect",
+              "The k bit positions are reserved exclusively for each element"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Query: check if all k bit positions are 1; if any is 0, definitely not in set' — the contrapositive: if ANY bit is 0, the element was DEFINITELY NOT inserted (its insertion would have set all k bits to 1); if all k bits are 1, the element MIGHT have been inserted (false positive possible if other insertions set those bits); insertions are monotone (set-only), so no false negative is possible."
+          },
+          {
+            "id": "L3M7-L4-TH-2",
+            "question": "The optimal number of hash functions is `k = (m/n) * ln(2)`. Why does this formula minimise the false positive rate?",
+            "options": [
+              "k = m/n * ln(2) is optimal because it balances memory usage and accuracy",
+              "DIFFERENTIATING THE FP RATE: false positive probability P = (1-e^(-kn/m))^k; minimising P with respect to k (treating m and n as fixed): set dP/dk = 0; the algebra yields that each bit position has probability 1/2 of being set at the optimal k; substituting back gives k_opt = (m/n) * ln(2) ≈ 0.693 * (m/n); intuitively: too few hash functions leave many bits unset (low FP rate because false positives require ALL k positions to match — but k is small making each check pass more easily); too many hash functions fill the bit array (increasing collision probability); the optimal k balances these",
+              "k = m/n * ln(2) ensures exactly 50% of bits are set to 1",
+              "The formula is derived from information theory — k bits per element"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: `const k = Math.round((m/n)*Math.LN2)` and the concept: 'Optimal k: k=(m/n)*ln(2) minimises false positive rate' — the derivation minimises FP rate by calculus; at the optimal k, exactly 50% of bits are set (e^(-kn/m) = 1/2 → kn/m = ln(2)); this equal-probability state minimises the coincidental match probability."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M7-L4-LG-1",
+            "question": "For 1 million elements with 1% false positive rate, `optimalParams` gives m≈9,585,059 bits (≈1.1MB) and k=7. Verify the space advantage over storing 1M strings.",
+            "options": [
+              "Bloom filter: ~1.1MB for 1M elements; storing email strings: assume avg 30 chars → 30MB; 27x space savings with 1% false positive rate",
+              "Bloom filter: 1.1MB; strings: 1MB — no significant space savings",
+              "Bloom filter uses more space than a hash set of the same elements",
+              "The 1.1MB estimate is only for the hash functions, not the bit array"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: m=9,585,059 bits ÷ 8 ÷ 1024 ≈ 1170KB ≈ 1.1MB; 1M email strings at ~30 chars average = 30MB; Bloom filter achieves ~27x space reduction with 1% false positives; if false positives are acceptable (e.g., pre-filter before an expensive DB lookup), this space savings is the core value proposition."
+          },
+          {
+            "id": "L3M7-L4-LG-2",
+            "question": "HBase uses Bloom filters to avoid unnecessary disk reads for key lookups. Explain the WORKFLOW showing where Bloom filters save disk I/O.",
+            "options": [
+              "Bloom filter: check if key might exist in SSTable → if YES: read SSTable from disk (might be FP) → if NO: skip disk read (guaranteed correct); the Bloom filter eliminates disk reads for keys definitely NOT in the SSTable",
+              "Bloom filter replaces the SSTable entirely for frequently accessed keys",
+              "Bloom filter is used to determine which server to route the request to",
+              "Bloom filter stores the actual data in compressed form to reduce disk reads"
+            ],
+            "answer": 0,
+            "explanation": "Matching the lesson's example: 'HBase read optimisation' — HBase's read path: check Bloom filter (in memory, O(k)) → if Bloom says NO: skip reading the SSTable file (guaranteed key not there, zero disk I/O); if Bloom says MAYBE: read the SSTable from disk (might be a false positive requiring an extra read); for large SSTable files, avoiding unnecessary disk reads saves milliseconds per query; this is the canonical Bloom filter use case."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M7-L4-SY-1",
+            "question": "The bit operations `_getBit(pos) { return (this.bits[pos >> 3] >> (pos & 7)) & 1 }` use bit shifting. What do `pos >> 3` and `pos & 7` compute?",
+            "options": [
+              "pos>>3 computes the hash function index; pos&7 computes the collision count",
+              "`pos >> 3` = INTEGER DIVISION BY 8 — converts a bit position to the BYTE INDEX in the Uint8Array (8 bits per byte: bit pos 0-7 in byte 0, bits 8-15 in byte 1, etc.); `pos & 7` = MODULO 8 — gives the BIT OFFSET WITHIN THAT BYTE (0-7); together: byte_index = pos >> 3, bit_offset = pos & 7; reading bit: `(bits[byte_index] >> bit_offset) & 1` shifts the target bit to position 0 then extracts it; this packed bit array representation uses 8x less memory than a boolean array",
+              "pos>>3 converts big-endian to little-endian; pos&7 handles overflow",
+              "pos>>3 is the primary hash; pos&7 is the secondary hash for double hashing"
+            ],
+            "answer": 1,
+            "explanation": "Bit manipulation for packed arrays: each byte stores 8 bits; to access bit pos: byte_index = Math.floor(pos/8) = pos>>3; bit_within_byte = pos%8 = pos&7; to READ: shift bits[byte_index] right by bit_within_byte, then AND with 1 to isolate the bit; to WRITE (_setBit): OR with (1<<bit_within_byte) to set that bit without disturbing others; this is the standard bit manipulation pattern for compact bit arrays."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M7-L4-CC-1",
+            "title": "Bloom Filter",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the Bloom filter from this lesson.",
+            "requirements": [
+              "Implement `BloomFilter` class with add(key), mightContain(key), and static optimalParams(n, p)"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "class BloomFilter {\n  constructor(m, k) {\n    // TODO: m bits, k hash functions, packed Uint8Array\n  }\n  _hashes(key) { /* provided — double hashing */ }\n  _getBit(pos) { /* provided */ }\n  _setBit(pos) { /* provided */ }\n  add(key) {\n    // TODO: set all k bit positions\n  }\n  mightContain(key) {\n    // TODO: check all k bit positions\n  }\n  static optimalParams(n, p) {\n    // TODO: m=ceil(-n*ln(p)/ln(2)^2); k=round((m/n)*ln(2))\n  }\n}"
+            },
+            "test_cases": [
+              {
+                "input": "(() => { const bf=new BloomFilter(100,3); bf.add('hello'); return bf.mightContain('hello'); })()",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const bf=new BloomFilter(100,3); return bf.mightContain('notadded'); })()",
+                "expected": false,
+                "type": "visible"
+              },
+              {
+                "input": "BloomFilter.optimalParams(1000000,0.01).k",
+                "expected": 7,
+                "type": "visible"
+              },
+              {
+                "input": "BloomFilter.optimalParams(1000000,0.01).m",
+                "expected": 9585059,
+                "type": "hidden"
+              },
+              {
+                "input": "(() => { const bf=new BloomFilter(1000,5); bf.add('x'); bf.add('y'); return bf.mightContain('x')&&bf.mightContain('y'); })()",
+                "expected": true,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "class BloomFilter {\n  constructor(m,k){this.m=m;this.k=k;this.bits=new Uint8Array(Math.ceil(m/8));}\n  _hashes(key){const s=String(key);let h1=0,h2=0;for(const c of s){h1=(h1*31+c.charCodeAt(0))>>>0;h2=(h2*37+c.charCodeAt(0))>>>0;}const positions=[];for(let i=0;i<this.k;i++)positions.push(((h1+i*h2)>>>0)%this.m);return positions;}\n  _getBit(pos){return(this.bits[pos>>3]>>(pos&7))&1;}\n  _setBit(pos){this.bits[pos>>3]|=1<<(pos&7);}\n  add(key){for(const pos of this._hashes(key))this._setBit(pos);}\n  mightContain(key){return this._hashes(key).every(pos=>this._getBit(pos)===1);}\n  static optimalParams(n,p){const m=Math.ceil(-n*Math.log(p)/(Math.LN2**2));const k=Math.round((m/n)*Math.LN2);return{m,k,expectedFPRate:(1-Math.exp(-k*n/m))**k};}\n}\n"
+            },
+            "complexity_analysis": "add/mightContain: O(k). Space: O(m) bits = O(n * log(1/p) / ln(2)²).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "add(key): for each pos in _hashes(key): _setBit(pos)."
+              },
+              {
+                "level": 2,
+                "text": "mightContain(key): return _hashes(key).every(pos => _getBit(pos)===1)."
+              },
+              {
+                "level": 3,
+                "text": "optimalParams: m=Math.ceil(-n*Math.log(p)/(Math.LN2**2)); k=Math.round((m/n)*Math.LN2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 5,
+      "title": "LRU And LFU Cache Implementation",
+      "tag": "ADDED",
+      "objective": "Implement both LRU and LFU caches with O(1) get and put using HashMap + doubly-linked list, and understand the real-world tradeoffs between these eviction policies.",
+      "concepts": [
+        "LRU (Least Recently Used): evict the key not accessed for the longest time",
+        "LFU (Least Frequently Used): evict the key accessed the fewest times",
+        "LRU: HashMap<key, node> + doubly-linked list (most recent at head, LRU at tail)",
+        "O(1) LRU: HashMap for O(1) node access, DLL for O(1) eviction of tail",
+        "LFU: HashMap<key, node> + HashMap<freq, DLL> + min_freq tracker",
+        "O(1) LFU: node stores frequency; freq->DLL maps frequency to all nodes with that freq",
+        "Eviction: LFU removes head of min_freq DLL (oldest among least frequent)",
+        "Real world: Redis uses approximate LRU; LFU better for workloads with recurring hot keys"
+      ],
+      "explanation": "LRU Cache (#146, NeetCode 150): maintain a doubly-linked list where the most recently used item is at the head and least recently used (LRU) is at the tail. A HashMap maps keys to DLL nodes for O(1) access. Get: move the accessed node to the head (O(1) with DLL pointer manipulation). Put: if key exists, update value and move to head. If new and over capacity, remove the tail node and insert new node at head. LFU Cache (#460, NeetCode 150): harder. Each node has a frequency counter. On access, increment frequency. Evict the least-frequently-used item; among ties, evict the least-recently-used. Implementation: HashMap<key, node> + HashMap<freq, DLL_of_that_freq> + min_freq tracker. Get: find node, increment its frequency, move from freq[k] to freq[k+1], update min_freq if old freq's DLL becomes empty. Put: similar; new items start at freq=1, min_freq resets to 1. Both achieve O(1) amortised per operation.",
+      "analogy": "LRU cache is like a wall of whiteboards where recently-used formulas are closest to the front. When space runs out, the formula on the furthest whiteboard (least recently seen) is erased. LFU is like a library that tracks how often each book is checked out. When space runs out, the least-checked-out book leaves the shelf. Between two equally unpopular books, the one returned longest ago leaves first.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// LRU CACHE (#146) — O(1) get and put\nclass LRUCache {\n    constructor(capacity) {\n        this.capacity = capacity;\n        this.map = new Map();   // key -> node\n        // Sentinel head/tail nodes for DLL\n        this.head = {key:null, val:null, prev:null, next:null};\n        this.tail = {key:null, val:null, prev:null, next:null};\n        this.head.next = this.tail;\n        this.tail.prev = this.head;\n    }\n\n    _remove(node) {\n        node.prev.next = node.next;\n        node.next.prev = node.prev;\n    }\n\n    _insertFront(node) {\n        node.next = this.head.next;\n        node.prev = this.head;\n        this.head.next.prev = node;\n        this.head.next = node;\n    }\n\n    get(key) {\n        if (!this.map.has(key)) return -1;\n        const node = this.map.get(key);\n        this._remove(node);     // move to front\n        this._insertFront(node);\n        return node.val;\n    }\n\n    put(key, value) {\n        if (this.map.has(key)) {\n            const node = this.map.get(key);\n            node.val = value;\n            this._remove(node);\n            this._insertFront(node);\n        } else {\n            if (this.map.size === this.capacity) {\n                const lru = this.tail.prev; // LRU at tail\n                this._remove(lru);\n                this.map.delete(lru.key);\n            }\n            const node = {key, val:value, prev:null, next:null};\n            this._insertFront(node);\n            this.map.set(key, node);\n        }\n    }\n}\n\n// TEST LRU\nconst lru = new LRUCache(2);\nlru.put(1, 1);  // cache: {1:1}\nlru.put(2, 2);  // cache: {1:1, 2:2}\nconsole.log(lru.get(1)); // 1, cache: {2:2, 1:1}\nlru.put(3, 3);  // evicts 2, cache: {1:1, 3:3}\nconsole.log(lru.get(2)); // -1 (evicted)\nconsole.log(lru.get(3)); // 3\n\n// LFU CACHE (#460) — O(1) get and put (abbreviated)\nclass LFUCache {\n    constructor(capacity) {\n        this.capacity = capacity;\n        this.keyMap  = new Map(); // key -> {val, freq}\n        this.freqMap = new Map(); // freq -> LinkedHashSet of keys\n        this.minFreq = 0;\n    }\n\n    _getOrCreate(freq) {\n        if (!this.freqMap.has(freq)) this.freqMap.set(freq, new Map()); // ordered Map = DLL\n        return this.freqMap.get(freq);\n    }\n\n    _touch(key) {\n        const {val, freq} = this.keyMap.get(key);\n        this.freqMap.get(freq).delete(key);\n        if (freq === this.minFreq && this.freqMap.get(freq).size === 0) this.minFreq++;\n        const newFreq = freq + 1;\n        this.keyMap.set(key, {val, freq: newFreq});\n        this._getOrCreate(newFreq).set(key, true);\n    }\n\n    get(key) {\n        if (!this.keyMap.has(key)) return -1;\n        this._touch(key);\n        return this.keyMap.get(key).val;\n    }\n\n    put(key, value) {\n        if (this.capacity <= 0) return;\n        if (this.keyMap.has(key)) {\n            this.keyMap.get(key).val = value;\n            this._touch(key); return;\n        }\n        if (this.keyMap.size === this.capacity) {\n            const evictKey = this.freqMap.get(this.minFreq).keys().next().value;\n            this.freqMap.get(this.minFreq).delete(evictKey);\n            this.keyMap.delete(evictKey);\n        }\n        this.keyMap.set(key, {val: value, freq: 1});\n        this._getOrCreate(1).set(key, true);\n        this.minFreq = 1;\n    }\n}",
+        "explanation": "Using JavaScript's Map (which preserves insertion order) as a 'LinkedHashSet' for LFU simplifies the DLL management. The first key returned by map.keys().next() is the oldest insertion for that frequency bucket. This gives O(1) insertion, deletion, and retrieval of the LFU + LRU candidate using JavaScript's ordered Map semantics."
+      },
+      "common_mistakes": [
+        "Not using sentinel head/tail nodes in LRU — without sentinels, every insert/remove requires null checks for head and tail edge cases; sentinel nodes simplify code to always having non-null prev/next",
+        "Not resetting min_freq to 1 on every put in LFU — new elements always start at frequency 1; if you insert a new key without resetting min_freq to 1, the minimum frequency tracking becomes incorrect",
+        "Forgetting to update min_freq when the old frequency's DLL becomes empty in LFU — when accessing a key with frequency == min_freq and the old DLL becomes empty, min_freq must increment; without this update, eviction tries to evict from an empty bucket"
+      ],
+      "interview_relevance": "LRU Cache (#146) is one of the most frequently asked implementation problems at all companies. It is NeetCode 150 and specifically tests HashMap + DLL design. LFU Cache (#460) is NeetCode 150 hard and appears at Google and Meta. The O(1) requirement drives the design: candidates who attempt O(log n) with a heap fail this constraint.",
+      "mini_challenge": "Implement LRUCache and verify all test operations. Implement LFUCache: put(1,1), put(2,2), get(1), put(3,3), get(2), get(3), put(4,4), get(1), get(3), get(4) and verify each operation. Draw the state of both key_map and freq_map after each operation. Then compare: for a workload where 20% of keys account for 80% of accesses, which eviction policy performs better: LRU or LFU? Justify.",
+      "flashcards": [
+        {
+          "front": "LRU Cache (#146): data structures needed?",
+          "back": "HashMap (key → doubly linked list node): O(1) get. Doubly Linked List (ordered by recency): O(1) move-to-front, O(1) evict-tail. Together: O(1) get, put, evict. The doubly linked list maintains access order; the HashMap enables O(1) node lookup."
+        },
+        {
+          "front": "LRU Cache: get(key) algorithm?",
+          "back": "1) Look up key in HashMap. If not found: return -1. 2) If found: move the node to the HEAD of the doubly linked list (most recently used). 3) Return node's value. O(1) total."
+        },
+        {
+          "front": "LRU Cache: put(key, value) algorithm?",
+          "back": "1) If key exists: update value, move to head. 2) If key doesn't exist: create new node, add to head, add to HashMap. 3) If size > capacity: remove TAIL node (least recently used) AND remove from HashMap. O(1) total."
+        },
+        {
+          "front": "LFU Cache (#460): data structures needed?",
+          "back": "Three components: (1) HashMap key→value. (2) HashMap key→frequency. (3) HashMap freq→doubly linked list of keys at that frequency. Plus: track minFreq (current minimum frequency). Put/get: update frequency, move between frequency buckets. O(1) all operations."
+        },
+        {
+          "front": "LFU Cache: what happens when minFreq is updated?",
+          "back": "On get/put: increase key's frequency from f to f+1. If the freq-f list becomes empty AND f == minFreq: increment minFreq (since no more keys at frequency f). On new put: minFreq = 1 always (new key starts at frequency 1)."
+        },
+        {
+          "front": "LRU vs LFU: when to use each?",
+          "back": "LRU (Least Recently Used): evicts the key not accessed for the longest time. Good for workloads with temporal locality (recent = relevant). LFU (Least Frequently Used): evicts the key accessed least often overall. Good for hot-key workloads where popular items should never be evicted. LFU has slower warm-up (new keys start at freq=1)."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "LRU Cache capacity=3, sequence: put(1,1), put(2,2), put(3,3), get(1), put(4,4). What is evicted?",
+          "options": [
+            "Key 1 (oldest put)",
+            "Key 2 (least recently used after get(1) moved key 1 to front)",
+            "Key 3",
+            "Key 4"
+          ],
+          "answer": 1,
+          "explanation": "State after put(1,1), put(2,2), put(3,3): LRU=[3,2,1] (3=most recent, 1=least). get(1): move 1 to front → LRU=[1,3,2]. put(4,4): capacity exceeded → evict tail = key 2. State: [4,1,3]."
+        },
+        {
+          "question": "LRU Cache: why doubly linked list (not singly linked)?",
+          "options": [
+            "Doubly linked is faster",
+            "Moving a node to head requires updating both the node's previous AND next pointers — O(1) only with doubly linked (need to update predecessor's next pointer)",
+            "Singly linked doesn't support head insertion",
+            "Doubly linked uses less memory"
+          ],
+          "answer": 1,
+          "explanation": "To remove a node from the middle of the list (when moving to head): need to link its PREDECESSOR to its SUCCESSOR. With singly linked: finding the predecessor requires O(n) traversal. With doubly linked: node.prev.next = node.next; node.next.prev = node.prev; O(1)."
+        },
+        {
+          "question": "LFU Cache: key A (freq=3), key B (freq=2), key C (freq=2), minFreq=2, capacity=3. get(B). New state?",
+          "options": [
+            "A(3), B(3), C(2). minFreq=2 (C still at freq 2)",
+            "A(3), B(3), C(2). minFreq=2 still since C remains at freq 2",
+            "minFreq=3 (B moved to freq 3 bucket, freq-2 bucket now only has C)",
+            "Both A and B — minFreq stays 2 because C is at freq 2"
+          ],
+          "answer": 3,
+          "explanation": "get(B): B's frequency goes from 2 to 3. freq-2 bucket: was {B,C}, now {C} (B removed). freq-3 bucket: was {A}, now {A,B}. minFreq: freq-2 bucket still has C → minFreq remains 2. Correct."
+        },
+        {
+          "question": "LFU Cache: put(new_key, val) with full cache. What is minFreq after the put?",
+          "options": [
+            "The previous minFreq (evict first, then insert at previous minFreq)",
+            "Always 1 — new keys start at frequency 1, so minFreq resets to 1",
+            "minFreq + 1",
+            "Depends on which key was evicted"
+          ],
+          "answer": 1,
+          "explanation": "New keys always start at frequency 1. After inserting a new key, the new key IS the least frequent. Therefore minFreq = 1 always after a new put (regardless of previous minFreq). If you evicted minFreq=5 and inserted new key at freq=1: minFreq=1."
+        }
+      ],
+      "visual_aid": {
+        "type": "lru_data_structure",
+        "description": "LRU Cache implementation with HashMap + doubly linked list",
+        "diagram": "LRU CACHE — DATA STRUCTURES:\n\n  HashMap: key → DLL node\n  {1: node1, 2: node2, 3: node3}\n\n  Doubly Linked List (head=most recent, tail=least recent):\n  dummy_head ↔ [key=3,val=3] ↔ [key=2,val=2] ↔ [key=1,val=1] ↔ dummy_tail\n               ← most recent                    least recent →\n\nOPERATION get(2):\n  1. HashMap lookup: key 2 → node2\n  2. Remove node2 from current position:\n     node2.prev.next = node2.next\n     node2.next.prev = node2.prev\n  3. Insert node2 after dummy_head:\n     node2.next = dummy_head.next\n     node2.prev = dummy_head\n     dummy_head.next.prev = node2\n     dummy_head.next = node2\n  4. Return node2.val\n\n  After: dummy_head ↔ [2] ↔ [3] ↔ [1] ↔ dummy_tail\n\nOPERATION put(4,4) with capacity=3:\n  1. Evict tail: remove node before dummy_tail (key=1)\n     HashMap.delete(1)\n  2. Add new node [4,4] after dummy_head\n     HashMap[4] = new_node\n\n  After: dummy_head ↔ [4] ↔ [2] ↔ [3] ↔ dummy_tail"
+      },
+      "complexity_summary": {
+        "lru_get": "O(1) — HashMap lookup + DLL move to head",
+        "lru_put": "O(1) — HashMap update + DLL insert/evict",
+        "lfu_get": "O(1) — update frequency, move between freq buckets",
+        "lfu_put": "O(1) — update freq maps, evict min-freq if full",
+        "space": "O(capacity) for both LRU and LFU"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-146",
+          "title": "LRU Cache",
+          "difficulty": "Medium",
+          "pattern": "HashMap + doubly linked list — O(1) all ops",
+          "blind75": true
+        },
+        {
+          "id": "lc-460",
+          "title": "LFU Cache",
+          "difficulty": "Hard",
+          "pattern": "Three HashMaps + minFreq tracking — O(1) all ops"
+        },
+        {
+          "id": "lc-432",
+          "title": "All O(1) Data Structure — insert/delete/getMaxKey/getMinKey",
+          "difficulty": "Hard",
+          "pattern": "DLL of frequency buckets — generalises LFU pattern"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M7-L5-TH-1",
+            "question": "LRU Cache uses HashMap + DOUBLY-LINKED LIST (not singly-linked). Why is DOUBLY-linked specifically required?",
+            "options": [
+              "Doubly-linked lists are always preferred over singly-linked for performance",
+              "O(1) NODE REMOVAL from the middle: when a key is accessed (get or put of existing key), its node must be REMOVED from its current position in the list and moved to the front; to remove a node in O(1), we need to update both its predecessor's `next` and its successor's `prev`; with SINGLY-linked: removing from the middle requires traversing to find the predecessor O(n); with DOUBLY-linked: each node stores both `prev` and `next`, so removal is O(1) given the node reference; the HashMap provides O(1) access to the node reference",
+              "Doubly-linked lists use less memory than singly-linked lists",
+              "The doubly-linked property is needed to support LFU but not LRU"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'O(1) LRU: HashMap for O(1) node access, DLL for O(1) eviction of tail' — the DLL is required for O(1) node removal: `node.prev.next = node.next; node.next.prev = node.prev` removes a node in O(1) using stored prev/next pointers; without prev pointers, removing from the middle requires O(n) traversal to find the predecessor."
+          },
+          {
+            "id": "L3M7-L5-TH-2",
+            "question": "LFU uses a `minFreq` tracker that increments only when the LAST KEY at `minFreq` is removed. Why not recompute minFreq from all frequencies on each operation?",
+            "options": [
+              "Recomputing minFreq is O(n) per operation, breaking the O(1) LFU requirement",
+              "AMORTISED O(1) MAINTENANCE: the `minFreq` can only INCREASE when a key's frequency moves from minFreq to minFreq+1 AND the freqMap at minFreq becomes empty; a newly inserted key always gets freq=1, resetting minFreq=1; when _touch is called (existing key accessed), minFreq increases by at most 1 if the old minFreq bucket empties; these two rules allow maintaining minFreq with a simple counter; RECOMPUTING via `Math.min(...freqMap.keys())` would require O(unique_freqs) per operation which is O(n) worst case — breaking the O(1) guarantee",
+              "Recomputing minFreq requires locking in a concurrent environment",
+              "MinFreq is only updated at eviction time, not during get/put"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: `if(freq===this.minFreq&&this.freqMap.get(freq).size===0)this.minFreq++` — the O(1) LFU insight: minFreq only needs to be incremented by 1 when the current minimum bucket empties; new insertions always reset minFreq=1; `Math.min(...freqMap.keys())` would be O(number of distinct frequencies) = O(capacity) worst case."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M7-L5-LG-1",
+            "question": "For LRUCache(2): put(1,1), put(2,2), get(1), put(3,3). What is evicted and why?",
+            "options": [
+              "Key 2 is evicted: after get(1), order is [1,2→head=1,tail=2]; put(3) evicts tail=2; cache={1,3}",
+              "Key 1 is evicted: key 1 was inserted first so it's least recently used",
+              "Key 3 is evicted: it's the newest key so the cache has no room for it",
+              "Nothing is evicted: capacity 2 can hold all three keys"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: get(2) returns -1 after put(3); trace: put(1,1)→[1]; put(2,2)→[2,1] (2 most recent); get(1)→returns 1, moves 1 to front→[1,2]; put(3,3)→capacity exceeded, evict tail=2→[3,1]; get(2)=-1 ✓, get(3)=3 ✓."
+          },
+          {
+            "id": "L3M7-L5-LG-2",
+            "question": "When should LFU be preferred over LRU? Give a concrete scenario.",
+            "options": [
+              "LFU is always better; LRU is a simplification of LFU",
+              "LFU PREFERRED for RECURRING HOT KEYS: if a small set of keys (e.g., 'homepage', 'trending') are accessed very frequently and occasionally a cold key is accessed once, LRU might evict a hot key after a brief cold spike; LFU retains high-frequency keys regardless of recent access gaps; EXAMPLE: news article cache — articles A and B are each accessed 1000 times, article C accessed once; LRU might evict A or B after C is accessed; LFU evicts C (lowest frequency); HOWEVER, LRU is preferred for STREAMING workloads where access patterns change over time and old frequent keys should be evicted",
+              "LFU is preferred when cache size is small (under 100 elements)",
+              "LRU is always preferred because it's simpler to implement"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'LRU simpler; LFU better for recurring hot keys; both O(capacity) space' and 'Redis uses approximate LRU; LFU better for workloads with recurring hot keys' — the key distinction: LRU is recency-based (recent = valuable), LFU is frequency-based (frequent = valuable); workloads with stable hot keys benefit from LFU; workloads with temporal locality benefit from LRU."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M7-L5-SY-1",
+            "question": "In LRUCache, sentinel HEAD and TAIL nodes are used with `this.head.next = this.tail; this.tail.prev = this.head`. Why use sentinels instead of checking for null?",
+            "options": [
+              "Sentinel nodes use less memory than null checks",
+              "NULL-CHECK ELIMINATION for SIMPLER CODE: without sentinels, _remove must check 'is this the first node?' and 'is this the last node?'; _insertFront must check 'is the list empty?'; these checks add branches to every operation; WITH SENTINELS: head and tail always exist with valid next/prev; _remove code `node.prev.next=node.next; node.next.prev=node.prev` works for ALL nodes including first and last without any null checks; _insertFront code works uniformly whether list has 0 or n nodes; sentinels eliminate all edge case branches",
+              "Sentinel nodes enable O(1) size tracking without a separate counter",
+              "Sentinel nodes prevent memory leaks when nodes are evicted"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: `this.head = {...}; this.tail = {...}; this.head.next=this.tail; this.tail.prev=this.head` — the sentinel pattern: every real node always has a non-null prev (at least head) and non-null next (at least tail); the remove and insert operations never need to check for null; this simplification is the reason doubly-linked list implementations in production code always use sentinel nodes."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M7-L5-CC-1",
+            "title": "LRU and LFU Cache",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement LRU and LFU caches from this lesson.",
+            "requirements": [
+              "Implement `LRUCache` class with get(key) and put(key, value), O(1) both",
+              "Implement `LFUCache` class with get(key) and put(key, value), O(1) both"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "// Implement both LRU and LFU Cache classes here"
+            },
+            "test_cases": [
+              {
+                "input": "(() => { const c=new LRUCache(2); c.put(1,1); c.put(2,2); c.get(1); c.put(3,3); return c.get(2); })()",
+                "expected": -1,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const c=new LRUCache(2); c.put(1,1); c.put(2,2); c.get(1); c.put(3,3); return c.get(3); })()",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const c=new LFUCache(2); c.put(1,1); c.put(2,2); c.get(1); c.put(3,3); return c.get(2); })()",
+                "expected": -1,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const c=new LRUCache(1); c.put(1,1); c.put(2,2); return c.get(1); })()",
+                "expected": -1,
+                "type": "hidden"
+              },
+              {
+                "input": "(() => { const c=new LFUCache(2); c.put(1,1); c.put(2,2); c.get(1); c.put(3,3); return c.get(1); })()",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "class LRUCache {\n  constructor(capacity){this.capacity=capacity;this.map=new Map();this.head={key:null,val:null,prev:null,next:null};this.tail={key:null,val:null,prev:null,next:null};this.head.next=this.tail;this.tail.prev=this.head;}\n  _remove(node){node.prev.next=node.next;node.next.prev=node.prev;}\n  _insertFront(node){node.next=this.head.next;node.prev=this.head;this.head.next.prev=node;this.head.next=node;}\n  get(key){if(!this.map.has(key))return-1;const node=this.map.get(key);this._remove(node);this._insertFront(node);return node.val;}\n  put(key,value){if(this.map.has(key)){const node=this.map.get(key);node.val=value;this._remove(node);this._insertFront(node);}else{if(this.map.size===this.capacity){const lru=this.tail.prev;this._remove(lru);this.map.delete(lru.key);}const node={key,val:value,prev:null,next:null};this._insertFront(node);this.map.set(key,node);}}\n}\nclass LFUCache {\n  constructor(capacity){this.capacity=capacity;this.keyMap=new Map();this.freqMap=new Map();this.minFreq=0;}\n  _getOrCreate(freq){if(!this.freqMap.has(freq))this.freqMap.set(freq,new Map());return this.freqMap.get(freq);}\n  _touch(key){const{val,freq}=this.keyMap.get(key);this.freqMap.get(freq).delete(key);if(freq===this.minFreq&&this.freqMap.get(freq).size===0)this.minFreq++;const newFreq=freq+1;this.keyMap.set(key,{val,freq:newFreq});this._getOrCreate(newFreq).set(key,true);}\n  get(key){if(!this.keyMap.has(key))return-1;this._touch(key);return this.keyMap.get(key).val;}\n  put(key,value){if(this.capacity<=0)return;if(this.keyMap.has(key)){this.keyMap.get(key).val=value;this._touch(key);return;}if(this.keyMap.size===this.capacity){const evictKey=this.freqMap.get(this.minFreq).keys().next().value;this.freqMap.get(this.minFreq).delete(evictKey);this.keyMap.delete(evictKey);}this.keyMap.set(key,{val:value,freq:1});this._getOrCreate(1).set(key,true);this.minFreq=1;}\n}\n"
+            },
+            "complexity_analysis": "LRUCache get/put: O(1). LFUCache get/put: O(1). Both O(capacity) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "LRUCache: Map<key,node> + DLL with sentinels; get moves node to front; put evicts tail.prev when full."
+              },
+              {
+                "level": 2,
+                "text": "LFUCache: keyMap<key,{val,freq}> + freqMap<freq,OrderedMap<key>>; minFreq tracks lowest frequency."
+              },
+              {
+                "level": 3,
+                "text": "LFU _touch: delete from old freq bucket; if old bucket empty and old_freq===minFreq: minFreq++; insert to new freq bucket."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 6,
+      "title": "System Design DSA Thinking",
+      "tag": "ADDED",
+      "objective": "Answer any system design question about data structure choice with specific DSA justification, connecting algorithm complexity to real-world system performance.",
+      "concepts": [
+        "HashMap: O(1) average exact-match lookup; use for caches, indexes on equality",
+        "B+ tree: O(log n) sorted operations; use for range queries, ordered iteration",
+        "Consistent hashing: O(K/N) data movement; use for distributed data partitioning",
+        "Bloom filter: O(k) probabilistic membership; use for pre-filtering expensive operations",
+        "LRU/LFU: O(1) cache with eviction; use for bounded-memory access pattern caching",
+        "Segment tree/Fenwick: O(log n) range queries; use for real-time aggregation",
+        "Module 7 NeetCode 150 problems mapped",
+        "Interview framing: always justify data structure choice with specific Big-O and scenario"
+      ],
+      "explanation": "System design interviews evaluate whether candidates can select and justify data structures based on concrete performance requirements. The key skill: given a system requirement (support range queries on timestamps, minimise key movement in distributed cache, efficiently check if a value exists), identify which data structure matches the access pattern and state the concrete complexity. HashMap: O(1) average for point queries, no ordering. Use when exact-match lookup dominates and range queries are absent. B+ tree: O(log_m n) disk-based sorted operations. Use when range queries, ORDER BY, or index scans are needed. Consistent hashing: O(K/N) keys moved on topology change. Use for distributed caches and databases where nodes join/leave frequently. Bloom filter: O(k) insert and query, O(m) space. Use when false negatives are unacceptable but false positives are cheap. LRU/LFU: O(1) cache operations. Use when memory is bounded and access patterns are temporal (LRU) or frequency-based (LFU). The system design interviewer wants to hear: 'I would use X because it gives O(?) for the dominant operation Y, and the tradeoff is Z.'",
+      "analogy": "System design DSA thinking is like an architect specifying building materials. A structural engineer does not say 'use steel'; they say 'use A36 structural steel for this load-bearing beam because it has 250 MPa yield strength, which gives a safety factor of 3.2 for the 50kN load'. Similarly, a senior engineer does not say 'use a hash map'; they say 'use a hash map for O(1) average-case session ID lookup because session reads dominate writes 100:1 and we have no range query requirements.'",
+      "code_example": {
+        "language": "javascript",
+        "code": "// SYSTEM DESIGN DSA DECISION FRAMEWORK\n\nconst systemDesignDSA = [\n    {\n        requirement: 'O(1) exact-match lookup, high read/write',\n        choice: 'HashMap / Hash Index',\n        complexity: 'O(1) amortised',\n        tradeoff: 'No ordering; O(n) range queries; potential hash collision worst-case',\n        examples: ['Session store', 'User profile cache', 'Database hash index on primary key']\n    },\n    {\n        requirement: 'Ordered access, range queries, sorted iteration',\n        choice: 'B+ Tree / Sorted Set',\n        complexity: 'O(log n) per operation',\n        tradeoff: 'O(log n) vs O(1) for point queries; disk I/O minimised with large node size',\n        examples: ['SQL index on age/timestamp', 'Redis sorted set', 'Time-series range query']\n    },\n    {\n        requirement: 'Distribute keys across N nodes, minimal remapping',\n        choice: 'Consistent Hashing',\n        complexity: 'O(K/N) keys moved per topology change',\n        tradeoff: 'Requires virtual nodes for load balance; slightly more complex than key%N',\n        examples: ['Cassandra partition key', 'CDN edge selection', 'Distributed cache sharding']\n    },\n    {\n        requirement: 'Fast membership test with space savings, false positives ok',\n        choice: 'Bloom Filter',\n        complexity: 'O(k) insert/query, O(m) space',\n        tradeoff: 'False positives (tunable); no deletion in basic form; no false negatives',\n        examples: ['HBase read optimisation', 'Username availability pre-check', 'URL deduplication']\n    },\n    {\n        requirement: 'Bounded memory cache with eviction',\n        choice: 'LRU (temporal) or LFU (frequency)',\n        complexity: 'O(1) get and put',\n        tradeoff: 'LRU simpler; LFU better for recurring hot keys; both O(capacity) space',\n        examples: ['CDN edge cache', 'Database buffer pool', 'Application session cache']\n    },\n    {\n        requirement: 'Real-time range aggregates with updates',\n        choice: 'Segment Tree / Fenwick Tree',\n        complexity: 'O(log n) update and range query',\n        tradeoff: 'O(n) or O(4n) space; more complex than prefix sum',\n        examples: ['Real-time leaderboard range queries', 'Time-window analytics']\n    },\n];\n\n// MODULE 7 NEETCODE 150 PROBLEMS:\nconst module7_problems = [\n    { id: 146,  title: 'LRU Cache',                   topic: 'LRU implementation',        nc150: true  },\n    { id: 460,  title: 'LFU Cache',                   topic: 'LFU implementation',        nc150: true  },\n    { id: 307,  title: 'Range Sum Query Mutable',      topic: 'Segment tree',              nc150: true  },\n    { id: 1044, title: 'Longest Duplicate Substring',  topic: 'Rabin-Karp rolling hash',   nc150: true  },\n];\nconsole.log('Module 7 NeetCode 150 relevant problems:', module7_problems.length); // 4",
+        "explanation": "The tradeoff column is what separates senior from junior answers. A junior engineer says 'use a hash map for O(1) lookups'. A senior engineer says 'use a hash map for O(1) average-case lookups, but note that with adversarial keys or poor hash functions we degrade to O(n); in a production system I would use a hash map with a cryptographic seed to prevent hash collision attacks.' The tradeoff is the signal."
+      },
+      "common_mistakes": [
+        "Recommending data structures without stating the concrete complexity — 'use a tree' is not useful; 'use a B+ tree for O(log n) range queries with O(log_m n) disk reads' is the expected precision",
+        "Not knowing when NOT to use a complex data structure — a Bloom filter for a set of 100 elements is overkill; a sorted array with binary search is O(log 100) = 7 comparisons and uses no probabilistic machinery; always match complexity to scale",
+        "Ignoring the write path — every data structure has a write cost; recommending a segment tree for reads without noting O(log n) writes is incomplete; always address both read and write complexity in system design"
+      ],
+      "interview_relevance": "Module 7 is specifically designed for the system design portion of senior interviews. The six data structure choices in this lesson cover the majority of DSA-related system design questions. LRU Cache and LFU Cache are directly NeetCode 150 coding problems that also appear as system design components. A candidate who can implement LRU Cache in code AND explain when production systems use LRU vs LFU eviction is the ideal senior engineering candidate.",
+      "mini_challenge": "For each of these system design scenarios, select the data structure, state the O(?) complexity for the dominant operation, and name one tradeoff: (1) YouTube video view count displayed in real time, updated every second per video. (2) Spotify cache of 100M songs where popular songs should stay cached. (3) A URL shortener checking if a custom alias is available before DB query. (4) A distributed key-value store adding a 6th server without invalidating existing cached data. (5) A SQL query 'WHERE created_at BETWEEN 2024-01-01 AND 2024-12-31'. Answer all five in under 5 minutes.",
+      "flashcards": [
+        {
+          "front": "DSA → System Design mapping: 5 core connections?",
+          "back": "1) Hash maps → database hash indexes, hash joins, distributed hash tables. 2) B-Trees → SQL indexes, file system directories. 3) Consistent hashing → distributed caches (Redis cluster), NoSQL partition (DynamoDB, Cassandra). 4) Bloom filters → disk-I/O reduction in LSM trees (RocksDB, Cassandra). 5) LRU/LFU → CPU cache replacement, CDN cache, database buffer pool."
+        },
+        {
+          "front": "LSM Tree (Log-Structured Merge Tree): how does it use Bloom filters?",
+          "back": "LSM Tree writes: batched into in-memory buffer (MemTable) → flushed to sorted SSTables on disk. Query: check MemTable, then SSTables from newest to oldest. Problem: many SSTables to check. Solution: each SSTable has a Bloom filter → skip SSTables that definitely don't contain the key. Reduces disk reads from O(L) to O(1) amortised."
+        },
+        {
+          "front": "Database buffer pool: what cache algorithm does it use?",
+          "back": "PostgreSQL: Clock algorithm (approximation of LRU). MySQL InnoDB: Modified LRU with a 'young' and 'old' sublist. The modification prevents full table scans from evicting hot pages. Oracle: Touch count (approximation of LFU). Redis: Approximated LRU (samples 5 random keys, evicts oldest)."
+        },
+        {
+          "front": "Redis cluster consistent hashing: how is it different from textbook consistent hashing?",
+          "back": "Redis uses HASH SLOTS (16384 fixed slots, not a continuous ring). Each node owns a range of slots. key → CRC16(key) % 16384 → slot → node. Resharding: move slots between nodes. Virtual nodes not used — slot ranges serve the same purpose. O(1) lookup (table lookup, not binary search)."
+        },
+        {
+          "front": "Skip list: what is it and why does Redis use it?",
+          "back": "Probabilistic data structure with O(log n) search, insert, delete. Multiple levels of linked lists — higher levels skip larger distances. Redis uses skip lists for SORTED SETS (ZADD, ZRANGE). Simpler to implement than balanced BST, same complexity. Also used in: LevelDB's MemTable."
+        },
+        {
+          "front": "Trie in system design: real applications?",
+          "back": "AUTOCOMPLETE: trie of all valid search terms, DFS for prefix completions. PREFIX ROUTING: IP routing tables (LPM - Longest Prefix Match) use a trie of IP prefix bits. DNS LOOKUP: hierarchical name resolution maps to trie traversal. PHONE BOOK / WORD SUGGEST: trie + DFS + frequency ranking."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "RocksDB stores data in SSTables. Without Bloom filters, a GET for a missing key requires?",
+          "options": [
+            "O(1) — hash table lookup",
+            "O(L) disk reads — must check each of L SSTables to confirm key is absent",
+            "O(log n) — binary search in sorted SSTables",
+            "O(1) — metadata index"
+          ],
+          "answer": 1,
+          "explanation": "LSM tree: SSTables sorted but scattered across levels. A missing key: must check EVERY SSTable to confirm absence (since the key could be in any level). With Bloom filters: skip SSTables where Bloom filter says 'definitely not here' → O(1) amortised for missing keys. Only false positives cause unnecessary reads."
+        },
+        {
+          "question": "Redis ZADD uses a skip list. Why not a balanced BST (like AVL or Red-Black tree)?",
+          "options": [
+            "Skip list is faster",
+            "Skip list is simpler to implement while achieving the same O(log n) complexity; easier to modify for concurrent access; also simpler to implement range operations (ZRANGE)",
+            "Skip list uses less memory",
+            "Balanced BST doesn't support sorted operations"
+          ],
+          "answer": 1,
+          "explanation": "Redis skip list rationale (from antirez, Redis author): skip list is simpler to implement than AVL/RB trees while providing same O(log n) guarantees. ZRANGE requires traversal of a range — skip list's linked-list structure makes this natural. Memory overhead is similar to balanced BST."
+        },
+        {
+          "question": "System design: 'design a URL shortener' (bit.ly). Which DSA maps most directly to the core lookup?",
+          "options": [
+            "Binary search on sorted URLs",
+            "Hash map (short_code → long_url) — O(1) lookup, distributed via consistent hashing across shards",
+            "B-Tree on short codes",
+            "Trie of URL prefixes"
+          ],
+          "answer": 1,
+          "explanation": "URL shortener: PUT stores short_code → long_url in a distributed hash map. GET(short_code) → O(1) hash lookup → redirect. Consistent hashing distributes the hash map across servers. Hash index (not B-Tree) because only equality lookups needed (no range queries on short codes). A database B-Tree index on the short_code column would also work for smaller scale."
+        },
+        {
+          "question": "IP routing: 'find the longest matching prefix for IP 10.20.30.40'. Which data structure?",
+          "options": [
+            "Hash map: IP → next hop",
+            "Trie (prefix tree): 32 levels for IPv4, each bit is a branch; longest prefix match = deepest matching node",
+            "B-Tree sorted by IP address",
+            "Bloom filter"
+          ],
+          "answer": 1,
+          "explanation": "LPM (Longest Prefix Match): routers store network prefixes (e.g., 10.20.0.0/16, 10.20.30.0/24). For a destination IP, find the MOST SPECIFIC matching prefix. Trie on bit representation: traverse bit by bit, track last valid prefix match, return it. Hash map: can't find longest prefix (would need to hash all possible prefix lengths). B-Tree: no bit-prefix structure."
+        }
+      ],
+      "visual_aid": {
+        "type": "system_design_dsa_map",
+        "description": "DSA concepts mapped to system design components",
+        "diagram": "DSA → SYSTEM DESIGN CONNECTIONS:\n\nDSA CONCEPT          SYSTEM DESIGN APPLICATION\n────────────────────────────────────────────────────────────\nHash Map             Database hash index (=,IN queries)\n                     Redis core storage (GET/SET O(1))\n                     Hash join in query execution\n\nB+ Tree              SQL primary/secondary indexes\n                     File system directory (ext4, NTFS)\n                     MySQL InnoDB storage engine\n\nConsistent Hashing   Redis cluster partitioning\n                     DynamoDB partition key distribution\n                     Cassandra token ring\n\nBloom Filter         RocksDB/LevelDB SSTable skip\n                     Cassandra read path optimisation\n                     Chrome safe browsing (URL check)\n\nLRU/LFU Cache        Database buffer pool (PostgreSQL)\n                     CPU L1/L2/L3 cache replacement\n                     CDN cache eviction\n\nSkip List            Redis Sorted Sets (ZADD/ZRANGE)\n                     LevelDB MemTable\n\nTrie                 IP routing (LPM)\n                     Autocomplete search\n                     DNS resolution\n\nSegment Tree / BIT   Time-series databases (range sum)\n                     Analytics query engines"
+      },
+      "complexity_summary": {
+        "hash_map_lookup": "O(1) average — databases, caches, routing tables",
+        "btree_range_query": "O(log n + k) — SQL index scans",
+        "consistent_hashing": "O(log N) key routing, ~K/N remapping on node change",
+        "bloom_filter": "O(k) per operation, O(m) space, 1% FPR at 9.6 bits/element",
+        "lru_lfu": "O(1) all operations — cache implementations"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-146",
+          "title": "LRU Cache — foundation for cache system design",
+          "difficulty": "Medium",
+          "pattern": "HashMap + DLL",
+          "blind75": true
+        },
+        {
+          "id": "lc-460",
+          "title": "LFU Cache — advanced cache strategy",
+          "difficulty": "Hard",
+          "pattern": "Triple HashMap + minFreq"
+        },
+        {
+          "id": "lc-706",
+          "title": "Design HashMap — implement from scratch",
+          "difficulty": "Easy",
+          "pattern": "Chaining or open addressing"
+        },
+        {
+          "id": "custom-design1",
+          "title": "Design a distributed cache system (like Redis cluster): sketch the consistent hashing, eviction policy, and Bloom filter usage",
+          "difficulty": "Hard",
+          "pattern": "System design synthesis: consistent hashing + LRU + Bloom filter"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M7-L6-TH-1",
+            "question": "The lesson frames system design DSA answers as: 'choose X because it provides Y complexity for Z requirement'. Why is citing SPECIFIC BIG-O better than just naming the data structure?",
+            "options": [
+              "Citing Big-O is a formality that interviewers expect but don't actually evaluate",
+              "BIG-O JUSTIFICATION DEMONSTRATES DEPTH: 'use a hash map' — anyone can say this; 'use a hash map because it provides O(1) amortised point lookups vs B+ tree's O(log n), and for this user-session cache we need sub-millisecond reads with no range queries' — this shows UNDERSTANDING of the tradeoff and APPROPRIATENESS for the specific requirement; it also demonstrates the candidate can ANTICIPATE follow-up questions ('what if you need range queries?') because they've already reasoned through the complexity implications; this is the signal that separates strong from weak system design candidates",
+              "Big-O notation is required to calculate exact query latency",
+              "Citing Big-O prevents the interviewer from asking follow-up questions"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Interview framing: always justify data structure choice with specific Big-O and scenario' — the specific complexity cited connects the algorithmic property to the system requirement; it shows the candidate knows not just WHAT to use but WHY it's appropriate; this is the depth signal that distinguishes a practitioner from a memoriser."
+          },
+          {
+            "id": "L3M7-L6-TH-2",
+            "question": "For 'real-time leaderboard range queries', the lesson recommends a SEGMENT TREE or FENWICK TREE. What specific QUERY TYPE makes segment/Fenwick trees necessary over a sorted array?",
+            "options": [
+              "Sorted arrays support range queries; segment trees are only for concurrent updates",
+              "UPDATES WITH RANGE QUERIES: a sorted array supports O(log n) range queries (binary search on boundaries) but O(n) updates (insert/delete shifts elements); a Fenwick/segment tree supports O(log n) BOTH updates and range queries; for a REAL-TIME leaderboard with continuous score updates, the update frequency makes O(n) per update impractical; at 1000 updates/second and n=10^6 users, sorted array update cost = 10^9 operations/second (infeasible); segment tree: 10^6*20 = 20M operations/second (feasible); the combination of FREQUENT UPDATES and RANGE QUERY requirements is the key signal",
+              "Segment trees are needed because leaderboards require O(1) exact lookups",
+              "Fenwick trees support range queries that sorted arrays cannot"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's systemDesignDSA: 'Real-time range aggregates with updates → Segment Tree / Fenwick Tree: O(log n) update and range query' — the signal is the COMBINATION of frequent updates + range queries; sorted array supports ranges but not fast updates; hash map supports fast updates but not ranges; segment/Fenwick trees uniquely solve both in O(log n)."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M7-L6-LG-1",
+            "question": "Module 7 includes 4 NC150-relevant problems (#146, #460, #307, #1044). Which data structures are DIRECTLY TESTED in each?",
+            "options": [
+              "#146 LRU Cache: DLL + HashMap; #460 LFU Cache: HashMap + freqMap + minFreq; #307 Range Sum Query Mutable: Segment tree or Fenwick; #1044 Longest Duplicate Substring: Rabin-Karp rolling hash + binary search",
+              "All four problems use hash maps; the other structures are supplementary",
+              "#146 uses arrays; #460 uses queues; #307 uses prefix sums; #1044 uses suffix arrays",
+              "Problems 146 and 460 use the same data structure; 307 and 1044 are identical"
+            ],
+            "answer": 0,
+            "explanation": "Matching the lesson's module7_problems: #146→LRU implementation (DLL+HashMap), #460→LFU implementation (HashMap+freqMap), #307→segment tree (covered in M07's connection to L3-M02), #1044→Rabin-Karp rolling hash (covered in L3-M05); each problem directly implements the corresponding data structure from this module or earlier Level 3 modules."
+          },
+          {
+            "id": "L3M7-L6-LG-2",
+            "question": "When would you recommend CONSISTENT HASHING over simple `key % N` modulo sharding?",
+            "options": [
+              "Always use consistent hashing; modulo sharding is never appropriate",
+              "CONSISTENT HASHING when: (1) N (server count) changes FREQUENTLY due to auto-scaling, server failures, or rolling deployments; (2) data migration during resharding is expensive (large data volumes, strict SLAs); (3) the system requires near-zero downtime during topology changes; MODULO SHARDING (key%N) when: N is FIXED and never changes (or changes can tolerate full data redistribution); simpler implementation; all data fits in memory making migration fast; consistent hashing's O(K/N) migration advantage only matters when migration is expensive or downtime is not tolerated",
+              "Consistent hashing is preferred when N is a prime number",
+              "Modulo sharding is preferred for hot spots; consistent hashing for cold data"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's systemDesignDSA: 'Consistent Hashing: O(K/N) keys moved per topology change; tradeoff: slightly more complex than key%N' — the decision pivot is the cost of data migration during topology changes; for dynamic server counts (auto-scaling, cloud environments), consistent hashing is the correct choice; for fixed infrastructure, modulo sharding's simplicity wins."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M7-L6-SY-1",
+            "question": "Each entry in `systemDesignDSA` has an `examples` field as an ARRAY of strings. How does this array structure enable programmatic generation of 'use case cheat sheets'?",
+            "options": [
+              "The examples array is decorative and has no programmatic use",
+              "FLATMAP PATTERN for CROSS-CUTTING ANALYSIS: `systemDesignDSA.flatMap(item => item.examples.map(ex => ({choice:item.choice, example:ex})))` transforms the nested examples into a flat list of (algorithm, use-case) pairs; this enables generating: sorted use-case lists, filtering by keyword ('cache'), counting examples per algorithm, or building a reverse index (use-case→algorithm); storing multiple examples as an array enables all these transformations in O(n) single passes; a single string (comma-separated) would require string parsing which is error-prone",
+              "Arrays enable concurrent loading of examples from different data sources",
+              "The examples array length determines the algorithm's importance ranking"
+            ],
+            "answer": 1,
+            "explanation": "The examples array enables functional transformations: flatMap, filter, find, groupBy — all applicable to structured arrays of strings; this is the general principle of structured data over unstructured strings; an examples array can be iterated, filtered for keywords, or used to build reverse indexes without string parsing; it's the same principle as storing tags as arrays rather than comma-separated strings."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M7-L6-CC-1",
+            "title": "System Design DSA Advisor and Module Summary",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+            "problem_statement": "Implement the system design DSA decision guide and module summary.",
+            "requirements": [
+              "Implement `selectSystemDSA(requirement)` returning the data structure choice",
+              "Implement `module7Summary()` returning {total, nc150} counts"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "const MODULE7 = [\n  {id:146, topic:'LRU implementation', nc150:true},\n  {id:460, topic:'LFU implementation', nc150:true},\n  {id:307, topic:'Segment tree', nc150:true},\n  {id:1044, topic:'Rabin-Karp rolling hash', nc150:true},\n];\n\nfunction selectSystemDSA(requirement) {\n  // requirements: 'exact lookup', 'range query', 'distributed sharding',\n  //               'membership test', 'cache eviction', 'range aggregates'\n  // TODO: return data structure name\n}\n\nfunction module7Summary() {\n  // TODO: total and nc150 count from MODULE7\n}"
+            },
+            "test_cases": [
+              {
+                "input": "selectSystemDSA('exact lookup')",
+                "expected": "HashMap",
+                "type": "visible"
+              },
+              {
+                "input": "selectSystemDSA('range query')",
+                "expected": "B+ Tree",
+                "type": "visible"
+              },
+              {
+                "input": "module7Summary().nc150",
+                "expected": 4,
+                "type": "visible"
+              },
+              {
+                "input": "selectSystemDSA('membership test')",
+                "expected": "Bloom Filter",
+                "type": "hidden"
+              },
+              {
+                "input": "selectSystemDSA('cache eviction')",
+                "expected": "LRU/LFU Cache",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "const MODULE7=[{id:146,topic:'LRU implementation',nc150:true},{id:460,topic:'LFU implementation',nc150:true},{id:307,topic:'Segment tree',nc150:true},{id:1044,topic:'Rabin-Karp rolling hash',nc150:true}];\n\nfunction selectSystemDSA(requirement){\n  if(requirement.includes('exact lookup')||requirement.includes('hash'))return'HashMap';\n  if(requirement.includes('range query')||requirement.includes('sorted'))return'B+ Tree';\n  if(requirement.includes('distributed')||requirement.includes('sharding'))return'Consistent Hashing';\n  if(requirement.includes('membership'))return'Bloom Filter';\n  if(requirement.includes('cache'))return'LRU/LFU Cache';\n  if(requirement.includes('aggregates')||requirement.includes('range aggregates'))return'Segment/Fenwick Tree';\n  return'HashMap';\n}\n\nfunction module7Summary(){\n  return{total:MODULE7.length,nc150:MODULE7.filter(p=>p.nc150).length};\n}"
+            },
+            "complexity_analysis": "selectSystemDSA: O(|requirement|). module7Summary: O(n).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "selectSystemDSA: check signal keywords; exact/hash→HashMap; range/sorted→B+ Tree."
+              },
+              {
+                "level": 2,
+                "text": "distributed/sharding→Consistent Hashing; membership→Bloom Filter; cache→LRU/LFU."
+              },
+              {
+                "level": 3,
+                "text": "module7Summary: MODULE7.filter(p=>p.nc150).length gives nc150 count."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "module_summary": {
+    "total_lessons": 6,
+    "level": "L3",
+    "difficulty": "Medium-Hard — DSA concepts are well-established; the challenge is the system design context and understanding WHY each structure is used",
+    "core_patterns": [
+      "Hash maps: O(1) equality lookup, no range support; hash joins O(n+m); load factor → resize at 0.75",
+      "B-Tree indexes: clustered (data in leaf) vs non-clustered (PK pointer in leaf); covering index = zero table I/O",
+      "Composite index prefix: queries must use leading columns; (a,b,c) supports WHERE a=?, not WHERE b=?",
+      "Consistent hashing: ring + clockwise successor; ~K/N keys remapped on add/remove (vs ~all with mod-N)",
+      "Virtual nodes: each server at V positions → uniform load distribution on the ring",
+      "Bloom filter: k hash functions, m-bit array; false positive possible, false negative impossible",
+      "Bloom filter space: ~9.6 bits/element for 1% FPR; supports add+query but NOT delete or enumerate",
+      "LRU Cache: HashMap (key→node) + doubly linked list (MRU head, LRU tail); O(1) all ops",
+      "LFU Cache: key→val, key→freq, freq→DLL of keys; minFreq tracking; new keys reset minFreq=1",
+      "LSM Trees (RocksDB): Bloom filter per SSTable to skip disk reads for missing keys"
+    ],
+    "prerequisite_modules": [
+      "L3-M03 (B-Trees theory)",
+      "L2-M12 (bit manipulation — Bloom filter uses bit arrays)",
+      "L1-M06 (hash maps — foundational)"
+    ],
+    "unlocks_modules": [
+      "System design interviews at senior/staff level",
+      "Distributed systems coursework"
+    ],
+    "recommended_problem_order": [
+      "lc-706",
+      "lc-380",
+      "lc-146",
+      "lc-460",
+      "lc-432"
+    ],
+    "spaced_review_target": "Implement LRU cache from scratch (no OrderedDict / LinkedHashMap shortcuts) before system design interviews",
+    "module_difficulty_breakdown": {
+      "L1_hash_maps_databases": "Medium — bridges hash map mechanics to database query patterns",
+      "L2_btree_sql": "Hard — composite index design and covering index concepts require careful reasoning",
+      "L3_consistent_hashing": "Hard — ring data structure and virtual node distribution are non-trivial",
+      "L4_bloom_filters": "Medium — mechanics are simple; the probabilistic reasoning and use cases require more depth",
+      "L5_lru_lfu": "Hard — LFU O(1) implementation with triple HashMap is the hardest code in the module",
+      "L6_framework": "Medium — synthesis of DSA → system design connections"
+    },
+    "honest_time_estimate": "14-16 hours. Hash maps (L1): 2 hrs. B-Tree indexes (L2): 3 hrs. Consistent hashing (L3): 3 hrs. Bloom filters (L4): 2 hrs. LRU/LFU (L5): 4 hrs. Framework (L6): 1.5 hrs.",
+    "interview_impact": "This module directly prepares for the system design component of senior/staff interviews. Questions like 'how would you implement a distributed cache?' or 'how does your database ensure fast lookups?' draw directly on this content. LRU Cache (#146) and LFU Cache (#460) are frequently asked as standalone coding problems at senior level."
+  },
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "conceptual": "Lessons 1-3 (hash map load factor/rehashing amortisation, B+ tree left-prefix rule, consistent hashing O(K/N) migration, vnode statistical averaging)",
+      "implementation": "Lessons 4-5 (Bloom filter bit packing, optimalParams formula, LRU sentinel DLL + HashMap, LFU minFreq maintenance)",
+      "system_design": "Lesson 6 (6-structure decision framework with Big-O justification, 4 NC150 problems mapped)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
+import { guardAuthedRequest } from "@/lib/api-guard";
+import { groqRequestSchema } from "@/lib/validation";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -7,7 +9,14 @@ const groq = new Groq({
 
 export async function POST(request: NextRequest) {
   try {
-    const { task, code, language, problem, hints, solution, size, context, messages } = await request.json();
+    const guard = await guardAuthedRequest(request, {
+      rateLimitPrefix: "ai",
+      limit: 20,
+      windowMs: 60_000,
+      schema: groqRequestSchema,
+    });
+    if (!guard.ok) return guard.response;
+    const { task, code, language, problem, hints, solution, size, context, messages } = guard.data;
 
     let prompt = "";
     let model = "llama-3.3-70b-versatile";
@@ -37,7 +46,7 @@ ${code}
 If the user asks you to write or edit code, provide the full code or the specific snippet in a markdown code block.
 `;
 
-      const chatMessages = [
+      const chatMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
         { role: "system", content: systemMessage },
         ...(messages || [])
       ];
@@ -62,7 +71,7 @@ When asked for a study plan, provide a clear, step-by-step roadmap.
 When asked for advice, give practical and actionable tips.
 Keep responses concise but helpful.`;
 
-      const chatMessages = [
+      const chatMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
         { role: "system", content: systemMessage },
         ...(messages || [])
       ];

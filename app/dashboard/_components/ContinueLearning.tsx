@@ -34,6 +34,13 @@ export function ContinueLearning({ languageProgress }: ContinueLearningProps) {
                 </div>
             </CardHeader>
             <CardContent>
+                {languageProgress.length === 0 ? (
+                    <div className="text-center py-10 border border-dashed border-border/60 rounded-xl bg-card/20">
+                        <BookOpen className="h-8 w-8 text-muted-foreground/50 mx-auto mb-3" />
+                        <p className="font-medium mb-1">No languages started yet</p>
+                        <p className="text-muted-foreground text-sm">Pick a language on the Learn page to get going.</p>
+                    </div>
+                ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {languageProgress.map((lang) => {
                         const Icon = lang.iconComponent;
@@ -61,6 +68,7 @@ export function ContinueLearning({ languageProgress }: ContinueLearningProps) {
                         );
                     })}
                 </div>
+                )}
             </CardContent>
         </Card>
     );

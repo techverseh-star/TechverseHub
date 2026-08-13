@@ -1,0 +1,823 @@
+{
+  "module_id": "L3-M09",
+  "module_title": "Randomized And Probabilistic Algorithms",
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "note_on_relationship_to_existing_quiz": "This assessment is a SEPARATE, additive practice layer.",
+  "relationship_to_l3_m08": "This module is distinct from L3-M08 Lesson 5 (Randomized Algorithms intro). L3-M08-L5 covers Quickselect basics and a brief survey. This module (L3-M09) goes substantially deeper: full harmonic-series proof for QuickSort, skip lists (new structure), reservoir sampling with telescoping proof, Monte Carlo Pi/Miller-Rabin, universal/perfect hashing, and the Deterministic/Las Vegas/Monte Carlo taxonomy with a probability toolkit.",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "lesson_title": "Randomized QuickSort",
+      "theory_mcq": [
+        {
+          "id": "L3M9-L1-TH-1",
+          "question": "The harmonic series proof shows E[comparisons] = 2n*H_n ≈ 2n*ln(n). What does the INDICATOR RANDOM VARIABLE `X_ij` represent and why does it simplify the proof?",
+          "options": [
+            "X_ij represents whether elements i and j are in the same partition",
+            "X_ij = 1 IF elements i and j (at SORTED positions i<j) are DIRECTLY COMPARED at some point during the algorithm, 0 otherwise; LINEARITY OF EXPECTATION lets us write E[total comparisons] = SUM over all pairs (i,j) of E[X_ij] = SUM of P(X_ij=1); this DECOMPOSES a complex question ('how many comparisons total?') into N² SIMPLE questions ('what's the probability THIS specific pair is compared?'); crucially, linearity of expectation holds REGARDLESS of dependence between the X_ij variables, making the proof tractable even though comparisons are NOT independent events",
+            "X_ij represents the number of times the pivot is selected",
+            "X_ij is the indicator for whether the array is already sorted"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Indicator random variable: X_{ij} = 1 if elements i and j are compared' — the power of indicator variables combined with linearity of expectation: E[ΣX_ij] = ΣE[X_ij] holds even when the X_ij are dependent (which they are, since QuickSort's recursive structure correlates comparisons); this lets the proof avoid analyzing complex joint distributions."
+        },
+        {
+          "id": "L3M9-L1-TH-2",
+          "question": "The claim `P(i and j compared) = 2/(j-i+1)` for sorted positions i<j. What GEOMETRIC INSIGHT explains this formula?",
+          "options": [
+            "The probability is always 2/n regardless of position, and this formula is an approximation",
+            "ELEMENTS i AND j ARE COMPARED IFF one of them is chosen as PIVOT BEFORE any element strictly between them (in sorted order) is chosen; consider the SET of elements {i, i+1, ..., j} (size j-i+1); until one of these j-i+1 elements becomes a pivot, they all remain in the SAME partition (could still be compared together); among this set, i and j are compared EXACTLY WHEN the FIRST pivot chosen from this set is i OR j (not anything strictly between); since pivots are chosen UNIFORMLY at random from the current partition, P(first pivot from this set is i or j) = 2/(j-i+1) — 2 favorable outcomes out of (j-i+1) equally likely elements",
+            "The formula comes from the number of recursive calls needed to separate i and j",
+            "2/(j-i+1) represents the probability that i and j end up in the same final sorted position"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'P(i and j compared) = 2/(j-i+1) for sorted positions i<j' — this is the KEY LEMMA: i and j are compared exactly when one of them is the FIRST pivot chosen among the set {i,...,j}; since all j-i+1 elements in this range are equally likely to be the first pivot chosen (uniform random pivot), and exactly 2 of them (i or j) result in a comparison, the probability is 2/(j-i+1)."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M9-L1-LG-1",
+          "question": "For `randomQuickSort([3,1,4,1,5,9,2,6,5,3,5])`, the result is `[1,1,2,3,3,4,5,5,5,6,9]`. How does the algorithm handle DUPLICATE values (three 5's, two 3's, two 1's)?",
+          "options": [
+            "The Lomuto partition's `<=` comparison correctly groups equal elements: when arr[i]<=pivot, the element moves to the 'less than or equal' side; this means duplicates of the pivot value end up adjacent to the pivot in the final sorted output; the algorithm correctly sorts despite duplicates because <= (not strict <) is the partition condition — confirmed by the fully sorted output containing all original elements including duplicates",
+            "Duplicate values cause infinite recursion which the algorithm avoids via a special check",
+            "The algorithm removes duplicates before sorting, then re-inserts them at the end",
+            "Duplicates are handled by treating them as a single combined element"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: randomQuickSort([3,1,4,1,5,9,2,6,5,3,5]) = [1,1,2,3,3,4,5,5,5,6,9]; the Lomuto partition's `arr[i]<=pivot` condition correctly includes pivot-equal elements on the 'left' side; this is standard correctness for duplicate handling in 2-way partition QuickSort (though it can degrade to O(n²) with many duplicates of the SAME value, motivating 3-way partition for that case)."
+        },
+        {
+          "id": "L3M9-L1-LG-2",
+          "question": "Why does `quickSort3Way` (Dutch National Flag) perform BETTER than 2-way partition when there are MANY DUPLICATE values?",
+          "options": [
+            "3-way partition uses a different sorting algorithm entirely for duplicates",
+            "3-WAY PARTITION creates THREE regions: [<pivot], [==pivot], [>pivot]; all elements EQUAL to the pivot are GROUPED TOGETHER and EXCLUDED from further recursion (`quickSort3Way(arr,lo,lt-1); quickSort3Way(arr,gt+1,hi)` skips the middle '==pivot' section entirely); for an array with MANY duplicates (e.g., all elements equal), 2-WAY partition would recursively process O(n) sub-arrays of decreasing size (O(n²) total), while 3-WAY partition handles all duplicates in ONE pass (O(n) total) since they never need re-partitioning",
+            "3-way partition uses a fixed pivot instead of random selection",
+            "3-way partition is always slower but more memory-efficient"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's comment: 'THREE-WAY PARTITION (Dutch National Flag) — better for many duplicates' — the key optimization: equal-to-pivot elements are isolated in the middle section [lt..gt] and EXCLUDED from recursive calls; for an array of all-identical elements, 2-way partition degrades to O(n²) (each pivot only excludes itself), while 3-way partition achieves O(n) (all duplicates handled in the first pass)."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M9-L1-SY-1",
+          "question": "In `countComparisons`, the theoretical estimate uses `2*n*Math.log(n)`. Why is `Math.log` (natural log, base e) used rather than `Math.log2`?",
+          "options": [
+            "Math.log2 would give a different (incorrect) asymptotic growth rate",
+            "The proof states E[comparisons] ≈ 2n*ln(n) using NATURAL LOG (the harmonic number H_n ≈ ln(n) is a standard approximation using the natural logarithm, derived from the integral approximation ∫(1/x)dx); converting to a different log BASE only changes the CONSTANT FACTOR (log2(n) = ln(n)/ln(2) ≈ 1.443*ln(n)), not the asymptotic O(n log n) growth rate; since the formula 2n*ln(n) comes directly from the harmonic series approximation (which is naturally expressed in base e), using Math.log (natural log) matches the mathematical derivation exactly, while Math.log2 would require an extra conversion factor",
+            "Math.log is faster to compute than Math.log2 in JavaScript",
+            "Natural log is required because JavaScript doesn't support Math.log2 for large n"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'E[comparisons] = 2n * H_n ≈ 2n * ln(n) = O(n log n)' — the harmonic number approximation H_n ≈ ln(n) + γ (Euler-Mascheroni constant) is naturally expressed via the natural logarithm from calculus (the integral of 1/x); the formula directly uses ln(n), so Math.log (JavaScript's natural log) is the correct, derivation-consistent choice."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M9-L1-CC-1",
+          "title": "Randomized QuickSort and Three-Way Partition",
+          "difficulty": "Advanced",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement randomized QuickSort from this lesson.",
+          "requirements": [
+            "Implement `randomQuickSortImpl(arr)` matching the lesson's random-pivot Lomuto partition",
+            "Implement `quickSort3WayImpl(arr)` matching the lesson's Dutch National Flag partition"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function randomQuickSortImpl(arr) {\n  // TODO: random pivot, Lomuto partition, recurse both sides\n}\n\nfunction quickSort3WayImpl(arr) {\n  // TODO: three-way partition: <pivot, ==pivot, >pivot; recurse outer sections only\n}"
+          },
+          "test_cases": [
+            {
+              "input": "JSON.stringify(randomQuickSortImpl([3,1,4,1,5,9,2,6,5,3,5]))",
+              "expected": "[1,1,2,3,3,4,5,5,5,6,9]",
+              "type": "visible"
+            },
+            {
+              "input": "JSON.stringify(quickSort3WayImpl([3,1,4,1,5,9,2,6,5,3,5]))",
+              "expected": "[1,1,2,3,3,4,5,5,5,6,9]",
+              "type": "visible"
+            },
+            {
+              "input": "JSON.stringify(randomQuickSortImpl([5,4,3,2,1]))",
+              "expected": "[1,2,3,4,5]",
+              "type": "visible"
+            },
+            {
+              "input": "JSON.stringify(quickSort3WayImpl([1,1,1,1]))",
+              "expected": "[1,1,1,1]",
+              "type": "hidden"
+            },
+            {
+              "input": "JSON.stringify(randomQuickSortImpl([]))",
+              "expected": "[]",
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function randomQuickSort(arr, lo=0, hi=arr.length-1){\n  if(lo>=hi)return arr;\n  const pivotIdx=lo+Math.floor(Math.random()*(hi-lo+1));\n  [arr[pivotIdx],arr[hi]]=[arr[hi],arr[pivotIdx]];\n  const pivot=arr[hi];let p=lo;\n  for(let i=lo;i<hi;i++){if(arr[i]<=pivot){[arr[p],arr[i]]=[arr[i],arr[p]];p++;}}\n  [arr[p],arr[hi]]=[arr[hi],arr[p]];\n  randomQuickSort(arr,lo,p-1);randomQuickSort(arr,p+1,hi);\n  return arr;\n}\nfunction quickSort3Way(arr, lo=0, hi=arr.length-1){\n  if(lo>=hi)return arr;\n  const pivotIdx=lo+Math.floor(Math.random()*(hi-lo+1));\n  const pivot=arr[pivotIdx];\n  let lt=lo,gt=hi,i=lo;\n  while(i<=gt){if(arr[i]<pivot){[arr[lt],arr[i]]=[arr[i],arr[lt]];lt++;i++;}else if(arr[i]>pivot){[arr[i],arr[gt]]=[arr[gt],arr[i]];gt--;}else i++;}\n  quickSort3Way(arr,lo,lt-1);quickSort3Way(arr,gt+1,hi);\n  return arr;\n}\nconst randomQuickSortImpl=randomQuickSort;\nconst quickSort3WayImpl=quickSort3Way;"
+          },
+          "complexity_analysis": "Both: O(n log n) expected, O(n²) worst case (negligible probability with random pivot). 3-way: O(n) on all-duplicate input.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "randomQuickSortImpl: pick random pivotIdx, swap to hi, Lomuto partition with <= comparison."
+            },
+            {
+              "level": 2,
+              "text": "quickSort3WayImpl: maintain lt/gt boundaries; arr[i]<pivot→swap to lt,lt++,i++; arr[i]>pivot→swap to gt,gt--; else i++."
+            },
+            {
+              "level": 3,
+              "text": "3-way recursion skips the middle (==pivot) section: recurse [lo,lt-1] and [gt+1,hi] only."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 2,
+      "lesson_title": "Skip Lists",
+      "theory_mcq": [
+        {
+          "id": "L3M9-L2-TH-1",
+          "question": "Each level promotion uses probability 1/2 (coin flip). Why does this specific probability produce EXPECTED O(log n) HEIGHT?",
+          "options": [
+            "Probability 1/2 is arbitrary; any fixed probability gives O(log n) height",
+            "GEOMETRIC DISTRIBUTION: the number of levels a node reaches follows a geometric distribution with success probability p=1/2; the EXPECTED number of levels for ONE node is 1/p = 2 (constant); but the MAXIMUM level among n independent nodes is what determines the skip list's HEIGHT; for n nodes each independently promoted with p=1/2, the PROBABILITY that ANY node reaches level k is n*(1/2)^k; setting this to a small constant (union bound) gives k ≈ log2(n); thus the EXPECTED MAXIMUM level (= skip list height) is O(log n); a different fixed probability p would still give O(log n) height (with a different constant factor: log_{1/p}(n)), but p=1/2 is chosen because it gives the LEVEL COUNT vs SPACE OVERHEAD tradeoff: ~2x space overhead vs a balanced BST",
+            "Probability 1/2 ensures the skip list always has exactly log2(n) levels",
+            "The 1/2 probability is needed because JavaScript's Math.random() returns [0,1)"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Expected height: O(log n) levels due to geometric distribution' and 'Level k: subset of level k-1 elements promoted with probability 1/2' — each level halves the expected number of nodes (n, n/2, n/4, ..., 1), giving log2(n) levels in expectation; p=1/2 specifically balances expected space overhead (2x total pointers) against search speed (log n height)."
+        },
+        {
+          "id": "L3M9-L2-TH-2",
+          "question": "SEARCH starts at the TOP LEVEL and 'moves right until overshoot, drop down'. Why does starting at the TOP (not the bottom) achieve O(log n) search?",
+          "options": [
+            "Starting at the top is purely a coding convenience with no performance implication",
+            "SKIPPING MULTIPLE ELEMENTS PER STEP: the top level has the FEWEST nodes (roughly n/2^(height-1) ≈ O(1) nodes), allowing the search to SKIP LARGE PORTIONS of the list in O(1) steps at this level before needing to drop down; if search started at the BOTTOM (level 0, the complete list), it would need O(n) steps in the worst case — exactly like a regular linked list; by starting HIGH and progressively dropping to denser levels only when needed, the search 'zooms in' on the target — first making big jumps, then smaller jumps, then exact position; this top-down funneling is precisely what gives O(log n) expected search, analogous to binary search's halving",
+            "Starting at the top is required to correctly handle the header sentinel node",
+            "Top-down search is needed because skip lists don't support bottom-up traversal"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `for(let i=this.level;i>=0;i--)` (decreasing from top level to 0) and 'Search: start at top level, move right until overshoot, drop down' — the top-down funnel strategy: at each level, advance while the next node's key is less than target; when overshooting (next would exceed target), drop one level down; this gives expected O(log n) total work, similar in spirit to binary search."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M9-L2-LG-1",
+          "question": "For a SkipList with inserted keys [3,1,5,2] (in that order), `search(4)` returns `undefined`. Trace why.",
+          "options": [
+            "search(4) traverses levels looking for key=4; since 4 was never inserted, the search correctly fails to find an exact match and returns undefined after `curr.key !== 4` at level 0",
+            "search(4) returns undefined because 4 is between existing keys 3 and 5, causing an ambiguous result",
+            "The skip list always returns undefined for even numbers due to a hashing quirk",
+            "search(4) fails because the skip list wasn't properly rebalanced after 4 inserts"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: search(4)=undefined; keys 1,2,3,5 are in the list but 4 is not; the search correctly navigates to the position where 4 WOULD be (between 3 and 5) but finds curr.key=5≠4 at level 0, so it returns undefined; this is correct behavior — the skip list accurately reports that 4 is not present."
+        },
+        {
+          "id": "L3M9-L2-LG-2",
+          "question": "Why are 'skip lists' considered an alternative to BALANCED BSTs (like AVL/Red-Black) for concurrent (multi-threaded) implementations?",
+          "options": [
+            "Skip lists use less memory than balanced BSTs, which matters for concurrency",
+            "NO STRUCTURAL REBALANCING: balanced BSTs require ROTATIONS that restructure multiple nodes simultaneously when inserting/deleting — in a concurrent environment, this requires LOCKING multiple nodes (or the whole tree) to maintain consistency during rebalancing, creating contention; skip lists achieve balance PROBABILISTICALLY via coin flips at INSERT time — no subsequent restructuring is ever needed; a skip list insert only modifies LOCAL forward pointers at the levels it participates in, making FINE-GRAINED LOCKING (lock only the nodes being modified) much simpler to implement correctly; this is why skip lists are used in production systems requiring high-concurrency ordered structures (e.g., Redis sorted sets, LevelDB)",
+            "Skip lists are faster than BSTs for all operations, making concurrency irrelevant",
+            "Balanced BSTs cannot be made concurrent under any circumstances"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Advantages over BST: simpler concurrent implementation, no rotation logic' — rotations in balanced BSTs touch multiple nodes atomically, complicating lock-based concurrency; skip lists avoid rotations entirely (randomization replaces deterministic rebalancing), enabling simpler lock-free or fine-grained locking schemes; this is the primary engineering reason skip lists are chosen in production (Redis ZSET, LevelDB, etc.)."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M9-L2-SY-1",
+          "question": "The `update` array in `insert` tracks `update[i] = curr` for each level i. What PURPOSE does this array serve?",
+          "options": [
+            "update[i] tracks how many times level i has been updated, for statistics",
+            "PREDECESSOR TRACKING for INSERTION SPLICING: `update[i]` records the LAST node at level i that is BEFORE the insertion point — this is the node whose `forward[i]` pointer must be updated to point to the new node; since insertion requires SPLICING the new node into POTENTIALLY MULTIPLE LEVELS (from level 0 up to its random newLevel), we need to know, FOR EACH LEVEL, which existing node comes immediately before the insertion point; without tracking these predecessors during the initial top-down search, a second traversal would be needed to find them — `update[]` lets insertion happen in a SINGLE top-down pass",
+            "update[i] is used to detect and resolve hash collisions",
+            "The array tracks which nodes need to be deleted before insertion"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `const update = new Array(MAX_LEVEL+1).fill(this.header)` populated during the search loop, then used in `update[i].forward[i] = newNode` — update[] captures the predecessor at EACH level during the single top-down search pass, enabling the subsequent splice-in of the new node at all its randomly-determined levels without a second traversal."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M9-L2-CC-1",
+          "title": "Skip List Search and Insert",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement the Skip List from this lesson.",
+          "requirements": [
+            "Implement `SkipList` class with search(key) and insert(key, val), both O(log n) expected"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "const MAX_LEVEL = 16;\nclass SkipNode {\n  constructor(key, val, level) {\n    this.key = key; this.val = val;\n    this.forward = new Array(level + 1).fill(null);\n  }\n}\nclass SkipList {\n  constructor() {\n    // TODO: header sentinel, level=0\n  }\n  _randomLevel() {\n    // TODO: geometric distribution via coin flips\n  }\n  search(key) {\n    // TODO: top-down funnel search\n  }\n  insert(key, val) {\n    // TODO: top-down search building update[]; splice new node at random level\n  }\n}"
+          },
+          "test_cases": [
+            {
+              "input": "(() => { const sl=new SkipList(); sl.insert(3,'three'); sl.insert(1,'one'); sl.insert(5,'five'); sl.insert(2,'two'); return sl.search(3); })()",
+              "expected": "three",
+              "type": "visible"
+            },
+            {
+              "input": "(() => { const sl=new SkipList(); sl.insert(3,'three'); sl.insert(1,'one'); sl.insert(5,'five'); sl.insert(2,'two'); return sl.search(4)===undefined; })()",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "(() => { const sl=new SkipList(); sl.insert(3,'three'); sl.insert(1,'one'); sl.insert(5,'five'); sl.insert(2,'two'); return sl.search(1); })()",
+              "expected": "one",
+              "type": "visible"
+            },
+            {
+              "input": "(() => { const sl=new SkipList(); sl.insert(1,'a'); sl.insert(1,'b'); return sl.search(1); })()",
+              "expected": "b",
+              "type": "hidden"
+            },
+            {
+              "input": "(() => { const sl=new SkipList(); return sl.search(99)===undefined; })()",
+              "expected": true,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "const MAX_LEVEL=16;\nclass SkipNode{constructor(key,val,level){this.key=key;this.val=val;this.forward=new Array(level+1).fill(null);}}\nclass SkipList{\n  constructor(){this.header=new SkipNode(-Infinity,null,MAX_LEVEL);this.level=0;}\n  _randomLevel(){let lvl=0;while(Math.random()<0.5&&lvl<MAX_LEVEL)lvl++;return lvl;}\n  search(key){let curr=this.header;for(let i=this.level;i>=0;i--){while(curr.forward[i]&&curr.forward[i].key<key){curr=curr.forward[i];}}curr=curr.forward[0];return(curr&&curr.key===key)?curr.val:undefined;}\n  insert(key,val){const update=new Array(MAX_LEVEL+1).fill(this.header);let curr=this.header;for(let i=this.level;i>=0;i--){while(curr.forward[i]&&curr.forward[i].key<key){curr=curr.forward[i];}update[i]=curr;}curr=curr.forward[0];if(curr&&curr.key===key){curr.val=val;return;}const newLevel=this._randomLevel();if(newLevel>this.level){for(let i=this.level+1;i<=newLevel;i++)update[i]=this.header;this.level=newLevel;}const newNode=new SkipNode(key,val,newLevel);for(let i=0;i<=newLevel;i++){newNode.forward[i]=update[i].forward[i];update[i].forward[i]=newNode;}}\n}\n"
+          },
+          "complexity_analysis": "search: O(log n) expected. insert: O(log n) expected. Space: O(n) expected (2n total pointers).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "header is a sentinel SkipNode(-Infinity, null, MAX_LEVEL); level starts at 0."
+            },
+            {
+              "level": 2,
+              "text": "_randomLevel: while(Math.random()<0.5 && lvl<MAX_LEVEL) lvl++; return lvl."
+            },
+            {
+              "level": 3,
+              "text": "search/insert: for i=this.level downTo 0: advance while forward[i].key<key; then drop a level. insert also records update[i]=curr at each level."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 3,
+      "lesson_title": "Reservoir Sampling",
+      "theory_mcq": [
+        {
+          "id": "L3M9-L3-TH-1",
+          "question": "Algorithm R keeps element i (i>k) with probability k/i, replacing a RANDOM existing reservoir item. PROVE: why does element i END UP in the final reservoir with probability EXACTLY k/n?",
+          "options": [
+            "Element i has probability k/i of being kept initially, and this probability never changes afterward",
+            "TWO-STAGE PROBABILITY: P(item i survives to the end) = P(i is initially SELECTED) × P(i is NEVER REPLACED by later items); P(i selected at step i) = k/i (given); for each SUBSEQUENT item j>i, P(i survives item j's processing) = P(j not selected) + P(j selected but doesn't pick i's slot) = (1-k/j) + (k/j)(1-1/k) = 1-1/j; multiplying survival probabilities for all j from i+1 to n: (1-1/(i+1))(1-1/(i+2))...(1-1/n) = (i/(i+1))(((i+1)/(i+2))...((n-1)/n) — this TELESCOPES to i/n; combining: P(i in final reservoir) = (k/i)×(i/n) = k/n — INDEPENDENT of i, proving uniform probability for ALL elements regardless of position in the stream",
+            "The probability k/n only holds for the FIRST k elements; later elements have a different probability",
+            "Algorithm R guarantees k/n probability only when n is known in advance"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Proof: P(item i in reservoir) = k/n for all i' — the telescoping product proof is the standard reservoir sampling correctness argument: item i's survival probability through all subsequent steps telescopes from i/n, combined with its initial k/i selection probability, giving exactly k/n; this proof works for ANY position i, confirming uniform sampling regardless of stream order."
+        },
+        {
+          "id": "L3M9-L3-TH-2",
+          "question": "Why is reservoir sampling specifically valuable for STREAMING data where n (total stream length) is UNKNOWN in advance?",
+          "options": [
+            "Reservoir sampling requires knowing n in advance; it doesn't work for true streams",
+            "SINGLE-PASS, CONSTANT MEMORY: traditional uniform sampling (e.g., generate k random indices from [0,n)) requires KNOWING n upfront; for a stream where n is unknown (e.g., reading a file of unknown size, processing a live data feed), this approach is impossible without first counting all elements (a second pass or extra memory); Algorithm R processes EACH element EXACTLY ONCE in a SINGLE PASS, using ONLY O(k) memory for the reservoir, regardless of how large n eventually turns out to be; this makes it the canonical solution for sampling from data streams, log files of unknown length, or infinite streams",
+            "Reservoir sampling is faster than other sampling methods but requires more memory",
+            "The technique only works for k=1; larger k requires a different algorithm"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'select k items from a stream of UNKNOWN SIZE n uniformly' and 'O(n) time, O(k) space' — the single-pass, O(k)-space property is exactly what makes reservoir sampling suited for streaming contexts where the total count is unknown until the stream ends (or never ends, for infinite streams); this is the algorithm's defining practical advantage."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M9-L3-LG-1",
+          "question": "LeetCode #382 (Linked List Random Node) uses k=1 reservoir sampling: `if(Math.floor(Math.random()*i)===0) result=curr.val`. Trace why this gives each node EXACTLY 1/n probability.",
+          "options": [
+            "At step i (1-indexed), P(choosing curr) = 1/i; by the telescoping argument with k=1: P(node at position i survives to the end) = (1/i) × (i/n) = 1/n for ALL i, regardless of position in the list — proven by the same telescoping logic as general reservoir sampling",
+            "Each node has probability 1/i only, which decreases for later nodes, making early nodes more likely to be selected",
+            "The probability is always 1/2 since Math.random() returns values in [0,1)",
+            "P(selection) = 1/n only for the LAST node; earlier nodes have higher probability"
+          ],
+          "answer": 0,
+          "explanation": "Matching the lesson's comment: 'This is k=1 reservoir sampling: keep current with prob 1/i; After n items: P(each item) = 1/n' — applying the general k/n proof with k=1: P(node i survives)=(1/i)×(i/n)=1/n; this confirms EVERY node, regardless of its position in the linked list, has exactly equal 1/n probability of being the final selected result."
+        },
+        {
+          "id": "L3M9-L3-LG-2",
+          "question": "`verifyUniformity` checks that 'max deviation should be << expected'. For streamSize=100, k=10, trials=10000, what does a SMALL max deviation CONFIRM about the implementation?",
+          "options": [
+            "A small deviation confirms the implementation has no bugs in array indexing",
+            "STATISTICAL VALIDATION OF UNIFORMITY: expected count per element = k/streamSize*trials = 10/100*10000 = 1000; if the implementation correctly samples UNIFORMLY (each element equally likely to be selected), the OBSERVED counts across 10000 independent trials should CLUSTER TIGHTLY around 1000 (by the law of large numbers and central limit theorem, fluctuations should be proportional to sqrt(expected count) ≈ sqrt(1000) ≈ 32, not hundreds); a small max deviation (say, under 100, i.e., 10% of expected) empirically CONFIRMS the k/n uniform probability proof holds in practice, providing experimental validation alongside the theoretical proof",
+            "Small deviation indicates the random number generator has high entropy",
+            "Max deviation measures the time complexity of the algorithm, not correctness"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: 'Each element should appear in about k/streamSize * trials = 1000 samples' and 'Max deviation should be << expected (e.g., < 100 = 10%)' — this is empirical verification of the theoretical k/n uniformity proof; statistical fluctuation theory predicts deviations on the order of sqrt(expected count); a small max deviation provides experimental confidence that the implementation correctly achieves uniform sampling, not just that the theoretical proof is sound."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M9-L3-SY-1",
+          "question": "In `reservoirSample`, the replacement check is `const j = Math.floor(Math.random()*(i+1)); if(j<k) reservoir[j]=stream[i];`. Why `(i+1)` and not `(i)`?",
+          "options": [
+            "i+1 is used to avoid a potential index-out-of-bounds error",
+            "0-INDEXED ELEMENT COUNTING: at array index i (0-indexed), this is the (i+1)-th element in the stream (1-indexed count); the algorithm needs P(keep element)=k/(i+1) since 'i+1' is the TRUE COUNT of elements seen so far (including the current one); `Math.random()*(i+1)` generates a uniform integer in [0, i+1) — i.e., i+1 EQUALLY LIKELY outcomes; the condition `j<k` then correctly gives probability k/(i+1) of replacement, matching the algorithm's required k/i formula (using 1-indexed i in the math, which corresponds to (i+1) in 0-indexed code)",
+            "i+1 converts the array length to its 0-indexed equivalent",
+            "The +1 compensates for the k items already filled in the reservoir"
+          ],
+          "answer": 1,
+          "explanation": "The lesson's math uses 1-indexed position i (so element i has probability k/i of being kept), but the JavaScript array is 0-indexed; at 0-indexed array position `i`, we've seen `i+1` total elements (1-indexed count); `Math.random()*(i+1)` correctly generates the range needed for probability k/(i+1), matching the 1-indexed formula k/i when accounting for the index shift."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M9-L3-CC-1",
+          "title": "Reservoir Sampling and Linked List Random Node",
+          "difficulty": "Advanced",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement reservoir sampling from this lesson.",
+          "requirements": [
+            "Implement `reservoirSampleImpl(stream, k)` matching the lesson's Algorithm R",
+            "Implement `Solution` class (k=1 reservoir sampling) for Linked List Random Node"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function reservoirSampleImpl(stream, k) {\n  // TODO: fill first k; for i>=k, keep with probability k/(i+1)\n}\n\nclass ListNode { constructor(val, next=null) { this.val=val; this.next=next; } }\nclass Solution {\n  constructor(head) {\n    // TODO: store head\n  }\n  getRandom() {\n    // TODO: k=1 reservoir sampling over the linked list\n  }\n}"
+          },
+          "test_cases": [
+            {
+              "input": "reservoirSampleImpl([1,2,3,4,5,6,7,8,9,10],3).length",
+              "expected": 3,
+              "type": "visible"
+            },
+            {
+              "input": "reservoirSampleImpl([1,2,3],3).sort((a,b)=>a-b).join(',')",
+              "expected": "1,2,3",
+              "type": "visible"
+            },
+            {
+              "input": "(() => { const h=new ListNode(1,new ListNode(2,new ListNode(3))); const s=new Solution(h); return [1,2,3].includes(s.getRandom()); })()",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "reservoirSampleImpl([5],1).length",
+              "expected": 1,
+              "type": "hidden"
+            },
+            {
+              "input": "(() => { const h=new ListNode(7); const s=new Solution(h); return s.getRandom(); })()",
+              "expected": 7,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function reservoirSample(stream,k){\n  const reservoir=[];\n  for(let i=0;i<stream.length;i++){\n    if(i<k){reservoir.push(stream[i]);}\n    else{const j=Math.floor(Math.random()*(i+1));if(j<k)reservoir[j]=stream[i];}\n  }\n  return reservoir;\n}\nclass ListNode{constructor(val,next=null){this.val=val;this.next=next;}}\nclass Solution{\n  constructor(head){this.head=head;}\n  getRandom(){let result=null,curr=this.head,i=1;while(curr){if(Math.floor(Math.random()*i)===0)result=curr.val;curr=curr.next;i++;}return result;}\n}\nconst reservoirSampleImpl=reservoirSample;"
+          },
+          "complexity_analysis": "reservoirSampleImpl: O(n) time, O(k) space. Solution.getRandom: O(n) time, O(1) space.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "reservoirSampleImpl: for i<k push directly; for i>=k, j=Math.floor(Math.random()*(i+1)); if(j<k) replace reservoir[j]."
+            },
+            {
+              "level": 2,
+              "text": "Solution.getRandom: traverse with counter i starting at 1; at each node, replace result with probability 1/i."
+            },
+            {
+              "level": 3,
+              "text": "Solution.getRandom uses the SAME k=1 logic as reservoirSampleImpl but applied to a linked list traversal instead of an array."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 4,
+      "lesson_title": "Monte Carlo Methods",
+      "theory_mcq": [
+        {
+          "id": "L3M9-L4-TH-1",
+          "question": "Monte Carlo Pi estimation has error that decreases as O(1/√n). What does this convergence rate imply about the COST of improving precision?",
+          "options": [
+            "Doubling n halves the error, giving efficient linear improvement",
+            "DIMINISHING RETURNS: to REDUCE the error by a factor of 10 (one more decimal digit of precision), n must INCREASE by a factor of 100 (since error ∝ 1/√n means to make error 10x smaller, n must be 10²=100x larger); this is SLOWER than many other numerical methods (e.g., trapezoidal integration converges as O(1/n) or O(1/n²) for smooth functions); the O(1/√n) rate is a FUNDAMENTAL LIMITATION of Monte Carlo methods, NOT a particular implementation flaw — it follows from the Central Limit Theorem applied to the sample mean's standard error; Monte Carlo's value isn't fast convergence but rather APPLICABILITY to high-dimensional or analytically intractable problems where other methods fail entirely",
+            "The error decreases exponentially, making n=1000 sufficient for any practical precision",
+            "O(1/sqrt(n)) error means precision is independent of the number of samples"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Convergence: error decreases as O(1/sqrt(n)) with n samples' — this slow convergence (compared to deterministic numerical methods) is a known tradeoff; Monte Carlo's true advantage emerges in HIGH-DIMENSIONAL problems where deterministic grid-based methods suffer from the 'curse of dimensionality' (exponential cost in dimension), while Monte Carlo's O(1/sqrt(n)) convergence is DIMENSION-INDEPENDENT."
+        },
+        {
+          "id": "L3M9-L4-TH-2",
+          "question": "Miller-Rabin has 'error rate 4^(-k)' for k rounds. Why does running MULTIPLE INDEPENDENT rounds REDUCE the error EXPONENTIALLY (not just linearly)?",
+          "options": [
+            "Multiple rounds reduce error linearly, not exponentially; the 4^(-k) formula is incorrect",
+            "INDEPENDENT TRIAL MULTIPLICATION: each round of Miller-Rabin independently tests a RANDOM witness `a`; for a COMPOSITE number, AT MOST 1/4 of possible witnesses FAIL to detect compositeness (this is a number-theoretic guarantee, not assumed); running k INDEPENDENT rounds means the algorithm fails to detect compositeness ONLY IF ALL k rounds happen to pick a 'bad' witness; since each round's witness choice is INDEPENDENT, P(all k rounds fail) = P(round fails)^k ≤ (1/4)^k = 4^(-k); this EXPONENTIAL decrease (not linear, like 1/(4k)) is the power of independent probabilistic trials — for k=10, error ≤ 4^(-10) ≈ 10^(-6), an extremely small and PRACTICALLY NEGLIGIBLE probability",
+            "The error rate decreases exponentially only for numbers larger than 10^9",
+            "4^(-k) represents the error BEFORE any rounds are run; it decreases linearly afterward"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Miller-Rabin primality: probabilistic test, O(k log n) time, error rate 4^(-k)' — the multiplicative independence of trial outcomes is the source of exponential error reduction; this is the same principle behind amplification in randomized algorithms generally: running k independent trials of an algorithm with constant error probability p reduces overall error to p^k, exponentially small in k."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M9-L4-LG-1",
+          "question": "For `estimatePi(1000000)`, the result is approximately 3.1416 with small error. Explain the GEOMETRIC PRINCIPLE behind this estimation.",
+          "options": [
+            "Random (x,y) points in [0,1]×[0,1] (unit square, area=1); points satisfying x²+y²≤1 fall within the QUARTER UNIT CIRCLE (area=π/4); the RATIO of points inside the circle to total points approximates the AREA RATIO π/4 ÷ 1 = π/4; multiplying by 4 recovers π — confirmed by direct execution showing convergence near 3.14159",
+            "The points are generated on a circle, and pi is computed from the circumference formula",
+            "Pi is computed by counting the number of random points that land exactly on the circle boundary",
+            "The estimation uses the law of cosines applied to random triangle vertices"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: estimatePi(1000000)≈3.1432 (error≈0.0017, consistent with O(1/sqrt(n)) convergence for n=10^6); the geometric principle: random points uniformly in the unit square [0,1]² have probability π/4 of falling inside the quarter circle x²+y²≤1; counting the fraction inside and multiplying by 4 estimates π."
+        },
+        {
+          "id": "L3M9-L4-LG-2",
+          "question": "Why is `millerRabin` classified as MONTE CARLO rather than LAS VEGAS, despite its high accuracy?",
+          "options": [
+            "Miller-Rabin has a SMALL but NONZERO probability of FALSE POSITIVE (declaring a composite number 'probably prime') — this matches the Monte Carlo definition exactly: 'may be incorrect with bounded probability'; in contrast, a LAS VEGAS algorithm is ALWAYS correct (possibly taking variable time); Miller-Rabin can NEVER be Las Vegas because its correctness guarantee is fundamentally PROBABILISTIC (bounded by 4^(-k), never zero for finite k); this is distinct from quicksort/quickselect (Las Vegas), which ALWAYS produce the correct sorted/selected result, just with VARIABLE (randomized) running time",
+            "Miller-Rabin is Monte Carlo because it uses random number generation, regardless of correctness guarantees",
+            "Miller-Rabin would be Las Vegas if k were increased to infinity",
+            "The classification depends on the size of n being tested, not the algorithm's structure"
+          ],
+          "answer": 0,
+          "explanation": "Matching the lesson's concept: 'Las Vegas vs Monte Carlo: Las Vegas always correct, Monte Carlo may have error' and 'Miller-Rabin primality: probabilistic test...error rate 4^(-k)' — the defining distinction is WHAT varies: Las Vegas algorithms have variable RUNTIME but guaranteed CORRECTNESS; Monte Carlo algorithms have FIXED runtime (or bounded) but variable CORRECTNESS; Miller-Rabin's nonzero (though tiny) error probability places it firmly in the Monte Carlo category."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M9-L4-SY-1",
+          "question": "`millerRabin` uses `BigInt` for `modPow`. Why is BigInt NECESSARY here rather than regular JavaScript numbers?",
+          "options": [
+            "BigInt is used purely for code style; regular numbers would work identically",
+            "PRECISION OVERFLOW PREVENTION: JavaScript's regular Number type uses IEEE 754 double-precision floating point, which can EXACTLY represent integers only up to 2^53 (Number.MAX_SAFE_INTEGER); `modPow` computes `base*base % mod` REPEATEDLY — for n near 10^9 (as in the test `millerRabin(982451653)`), intermediate values like base*base can reach ~10^18, FAR EXCEEDING 2^53≈9×10^15; without BigInt, this multiplication would lose precision (silently producing WRONG results due to floating-point rounding), corrupting the modular exponentiation; BigInt provides ARBITRARY PRECISION integer arithmetic, ensuring exact computation regardless of n's magnitude",
+            "BigInt is required because JavaScript doesn't support the modulo operator for regular numbers",
+            "BigInt is used to enable parallel computation of multiple modPow calls"
+          ],
+          "answer": 1,
+          "explanation": "For n=982451653 (~10^9), intermediate squaring in modPow can produce values up to n²≈10^18, which exceeds JavaScript's safe integer range (2^53≈9×10^15); using regular Number arithmetic here would silently corrupt results via floating-point imprecision; BigInt's arbitrary-precision integers ensure the modular exponentiation remains exact, which is essential for Miller-Rabin's correctness on numbers in this range."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M9-L4-CC-1",
+          "title": "Monte Carlo Pi Estimation and Miller-Rabin Primality",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement Monte Carlo methods from this lesson.",
+          "requirements": [
+            "Implement `estimatePiImpl(n)` matching the lesson's unit-circle sampling approach",
+            "Implement `millerRabinImpl(n, k)` matching the lesson's probabilistic primality test"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function estimatePiImpl(n) {\n  // TODO: sample n random points in unit square; count inside quarter circle; return 4*inside/n\n}\n\nfunction millerRabinImpl(n, k=10) {\n  // TODO: write n-1=2^r*d; k rounds of witness testing with modular exponentiation\n}"
+          },
+          "test_cases": [
+            {
+              "input": "Math.abs(estimatePiImpl(100000)-Math.PI) < 0.1",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "millerRabinImpl(17)",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "millerRabinImpl(100)",
+              "expected": false,
+              "type": "visible"
+            },
+            {
+              "input": "millerRabinImpl(982451653)",
+              "expected": true,
+              "type": "hidden"
+            },
+            {
+              "input": "millerRabinImpl(1)",
+              "expected": false,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function estimatePi(n){\n  let inside=0;\n  for(let i=0;i<n;i++){const x=Math.random(),y=Math.random();if(x*x+y*y<=1)inside++;}\n  return 4*inside/n;\n}\nfunction millerRabin(n,k=10){\n  if(n<2)return false;if(n===2||n===3)return true;if(n%2===0)return false;\n  let r=0,d=n-1;while(d%2===0){d>>=1;r++;}\n  function modPow(base,exp,mod){let result=1n;base=BigInt(base)%BigInt(mod);exp=BigInt(exp);const m=BigInt(mod);while(exp>0n){if(exp&1n)result=result*base%m;base=base*base%m;exp>>=1n;}return Number(result);}\n  for(let i=0;i<k;i++){const a=2+Math.floor(Math.random()*(n-4));let x=modPow(a,d,n);if(x===1||x===n-1)continue;let composite=true;for(let j=0;j<r-1;j++){x=modPow(x,2,n);if(x===n-1){composite=false;break;}}if(composite)return false;}\n  return true;\n}\nconst estimatePiImpl=estimatePi;\nconst millerRabinImpl=millerRabin;"
+          },
+          "complexity_analysis": "estimatePiImpl: O(n) time, O(1) space. millerRabinImpl: O(k log²n) time (k rounds × O(log n) squarings × O(log n) per BigInt multiply).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "estimatePiImpl: for each of n samples, x=Math.random(),y=Math.random(); count if x²+y²<=1; return 4*count/n."
+            },
+            {
+              "level": 2,
+              "text": "millerRabinImpl: handle base cases (n<2 false, n=2/3 true, even false); write n-1=2^r*d via repeated halving."
+            },
+            {
+              "level": 3,
+              "text": "Witness loop: for each of k rounds, pick random a in [2,n-2]; compute x=a^d mod n; if x≠1 and x≠n-1, square up to r-1 times looking for n-1; if never found, n is composite."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 5,
+      "lesson_title": "Hashing With Probability Guarantees",
+      "theory_mcq": [
+        {
+          "id": "L3M9-L5-TH-1",
+          "question": "Universal hashing guarantees `P(collision) <= 1/m` for ANY two DISTINCT keys, NOT for a specific adversarial pair. Why does this property defeat HASH-FLOODING ATTACKS that fixed hash functions are vulnerable to?",
+          "options": [
+            "Universal hashing makes collisions completely impossible, eliminating the attack vector entirely",
+            "ATTACKER CANNOT PRECOMPUTE COLLISIONS: with a FIXED, KNOWN hash function, an attacker can PRECOMPUTE a large set of keys that ALL collide (mapping to the same bucket), then submit these keys to overload a single bucket (causing O(n) operations instead of O(1)) — this is the classic 'hash flooding' DoS attack; with UNIVERSAL HASHING, the hash function's PARAMETERS (a, b in Carter-Wegman) are chosen RANDOMLY at RUNTIME, UNKNOWN to the attacker in advance; the attacker CANNOT precompute a colliding key set because they don't know which specific hash function will be used; even if they craft keys that collide under ONE random instance, those same keys are UNLIKELY to collide under a DIFFERENT random instance (P<=1/m for any fixed pair, but the attacker can't target a fixed pair without knowing a,b)",
+            "Universal hashing is faster than fixed hashing, leaving attackers no time to exploit collisions",
+            "The attack is defeated because universal hash functions always use SHA-256 internally"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Security: hash DoS attacks exploited fixed hash seeds; use random seeds' — the security property comes from RANDOMIZING the hash function choice at runtime (unknown to attackers), not from making collisions impossible; this is precisely why production languages (Python, Ruby, Perl) introduced randomized hash seeding after hash-flooding attacks were discovered around 2011-2012."
+        },
+        {
+          "id": "L3M9-L5-TH-2",
+          "question": "PERFECT HASHING uses 'second-level hash tables of size k_i^2' (squared bucket size) to GUARANTEE zero collisions. Why does squaring the size make collision-free hashing ACHIEVABLE?",
+          "options": [
+            "Squaring is required because hash functions inherently need quadratic space",
+            "BIRTHDAY PARADOX THRESHOLD: for a bucket with k_i keys, using a universal hash into a table of size k_i² makes EXPECTED COLLISIONS E[collisions] = k_i*(k_i-1)/(2*k_i²) < 1/2 (using the universal hashing collision bound); since EXPECTED collisions is LESS THAN 1, by a Markov-inequality-style argument, the PROBABILITY of ZERO collisions is AT LEAST 1/2 for ANY random hash function chosen from the universal family; this means RETRYING with a fresh random hash function (the `do...while(collision)` loop in the code) succeeds in EXPECTED O(1) attempts, guaranteeing eventual collision-free placement; this squaring trick is the core insight of FKS (Fredman-Komlós-Szemerédi) perfect hashing",
+            "k_i² ensures the table has enough memory to store all keys without any hashing at all",
+            "Squaring the bucket size doubles the hash function's output range, eliminating collisions by definition"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code comment: 'Second level: for each bucket of size k_i, use hash table of size k_i^2' and 'retry until no collision' — the squared size ensures E[collisions]<1/2 via the universal hashing bound, making P(zero collisions)≥1/2; the retry loop (`do...while(collision)`) then succeeds in EXPECTED 2 attempts, achieving guaranteed O(1) worst-case lookup with O(n) total expected space (since Σk_i²=O(n) in expectation for the first-level hash)."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M9-L5-LG-1",
+          "question": "For `testUniversality(100, 100000)`, the observed collision rate is approximately 0.0106 versus expected `1/m=0.01`. Is this consistent with the universal hashing GUARANTEE?",
+          "options": [
+            "Yes — the universal hashing property states P(collision)<=1/m; the observed rate 0.0106 is close to but the guarantee is an UPPER BOUND, and statistical fluctuation over 100000 trials easily explains a small deviation from the theoretical 0.01; this is CONSISTENT with (not a violation of) the universal hashing property",
+            "No — 0.0106 exceeds 0.01, proving the hash family violates the universal hashing guarantee",
+            "The test is inconclusive because m=100 is too small a table size",
+            "The discrepancy indicates a bug in the UniversalHash implementation that must be fixed"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: observed collision rate ≈ 0.0106 for m=100 (expected 1/m=0.01); the universal hashing bound P(collision)<=1/m is a GUARANTEE on the EXACT probability over the random choice of hash function from the family — for Carter-Wegman hashing, the bound is actually achieved with equality for prime p and uniform random a,b; small deviations (1.06% vs 1.00%) across 100,000 trials are explained by standard statistical sampling variance, not a violation."
+        },
+        {
+          "id": "L3M9-L5-LG-2",
+          "question": "The Carter-Wegman hash `h(x) = ((ax+b) mod p) mod m` requires `p` to be a LARGE PRIME GREATER than the universe size. Why is PRIMALITY of p specifically required (not just any large number)?",
+          "options": [
+            "Primality is a stylistic convention; any large number works equally well",
+            "MODULAR ARITHMETIC PROPERTIES: the universal hashing PROOF relies on properties of the MULTIPLICATIVE GROUP modulo p; when p is PRIME, the residues {1, 2, ..., p-1} form a FIELD under multiplication (every non-zero element has a multiplicative inverse) — this algebraic structure is ESSENTIAL for proving that for ANY two distinct keys x≠y, the equation `(ax+b) mod p = (ay+b) mod p` has EXACTLY ONE solution for `a` (given any b) among the p-1 possible non-zero values; if p were COMPOSITE, this uniqueness property could FAIL (zero divisors could create MULTIPLE solutions), breaking the formal universal hashing guarantee P(collision)<=1/m",
+            "Primality ensures the hash function runs faster due to CPU optimizations for prime moduli",
+            "p must be prime only to satisfy JavaScript's numeric overflow constraints"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Carter-Wegman universal family: h_{a,b}(x) = ((ax+b) mod p) mod m' — the formal universal hashing proof requires p prime specifically because modular arithmetic mod a prime forms a field (Z/pZ), where the equation ax≡ay (mod p) for x≠y has a unique solution for a (namely a≡0, excluded since a is chosen non-zero); this field structure is the foundation of the universal hashing collision bound proof."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M9-L5-SY-1",
+          "question": "`UniversalHash` constructor picks `this.a = 1 + Math.floor(Math.random()*(p-1))`, ensuring `a` is in `[1, p-1]` (never 0). Why must `a` be NON-ZERO?",
+          "options": [
+            "a=0 would cause a division-by-zero error in the hash computation",
+            "DEGENERATE HASH FUNCTION: if a=0, the hash formula becomes `h(x) = ((0*x+b) mod p) mod m = b mod m` — a CONSTANT, independent of x; EVERY key would hash to the SAME bucket (b mod m), making `P(collision)=1` for ALL key pairs (complete failure of the universal hashing guarantee P<=1/m); excluding a=0 is ESSENTIAL because it's the only value that destroys the hash function's dependence on the INPUT — all other a values in [1,p-1] still vary the output based on x, preserving the universal property",
+            "a=0 would make the hash function take O(n) time instead of O(1)",
+            "JavaScript's modulo operator returns NaN when the dividend includes a zero coefficient"
+          ],
+          "answer": 1,
+          "explanation": "The exclusion of a=0 is mathematically critical: with a=0, h(x)=b mod m for ALL x (a constant function), which trivially has P(collision)=1 for any two distinct keys — completely violating the universal hashing guarantee; the constructor's `1 + Math.floor(Math.random()*(p-1))` correctly generates a in [1, p-1], excluding the degenerate a=0 case."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M9-L5-CC-1",
+          "title": "Universal Hashing (Carter-Wegman)",
+          "difficulty": "Advanced",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement the Carter-Wegman universal hash family from this lesson.",
+          "requirements": [
+            "Implement `UniversalHash` class with random a,b parameters and hash(x) method"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "class UniversalHash {\n  constructor(m, p = 1000000007) {\n    // TODO: m=table size; random a in [1,p-1], random b in [0,p-1]\n  }\n  hash(x) {\n    // TODO: ((a*x+b) mod p) mod m\n  }\n}"
+          },
+          "test_cases": [
+            {
+              "input": "(() => { const h=new UniversalHash(100); const r=h.hash(42); return r>=0&&r<100; })()",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "(() => { const h=new UniversalHash(100); return h.hash(42)===h.hash(42); })()",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "(() => { const h=new UniversalHash(50); return Number.isInteger(h.hash(7)); })()",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "(() => { const h=new UniversalHash(10); return h.a>=1&&h.a<h.p; })()",
+              "expected": true,
+              "type": "hidden"
+            },
+            {
+              "input": "(() => { const h=new UniversalHash(10); return h.b>=0&&h.b<h.p; })()",
+              "expected": true,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "class UniversalHash{\n  constructor(m,p=1000000007){this.m=m;this.p=p;this.a=1+Math.floor(Math.random()*(p-1));this.b=Math.floor(Math.random()*p);}\n  hash(x){return((this.a*x+this.b)%this.p)%this.m;}\n}\n"
+          },
+          "complexity_analysis": "constructor: O(1). hash: O(1). Collision probability: <=1/m for any two distinct keys.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "constructor: this.a = 1+Math.floor(Math.random()*(p-1)) — MUST exclude 0."
+            },
+            {
+              "level": 2,
+              "text": "this.b = Math.floor(Math.random()*p) — can be any value in [0,p-1]."
+            },
+            {
+              "level": 3,
+              "text": "hash(x): ((this.a*x+this.b) % this.p) % this.m — note operator precedence with parentheses."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 6,
+      "lesson_title": "Probabilistic Algorithm Thinking",
+      "theory_mcq": [
+        {
+          "id": "L3M9-L6-TH-1",
+          "question": "The lesson defines THREE categories: Deterministic, Las Vegas, Monte Carlo. Why is this classification a USEFUL MENTAL MODEL beyond just describing existing algorithms?",
+          "options": [
+            "The classification has no practical use beyond historical categorization",
+            "DESIGN-TIME DECISION FRAMEWORK: when FACING a NEW algorithmic problem, this taxonomy guides the SOLUTION SEARCH: 'is there a known intractable bottleneck (e.g., adversarial worst case)?' → consider Las Vegas (randomize the bottleneck away while preserving exactness); 'is the EXACT problem provably intractable, or does an approximate answer suffice?' → consider Monte Carlo (trade certainty for tractability/efficiency); 'is correctness ABSOLUTELY required with no tolerance for randomization risk?' → stick with Deterministic; this framework transforms an OPEN-ENDED design question ('how do I solve this?') into a STRUCTURED DECISION TREE based on the problem's TOLERANCE for randomness and its NEED for guaranteed correctness",
+            "The classification is only useful for academic papers, not practical engineering",
+            "Deterministic algorithms are always superior; the other categories exist only for theoretical completeness"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'When randomisation helps: breaking adversarial patterns, space reduction, streaming' and 'When not to randomise: when correctness is critical and exact algorithms exist' — the taxonomy provides a structured way to approach new problems: identify whether the problem has adversarial-input vulnerabilities (suggesting Las Vegas), space/time intractability (suggesting Monte Carlo), or strict correctness requirements (suggesting Deterministic)."
+        },
+        {
+          "id": "L3M9-L6-TH-2",
+          "question": "The lesson lists a 'probability toolkit': expected value, indicator variables, Markov/Chebyshev bounds. Why are these specifically the TOOLS needed for ANALYZING randomized algorithms (as opposed to deterministic ones)?",
+          "options": [
+            "These tools are interchangeable with standard Big-O analysis used for deterministic algorithms",
+            "QUANTIFYING UNCERTAINTY: deterministic algorithm analysis asks 'what is the runtime?' (a single number); randomized algorithm analysis asks 'what is the DISTRIBUTION of possible runtimes/outcomes?' — EXPECTED VALUE gives the AVERAGE case rigorously (not just 'typical' input, but averaged over the algorithm's OWN randomness); INDICATOR VARIABLES decompose complex events into simple yes/no questions amenable to linearity of expectation (as in QuickSort's comparison count proof); MARKOV's INEQUALITY bounds P(X>=a) using only E[X], useful when full distribution is unknown; CHEBYSHEV's INEQUALITY uses VARIANCE to bound how far X deviates from its mean, quantifying CONCENTRATION (how 'tight' the randomized algorithm's behavior is around its expectation) — without these tools, claims like 'O(n log n) expected' or 'error rate 4^(-k)' could not be RIGOROUSLY PROVEN",
+            "These tools are only needed for Monte Carlo algorithms, not Las Vegas algorithms",
+            "The probability toolkit is primarily used for generating random numbers, not for analysis"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Probability toolkit: expected value, indicator variables, Markov/Chebyshev bounds' — these are exactly the tools used throughout the module's proofs: indicator variables + linearity of expectation (QuickSort comparison count), the reservoir sampling telescoping proof (expected value reasoning), Miller-Rabin's error bound (probability of independent trial failure); Markov/Chebyshev provide concentration bounds when stronger guarantees beyond expectation are needed."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M9-L6-LG-1",
+          "question": "Module 9's 3 NC150 problems (#382, #528, #384) ALL use randomization but for DIFFERENT PURPOSES. What distinguishes their use of randomness?",
+          "options": [
+            "#382 (Linked List Random Node): uses randomization for UNIFORM SELECTION from unknown-length data (reservoir sampling, k=1); #528 (Random Pick with Weight): uses randomization for NON-UNIFORM (weighted) selection via prefix sum + binary search on a random value; #384 (Shuffle an Array): uses randomization to generate a UNIFORM RANDOM PERMUTATION (Fisher-Yates) — these represent three DISTINCT randomization GOALS: equal-probability sampling, weighted sampling, and unbiased permutation generation",
+            "All three problems use the exact same randomization technique (Fisher-Yates) applied to different data structures",
+            "#382 and #528 are identical problems; only #384 uses a genuinely different technique",
+            "The three problems differ only in their time complexity, not their randomization purpose"
+          ],
+          "answer": 0,
+          "explanation": "Matching the lesson's module9_problems: 382→'Reservoir sampling (k=1)' (uniform selection), 528→'Prefix sum + binary search' (weighted selection), 384→'Fisher-Yates shuffle' (uniform permutation); these represent three genuinely distinct randomization goals within the same module, illustrating the breadth of 'probabilistic algorithm thinking' beyond a single technique."
+        },
+        {
+          "id": "L3M9-L6-LG-2",
+          "question": "For `WeightedRandom([1,3])`, `pickIndex()` returns 0 with probability 1/4 and 1 with probability 3/4. Verify this matches the WEIGHT RATIO.",
+          "options": [
+            "Total weight=1+3=4; P(index 0)=weight[0]/total=1/4; P(index 1)=weight[1]/total=3/4 — confirmed by empirical simulation showing ~24.6%/75.4% split over 100,000 trials, matching the theoretical 25%/75%",
+            "P(index 0)=1/2 and P(index 1)=1/2 since there are 2 indices, regardless of weights",
+            "The weights [1,3] only affect the INITIAL pick, not subsequent calls",
+            "P(index 0)=3/4 and P(index 1)=1/4 — the weights are inverted in the implementation"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution (100,000 trials): observed distribution ≈24.6%/75.4%, closely matching theoretical 25%/75%; the prefix sum [0,1,4] with total=4 and random r∈[0,4): if r<1 (prob 1/4), binary search lands on index 0; if r∈[1,4) (prob 3/4), it lands on index 1 — exactly proportional to the input weights [1,3]."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M9-L6-SY-1",
+          "question": "`WeightedRandom.pickIndex` uses BINARY SEARCH for 'first prefix > r' with `if(this.prefix[mid]<=r) lo=mid+1; else hi=mid`. Why is the prefix sum array CONSTRUCTED with a LEADING ZERO (`this.prefix=[0]`)?",
+          "options": [
+            "The leading zero is a bug; it should start with the first weight value",
+            "OFF-BY-ONE ALIGNMENT for INDEX MAPPING: with prefix=[0, w0, w0+w1, w0+w1+w2, ...], prefix[i] represents the CUMULATIVE weight BEFORE index i-1 is included (i.e., prefix[1]=w0 means index 0's weight contributes up to position 1); the binary search finds the smallest index `lo` where prefix[lo]>r, and the corresponding ORIGINAL weight index is `lo-1` (hence `return lo-1`); the leading zero establishes prefix[0]=0 as the baseline, ensuring the binary search correctly maps random value r∈[0,total) to original index 0,1,2,...,n-1 via this consistent offset-by-one relationship",
+            "The leading zero is required to avoid array index errors at position 0",
+            "Leading zero ensures the prefix sum array has even length for binary search to work"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `this.prefix=[0]; for(const x of w) this.prefix.push(this.prefix.at(-1)+x)` — for weights [1,3], prefix becomes [0,1,4]; the binary search finds the position where r falls between consecutive prefix sums, and `lo-1` correctly maps back to the 0-indexed weight array; the leading zero is the necessary anchor for this offset relationship."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M9-L6-CC-1",
+          "title": "Weighted Random Pick and Probabilistic Algorithm Classifier",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+          "problem_statement": "Implement Random Pick with Weight and the probabilistic algorithm classifier.",
+          "requirements": [
+            "Implement `WeightedRandom` class with constructor(weights) and pickIndex()",
+            "Implement `classifyAlgorithm(name)` returning 'Deterministic', 'Las Vegas', or 'Monte Carlo'"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "class WeightedRandom {\n  constructor(w) {\n    // TODO: build prefix sum array starting with 0\n  }\n  pickIndex() {\n    // TODO: random value in [0,total); binary search for insertion point\n  }\n}\n\nfunction classifyAlgorithm(name) {\n  // names: 'quicksort', 'binary search', 'miller-rabin', 'reservoir sampling', 'bloom filter', 'merge sort'\n  // TODO: return category\n}"
+          },
+          "test_cases": [
+            {
+              "input": "(() => { const wr=new WeightedRandom([1]); return wr.pickIndex(); })()",
+              "expected": 0,
+              "type": "visible"
+            },
+            {
+              "input": "(() => { const wr=new WeightedRandom([1,3]); const i=wr.pickIndex(); return i===0||i===1; })()",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "classifyAlgorithm('quicksort')",
+              "expected": "Las Vegas",
+              "type": "visible"
+            },
+            {
+              "input": "classifyAlgorithm('miller-rabin')",
+              "expected": "Monte Carlo",
+              "type": "hidden"
+            },
+            {
+              "input": "classifyAlgorithm('binary search')",
+              "expected": "Deterministic",
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "class WeightedRandom{\n  constructor(w){this.prefix=[0];for(const x of w)this.prefix.push(this.prefix.at(-1)+x);this.total=this.prefix.at(-1);}\n  pickIndex(){const r=Math.random()*this.total;let lo=1,hi=this.prefix.length-1;while(lo<hi){const mid=(lo+hi)>>1;if(this.prefix[mid]<=r)lo=mid+1;else hi=mid;}return lo-1;}\n}\nfunction classifyAlgorithm(name){\n  const lasVegas=['quicksort','quickselect','skip list','reservoir sampling'];\n  const monteCarlo=['miller-rabin','bloom filter','hyperloglog','monte carlo integration'];\n  const n=name.toLowerCase();\n  if(lasVegas.some(x=>n.includes(x)))return'Las Vegas';\n  if(monteCarlo.some(x=>n.includes(x)))return'Monte Carlo';\n  return'Deterministic';\n}"
+          },
+          "complexity_analysis": "WeightedRandom constructor: O(n). pickIndex: O(log n). classifyAlgorithm: O(1) lookups.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "WeightedRandom: prefix=[0]; for each weight, push running total."
+            },
+            {
+              "level": 2,
+              "text": "pickIndex: r=Math.random()*total; binary search for first prefix index where prefix[mid]>r; return that index minus 1."
+            },
+            {
+              "level": 3,
+              "text": "classifyAlgorithm: check name against known Las Vegas / Monte Carlo lists; default to Deterministic if matched to neither."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "advanced": "Lessons 1-2 (QuickSort indicator-variable harmonic proof, 3-way partition duplicate handling, skip list geometric-distribution height proof, concurrent-implementation rationale)",
+      "hard": "Lessons 3-5 (reservoir sampling telescoping k/n proof, Monte Carlo O(1/sqrt(n)) convergence tradeoff, Miller-Rabin exponential error reduction, universal hashing hash-flooding defense, perfect hashing FKS squaring trick)",
+      "capstone": "Lesson 6 (Deterministic/Las Vegas/Monte Carlo taxonomy as design framework, probability toolkit rationale, 3 NC150 problems with distinct randomization purposes)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

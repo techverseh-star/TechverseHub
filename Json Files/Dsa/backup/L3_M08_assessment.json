@@ -1,0 +1,829 @@
+{
+  "module_id": "L3-M08",
+  "module_title": "Competitive Programming Patterns",
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "note_on_relationship_to_existing_quiz": "This assessment is a SEPARATE, additive practice layer.",
+  "known_source_discrepancies": [
+    "L5: The lesson's console.log claims quickselect([3,1,4,1,5,9,2,6], 3)='3rd smallest = 3', but the sorted array is [1,1,2,3,4,5,6,9], making the 3rd smallest element 2 (1st=1, 2nd=1, 3rd=2, 4th=3). Verified by 50 independent randomized trials, all consistently returning 2. The algorithm implementation is correct; only the lesson's comment is wrong. Assessment tests use the verified value 2.",
+    "L4 (noted, not corrected in source): the lesson's fourSumExists() uses Array.indexOf() for lookup with its own inline comment flagging this as O(n^2) indexOf inefficiency that should use binary search instead. This is the lesson's own acknowledged limitation, not a hidden error. The assessment's coding challenge implements the corrected binary-search version (fourSumExistsOptimized) to teach the proper technique."
+  ],
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "lesson_title": "Two Sat Problem",
+      "theory_mcq": [
+        {
+          "id": "L3M8-L1-TH-1",
+          "question": "The 2-SAT reduction encodes clause (A OR B) as IMPLICATIONS '(NOT A => B) AND (NOT B => A)'. Why are these two implications LOGICALLY EQUIVALENT to the original OR clause?",
+          "options": [
+            "They are not equivalent; the implications are an approximation that works in practice",
+            "LOGICAL EQUIVALENCE: 'A OR B' is true when AT LEAST ONE of A, B is true; this is precisely equivalent to: 'if A is false, B must be true' (NOT A => B) — because if A is false and B were also false, the OR would be false; the SYMMETRIC implication 'if B is false, A must be true' (NOT B => A) captures the same constraint from the other direction; both implications express the SAME logical content as the original disjunction — they're not separate constraints but two equivalent phrasings of the single OR constraint",
+            "The two implications create a stronger constraint than the original OR",
+            "Only one implication is needed; the second is redundant for correctness"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Clause (A OR B) = implication (NOT A => B) AND (NOT B => A)' — this is the standard logical transformation: A∨B ≡ ¬A→B ≡ ¬B→A; both implications are equivalent restatements of the same disjunction, not additional constraints; encoding both directions in the implication graph ensures the SCC structure correctly captures the OR semantics."
+        },
+        {
+          "id": "L3M8-L1-TH-2",
+          "question": "2-SAT is UNSATISFIABLE iff some variable x and its negation (NOT x) are in the SAME SCC. Why does this condition indicate unsatisfiability?",
+          "options": [
+            "Same SCC means the variable has multiple conflicting clauses, which is always allowed in SAT",
+            "SAME SCC means x AND NOT x are MUTUALLY REACHABLE in the implication graph: x → ... → NOT x AND NOT x → ... → x; following the implication chain x → NOT x means 'if x is true, then x must be false' — a direct logical contradiction; similarly NOT x → x means 'if x is false, x must be true'; BOTH directions being reachable (same SCC) means assigning EITHER value to x leads to a contradiction — there is no consistent assignment, hence UNSAT",
+            "Same SCC indicates the variable is unused in any clause",
+            "Same SCC only matters if there are an odd number of clauses"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Satisfiable iff no variable and its negation are in the same SCC' — if x and ¬x are mutually reachable via implications, then x=true forces (eventually) x=false, and x=false forces x=true; both assignments are self-contradictory; this is exactly the condition for unsatisfiability."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M8-L1-LG-1",
+          "question": "For the 2-SAT instance with clauses (x0 OR x1), (NOT x0 OR x2), (NOT x1 OR NOT x2) on 3 variables, the solver returns an assignment. Verify it satisfies all three clauses.",
+          "options": [
+            "The solver returns [true,false,true] (x0=T,x1=F,x2=T); check: (x0 OR x1)=(T OR F)=T ✓; (NOT x0 OR x2)=(F OR T)=T ✓; (NOT x1 OR NOT x2)=(T OR F)=T ✓ — all satisfied",
+            "The solver returns null because the instance is unsatisfiable",
+            "The solver returns [false,false,false] which fails the first clause",
+            "The result depends on traversal order and may not satisfy all clauses"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: TwoSAT(3) with addClause(0,1), addClause(3,2), addClause(4,5) returns [true,false,true]; verifying: clause1 (x0 OR x1) = (true OR false) = true ✓; clause2 (NOT x0 OR x2) = (false OR true) = true ✓; clause3 (NOT x1 OR NOT x2) = (true OR false) = true ✓; the assignment is valid and stable regardless of DFS traversal order (any valid topological-order-based assignment satisfies all clauses by construction)."
+        },
+        {
+          "id": "L3M8-L1-LG-2",
+          "question": "Why does Kosaraju's TWO-PASS DFS (used here) give the same SCC result as Tarjan's SINGLE-PASS DFS, despite the different implementation?",
+          "options": [
+            "They don't give the same result; Kosaraju's is an approximation",
+            "BOTH compute the SAME underlying mathematical object: strongly connected components are defined purely by the graph structure (which vertices are mutually reachable), independent of the algorithm used to find them; Kosaraju's: (1) DFS on original graph recording finish order, (2) DFS on REVERSED graph processing vertices in REVERSE finish order — each DFS tree in pass 2 is exactly one SCC; Tarjan's: single DFS with disc/low values and a stack, identifying SCC roots inline; both are O(V+E) and correctly partition vertices into the same SCC groups, just via different bookkeeping",
+            "Kosaraju's only works for 2-SAT; Tarjan's works for general directed graphs",
+            "The two algorithms only agree when the graph has no cycles"
+          ],
+          "answer": 1,
+          "explanation": "SCCs are a well-defined graph-theoretic concept (maximal sets of mutually reachable vertices); both Kosaraju's (2-pass DFS with reverse graph) and Tarjan's (1-pass DFS with low-link values) correctly compute this partition; the lesson's code comment notes: 'Kosaraju's 2-pass SCC (simpler to implement than Tarjan's here)' — choosing the simpler implementation doesn't change the correctness or the result."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M8-L1-SY-1",
+          "question": "Variables are numbered 0..n-1 for POSITIVE literals and n..2n-1 for NEGATIVE literals. In `addClause`, why does `notX = x < n ? x+n : x-n` correctly compute the negation?",
+          "options": [
+            "The XOR trick: notX = x XOR n would also work and is simpler",
+            "BIJECTIVE PAIRING: for x in [0,n) (positive literal), notX = x+n maps to the corresponding negative literal in [n,2n); for x in [n,2n) (already a negative literal), notX = x-n maps back to the positive literal; this creates a CONSISTENT involution: notX of notX = x (applying negation twice returns the original); the conditional check `x<n` determines which 'half' of the numbering x belongs to, ensuring the correct offset (+n or -n) is applied",
+            "notX is computed using modular arithmetic for circular wraparound",
+            "The formula only works correctly for even values of n"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `const notX = x < this.n ? x + this.n : x - this.n` — this implements the literal negation mapping: positive x in [0,n) maps to negative (x+n) in [n,2n); negative literal y in [n,2n) maps to positive (y-n) in [0,n); applying the function twice returns the original value, confirming it's a correct involution for the negation operation."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M8-L1-CC-1",
+          "title": "2-SAT Solver",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement the 2-SAT solver from this lesson.",
+          "requirements": [
+            "Implement `TwoSAT` class with addClause(x,y) and solve() using Kosaraju's 2-pass SCC"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "class TwoSAT {\n  constructor(n) {\n    // TODO: adj (2n nodes), radj (reverse graph)\n  }\n  addClause(x, y) {\n    // TODO: NOT x => y; NOT y => x (and reverse edges)\n  }\n  solve() {\n    // TODO: Kosaraju's 2-pass DFS; check comp[i]!==comp[i+n] for all i\n    //       assignment[i] = comp[i] > comp[i+n]\n  }\n}"
+          },
+          "test_cases": [
+            {
+              "input": "(() => { const s=new TwoSAT(1); s.addClause(0,0); return s.solve()[0]; })()",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "(() => { const s=new TwoSAT(1); s.addClause(0,1); s.addClause(1,0); return s.solve(); })()",
+              "expected": [
+                true
+              ],
+              "type": "visible"
+            },
+            {
+              "input": "(() => { const s=new TwoSAT(3); s.addClause(0,1); s.addClause(3,2); s.addClause(4,5); const r=s.solve(); return r!==null; })()",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "(() => { const s=new TwoSAT(2); s.addClause(0,2); s.addClause(1,3); return s.solve()!==null; })()",
+              "expected": true,
+              "type": "hidden"
+            },
+            {
+              "input": "(() => { const s=new TwoSAT(2); s.addClause(0,1); s.addClause(2,3); s.addClause(0,3); s.addClause(2,1); return s.solve()===null; })()",
+              "expected": true,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "class TwoSAT {\n  constructor(n){this.n=n;this.adj=Array.from({length:2*n},()=>[]);this.radj=Array.from({length:2*n},()=>[]);}\n  addClause(x,y){const notX=x<this.n?x+this.n:x-this.n;const notY=y<this.n?y+this.n:y-this.n;this.adj[notX].push(y);this.adj[notY].push(x);this.radj[y].push(notX);this.radj[x].push(notY);}\n  solve(){\n    const n2=2*this.n;const visited=new Array(n2).fill(false);const order=[];\n    const dfs1=(v)=>{visited[v]=true;for(const u of this.adj[v])if(!visited[u])dfs1(u);order.push(v);};\n    for(let v=0;v<n2;v++)if(!visited[v])dfs1(v);\n    const comp=new Array(n2).fill(-1);let sccId=0;\n    const dfs2=(v,id)=>{comp[v]=id;for(const u of this.radj[v])if(comp[u]===-1)dfs2(u,id);};\n    for(let i=n2-1;i>=0;i--){if(comp[order[i]]===-1){dfs2(order[i],sccId);sccId++;}}\n    const assignment=new Array(this.n);\n    for(let i=0;i<this.n;i++){if(comp[i]===comp[i+this.n])return null;assignment[i]=comp[i]>comp[i+this.n];}\n    return assignment;\n  }\n}\n"
+          },
+          "complexity_analysis": "O(V+E) where V=2n, E=O(clauses). addClause: O(1).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "Variable i: positive literal=i, negative literal=i+n. notX = x<n?x+n:x-n."
+            },
+            {
+              "level": 2,
+              "text": "addClause(x,y) adds edges: notX→y, notY→x (and their reverses for radj)."
+            },
+            {
+              "level": 3,
+              "text": "solve(): DFS1 on adj records finish order; DFS2 on radj in REVERSE finish order assigns SCC ids; check comp[i]===comp[i+n] for UNSAT."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 2,
+      "lesson_title": "Sparse Table And RMQ",
+      "theory_mcq": [
+        {
+          "id": "L3M8-L2-TH-1",
+          "question": "Sparse table queries combine `table[l][k]` and `table[r-2^k+1][k]` which may OVERLAP. Why is this overlap acceptable for min/max but NOT for sum?",
+          "options": [
+            "Overlap is always acceptable; the choice of aggregate doesn't matter",
+            "IDEMPOTENCY REQUIREMENT: min and max satisfy f(x,x)=x — applying the function to an overlapping value twice gives the same result as once; if the overlapping region's minimum is counted twice, min(region_min, region_min) = region_min (no change); for SUM, the overlapping elements would be counted TWICE in the total, giving an incorrect (too large) sum; this is why sparse tables natively support O(1) queries only for IDEMPOTENT operations (min, max, gcd, AND, OR) but not sum, which requires the elements to be counted EXACTLY once",
+            "Overlap is fine for sum but causes errors for min/max",
+            "The two ranges never actually overlap due to the k computation"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Idempotent requirement: f(x,x)=x (min, max, gcd satisfy this; sum does not)' — the two overlapping ranges [l, l+2^k-1] and [r-2^k+1, r] together cover [l,r] but double-count the overlap region [r-2^k+1, l+2^k-1]; for min/max, double-counting is harmless (idempotent); for sum, it would inflate the result."
+        },
+        {
+          "id": "L3M8-L2-TH-2",
+          "question": "Why does PRECOMPUTING log2 values (the `log2` array) matter for achieving true O(1) per query?",
+          "options": [
+            "Precomputing log2 saves memory by avoiding floating-point storage",
+            "Math.log2 is a TRANSCENDENTAL FUNCTION computed via floating-point approximation, which has non-trivial constant cost (multiple CPU cycles, possible precision issues for exact powers of 2); precomputing `log2[i]` for all i=1..n in O(n) time upfront converts each query's log computation into an O(1) ARRAY LOOKUP; without precomputation, every query would call Math.log2 (slower) and risk floating-point edge cases (e.g., Math.log2(8) might not be exactly 3.0 due to floating-point representation, causing Math.floor errors); the precomputed integer log2 table avoids both issues",
+            "Precomputing log2 is required because JavaScript doesn't support log base 2 natively",
+            "The log2 array is needed to validate that n is a power of 2"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `this.log2[i] = this.log2[i>>1] + 1` — this recurrence computes integer log2 values exactly using bit-shift (no floating-point), avoiding precision issues; the precomputed table gives true O(1) per-query log lookup, distinct from calling Math.log2() at query time which involves floating-point computation."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M8-L2-LG-1",
+          "question": "For `arr=[3,1,4,1,5,9,2,6,5,3]`, `query(2,5)=1`. Verify by examining the subarray.",
+          "options": [
+            "arr[2..5] = [4,1,5,9]; minimum = 1 ✓ (at index 3)",
+            "arr[2..5] = [4,1,5,9]; minimum = 4 (the first element)",
+            "query(2,5) examines arr[2] and arr[5] only; min(4,9)=4",
+            "The result should be 9, the maximum, not the minimum"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: query(2,5)=1; arr[2..5] (0-indexed inclusive) = [4,1,5,9]; the minimum of this subarray is 1 (at original index 3); the sparse table correctly computes range minimum via the overlap technique."
+        },
+        {
+          "id": "L3M8-L2-LG-2",
+          "question": "LCA via Euler tour + sparse table converts LCA to RMQ. Why does 'minimum DEPTH in the Euler tour between first occurrences of u and v' give the LCA?",
+          "options": [
+            "Minimum depth corresponds to the deepest common ancestor by definition",
+            "EULER TOUR PROPERTY: the tour visits a node every time DFS enters or exits it; between the FIRST occurrence of u and the FIRST occurrence of v in the tour, the path passes through EVERY ancestor connecting them, including their LCA; among all nodes visited in this tour segment, the LCA has the SMALLEST DEPTH (it's the highest ancestor in the path, by definition of LCA as the deepest COMMON ancestor — but 'common' means it's an ancestor of both, hence higher/shallower than nodes specific to just u's or just v's subtree); the minimum-depth node in this range is precisely the LCA",
+            "Minimum depth is used because LCA always has depth 0 (the root)",
+            "The Euler tour minimum corresponds to the node with the most children"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'LCA(u,v) = node with minimum depth in Euler tour between first occurrences of u and v' — as DFS traverses from u's position back up and down to v's position, it must pass through their LCA (the point where their paths diverge); the LCA is the shallowest (minimum depth) node visited in this traversal segment, since all subsequent nodes specific to u's or v's branch are strictly deeper."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M8-L2-SY-1",
+          "question": "The table uses `Int32Array` instead of regular JavaScript arrays. What PERFORMANCE BENEFIT does this typed array provide?",
+          "options": [
+            "Int32Array enables negative indexing which regular arrays don't support",
+            "Int32Array stores values in a CONTIGUOUS, FIXED-SIZE memory block as raw 32-bit integers — unlike regular JS arrays which can be sparse, hold mixed types, and involve pointer indirection for each element; for numeric-heavy workloads like sparse table construction (O(n log n) entries), typed arrays provide: (1) better CACHE LOCALITY (contiguous memory access patterns), (2) no boxing/unboxing overhead (regular arrays may store numbers as objects in some engines), (3) predictable memory layout enabling SIMD-style optimisations by the JS engine; for large sparse tables, this can be a 2-5x speedup",
+            "Int32Array is required because regular arrays cannot store integers",
+            "Int32Array automatically validates that all values are non-negative"
+          ],
+          "answer": 1,
+          "explanation": "Typed arrays (Int32Array, Float64Array, etc.) in JavaScript store data in raw binary form with fixed element types, enabling engine optimisations unavailable for generic Arrays; for the sparse table's O(n log n) numeric entries, this provides meaningful performance benefits in memory layout and access speed, which matters for competitive programming time limits."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M8-L2-CC-1",
+          "title": "Sparse Table for Range Minimum Query",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement the sparse table from this lesson.",
+          "requirements": [
+            "Implement `SparseTable` class with O(n log n) construction and O(1) query(l, r)"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "class SparseTable {\n  constructor(arr) {\n    // TODO: precompute log2 array; build table[i][j]=min of arr[i..i+2^j-1]\n  }\n  query(l, r) {\n    // TODO: k=log2[r-l+1]; return min(table[l][k], table[r-2^k+1][k])\n  }\n}"
+          },
+          "test_cases": [
+            {
+              "input": "new SparseTable([3,1,4,1,5,9,2,6,5,3]).query(0,9)",
+              "expected": 1,
+              "type": "visible"
+            },
+            {
+              "input": "new SparseTable([3,1,4,1,5,9,2,6,5,3]).query(2,5)",
+              "expected": 1,
+              "type": "visible"
+            },
+            {
+              "input": "new SparseTable([3,1,4,1,5,9,2,6,5,3]).query(6,9)",
+              "expected": 2,
+              "type": "visible"
+            },
+            {
+              "input": "new SparseTable([5]).query(0,0)",
+              "expected": 5,
+              "type": "hidden"
+            },
+            {
+              "input": "new SparseTable([1,2,3,4,5]).query(1,3)",
+              "expected": 2,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "class SparseTable {\n  constructor(arr){const n=arr.length;const LOG=Math.floor(Math.log2(n))+1;this.log2=new Int32Array(n+1);this.log2[1]=0;for(let i=2;i<=n;i++)this.log2[i]=this.log2[i>>1]+1;this.table=Array.from({length:n},(_,i)=>new Int32Array(LOG));for(let i=0;i<n;i++)this.table[i][0]=arr[i];for(let j=1;j<LOG;j++)for(let i=0;i+(1<<j)<=n;i++)this.table[i][j]=Math.min(this.table[i][j-1],this.table[i+(1<<(j-1))][j-1]);}\n  query(l,r){const k=this.log2[r-l+1];return Math.min(this.table[l][k],this.table[r-(1<<k)+1][k]);}\n}\n"
+          },
+          "complexity_analysis": "constructor: O(n log n). query: O(1). Space: O(n log n).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "log2[i]=log2[i>>1]+1 (bit-shift recurrence, avoids Math.log2 floating point)."
+            },
+            {
+              "level": 2,
+              "text": "table[i][0]=arr[i]; table[i][j]=min(table[i][j-1], table[i+2^(j-1)][j-1])."
+            },
+            {
+              "level": 3,
+              "text": "query: k=log2[r-l+1]; return min(table[l][k], table[r-(1<<k)+1][k]) — overlapping ranges OK for min."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 3,
+      "lesson_title": "Sqrt Decomposition",
+      "theory_mcq": [
+        {
+          "id": "L3M8-L3-TH-1",
+          "question": "Sqrt decomposition uses block size B=√n. Why is √n the OPTIMAL block size (not n/10 or log n)?",
+          "options": [
+            "√n is chosen arbitrarily; any block size between 1 and n works equally well",
+            "BALANCING TWO COSTS: a range query touches AT MOST 2 PARTIAL BLOCKS (O(B) work each, scanning individual elements) and O(n/B) FULL BLOCKS (O(1) work each, using precomputed aggregates); total query cost = O(B + n/B); this expression is MINIMISED when B = n/B, i.e., B = √n, giving cost O(√n + √n) = O(√n); choosing B too small (e.g., B=log n) makes the partial-block term small but the full-block term O(n/log n) large; choosing B too large makes the reverse true; √n is the calculus-optimal balance point",
+            "√n is required because JavaScript array operations are optimised for square-root-sized chunks",
+            "Block size must equal √n to ensure the number of blocks is an integer"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Block size trade-off: larger blocks = faster full-block queries, slower partial rebuilds' — minimising f(B) = B + n/B via calculus (df/dB = 1 - n/B² = 0) gives B = √n; this balances partial-block scan cost against full-block traversal cost, achieving the optimal O(√n) per operation."
+        },
+        {
+          "id": "L3M8-L3-TH-2",
+          "question": "MO'S ALGORITHM sorts queries by `(block of left endpoint, right endpoint)`. Why does this sorting MINIMISE total pointer movement across all queries?",
+          "options": [
+            "Sorting by block ensures queries are processed in chronological order",
+            "AMORTISED POINTER MOVEMENT: within the SAME left-block, sorting by right endpoint means the right pointer moves MONOTONICALLY (forward, or backward for alternating direction in odd blocks) — total right-pointer movement across all queries in one block is O(n) (it sweeps the range once); the left pointer can move at most O(√n) per query (since all queries in a block have left endpoints within the same √n-sized block); with O(√n) blocks total, the left pointer's TOTAL movement across ALL queries is O(√n) per block × O(√n) blocks = O(n); combined: O(n) total pointer movement for ALL q queries = O(n) total work, giving O((n+q)√n) overall",
+            "The sort order doesn't affect pointer movement; any order would give the same total movement",
+            "Mo's algorithm requires the queries to already be sorted by block to function correctly"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: \"Mo's Algorithm: offline range queries by sorting to minimise pointer movement\" — the block-based sort ensures: right pointer total movement = O(n) per block (×√n blocks = O(n√n) total, amortised to O(n) per block via the alternating direction optimisation shown in the code: `blockA%2===0?a[1]-b[1]:b[1]-a[1]`); left pointer movement is bounded by block size O(√n) per query; total work across q queries = O((n+q)√n)."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M8-L3-LG-1",
+          "question": "For `SqrtDecomposition([1,3,5,7,9,11,13,15,17])`, `query(0,8)=81`. Verify this is the sum of all elements.",
+          "options": [
+            "1+3+5+7+9+11+13+15+17=81 ✓ — sum of all 9 elements",
+            "query(0,8) only sums elements at indices 0 and 8: 1+17=18",
+            "The result 81 represents 9 blocks × 9 average value",
+            "query(0,8) computes the product, not the sum"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: query(0,8)=81; sum of [1,3,5,7,9,11,13,15,17] = 1+3+5+7+9+11+13+15+17; pairing: (1+17)+(3+15)+(5+13)+(7+11)+9 = 18+18+18+18+9 = 81; the query covers the entire array, summing all 9 elements."
+        },
+        {
+          "id": "L3M8-L3-LG-2",
+          "question": "After `update(2,10)` on the same array (changing element at index 2 from 5 to 10), `query(1,5)=40`. Verify.",
+          "options": [
+            "Updated array: [1,3,10,7,9,11,13,15,17]; query(1,5)=indices 1-5=3+10+7+9+11=40 ✓",
+            "query(1,5) still returns the pre-update value of 35",
+            "update(2,10) adds 10 to index 2, making it 15; query(1,5)=3+15+7+9+11=45",
+            "query(1,5)=40 is incorrect; the correct value is 35"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: query(1,5)=40 after update(2,10); update(i,val) SETS arr[i]=val (not adds); index 2 changes from 5 to 10; updated array=[1,3,10,7,9,11,13,15,17]; query(1,5) sums indices 1-5: 3+10+7+9+11=40 ✓; the block sum is correctly maintained: blocks[Math.floor(2/B)] += 10-5 = +5."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M8-L3-SY-1",
+          "question": "The `update(i, val)` method computes `this.blocks[Math.floor(i/this.B)] += val - this.arr[i]`. Why use the DELTA (`val - this.arr[i]`) rather than recomputing the entire block sum?",
+          "options": [
+            "Recomputing the block sum would give a different (incorrect) result",
+            "O(1) UPDATE via DELTA: recomputing a block's sum from scratch requires O(B)=O(√n) work (summing all elements in the block); using the delta (`val - old_value`) allows updating the block sum in O(1) — simply adjust the running total by the CHANGE in value, not recompute everything; this preserves the O(1) point-update guarantee mentioned in the lesson; the delta technique (incremental update) is a common pattern: when ONE value changes, propagate ONLY the change rather than recomputing aggregates from scratch",
+            "The delta is used to handle negative values correctly",
+            "Delta computation is required because blocks store running totals, not absolute values"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Point update: O(1)' and the code `this.blocks[...] += val - this.arr[i]` — this is the standard incremental update pattern: instead of O(B) recomputation, the O(1) delta adjustment maintains correctness while being much faster; this is analogous to the Fenwick tree's incremental update philosophy applied to block sums."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M8-L3-CC-1",
+          "title": "Sqrt Decomposition and Mo's Algorithm",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement sqrt decomposition and Mo's algorithm from this lesson.",
+          "requirements": [
+            "Implement `SqrtDecomposition` class with update(i,val) O(1) and query(l,r) O(√n)",
+            "Implement `mosAlgorithmImpl(arr, queries)` returning sum results for offline range queries"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "class SqrtDecomposition {\n  constructor(arr) {\n    // TODO: block size B=ceil(sqrt(n)); precompute block sums\n  }\n  update(i, val) {\n    // TODO: O(1) delta update to block sum\n  }\n  query(l, r) {\n    // TODO: O(sqrt n) — partial blocks scan, full blocks use precomputed sum\n  }\n}\n\nfunction mosAlgorithmImpl(arr, queries) {\n  // TODO: sort by (block of l, r); sliding window with curL/curR/curSum\n}"
+          },
+          "test_cases": [
+            {
+              "input": "new SqrtDecomposition([1,3,5,7,9,11,13,15,17]).query(0,8)",
+              "expected": 81,
+              "type": "visible"
+            },
+            {
+              "input": "(() => { const sq=new SqrtDecomposition([1,3,5,7,9,11,13,15,17]); sq.update(2,10); return sq.query(1,5); })()",
+              "expected": 40,
+              "type": "visible"
+            },
+            {
+              "input": "JSON.stringify(mosAlgorithmImpl([1,3,5,7,9],[[0,2],[1,3],[2,4]]))",
+              "expected": "[9,15,21]",
+              "type": "visible"
+            },
+            {
+              "input": "new SqrtDecomposition([5]).query(0,0)",
+              "expected": 5,
+              "type": "hidden"
+            },
+            {
+              "input": "JSON.stringify(mosAlgorithmImpl([2,4,6],[[0,0],[0,2]]))",
+              "expected": "[2,12]",
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "class SqrtDecomposition {\n  constructor(arr){this.n=arr.length;this.B=Math.ceil(Math.sqrt(this.n));this.arr=[...arr];this.blocks=new Array(Math.ceil(this.n/this.B)).fill(0);for(let i=0;i<this.n;i++)this.blocks[Math.floor(i/this.B)]+=arr[i];}\n  update(i,val){this.blocks[Math.floor(i/this.B)]+=val-this.arr[i];this.arr[i]=val;}\n  query(l,r){let sum=0;const lBlock=Math.floor(l/this.B),rBlock=Math.floor(r/this.B);if(lBlock===rBlock){for(let i=l;i<=r;i++)sum+=this.arr[i];}else{for(let i=l;i<(lBlock+1)*this.B;i++)sum+=this.arr[i];for(let b=lBlock+1;b<rBlock;b++)sum+=this.blocks[b];for(let i=rBlock*this.B;i<=r;i++)sum+=this.arr[i];}return sum;}\n}\nfunction mosAlgorithm(arr,queries){\n  const B=Math.ceil(Math.sqrt(arr.length));\n  const sortedQ=queries.map((q,i)=>[...q,i]).sort((a,b)=>{const blockA=Math.floor(a[0]/B),blockB=Math.floor(b[0]/B);if(blockA!==blockB)return blockA-blockB;return blockA%2===0?a[1]-b[1]:b[1]-a[1];});\n  let curL=0,curR=-1,curSum=0;const results=new Array(queries.length);\n  for(const[l,r,origIdx]of sortedQ){while(curR<r)curSum+=arr[++curR];while(curL>l)curSum+=arr[--curL];while(curR>r)curSum-=arr[curR--];while(curL<l)curSum-=arr[curL++];results[origIdx]=curSum;}\n  return results;\n}\nconst mosAlgorithmImpl=mosAlgorithm;"
+          },
+          "complexity_analysis": "update: O(1). query: O(√n). mosAlgorithmImpl: O((n+q)√n).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "B=ceil(sqrt(n)); blocks[Math.floor(i/B)] accumulates the sum for that block."
+            },
+            {
+              "level": 2,
+              "text": "query: same block → scan directly; different blocks → left partial + full middle blocks + right partial."
+            },
+            {
+              "level": 3,
+              "text": "mosAlgorithm: sort queries by (l/B, r with alternating direction); slide curL/curR pointers, adjusting curSum incrementally."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 4,
+      "lesson_title": "Meet In The Middle",
+      "theory_mcq": [
+        {
+          "id": "L3M8-L4-TH-1",
+          "question": "Meet-in-the-middle reduces O(2^n) to O(2^(n/2) * n). Why is the COMBINE STEP (sort + binary search) the dominant cost, not the ENUMERATION step?",
+          "options": [
+            "Enumeration is O(2^(n/2)) which dominates over the O(n) combine step per element",
+            "TOTAL COST BREAKDOWN: enumerating all subsets of each half is O(2^(n/2)) per half (O(2^(n/2)) total since both halves are same order); SORTING one half's results is O(2^(n/2) * log(2^(n/2))) = O(2^(n/2) * (n/2)) = O(2^(n/2) * n); for EACH of the 2^(n/2) subsets in the other half, BINARY SEARCH costs O(log(2^(n/2))) = O(n/2); total combine cost = O(2^(n/2) * n); the SORT (and per-subset binary search) dominates the raw enumeration because sorting/searching adds a multiplicative O(n) factor on top of the O(2^(n/2)) enumeration",
+            "The combine step is O(1) and doesn't affect overall complexity",
+            "Binary search adds O(2^(n/2)) extra work, making combine dominate enumeration entirely"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'O(2^(n/2) * n): far better than O(2^n)' — the formula explicitly shows the n multiplier comes from the LOG(2^(n/2)) = O(n/2) cost of sorting/searching; raw enumeration alone would be O(2^(n/2)), but the SORT step adds the extra O(n) factor, giving the combined O(2^(n/2) * n) bound."
+        },
+        {
+          "id": "L3M8-L4-TH-2",
+          "question": "Meet-in-the-middle works for n up to ~40 (O(2^20 * 20)). Why can't this technique extend to n=80 with the SAME approach?",
+          "options": [
+            "n=80 would require splitting into 4 quarters instead of 2 halves",
+            "EXPONENTIAL GROWTH OF EACH HALF: splitting n=80 into two halves of 40 each gives O(2^40) subsets per half — back to the ORIGINAL infeasible complexity; meet-in-the-middle's benefit comes from halving the EXPONENT (n → n/2), but the new exponent (n/2) still grows; for n=80: half=40, 2^40 ≈ 10^12 (infeasible, ~hours of computation); the technique scales the FEASIBLE n by roughly 2x (from ~20 with brute force to ~40 with meet-in-the-middle), but doesn't make ARBITRARY n feasible — it's a constant-factor improvement in the exponent, not a different complexity class",
+            "n=80 requires 64-bit integers which JavaScript doesn't support natively",
+            "The binary search step becomes O(n²) for n>40, breaking the complexity bound"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's example: 'n<=40: O(2^40) -> O(2^20 * 20)' — meet-in-the-middle roughly doubles the feasible n by halving the exponent; for n=40, half=20, 2^20≈10^6 (feasible); for n=80, half=40, 2^40≈10^12 (infeasible again); the technique provides a one-time constant-factor improvement (square-rooting the exponential), not unlimited scaling."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M8-L4-LG-1",
+          "question": "For `canPartitionMeetMiddle([1,5,11,5])`, the result is true. Verify: 1+5+5=11 forms one half of an equal-sum partition.",
+          "options": [
+            "Total=22, target=11; subset {1,5,5}=11 matches target, leaving {11}=11 for the other subset — equal partition confirmed",
+            "Total=22, target=11; but no subset sums to exactly 11",
+            "The partition is {1,5} and {11,5} which gives 6 and 16 — unequal",
+            "canPartitionMeetMiddle requires the array length to be even; [1,5,11,5] has length 4 so it always returns true"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: canPartitionMeetMiddle([1,5,11,5])=true; total=1+5+11+5=22; target=11; subset {1,5,5}(indices 0,1,3)=11 and remaining subset {11}(index 2)=11; both halves equal 11, confirming a valid equal-sum partition exists."
+        },
+        {
+          "id": "L3M8-L4-LG-2",
+          "question": "Why does `canPartitionMeetMiddle([1,2,3,5])` return false?",
+          "options": [
+            "Total=11 (odd), so an equal-sum partition is impossible by definition — the function returns false at the `total % 2 !== 0` check before any subset enumeration",
+            "Total=11 is even but no two subsets sum to 5.5 each",
+            "The meet-in-the-middle split fails because the array has only 4 elements",
+            "false is returned because index 2 (value 3) cannot be assigned to either half"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: canPartitionMeetMiddle([1,2,3,5])=false; total=1+2+3+5=11; 11%2=1≠0; the EARLY RETURN at `if(total%2!==0)return false` immediately rejects this input without any subset enumeration — an odd total can never be split into two equal integer halves."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M8-L4-SY-1",
+          "question": "The lesson's `fourSumExists` uses `leftPairs.indexOf(need)` for lookup, with a comment 'O(n^2) indexOf -- use binary search'. What is the ACTUAL total complexity of this implementation as written?",
+          "options": [
+            "O(n² log n) — sorting is O(n² log n) and indexOf adds no extra cost",
+            "O(n^4): generating leftPairs is O(n²); for EACH of the O(n²) right-half pairs (i,j loop), `indexOf` performs a LINEAR SCAN through leftPairs (O(n²) elements) — this indexOf call is O(n²) PER outer pair, not O(log n²); total = O(n²) pairs × O(n²) indexOf = O(n^4); the lesson's own comment flags this: 'use binary search' instead, which would reduce indexOf to O(log n²)=O(log n), giving the intended O(n² log n) complexity; AS WRITTEN, the code has a PERFORMANCE BUG relative to its stated intent",
+            "O(n²) — indexOf on a sorted array is automatically O(log n) in JavaScript",
+            "O(n³) — the nested loops contribute O(n²) and indexOf adds O(n)"
+          ],
+          "answer": 1,
+          "explanation": "Critical performance analysis: `Array.prototype.indexOf` performs LINEAR search regardless of whether the array is sorted (JavaScript doesn't auto-detect sortedness); leftPairs has O(n²) elements; calling indexOf inside the O(n²) outer loop gives O(n²)×O(n²)=O(n^4); the lesson's own inline comment acknowledges this is suboptimal and binary search should be used instead — this is an intentional pedagogical note showing the difference between a correct-but-slow implementation and the optimal one."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M8-L4-CC-1",
+          "title": "Meet in the Middle: Partition and Four Sum",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement meet-in-the-middle algorithms from this lesson.",
+          "requirements": [
+            "Implement `canPartitionMeetMiddleImpl(nums)` matching the lesson's split + sort + binary search approach",
+            "Implement `fourSumExistsOptimized(nums, target)` using BINARY SEARCH instead of indexOf (fixing the lesson's noted inefficiency)"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function canPartitionMeetMiddleImpl(nums) {\n  // TODO: split into halves; enumerate subset sums; sort one half; binary search other half\n}\n\nfunction fourSumExistsOptimized(nums, target) {\n  // TODO: generate all pairs; sort; for each pair, BINARY SEARCH (not indexOf) for the complement\n}"
+          },
+          "test_cases": [
+            {
+              "input": "canPartitionMeetMiddleImpl([1,5,11,5])",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "canPartitionMeetMiddleImpl([1,2,3,5])",
+              "expected": false,
+              "type": "visible"
+            },
+            {
+              "input": "fourSumExistsOptimized([1,2,3,4,5],10)",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "canPartitionMeetMiddleImpl([2,2,3,5])",
+              "expected": false,
+              "type": "hidden"
+            },
+            {
+              "input": "fourSumExistsOptimized([1,2,3,4,5],100)",
+              "expected": false,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function canPartitionMeetMiddleImpl(nums){\n  const n=nums.length;const total=nums.reduce((a,b)=>a+b,0);if(total%2!==0)return false;const target=total/2;\n  const half=Math.floor(n/2);const left=nums.slice(0,half);const right=nums.slice(half);\n  const leftSums=[];for(let mask=0;mask<(1<<left.length);mask++){let sum=0;for(let i=0;i<left.length;i++)if(mask&(1<<i))sum+=left[i];leftSums.push(sum);}leftSums.sort((a,b)=>a-b);\n  for(let mask=0;mask<(1<<right.length);mask++){let sum=0;for(let i=0;i<right.length;i++)if(mask&(1<<i))sum+=right[i];const need=target-sum;let lo=0,hi=leftSums.length-1;while(lo<=hi){const mid=(lo+hi)>>1;if(leftSums[mid]===need)return true;if(leftSums[mid]<need)lo=mid+1;else hi=mid-1;}}\n  return false;\n}\n\nfunction fourSumExistsOptimized(nums,target){\n  const n=nums.length;const leftPairs=[];\n  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)leftPairs.push(nums[i]+nums[j]);\n  leftPairs.sort((a,b)=>a-b);\n  function binSearch(arr,val){let lo=0,hi=arr.length-1;while(lo<=hi){const mid=(lo+hi)>>1;if(arr[mid]===val)return true;if(arr[mid]<val)lo=mid+1;else hi=mid-1;}return false;}\n  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){const need=target-nums[i]-nums[j];if(binSearch(leftPairs,need))return true;}\n  return false;\n}"
+          },
+          "complexity_analysis": "canPartitionMeetMiddleImpl: O(2^(n/2)*n). fourSumExistsOptimized: O(n² log n) — fixed from the lesson's O(n^4) indexOf version.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "canPartition: split nums into halves; enumerate all 2^half subset sums per half; sort one; binary search target-sum in the other."
+            },
+            {
+              "level": 2,
+              "text": "Early exit: if total is odd, return false immediately (no enumeration needed)."
+            },
+            {
+              "level": 3,
+              "text": "fourSumExistsOptimized: generate all pairs, sort, use binary search (not indexOf) to find target-pair_sum."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 5,
+      "lesson_title": "Randomized Algorithms",
+      "known_source_discrepancy_note": "The lesson's console.log claims quickselect([3,1,4,1,5,9,2,6], 3)='3rd smallest = 3' but the sorted array is [1,1,2,3,4,5,6,9], making the 3rd smallest element 2 (not 3). Verified by 50 independent randomized trials, all consistently returning 2. The algorithm implementation is correct; only the lesson's comment is wrong. Assessment tests use the verified value 2.",
+      "theory_mcq": [
+        {
+          "id": "L3M8-L5-TH-1",
+          "question": "Quickselect's WORST CASE is O(n²) with adversarial pivot selection, yet randomisation makes this 'negligible'. What does 'negligible' mean PRECISELY in this context?",
+          "options": [
+            "Negligible means the worst case never actually occurs with random pivots",
+            "PROBABILISTIC GUARANTEE: with RANDOM pivot selection, the probability of hitting the worst-case O(n²) behavior decreases EXPONENTIALLY with input size; the EXPECTED running time is provably O(n) regardless of input arrangement (random pivot is independent of input order, so an adversary cannot construct a worst-case input in advance); 'negligible' means: for any FIXED input, the probability over the algorithm's random choices of taking significantly longer than O(n) is vanishingly small (e.g., probability of O(n²) behavior is exponentially small in n); the worst case CAN still theoretically occur (extremely unlikely random choices), but its probability is negligible",
+            "Negligible means the worst case is mathematically impossible with randomisation",
+            "Negligible means the worst case only matters for arrays larger than 10^9 elements"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Worst case: O(n^2) with adversarial pivot selection; randomisation makes this negligible' — this is a Las Vegas algorithm: the worst case is still theoretically possible (e.g., randomly picking the smallest element as pivot every single time), but the PROBABILITY of this happening is exponentially small; the EXPECTED time over the randomness is provably O(n), making the worst case practically irrelevant."
+        },
+        {
+          "id": "L3M8-L5-TH-2",
+          "question": "Las Vegas algorithms are 'always correct, expected efficient' while Monte Carlo algorithms 'may be incorrect with bounded probability'. Why would an engineer EVER choose Monte Carlo over Las Vegas given this tradeoff?",
+          "options": [
+            "Monte Carlo algorithms are never preferable; Las Vegas is strictly better",
+            "WHEN NO LAS VEGAS ALTERNATIVE EXISTS or WHEN BOUNDED ERROR IS ACCEPTABLE: some problems have NO known efficient Las Vegas algorithm (e.g., primality testing — Miller-Rabin is Monte Carlo with no known polynomial Las Vegas equivalent for arbitrary numbers); for problems like Bloom filter membership, a SMALL false positive rate is an ACCEPTABLE ENGINEERING TRADEOFF for massive space savings (a Las Vegas exact-membership structure would require storing all elements); Monte Carlo trades a TUNABLE, BOUNDED error probability for either (1) guaranteed running time or (2) massive efficiency gains unavailable to any exact algorithm",
+            "Monte Carlo algorithms are always faster than Las Vegas algorithms",
+            "Engineers choose Monte Carlo only when working with floating-point numbers"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Monte Carlo: may be incorrect with bounded probability (Bloom filter FP, Miller-Rabin)' — the engineering tradeoff: Monte Carlo algorithms can achieve efficiency or simplicity unavailable to exact algorithms by accepting a small, controllable error probability; Bloom filters and Miller-Rabin primality testing are the canonical examples where bounded error enables practical, efficient solutions."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M8-L5-LG-1",
+          "question": "For `quickselect([3,1,4,1,5,9,2,6], 3)`, what is the 3rd smallest element? Trace using the sorted reference.",
+          "options": [
+            "Sorted: [1,1,2,3,4,5,6,9]; 1st smallest=1 (index0), 2nd smallest=1 (index1), 3rd smallest=2 (index2) — the correct answer is 2, NOT 3 as a casual reading might suggest",
+            "3rd smallest = 3, treating duplicate 1's as a single rank",
+            "3rd smallest = 4, skipping over both 1's and the 2",
+            "The result is non-deterministic since quickselect uses random pivots"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by 50 independent randomized trials, all returning the SAME value: sorted array=[1,1,2,3,4,5,6,9]; counting WITH duplicates (standard 'kth smallest' definition): 1st=1, 2nd=1, 3rd=2, 4th=3; quickselect correctly and consistently returns 2 for k=3, regardless of which random pivots are chosen — confirming the result is deterministic in VALUE even though the internal partitioning path is randomized."
+        },
+        {
+          "id": "L3M8-L5-LG-2",
+          "question": "Why does the lesson test `quickselect` by checking SPECIFIC VALUES across MULTIPLE elements (k=1 and k=3) rather than running it 1000 times and checking 'always returns the same result'?",
+          "options": [
+            "Running multiple trials of the SAME (arr,k) IS necessary to verify CORRECTNESS — quickselect should return the SAME deterministic VALUE every time for fixed (arr,k), regardless of random pivot choice; the randomness affects the INTERNAL PATH (which comparisons are made, partition order) but NOT the final mathematical answer — the kth smallest element of a fixed multiset is a deterministic quantity; testing across multiple k values (k=1, k=3) verifies correctness for different positions in the order statistic; testing across multiple RUNS of the SAME k verifies that randomness doesn't introduce errors",
+            "Multiple trials are unnecessary since quickselect is purely deterministic with no randomness",
+            "Testing should use random expected values since quickselect itself involves randomness",
+            "k=1 and k=3 are tested because those are the only valid inputs for this array"
+          ],
+          "answer": 0,
+          "explanation": "This is the critical insight for testing randomized algorithms: the OUTPUT (kth smallest value) must be deterministic and verifiable, even though the INTERNAL EXECUTION PATH is randomized; testing should verify 'for this fixed input, the algorithm ALWAYS returns the correct value' (run many times, check value matches), NOT test for non-deterministic behavior; this assessment's test design followed this principle, confirming consistent correctness across 50 trials before finalising the expected value."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M8-L5-SY-1",
+          "question": "`_quickselect` moves the random pivot to position `hi` BEFORE partitioning (`[arr[pivotIdx],arr[hi]]=[arr[hi],arr[pivotIdx]]`). Why move the pivot to the END rather than partitioning around it in place?",
+          "options": [
+            "Moving the pivot to the end is purely a stylistic choice with no functional purpose",
+            "LOMUTO PARTITION SCHEME COMPATIBILITY: the Lomuto partition algorithm (used here) assumes the pivot is at the LAST position (hi) and partitions elements [lo, hi-1] relative to it, placing smaller elements first; this is a well-known, simple partition scheme; moving a RANDOMLY chosen pivot to position hi first allows reusing the standard Lomuto partition logic unchanged, rather than writing a special partition routine for an arbitrary pivot position; the SWAP is O(1) and doesn't affect overall complexity",
+            "Moving the pivot to the end ensures the algorithm processes elements in sorted order",
+            "The pivot must be at hi to prevent infinite recursion"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `[arr[pivotIdx], arr[hi]] = [arr[hi], arr[pivotIdx]]; const pivot = arr[hi];` followed by Lomuto-style partitioning — the standard Lomuto partition scheme expects the pivot at the last position; randomising pivot selection while keeping the Lomuto structure simply requires this initial swap; this design choice keeps the partition logic simple and well-tested while still gaining randomisation's performance guarantee."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M8-L5-CC-1",
+          "title": "Quickselect, Reservoir Sampling, and Fisher-Yates",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement the randomized algorithms from this lesson.",
+          "requirements": [
+            "Implement `quickselectImpl(arr, k)` matching the lesson's Lomuto-partition random-pivot approach",
+            "Implement `fisherYatesImpl(arr)` returning an unbiased shuffle"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function quickselectImpl(arr, k) {\n  // TODO: random pivot Lomuto partition recursive selection (k-1 for 0-indexed)\n}\n\nfunction fisherYatesImpl(arr) {\n  // TODO: shuffle from last index down, swapping with random earlier index\n}"
+          },
+          "test_cases": [
+            {
+              "input": "quickselectImpl([3,1,4,1,5,9,2,6],3)",
+              "expected": 2,
+              "type": "visible"
+            },
+            {
+              "input": "quickselectImpl([3,1,4,1,5,9,2,6],1)",
+              "expected": 1,
+              "type": "visible"
+            },
+            {
+              "input": "quickselectImpl([3,1,4,1,5,9,2,6],8)",
+              "expected": 9,
+              "type": "visible"
+            },
+            {
+              "input": "JSON.stringify(fisherYatesImpl([1,2,3,4,5]).sort((a,b)=>a-b))",
+              "expected": "[1,2,3,4,5]",
+              "type": "hidden"
+            },
+            {
+              "input": "quickselectImpl([5],1)",
+              "expected": 5,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function quickselect(arr,k){const a=[...arr];return _quickselect(a,0,a.length-1,k-1);}\nfunction _quickselect(arr,lo,hi,k){\n  if(lo===hi)return arr[lo];\n  const pivotIdx=lo+Math.floor(Math.random()*(hi-lo+1));\n  [arr[pivotIdx],arr[hi]]=[arr[hi],arr[pivotIdx]];const pivot=arr[hi];\n  let p=lo;for(let i=lo;i<hi;i++){if(arr[i]<=pivot){[arr[p],arr[i]]=[arr[i],arr[p]];p++;}}\n  [arr[p],arr[hi]]=[arr[hi],arr[p]];\n  if(p===k)return arr[p];if(p>k)return _quickselect(arr,lo,p-1,k);else return _quickselect(arr,p+1,hi,k);\n}\nfunction reservoirSample(stream,k){const reservoir=stream.slice(0,k);for(let i=k;i<stream.length;i++){const j=Math.floor(Math.random()*(i+1));if(j<k)reservoir[j]=stream[i];}return reservoir;}\nfunction fisherYates(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}\nconst quickselectImpl=quickselect;\nconst fisherYatesImpl=fisherYates;"
+          },
+          "complexity_analysis": "quickselectImpl: O(n) expected, O(n²) worst case. fisherYatesImpl: O(n).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "quickselect: copy array; recurse with k-1 (0-indexed target rank)."
+            },
+            {
+              "level": 2,
+              "text": "Random pivot: swap to position hi; Lomuto partition: elements <= pivot go left of pointer p."
+            },
+            {
+              "level": 3,
+              "text": "fisherYates: for i from length-1 down to 1: pick random j in [0,i]; swap a[i] and a[j]."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 6,
+      "lesson_title": "Competitive Thinking Applied To Interviews",
+      "theory_mcq": [
+        {
+          "id": "L3M8-L6-TH-1",
+          "question": "The 'approach ladder' for Kth Largest shows 4 solutions from O(n log n) to O(n) worst case. Why is presenting MULTIPLE approaches valuable in an interview, even if you'll only implement one?",
+          "options": [
+            "Presenting multiple approaches wastes interview time; jump straight to the optimal solution",
+            "DEMONSTRATES BREADTH AND TRADEOFF AWARENESS: starting with the simple Sort approach (O(n log n)) shows you can always produce a CORRECT baseline; mentioning the heap approach (O(n log k)) shows awareness of SPACE-TIME TRADEOFFS for streaming/online scenarios; presenting Quickselect (O(n) expected) demonstrates knowledge of randomized algorithms; mentioning Introselect (O(n) worst case) shows awareness of ADVERSARIAL INPUT HANDLING; this ladder structure lets the interviewer see your THOUGHT PROCESS and lets YOU choose the right complexity level for the time constraints and the interviewer's signal (some interviews want O(n log n) is 'good enough', others want the O(n) optimal)",
+            "Multiple approaches are required because the interviewer will ask you to implement all four",
+            "The approach ladder is only relevant for senior-level interviews, not entry-level"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Approach ladder: O(n^3) DP -> O(n^2) DP -> O(n log n) with data structure -> O(n) with insight' — presenting the ladder demonstrates systematic problem-solving: starting from a correct baseline and improving; this signals to interviewers both competence (you CAN solve it) and depth (you know WHY each improvement works and its tradeoffs)."
+        },
+        {
+          "id": "L3M8-L6-TH-2",
+          "question": "The lesson maps 'sliding window' to 'constrained two-pointer' and 'binary search on answer' to 'abstract binary search'. What COGNITIVE SHIFT does this reframing represent?",
+          "options": [
+            "The reframing is purely terminological; sliding window and two-pointer are unrelated techniques",
+            "RECOGNISING SHARED STRUCTURE ACROSS NAMED PATTERNS: many 'named' interview patterns are SPECIAL CASES of more general competitive programming techniques; sliding window IS a two-pointer technique with the constraint that the window only expands/contracts monotonically; binary search on answer IS standard binary search applied to an ABSTRACT SEARCH SPACE (the space of possible answers, not array indices) rather than a concrete array; recognising this allows TRANSFERRING competitive programming intuition (which is often taught more rigorously) to interview pattern recognition — instead of memorising 50 distinct 'patterns', you recognise 5-10 FUNDAMENTAL techniques with variations",
+            "The reframing means sliding window should always be replaced with two-pointer in interviews",
+            "This represents a deprecation of the sliding window technique in favor of pure two-pointer"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Two-pointer extension: monotonic deque, sliding window = constrained two-pointer' and 'Binary search extension: binary search on answer (answer-space) = abstract binary search' — this is the module's core meta-lesson: many interview-named patterns are special cases of more general algorithmic techniques studied in competitive programming; recognising the underlying structure reduces the cognitive load of memorising many separate named patterns."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M8-L6-LG-1",
+          "question": "Module 8's NC150 problems (#215, #347, #973) ALL use Quickselect-family techniques. Why does ONE randomized technique apply to THREE seemingly different problems?",
+          "options": [
+            "All three problems are actually the same problem with different names",
+            "ALL THREE ARE 'FIND TOP-K' PROBLEMS in disguise: #215 (Kth Largest) directly asks for the kth order statistic — exact quickselect application; #347 (Top K Frequent) first transforms elements into (value, frequency) pairs via bucket sort, THEN applies quickselect logic on the frequency dimension; #973 (K Closest Points) transforms points into (point, distance²) pairs, THEN applies quickselect logic on the distance dimension; the COMMON STRUCTURE: transform the problem into 'find the kth smallest/largest VALUE along some dimension', then quickselect solves the transformed problem in O(n) expected",
+            "All three problems require a different randomized technique each, despite appearing similar",
+            "These three problems share no common technique; the grouping is coincidental"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's module8_problems: 215 'Quickselect', 347 'Quickselect on bucket sort', 973 'Quickselect' — the unifying pattern is recognising 'top-k' or 'kth element' problems even when disguised behind transformations (frequency counting, distance computation); once transformed to a 1D order-statistic problem, quickselect's O(n) expected complexity applies uniformly."
+        },
+        {
+          "id": "L3M8-L6-LG-2",
+          "question": "The `cpToInterview` array rates techniques by `frequency`: '2-SAT' is 'Rare', 'Quickselect' is 'Common'. What PRACTICAL STUDY DECISION does this frequency rating inform?",
+          "options": [
+            "All techniques should be studied with equal depth regardless of frequency",
+            "TIME-BUDGETED PREPARATION: with limited interview prep time, the frequency rating tells you WHERE TO INVEST DEPTH vs BREADTH; 'Common' techniques (Quickselect) deserve DEEP mastery — implementation fluency, edge cases, complexity proofs — because they appear frequently across companies; 'Rare' techniques (2-SAT) deserve AWARENESS-LEVEL understanding — knowing the technique exists and roughly how it works — sufficient to recognise it if it appears, without spending equal preparation time; this prioritisation mirrors how the broader curriculum already distinguishes 'product track' vs 'competitive track' requirements (as seen in the geometry module)",
+            "Rare techniques should never be studied since they won't appear in interviews",
+            "Frequency ratings only apply to FAANG companies, not startups"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's cpToInterview frequency field: 'Rare (L6+, algorithm-focused companies)' for 2-SAT vs 'Common (NeetCode 150 #215, streaming questions)' for Quickselect — this mirrors the geometry module's product-track guidance; the frequency rating is a study-time allocation signal, helping learners prioritise depth on high-yield techniques while maintaining awareness of rarer ones."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M8-L6-SY-1",
+          "question": "Each `approachLadder` entry includes a `code` field with a SHORT PSEUDOCODE SNIPPET. Why include pseudocode rather than just the complexity?",
+          "options": [
+            "The code field is decorative and not meant to be functionally useful",
+            "BRIDGING ABSTRACT COMPLEXITY TO CONCRETE IMPLEMENTATION: knowing 'O(n) expected' for Quickselect is necessary but not sufficient for an interview — you must also be able to QUICKLY SKETCH the implementation approach; the short pseudocode ('random pivot partition') serves as a MEMORY ANCHOR connecting the complexity claim to its implementation strategy; this is especially valuable for techniques that are conceptually simple to state but easy to forget the exact mechanism under interview pressure; the brevity (a few words, not full code) makes it reviewable as a quick-reference cheat sheet rather than requiring full code reading",
+            "The code field is required for the JSON schema to validate correctly",
+            "Pseudocode is included to avoid copyright issues with full implementations"
+          ],
+          "answer": 1,
+          "explanation": "The approachLadder's code field provides a memory-jogging implementation hint ('arr.sort(); return arr[n-k]', 'maintain k-element heap', 'random pivot partition', 'median-of-medians pivot') — these brief phrases bridge the gap between knowing the COMPLEXITY CLAIM and being able to RECALL THE IMPLEMENTATION STRATEGY under interview time pressure; this is a deliberate pedagogical choice for quick-reference review."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M8-L6-CC-1",
+          "title": "Competitive-to-Interview Technique Classifier",
+          "difficulty": "Intermediate",
+          "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+          "problem_statement": "Implement the CP-to-interview classifier and module summary.",
+          "requirements": [
+            "Implement `classifyTechnique(signal)` returning the CP technique name for a given interview signal",
+            "Implement `module8Summary()` returning {total, nc150} counts"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "const MODULE8 = [\n  {id:215, technique:'Quickselect', nc150:true},\n  {id:347, technique:'Quickselect on bucket sort', nc150:true},\n  {id:973, technique:'Quickselect', nc150:true},\n];\n\nfunction classifyTechnique(signal) {\n  // signals: 'boolean constraints', 'static range min', 'subset n<=40',\n  //          'kth largest', 'range query fallback'\n  // TODO: return technique name\n}\n\nfunction module8Summary() {\n  // TODO: total and nc150 count\n}"
+          },
+          "test_cases": [
+            {
+              "input": "classifyTechnique('boolean constraints')",
+              "expected": "2-SAT",
+              "type": "visible"
+            },
+            {
+              "input": "classifyTechnique('static range min')",
+              "expected": "Sparse Table RMQ",
+              "type": "visible"
+            },
+            {
+              "input": "classifyTechnique('kth largest')",
+              "expected": "Quickselect",
+              "type": "visible"
+            },
+            {
+              "input": "classifyTechnique('subset n<=40')",
+              "expected": "Meet in the Middle",
+              "type": "hidden"
+            },
+            {
+              "input": "module8Summary().nc150",
+              "expected": 3,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "const MODULE8=[{id:215,technique:'Quickselect',nc150:true},{id:347,technique:'Quickselect on bucket sort',nc150:true},{id:973,technique:'Quickselect',nc150:true}];\n\nfunction classifyTechnique(signal){\n  if(signal.includes('boolean')||signal.includes('2-sat')||signal.includes('constraint'))return'2-SAT';\n  if(signal.includes('static range min')||signal.includes('rmq'))return'Sparse Table RMQ';\n  if(signal.includes('n<=40')||signal.includes('subset'))return'Meet in the Middle';\n  if(signal.includes('kth')||signal.includes('top k'))return'Quickselect';\n  if(signal.includes('fallback')||signal.includes('sqrt'))return'Sqrt Decomposition';\n  return'Unknown';\n}\n\nfunction module8Summary(){\n  return{total:MODULE8.length,nc150:MODULE8.filter(p=>p.nc150).length};\n}"
+          },
+          "complexity_analysis": "classifyTechnique: O(|signal|). module8Summary: O(n).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "classifyTechnique: check keywords; boolean/constraint→2-SAT; static range min→Sparse Table; subset n<=40→Meet in the Middle."
+            },
+            {
+              "level": 2,
+              "text": "kth/top k→Quickselect; fallback/sqrt→Sqrt Decomposition."
+            },
+            {
+              "level": 3,
+              "text": "module8Summary: MODULE8.filter(p=>p.nc150).length gives the nc150 count."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "hard": "Lessons 1-3 (2-SAT implication graph logical equivalence, SCC unsatisfiability condition, sparse table idempotency requirement, sqrt decomposition B=sqrt(n) optimality proof)",
+      "advanced": "Lessons 4-5 (meet-in-the-middle combine-step cost dominance, exponent-halving scaling limit, Las Vegas vs Monte Carlo tradeoffs, quickselect O(n) expected proof)",
+      "capstone": "Lesson 6 (approach ladder interview signaling, CP-to-interview pattern unification, frequency-based study prioritization, 3 NC150 quickselect-family problems)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

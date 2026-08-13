@@ -1,0 +1,1667 @@
+{
+  "module_id": "L2-M09",
+  "module_number": 9,
+  "title": "Topological Sort And Graph Patterns",
+  "tag": null,
+  "is_optional_for_product_track": false,
+  "estimated_hours": "10–12 hours",
+  "prerequisites": [
+    "L1-M10"
+  ],
+  "learning_outcomes": [
+    "Implement Kahn's BFS-based topological sort using in-degree tracking and a queue",
+    "Implement DFS-based topological sort using reverse post-order and three-colour states",
+    "Detect cycles in directed graphs using both Kahn's (incomplete output) and DFS (three-colour)",
+    "Solve Alien Dictionary by building a character-order DAG from word comparisons",
+    "Solve Reconstruct Itinerary using Hierholzer's algorithm for Eulerian path construction",
+    "Select the correct graph algorithm for any ordering, precedence, or routing problem"
+  ],
+  "notes": [],
+  "spaced_review": "Re-solve 3 Union Find problems from Module 8 from scratch",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "title": "Topological Sort — Kahn's Algorithm",
+      "tag": null,
+      "objective": "Implement Kahn's BFS-based topological sort using in-degree counting and a queue, produce a valid ordering, and detect cycles when the output is incomplete.",
+      "concepts": [
+        "Topological sort: linear ordering of vertices where every edge u->v has u before v",
+        "Only applicable to DAGs (Directed Acyclic Graphs)",
+        "In-degree: number of incoming edges to a vertex",
+        "Kahn's algorithm: start with all zero-in-degree vertices in a queue",
+        "Process: dequeue, append to result, decrement in-degrees of neighbours",
+        "When neighbour in-degree reaches 0: add to queue",
+        "Cycle detection: if result length < V, a cycle exists",
+        "O(V+E) time, O(V) space"
+      ],
+      "explanation": "Topological sort produces a linear ordering of vertices in a directed acyclic graph (DAG) such that for every directed edge u→v, u appears before v in the ordering. This ordering represents valid dependency resolution: if A must come before B, A appears first. Kahn's algorithm uses BFS and in-degree tracking. In-degree[v] = number of edges pointing to v. Algorithm: (1) Compute in-degrees for all vertices. (2) Add all vertices with in-degree 0 to a queue (no prerequisites). (3) Loop: dequeue vertex u, append to result. For each edge u→v: decrement in-degree[v]. If in-degree[v] becomes 0, add v to queue. (4) After the loop: if result contains all V vertices, a valid topological order is found. If result has fewer than V vertices, the graph contains a cycle (some vertices were never added to the queue because their in-degree never reached 0 due to the cycle maintaining non-zero in-degrees). O(V+E): each vertex and edge is processed exactly once.",
+      "analogy": "Kahn's algorithm is like a kitchen where chefs wait for all their ingredients to arrive before starting. Chefs with no prerequisites (in-degree 0) start immediately. As each chef finishes (is processed), they deliver their output (decrement in-degree) to the chefs waiting for it. When a chef receives all their ingredients (in-degree reaches 0), they can start. If some chefs are still waiting at the end, they are stuck in a circular dependency (a cycle).",
+      "code_example": {
+        "language": "javascript",
+        "code": "// KAHN'S TOPOLOGICAL SORT (BFS-based)\n// O(V+E) time, O(V) space\nfunction topoSortKahn(n, edges) {\n    // Build adjacency list and compute in-degrees\n    const adj = Array.from({length: n}, () => []);\n    const inDegree = new Array(n).fill(0);\n\n    for (const [u, v] of edges) {\n        adj[u].push(v);\n        inDegree[v]++;\n    }\n\n    // Queue: all vertices with in-degree 0\n    const queue = [];\n    for (let v = 0; v < n; v++) {\n        if (inDegree[v] === 0) queue.push(v);\n    }\n\n    const result = [];\n    while (queue.length) {\n        const u = queue.shift(); // dequeue\n        result.push(u);\n\n        for (const v of adj[u]) {\n            inDegree[v]--;              // one prerequisite done\n            if (inDegree[v] === 0) {   // all prerequisites done\n                queue.push(v);\n            }\n        }\n    }\n\n    // Cycle detection: if not all vertices processed, cycle exists\n    return result.length === n ? result : null;\n}\n\n// TEST: course prerequisites\n// 4 courses, edges: 0->1 (0 before 1), 0->2, 1->3, 2->3\nconsole.log(topoSortKahn(4, [[0,1],[0,2],[1,3],[2,3]]));\n// One valid order: [0, 1, 2, 3] or [0, 2, 1, 3]\n\n// CYCLE DETECTION:\nconsole.log(topoSortKahn(3, [[0,1],[1,2],[2,0]])); // null (0->1->2->0 cycle)\n\n// TOPOLOGICAL SORT WITH MULTIPLE VALID ORDERS:\n// The specific order depends on which zero-in-degree vertex is dequeued first.\n// Using a min-heap (priority queue) instead of a plain queue gives\n// lexicographically smallest topological order.\nfunction topoSortKahnLex(n, edges) {\n    const adj = Array.from({length: n}, () => []);\n    const inDeg = new Array(n).fill(0);\n    for (const [u, v] of edges) { adj[u].push(v); inDeg[v]++; }\n\n    // Min-heap for lexicographically smallest order\n    const heap = [];\n    for (let v = 0; v < n; v++) if (inDeg[v] === 0) heap.push(v);\n    heap.sort((a,b) => a-b); // sorted as min-heap approximation\n\n    const result = [];\n    while (heap.length) {\n        heap.sort((a,b) => a-b); // maintain sorted for lexicographic order\n        const u = heap.shift();\n        result.push(u);\n        for (const v of adj[u]) {\n            inDeg[v]--;\n            if (inDeg[v] === 0) heap.push(v);\n        }\n    }\n    return result.length === n ? result : null;\n}",
+        "explanation": "The lexicographic variant uses a sorted queue (effectively a min-heap) to always process the smallest available vertex first. This gives the lexicographically smallest valid topological ordering, which is required by some problems like Course Schedule II when a unique answer is expected. For standard topological sort where any valid order is acceptable, a plain FIFO queue suffices."
+      },
+      "common_mistakes": [
+        "Not returning null when a cycle is detected — checking result.length === n after the loop is the cycle detection; if fewer than n vertices are in the result, some vertices are part of a cycle and no valid topological order exists",
+        "Not building the in-degree array before starting the BFS — in-degrees must be pre-computed from all edges; computing them on-the-fly during the BFS would give incorrect starting vertices",
+        "Using a stack instead of a queue in Kahn's algorithm — Kahn's is BFS-based and uses a FIFO queue; using a stack changes it to a DFS-like traversal which may not produce a correct topological order"
+      ],
+      "interview_relevance": "Kahn's algorithm appears directly in Course Schedule (#207, Blind 75) and Course Schedule II (#210, Blind 75). The in-degree-based approach is the most intuitive for interviewers to verify on paper. The cycle detection (incomplete output) is specifically tested: 'How do you know if all courses can be completed?' Answer: if result.length == numCourses, no cycle exists.",
+      "mini_challenge": "Implement topoSortKahn and verify it returns a valid ordering for 4 courses with edges [[0,1],[0,2],[1,3],[2,3]] and null for [[0,1],[1,2],[2,0]]. Then implement the lexicographic variant and verify it returns [0,1,2,3] (or [0,2,1,3]) as the lexicographically smallest valid order. Finally, solve Course Schedule II using Kahn's: return the course order or [] if impossible.",
+      "flashcards": [
+        {
+          "front": "Kahn's algorithm: what data structure drives it?",
+          "back": "A QUEUE of all nodes with in-degree 0. Repeatedly dequeue a node, add to result, and decrement the in-degree of all its neighbours. When a neighbour reaches in-degree 0, enqueue it."
+        },
+        {
+          "front": "Kahn's algorithm: step-by-step?",
+          "back": "1) Compute in-degree for every node. 2) Enqueue all nodes with in-degree 0. 3) While queue not empty: dequeue u, append to order. For each neighbour v: decrement in-degree[v]. If in-degree[v]==0: enqueue v. 4) If result.length < V: cycle detected (not a DAG)."
+        },
+        {
+          "front": "Kahn's cycle detection: how?",
+          "back": "After the algorithm finishes, if result.length < V (fewer nodes than expected): at least one cycle exists. Nodes in cycles never reach in-degree 0 (each node in a cycle always has at least one predecessor in the cycle keeping its in-degree ≥ 1)."
+        },
+        {
+          "front": "Topological sort: what is valid input?",
+          "back": "Only Directed Acyclic Graphs (DAGs). If the graph has a cycle, no topological ordering exists — some node in the cycle would need to come before itself."
+        },
+        {
+          "front": "Kahn's time and space complexity?",
+          "back": "Time: O(V+E) — each vertex enqueued/dequeued once, each edge processed once during in-degree decrement. Space: O(V) for in-degree array + O(V) for queue + O(V) for result."
+        },
+        {
+          "front": "In-degree: what is it?",
+          "back": "The number of directed edges POINTING INTO a vertex. In a dependency graph: in-degree 0 means no prerequisites. Prerequisites are completed before a node is enqueued."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Graph: 0→1, 0→2, 1→3, 2→3. Initial in-degrees?",
+          "options": [
+            "[0, 1, 1, 2]",
+            "[2, 0, 0, 1]",
+            "[0, 0, 1, 2]",
+            "[1, 1, 0, 2]"
+          ],
+          "answer": 0,
+          "explanation": "in[0]=0 (no edges point to 0). in[1]=1 (edge 0→1). in[2]=1 (edge 0→2). in[3]=2 (edges 1→3 and 2→3). in-degrees=[0,1,1,2]."
+        },
+        {
+          "question": "Kahn's on [0,1,2,3] with in-degrees [0,1,1,2], edges 0→{1,2}, 1→3, 2→3. First dequeue?",
+          "options": [
+            "Node 0 (only node with in-degree 0)",
+            "Node 3 (highest in-degree first)",
+            "Node 1 or 2 (in-degree 1)",
+            "Random node"
+          ],
+          "answer": 0,
+          "explanation": "Queue initialized with all in-degree-0 nodes: {0}. Dequeue 0. Decrement in[1]=0, in[2]=0. Enqueue 1 and 2. Queue={1,2}."
+        },
+        {
+          "question": "After Kahn's on a 5-node graph, result has 4 nodes. What does this mean?",
+          "options": [
+            "One node was skipped intentionally",
+            "Cycle detected — the missing node is in a cycle that prevented it from ever reaching in-degree 0",
+            "The graph is disconnected",
+            "The algorithm has a bug"
+          ],
+          "answer": 1,
+          "explanation": "result.length=4 < V=5: one node never reached in-degree 0. Nodes in cycles always have a predecessor within the cycle keeping in-degree ≥ 1. Cycle detected → no valid topological order exists."
+        },
+        {
+          "question": "Is topological sort unique for a given DAG?",
+          "options": [
+            "Yes — exactly one valid topological order",
+            "No — multiple valid orders can exist when nodes have equal in-degree simultaneously",
+            "Yes if the graph is a tree",
+            "Only unique for graphs with no branching"
+          ],
+          "answer": 1,
+          "explanation": "When multiple nodes have in-degree 0 simultaneously, any of them can be chosen next — each choice gives a valid but different topological order. Uniqueness only occurs when at every step exactly ONE node has in-degree 0 (a Hamiltonian path in the DAG)."
+        }
+      ],
+      "visual_aid": {
+        "type": "kahns_trace",
+        "description": "Kahn's algorithm step-by-step on a dependency graph",
+        "diagram": "Graph: 0→1, 0→2, 1→3, 2→3\nin-degrees: [0:0, 1:1, 2:1, 3:2]\n\nStep 0: queue=[0] (only in-degree-0 node)\n\nStep 1: dequeue 0, order=[0]\n  Decrement in[1]=1-1=0 → enqueue 1\n  Decrement in[2]=1-1=0 → enqueue 2\n  queue=[1,2]\n\nStep 2: dequeue 1, order=[0,1]\n  Decrement in[3]=2-1=1 (not 0 yet)\n  queue=[2]\n\nStep 3: dequeue 2, order=[0,1,2]\n  Decrement in[3]=1-1=0 → enqueue 3\n  queue=[3]\n\nStep 4: dequeue 3, order=[0,1,2,3]\n  No neighbours\n  queue=[]\n\nResult: [0,1,2,3], length=4=V → NO CYCLE ✓\nOther valid order: [0,2,1,3] (dequeue 2 before 1 in step 2)"
+      },
+      "complexity_summary": {
+        "time": "O(V+E) — each vertex and edge processed once",
+        "space": "O(V) — in-degree array + queue + result",
+        "cycle_detection": "result.length < V → cycle exists",
+        "valid_input": "DAGs only — cycles make topological order impossible"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-207",
+          "title": "Course Schedule — Kahn's cycle detection",
+          "difficulty": "Medium",
+          "pattern": "Kahn's: result.length < V → cannot finish"
+        },
+        {
+          "id": "lc-210",
+          "title": "Course Schedule II — Kahn's topological order",
+          "difficulty": "Medium",
+          "pattern": "Kahn's: return full order or [] on cycle"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M9-L1-TH-1",
+            "question": "In Kahn's algorithm, why does `result.length < n` indicate a cycle in the graph?",
+            "options": [
+              "Shorter results mean some vertices were skipped due to memory limits",
+              "Kahn's algorithm only processes vertices whose IN-DEGREE REACHES ZERO — a vertex with all prerequisites done; in a CYCLE (e.g., A→B→C→A), each vertex in the cycle has at least one incoming edge that can never be satisfied (the predecessor in the cycle is never fully processed first); these vertices never reach in-degree 0, so they're never enqueued; if any vertex is never processed, result.length < n — directly revealing the cycle",
+              "result.length < n means there were disconnected components that were skipped",
+              "Kahn's algorithm counts edges not vertices; length < n is an unrelated condition"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Cycle detection: if result length < V, a cycle exists' — vertices in a cycle can never have their in-degree reach 0 because their circular predecessor always contributes an unresolved incoming edge; such vertices never enter the queue and are never appended to result; the count discrepancy precisely identifies cycle presence."
+          },
+          {
+            "id": "L2M9-L1-TH-2",
+            "question": "What is the IN-DEGREE of a vertex, and why does Kahn's algorithm start by enqueueing all zero-in-degree vertices?",
+            "options": [
+              "In-degree is the number of outgoing edges; zero-in-degree vertices have no successors",
+              "IN-DEGREE is the NUMBER OF INCOMING EDGES to a vertex — the number of other vertices that must precede it; zero-in-degree vertices have NO PREREQUISITES — nothing must come before them in the topological order; these are the natural STARTING POINTS of the ordering; enqueueing them first ensures we begin with safely-schedulable tasks and then progressively unlock their successors as each prerequisite is satisfied",
+              "In-degree is the depth level of a vertex in the BFS tree",
+              "Zero-in-degree vertices are always source nodes in the original problem domain"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'In-degree: number of incoming edges to a vertex' and 'Kahn's algorithm: start with all zero-in-degree vertices in a queue' — zero in-degree means no prerequisite constraints; these vertices can be validly placed first in any topological ordering; the algorithm then removes their outgoing edges (by decrementing successors' in-degrees), potentially creating new zero-in-degree vertices."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M9-L1-LG-1",
+            "question": "For `topoSortKahn(4, [[0,1],[0,2],[1,3],[2,3]])`, what are the initial in-degrees and what is the first vertex dequeued?",
+            "options": [
+              "inDegrees=[0,1,1,2]; vertex 0 is first dequeued — confirmed: 0 has no incoming edges; 1 and 2 each have one incoming from 0; 3 has two incoming from 1 and 2",
+              "inDegrees=[1,0,0,1]; vertices 1 and 2 are dequeued first",
+              "inDegrees=[0,0,0,0]; all vertices dequeued simultaneously",
+              "inDegrees=[2,1,1,0]; vertex 3 is dequeued first"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: inDegrees for edges [0→1,0→2,1→3,2→3]: inDegree[0]=0 (no incoming), inDegree[1]=1 (from 0), inDegree[2]=1 (from 0), inDegree[3]=2 (from 1 and 2); vertex 0 is the only zero-in-degree vertex and is enqueued first; after processing 0, vertices 1 and 2 both reach in-degree 0."
+          },
+          {
+            "id": "L2M9-L1-LG-2",
+            "question": "After dequeuing vertex 0, what happens to the in-degrees of vertices 1 and 2, and which vertex is next dequeued (if any)?",
+            "options": [
+              "inDeg[1] becomes 0 and inDeg[2] becomes 0; both are enqueued; either 1 or 2 is next",
+              "inDeg[1]-- → 0, enqueue 1; inDeg[2]-- → 0, enqueue 2; the queue now has [1,2]; vertex 1 is dequeued next (FIFO queue) giving result=[0,1]; then 2 is dequeued; after dequeuing 1, inDeg[3]-- → 1; after dequeuing 2, inDeg[3]-- → 0, enqueue 3",
+              "Only inDeg[1] changes; inDeg[2] requires a separate edge decrement",
+              "inDeg[1]=1, inDeg[2]=1 remain unchanged; vertex 0 had no effect"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution returning [0,1,2,3]; processing vertex 0's adjacency [1,2]: inDeg[1] decrements to 0 (enqueue), inDeg[2] decrements to 0 (enqueue); FIFO queue: next is vertex 1; after vertex 1, inDeg[3] becomes 1; after vertex 2, inDeg[3] becomes 0 (enqueue); final result [0,1,2,3]."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M9-L1-SY-1",
+            "question": "In Kahn's algorithm, `queue.shift()` dequeues from the front (FIFO). What would happen if `queue.pop()` (LIFO) were used instead?",
+            "options": [
+              "pop() and shift() produce identical topological orderings",
+              "Using `pop()` makes the queue behave as a STACK (LIFO), turning Kahn's BFS into a DFS-like traversal; the result is STILL a valid topological order (as long as the graph is a DAG), but it may differ from the BFS order produced by `shift()`; the important correctness property (u before v for every edge u→v) is preserved regardless of FIFO/LIFO; only the specific ordering among equally-valid alternatives changes",
+              "pop() would cause an infinite loop for DAGs",
+              "pop() produces a reverse topological order that must be reversed again"
+            ],
+            "answer": 1,
+            "explanation": "The choice of FIFO (shift/queue) vs LIFO (pop/stack) among zero-in-degree vertices doesn't affect correctness — any order of processing zero-in-degree vertices produces a valid topological sort; it only affects WHICH valid ordering is produced; for lexicographically smallest order, a sorted structure (min-heap) is used instead; the lesson notes `topoSortKahnLex` uses sort for this purpose."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M9-L1-CC-1",
+            "title": "Kahn's Topological Sort",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement Kahn's BFS-based topological sort from this lesson.",
+            "requirements": [
+              "Implement `topoSortKahnImpl(n, edges)` returning a valid topological order or null if a cycle exists",
+              "Implement `hasCycleDirect(n, edges)` returning true if a directed cycle exists"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function topoSortKahnImpl(n, edges) {\n  // TODO: build inDegree array and adj list; BFS from zero-in-degree vertices\n  // return valid topo order array or null if cycle\n}\n\nfunction hasCycleDirect(n, edges) {\n  return topoSortKahnImpl(n, edges) === null;\n}"
+            },
+            "test_cases": [
+              {
+                "input": "JSON.stringify(topoSortKahnImpl(4, [[0,1],[0,2],[1,3],[2,3]]))",
+                "expected": "[0,1,2,3]",
+                "type": "visible"
+              },
+              {
+                "input": "topoSortKahnImpl(3, [[0,1],[1,2],[2,0]])",
+                "expected": null,
+                "type": "visible"
+              },
+              {
+                "input": "hasCycleDirect(3, [[0,1],[1,2],[2,0]])",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "hasCycleDirect(3, [[0,1],[1,2]])",
+                "expected": false,
+                "type": "hidden"
+              },
+              {
+                "input": "topoSortKahnImpl(1, [])[0]",
+                "expected": 0,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function topoSortKahnImpl(n, edges) {\n  const adj = Array.from({length:n},()=>[]);\n  const inDeg = new Array(n).fill(0);\n  for (const [u,v] of edges) { adj[u].push(v); inDeg[v]++; }\n  const queue = [];\n  for (let v=0;v<n;v++) if(inDeg[v]===0) queue.push(v);\n  const result = [];\n  while (queue.length) {\n    const u = queue.shift();\n    result.push(u);\n    for (const v of adj[u]) if(--inDeg[v]===0) queue.push(v);\n  }\n  return result.length===n ? result : null;\n}\n\nfunction hasCycleDirect(n, edges) {\n  return topoSortKahnImpl(n, edges) === null;\n}"
+            },
+            "complexity_analysis": "O(V+E) time, O(V) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Build inDegree array: for each edge [u,v], inDeg[v]++; initialise queue with all vertices where inDeg[v]===0."
+              },
+              {
+                "level": 2,
+                "text": "BFS loop: shift vertex u; push to result; for each neighbour v, decrement inDeg[v]; if 0, push to queue."
+              },
+              {
+                "level": 3,
+                "text": "Cycle check: return null if result.length < n (some vertices with circular dependencies never reached in-degree 0)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 2,
+      "title": "Topological Sort — DFS Based",
+      "tag": null,
+      "objective": "Implement DFS-based topological sort using reverse post-order traversal with three-colour state tracking, and understand why post-order reversal gives the correct topological ordering.",
+      "concepts": [
+        "Post-order DFS: append vertex to result AFTER all its descendants are processed",
+        "Reverse post-order = topological order",
+        "Three states: 0 = unvisited, 1 = in current DFS path, 2 = fully processed",
+        "Cycle detection: encountering a state-1 vertex = back edge = cycle",
+        "Handles disconnected components: run DFS from all unvisited vertices",
+        "O(V+E) time, O(V) space including call stack",
+        "Relationship to Kahn's: both correct, different structure",
+        "DFS post-order builds reverse topological order naturally"
+      ],
+      "explanation": "DFS-based topological sort uses the observation that in a DFS, a vertex is appended to the result after all vertices reachable from it are fully processed. Reversing this list gives the topological order: if u→v is an edge, v is finished before u (added to result first), so after reversal u comes before v. Three states: 0 (unvisited), 1 (in current DFS path, gray), 2 (fully processed, black). Starting from each unvisited vertex: mark as gray (in-progress), recurse into all unvisited neighbours. If a neighbor is gray, a cycle is detected (back edge in DFS tree). After all neighbours are processed, mark as black and append to result. After processing all vertices, reverse the result for topological order. Compared to Kahn's: DFS naturally handles components by iterating over all unvisited vertices. Kahn's explicitly initialises with zero-in-degree vertices. Both produce valid topological orders in O(V+E).",
+      "analogy": "DFS topological sort is like building a to-do list by finishing prerequisites first. You start a task (gray), then recursively complete all its dependencies. Only after all dependencies are done do you mark the task as complete (black) and add it to your completed list. The completed list is in reverse order of completion: the last completed task (root task) should be first in the schedule. Reversing the list gives the correct execution order.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// DFS-BASED TOPOLOGICAL SORT\n// O(V+E) time, O(V) space\nfunction topoSortDFS(n, edges) {\n    const adj = Array.from({length: n}, () => []);\n    for (const [u, v] of edges) adj[u].push(v);\n\n    const state = new Array(n).fill(0); // 0=unvisited, 1=in-path, 2=done\n    const result = [];\n    let hasCycle = false;\n\n    function dfs(u) {\n        if (hasCycle) return;\n        state[u] = 1;                      // mark gray (in current path)\n        for (const v of adj[u]) {\n            if (state[v] === 1) { hasCycle = true; return; } // back edge: cycle\n            if (state[v] === 0) dfs(v);    // unvisited: recurse\n            // state[v] === 2: already fully processed, skip\n        }\n        state[u] = 2;                      // mark black (fully processed)\n        result.push(u);                    // POST-ORDER: append AFTER all descendants\n    }\n\n    for (let v = 0; v < n; v++) {\n        if (state[v] === 0) dfs(v);        // handle disconnected components\n    }\n\n    if (hasCycle) return null;\n    return result.reverse();               // REVERSE post-order = topological order\n}\n\nconsole.log(topoSortDFS(4, [[0,1],[0,2],[1,3],[2,3]]));\n// [0, 1, 2, 3] or [0, 2, 1, 3] (one valid topological order)\n\nconsole.log(topoSortDFS(3, [[0,1],[1,2],[2,0]])); // null (cycle)\n\n// WHY REVERSE POST-ORDER = TOPOLOGICAL ORDER:\n// DFS post-order processes u AFTER all vertices reachable from u.\n// For edge u->v: v is processed (appended) BEFORE u.\n// After reversal: u comes before v. Correct topological order.\n\n// COMPARISON: Kahn's vs DFS topological sort\n//\n// Kahn's BFS:                     DFS post-order:\n// Uses in-degree array             Uses three-color state\n// Processes zero-in-degree first  Processes any unvisited vertex first\n// Result built left-to-right      Result reversed at end\n// Cycle: result.length < n        Cycle: state[v]==1 found\n// Both O(V+E) time O(V) space     Both handle disconnected components",
+        "explanation": "The reversal at the end (result.reverse()) is what converts post-order to topological order. In post-order, deeper vertices appear first (they are appended when their DFS completes). After reversal, shallower vertices (sources with no incoming edges) appear first. This is exactly the topological ordering requirement."
+      },
+      "common_mistakes": [
+        "Appending u to result in pre-order instead of post-order — pre-order appends before recursing; only post-order (append after all descendants are processed) produces a reversible topological order",
+        "Not reversing the result array — the DFS naturally produces reverse topological order; forgetting to reverse gives an order where vertices with outgoing edges come first, which is backwards",
+        "Using only visited/unvisited (two states) instead of three states — with two states, a node in a different DFS path that was already visited would be incorrectly flagged as a cycle; the third state (fully processed = black) distinguishes back edges from cross edges"
+      ],
+      "interview_relevance": "DFS-based topological sort is tested in Course Schedule I and II as an alternative to Kahn's. Interviewers sometimes specifically ask for the DFS variant after seeing Kahn's to verify the candidate understands both. The post-order reverse insight is the key explanatory step: 'Why do you reverse? Because post-order naturally places prerequisites after dependents, and reversal corrects this.'",
+      "mini_challenge": "Implement topoSortDFS and verify it gives the same valid orderings as topoSortKahn for [[0,1],[0,2],[1,3],[2,3]]. Trace the DFS execution step by step showing the state array and result array after each function call. Then explain: for a graph where both Kahn's and DFS produce the same set of valid topological orderings, which algorithm is preferred in an interview setting and why? (Kahn's is more intuitive to explain and verify; DFS is more natural if you are already implementing DFS for cycle detection.)",
+      "flashcards": [
+        {
+          "front": "DFS topological sort: output order?",
+          "back": "POST-ORDER DFS: add a node to the result AFTER all its descendants are processed. Then REVERSE the result. The first node added to the stack (last to finish DFS) is the one with no dependencies — it belongs first in topological order."
+        },
+        {
+          "front": "DFS topological sort: three-colour states?",
+          "back": "WHITE (0): unvisited. GREY (1): currently on the DFS stack (being processed). BLACK (2): fully processed. If DFS reaches a GREY node: cycle detected (back edge). A BLACK node can be safely skipped."
+        },
+        {
+          "front": "Why reverse the post-order for topological sort?",
+          "back": "Post-order processes descendants before ancestors. The LAST node to finish (deepest dependency) is pushed first to the stack. Reversing gives: nodes with no dependencies first (correct topological order)."
+        },
+        {
+          "front": "DFS vs Kahn's: which to use in interviews?",
+          "back": "Kahn's (BFS): preferred when you need the RESULT array (Course Schedule II) or cycle detection. More intuitive. DFS: preferred when you're already doing DFS on the graph (e.g., Alien Dictionary), or when you want to reuse the three-colour cycle detection from directed graphs."
+        },
+        {
+          "front": "DFS topological sort: cycle detection vs Kahn's?",
+          "back": "DFS: check for GREY neighbours during traversal — grey neighbour = back edge = cycle. Kahn's: check result.length < V after algorithm — nodes in cycles never reach in-degree 0. Both O(V+E). DFS cycle detection is more immediate (stops on first back edge)."
+        },
+        {
+          "front": "DFS topological sort: why use a stack (not just a list)?",
+          "back": "Nodes are pushed in post-order (leaf nodes first). To get correct topological order (root nodes first), we need to reverse. Using a stack and then popping gives reversal naturally. Alternative: push to array then return reversed array."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "DFS topo sort on 0→1→2. Post-order finish times: 2 finishes first, then 1, then 0. Reversed order?",
+          "options": [
+            "[2,1,0] — wrong, not reversed",
+            "[0,1,2] — correct topological order",
+            "[1,0,2]",
+            "[2,0,1]"
+          ],
+          "answer": 1,
+          "explanation": "Post-order: [2,1,0] (leaf finishes first). Reversed: [0,1,2]. Correct: 0 must come before 1 (0→1), and 1 before 2 (1→2)."
+        },
+        {
+          "question": "DFS reaches node 3 (currently GREY). What does this mean?",
+          "options": [
+            "Node 3 is fully processed — skip it",
+            "Node 3 is on the current DFS stack — back edge found — CYCLE detected",
+            "Node 3 has high in-degree",
+            "Node 3 should be enqueued"
+          ],
+          "answer": 1,
+          "explanation": "GREY = currently on the recursion stack. A new edge reaching a GREY node = back edge (the DFS is revisiting a node it's currently processing = cycle). Return false/null to signal cycle."
+        },
+        {
+          "question": "DFS topo: graph has nodes 0,1,2,3 with edges 0→1, 2→3, 0→3. Post-order visits: 1,3,0,2 (finishing order). Topological order?",
+          "options": [
+            "[1,3,0,2]",
+            "[2,0,3,1] — reversed",
+            "[0,2,1,3] — different valid order",
+            "[2,0,1,3]"
+          ],
+          "answer": 1,
+          "explanation": "Post-order [1,3,0,2] reversed = [2,0,3,1]. Valid check: 0→1 ✓(0 before 1), 2→3 ✓(2 before 3), 0→3 ✓(0 before 3). All edges satisfied."
+        },
+        {
+          "question": "When would you choose DFS topo over Kahn's?",
+          "options": [
+            "When you need a BFS-level traversal",
+            "When you're already doing DFS on the graph (e.g., iterating vertices for another reason)",
+            "When the graph has negative weights",
+            "Kahn's is always better"
+          ],
+          "answer": 1,
+          "explanation": "DFS topo integrates naturally when you're already traversing with DFS (Alien Dictionary, finding SCCs). Kahn's is more explicit and preferred when the RESULT ORDER is the primary output (Course Schedule II)."
+        }
+      ],
+      "visual_aid": {
+        "type": "dfs_topo_trace",
+        "description": "DFS topological sort with three-colour states",
+        "diagram": "Graph: 0→1, 0→2, 1→3, 2→3\ncolors=[WHITE,WHITE,WHITE,WHITE]\n\nDFS from 0: color[0]=GREY\n  Visit 1: color[1]=GREY\n    Visit 3: color[3]=GREY\n      No unvisited neighbours\n      color[3]=BLACK, stack.push(3). stack=[3]\n    color[1]=BLACK, stack.push(1). stack=[3,1]\n  Visit 2: color[2]=GREY\n    Visit 3: color[3]=BLACK → skip (fully done, not a cycle)\n    color[2]=BLACK, stack.push(2). stack=[3,1,2]\n  color[0]=BLACK, stack.push(0). stack=[3,1,2,0]\n\nPop stack: 0,2,1,3 → topological order [0,2,1,3] ✓\n(Also valid: [0,1,2,3] from Kahn's)\n\nCYCLE DETECTION:\nIf DFS from 1 reaches 1 again (GREY): back edge = CYCLE"
+      },
+      "complexity_summary": {
+        "time": "O(V+E) — same as Kahn's",
+        "space": "O(V) — color array + stack + recursion depth",
+        "cycle_detection": "GREY neighbour during DFS = back edge = cycle",
+        "output": "Pop the result stack for topological order"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-207",
+          "title": "Course Schedule — DFS three-colour cycle detection",
+          "difficulty": "Medium",
+          "pattern": "DFS: grey neighbour = cycle",
+          "blind75": true
+        },
+        {
+          "id": "lc-210",
+          "title": "Course Schedule II — DFS post-order reverse",
+          "difficulty": "Medium",
+          "pattern": "DFS topo: push on black, reverse at end",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M9-L2-TH-1",
+            "question": "Why does DFS POST-ORDER reversed give the correct topological ordering?",
+            "options": [
+              "Post-order is naturally sorted by vertex index",
+              "In DFS post-order, vertex u is appended to result AFTER all vertices reachable from u (all descendants) are fully processed; for any edge u→v: v is processed (appended) BEFORE u in post-order; REVERSING the post-order list puts u BEFORE v — exactly the topological constraint 'u before v'; this reversal transforms the natural DFS finishing time into the correct topological precedence",
+              "Post-order traversal visits leaves first, which happen to be topologically last",
+              "DFS post-order and pre-order produce identical topological orderings"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's explanation: 'For edge u->v: v is processed (appended) BEFORE u. After reversal: u comes before v. Correct topological order' — post-order appends after descendants; reversal inverts this to match the 'predecessors before successors' requirement; this is the key insight behind DFS-based topological sort."
+          },
+          {
+            "id": "L2M9-L2-TH-2",
+            "question": "What do the THREE STATES (0, 1, 2) represent in DFS topological sort, and which state signals a CYCLE?",
+            "options": [
+              "0=visited, 1=parent, 2=leaf; state 2 signals a cycle",
+              "State 0 = UNVISITED (not yet reached); State 1 = IN CURRENT DFS PATH (gray — currently being explored); State 2 = FULLY PROCESSED (black — completely done with all descendants); encountering STATE 1 signals a CYCLE: if we reach a vertex that is currently on the active DFS path (state 1), it means there's a back edge — we've looped back to a vertex in our own ancestry chain, forming a directed cycle",
+              "0=unvisited, 1=visited, 2=processed; state 0 signals a cycle",
+              "All three states are needed only for disconnected graphs; connected graphs use two states"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concepts: '0=unvisited, 1=in current DFS path, 2=fully processed' and 'Cycle detection: encountering a state-1 vertex = back edge = cycle' — the three-colour (white/gray/black) DFS is the standard algorithm for directed cycle detection; state-2 vertices can be safely skipped (already processed); state-1 indicates a back edge to an ancestor in the current DFS tree."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M9-L2-LG-1",
+            "question": "Why is the outer loop `for (let v = 0; v < n; v++) if (state[v] === 0) dfs(v)` needed in DFS topological sort?",
+            "options": [
+              "The outer loop is a redundancy check; it only activates when the graph has cycles",
+              "The outer loop handles DISCONNECTED COMPONENTS: in a DAG with disconnected subgraphs, a single DFS from vertex 0 might not reach all vertices (if 0 has no outgoing edges to some component); iterating over all unvisited vertices ensures every vertex is visited exactly once, including isolated vertices and vertices in separate weakly-connected components; this is identical to the pattern used in Number of Islands and other multi-component graph problems",
+              "The outer loop restarts DFS from scratch on each iteration",
+              "The outer loop is only needed when the graph is given as an edge list rather than adjacency list"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Handles disconnected components: run DFS from all unvisited vertices' — a single DFS may not reach all vertices in a disconnected DAG; the outer loop ensures completeness; the `state[v]===0` check prevents re-visiting already-processed vertices, so each vertex is DFS-explored exactly once."
+          },
+          {
+            "id": "L2M9-L2-LG-2",
+            "question": "For the same graph [[0,1],[0,2],[1,3],[2,3]], Kahn's produces [0,1,2,3] while DFS produces [0,2,1,3] (different order). Are BOTH valid topological orderings?",
+            "options": [
+              "Only one topological order is valid for any DAG",
+              "BOTH are valid — a topological sort is valid if for every directed edge u→v, u appears before v in the result; both [0,1,2,3] and [0,2,1,3] satisfy: 0 before 1 ✓, 0 before 2 ✓, 1 before 3 ✓, 2 before 3 ✓; there can be MULTIPLE valid topological orderings for a DAG (when some vertices have no relative ordering constraint); the different results reflect the different traversal strategies (BFS-FIFO vs DFS-recursion depth)",
+              "DFS always produces the same result as Kahn's for any DAG",
+              "[0,2,1,3] is invalid because 2 appears before 1 which is not allowed"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: Kahn's returns [0,1,2,3] and DFS returns [0,2,1,3]; both are valid since vertices 1 and 2 have no ordering constraint between them (neither has an edge to the other); any topological sort allows either ordering for unconstrained pairs; the lesson notes 'Both O(V+E) time O(V) space' with different result structures but equivalent correctness."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M9-L2-SY-1",
+            "question": "In the DFS topological sort, `state[u] = 2` and `result.push(u)` happen AFTER the neighbour loop. Why must these two lines come AFTER (not before) the recursion?",
+            "options": [
+              "The order is arbitrary; JavaScript executes these lines simultaneously with the loop",
+              "Setting state[u]=2 and pushing u MUST happen AFTER all neighbours are recursed: if state[u] were set to 2 BEFORE recursing into v, then if v loops back to u, the check `state[v]===1` would not trigger (u is already 2); the cycle would be UNDETECTED; similarly, pushing u BEFORE its descendants would produce pre-order (not post-order), giving an INCORRECT topological ordering after reversal; both the cycle detection and the ordering correctness depend on post-order execution",
+              "Post-order is optional; pre-order works equally well for topological sort",
+              "state[u]=2 must come before result.push(u) for initialization purposes"
+            ],
+            "answer": 1,
+            "explanation": "The post-order placement (after recursion) is essential for both correctness invariants: (1) cycle detection requires state[u]=1 to remain active while u's subtree is explored; setting state[u]=2 early would miss back edges to u; (2) post-order placement ensures all descendants appear in result before u, so reversal correctly places u before its successors."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M9-L2-CC-1",
+            "title": "DFS Topological Sort",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement DFS-based topological sort from this lesson.",
+            "requirements": [
+              "Implement `topoSortDFSImpl(n, edges)` matching the lesson's three-colour DFS with post-order reversal"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function topoSortDFSImpl(n, edges) {\n  // TODO: three-colour state (0=unvisited,1=in-path,2=done)\n  // post-order append, reverse at end; return null if cycle\n}"
+            },
+            "test_cases": [
+              {
+                "input": "topoSortDFSImpl(4, [[0,1],[0,2],[1,3],[2,3]])[0]",
+                "expected": 0,
+                "type": "visible"
+              },
+              {
+                "input": "topoSortDFSImpl(4, [[0,1],[0,2],[1,3],[2,3]])[3]",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "topoSortDFSImpl(3, [[0,1],[1,2],[2,0]])",
+                "expected": null,
+                "type": "visible"
+              },
+              {
+                "input": "topoSortDFSImpl(2, [[0,1]])[0]",
+                "expected": 0,
+                "type": "hidden"
+              },
+              {
+                "input": "topoSortDFSImpl(1, []).length",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function topoSortDFSImpl(n, edges) {\n  const adj = Array.from({length:n},()=>[]);\n  for (const [u,v] of edges) adj[u].push(v);\n  const state = new Array(n).fill(0);\n  const result = [];\n  let hasCycle = false;\n  function dfs(u) {\n    if (hasCycle) return;\n    state[u] = 1;\n    for (const v of adj[u]) {\n      if (state[v]===1) { hasCycle=true; return; }\n      if (state[v]===0) dfs(v);\n    }\n    state[u] = 2;\n    result.push(u);\n  }\n  for (let v=0;v<n;v++) if(state[v]===0) dfs(v);\n  return hasCycle ? null : result.reverse();\n}"
+            },
+            "complexity_analysis": "O(V+E) time, O(V) space including call stack.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Three states: 0=unvisited, 1=in current DFS path (gray), 2=fully processed (black)."
+              },
+              {
+                "level": 2,
+                "text": "Cycle: if state[v]===1 when encountered → back edge → cycle → set hasCycle=true."
+              },
+              {
+                "level": 3,
+                "text": "Post-order: state[u]=2 and result.push(u) AFTER the neighbour loop; reverse result at the end."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 3,
+      "title": "Course Schedule I And II",
+      "tag": null,
+      "objective": "Solve Course Schedule I (cycle detection) and Course Schedule II (produce ordering) using both Kahn's and DFS-based topological sort, applying the correct output for each variant.",
+      "concepts": [
+        "Course Schedule I: can all courses be completed? = does a valid topo order exist?",
+        "Course Schedule II: return a valid course order, or [] if impossible",
+        "Kahn's approach: build in-degrees, BFS, check result.length == n",
+        "DFS approach: three-colour states, post-order reverse, check no cycle",
+        "Prerequisites as directed edges: [a, b] means b must come before a",
+        "O(V+E) time for both problems",
+        "Edge direction: prerequisite->course (b->a for [a,b]) in the ordering",
+        "Multiple valid orderings: either is acceptable unless lexicographic order required"
+      ],
+      "explanation": "Course Schedule I (#207): given n courses and prerequisite pairs [a, b] meaning 'b must be taken before a', can all courses be completed? This is equivalent to asking if the directed prerequisite graph has no cycle. Build a directed graph: for each [a, b], add edge b→a (b is prerequisite of a). Then check if a valid topological sort exists. Using Kahn's: if result.length == n, return true. Using DFS: if no back edge is found during DFS, return true. Course Schedule II (#210): return the actual order. Using Kahn's: return the result array (already in topological order) or [] if cycle. Using DFS: return the reversed post-order result or [] if cycle. The edge direction is important: [a, b] means b must come before a. In the graph, edge goes from b to a (prerequisite points to course). In the topological order, b must appear before a, which is correctly achieved by topological sort of b→a.",
+      "analogy": "Course Schedule is a university registration system. You cannot enrol in Calculus II without Calculus I. The prerequisite graph has an edge from Calc I to Calc II. Topological sort gives the registration order: complete all prerequisites before the dependent course. If there is a circular dependency (A requires B, B requires A), no registration order is possible.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// COURSE SCHEDULE I (#207) — can all courses be completed?\nfunction canFinish(numCourses, prerequisites) {\n    // Build graph: [a,b] means b->a (b is prerequisite of a)\n    const adj = Array.from({length: numCourses}, () => []);\n    const inDeg = new Array(numCourses).fill(0);\n    for (const [a, b] of prerequisites) {\n        adj[b].push(a); // b->a: take b before a\n        inDeg[a]++;\n    }\n\n    // Kahn's BFS\n    const queue = [];\n    for (let v = 0; v < numCourses; v++) if (inDeg[v] === 0) queue.push(v);\n    let processed = 0;\n    while (queue.length) {\n        const u = queue.shift();\n        processed++;\n        for (const v of adj[u]) {\n            if (--inDeg[v] === 0) queue.push(v);\n        }\n    }\n    return processed === numCourses; // true if no cycle\n}\n\n// COURSE SCHEDULE II (#210) — return valid order\nfunction findOrder(numCourses, prerequisites) {\n    const adj = Array.from({length: numCourses}, () => []);\n    const inDeg = new Array(numCourses).fill(0);\n    for (const [a, b] of prerequisites) {\n        adj[b].push(a);\n        inDeg[a]++;\n    }\n\n    const queue = [];\n    for (let v = 0; v < numCourses; v++) if (inDeg[v] === 0) queue.push(v);\n    const order = [];\n    while (queue.length) {\n        const u = queue.shift();\n        order.push(u);\n        for (const v of adj[u]) {\n            if (--inDeg[v] === 0) queue.push(v);\n        }\n    }\n    return order.length === numCourses ? order : [];\n}\n\nconsole.log(canFinish(2, [[1,0]]));          // true (0->1 no cycle)\nconsole.log(canFinish(2, [[1,0],[0,1]]));    // false (0->1->0 cycle)\nconsole.log(findOrder(4, [[1,0],[2,0],[3,1],[3,2]])); // [0,1,2,3] or [0,2,1,3]\nconsole.log(findOrder(2, [[1,0],[0,1]]));    // [] (cycle)\n\n// DFS VARIANT of Course Schedule II:\nfunction findOrder_DFS(numCourses, prerequisites) {\n    const adj = Array.from({length: numCourses}, () => []);\n    for (const [a, b] of prerequisites) adj[b].push(a);\n\n    const state = new Array(numCourses).fill(0);\n    const result = [];\n    let cycle = false;\n\n    function dfs(u) {\n        if (cycle) return;\n        state[u] = 1;\n        for (const v of adj[u]) {\n            if (state[v] === 1) { cycle = true; return; }\n            if (state[v] === 0) dfs(v);\n        }\n        state[u] = 2;\n        result.push(u);\n    }\n\n    for (let v = 0; v < numCourses; v++) if (state[v] === 0) dfs(v);\n    return cycle ? [] : result.reverse();\n}",
+        "explanation": "The edge direction in Course Schedule is the most common source of confusion. The prerequisite pair [a, b] means 'take b before a', so the edge goes from b to a in the dependency graph. In topological order, b appears before a. The queue in Kahn's starts with courses that have no prerequisites (in-degree 0 = nothing must be done before them), and the result builds the order to take courses."
+      },
+      "common_mistakes": [
+        "Building the edge from a to b instead of b to a for prerequisite pair [a, b] — [a,b] means 'b before a', so the edge should be b->a (prerequisite points to dependent); reversing this makes the topological order come out backwards",
+        "Using DFS cycle detection logic (from L1-M10) without the post-order reversal for Course Schedule II — DFS cycle detection tells you if a cycle exists but without the post-order tracking and reversal, you cannot extract the course order",
+        "Returning the in-progress result (without checking if all courses are included) for Course Schedule II — always verify order.length === numCourses before returning; an incomplete order means a cycle exists and [] should be returned"
+      ],
+      "interview_relevance": "Course Schedule (#207) and Course Schedule II (#210) are both Blind 75 and appear at every major company. They are the direct application problems for topological sort. Being able to implement both Kahn's and DFS variants and explain the edge direction (b->a for [a,b]) is the minimum expected knowledge. The two variants demonstrate flexibility and depth beyond a memorised single solution.",
+      "mini_challenge": "Implement both canFinish and findOrder using Kahn's algorithm. Verify all test cases. Then implement findOrder_DFS and verify it gives the same valid orderings. Then solve Parallel Courses (LeetCode #1136): given n courses and prerequisites, return the minimum number of semesters to finish all courses. You can take multiple courses per semester as long as prerequisites are satisfied. Use Kahn's: count the maximum BFS depth (number of levels) where each level represents one semester.",
+      "flashcards": [
+        {
+          "front": "Course Schedule I: problem mapping?",
+          "back": "numCourses=V, prerequisites=directed edges [course, prereq] (prereq→course). Question: can all courses be taken? = Is the directed graph a DAG? = Does Kahn's produce V nodes in result (no cycle)?"
+        },
+        {
+          "front": "Course Schedule II: how does Kahn's give the order?",
+          "back": "The ORDER in which nodes are dequeued by Kahn's is a valid topological order. Return the result array directly. If result.length < numCourses: cycle → return []."
+        },
+        {
+          "front": "Course Schedule: edge direction — which way?",
+          "back": "prerequisites=[[a,b]] means 'b is a prerequisite of a', i.e., take b BEFORE a. The directed edge is b→a. Build adj[b].push(a) and in-degree[a]++. Take b, then you can take a."
+        },
+        {
+          "front": "Course Schedule: what does result.length == numCourses guarantee?",
+          "back": "Every course was eventually dequeued (reached in-degree 0) — the graph has no cycle. All courses can be completed. Result.length < numCourses means some courses are in a cycle — impossible to complete."
+        },
+        {
+          "front": "Course Schedule II: Kahn's vs DFS — which is easier to implement?",
+          "back": "Kahn's produces the topological order directly as the dequeue sequence — easy to collect. DFS requires pushing on BLACK and reversing — one extra step. Both correct; Kahn's is marginally cleaner for Course Schedule II."
+        },
+        {
+          "front": "Prerequisites edge [[0,1],[0,2],[1,3],[2,3]]: how many nodes with in-degree 0?",
+          "back": "In-degree counts: 0 is prerequisite of 1,2 → in[0]=0. 1 is prereq of 3 → in[1]=1 (edge 0→1). 2: in[2]=1 (edge 0→2). 3: in[3]=2 (edges 1→3, 2→3). Only node 0 has in-degree 0 initially."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "numCourses=2, prerequisites=[[1,0]]. Can you finish all courses?",
+          "options": [
+            "No — cycle detected",
+            "Yes — take course 0 first, then course 1. No cycle.",
+            "Yes, but only if starting from course 1",
+            "Cannot determine"
+          ],
+          "answer": 1,
+          "explanation": "Edge: 0→1 (prerequisite 0 for course 1). in-degrees: [0,1]. Kahn's: enqueue 0, dequeue 0, decrement in[1]=0, enqueue 1, dequeue 1. result=[0,1], length=2=V. No cycle. Return true."
+        },
+        {
+          "question": "numCourses=2, prerequisites=[[1,0],[0,1]]. Can finish?",
+          "options": [
+            "Yes — take them simultaneously",
+            "No — cycle: 0→1 and 1→0 (need 0 before 1 AND 1 before 0)",
+            "Yes if you start from course 0",
+            "Depends on order"
+          ],
+          "answer": 1,
+          "explanation": "Edges: 0→1 and 1→0. in-degrees: [1,1]. No node starts with in-degree 0. Kahn's queue stays empty. result=[], length=0 < 2. Cycle detected → cannot finish."
+        },
+        {
+          "question": "Course Schedule II with [[0,1],[0,2],[1,3],[2,3]]: valid order to take all 4 courses?",
+          "options": [
+            "[3,1,2,0]",
+            "[0,1,2,3] or [0,2,1,3]",
+            "[0,3,1,2]",
+            "[1,2,3,0]"
+          ],
+          "answer": 1,
+          "explanation": "Edges: 1→0, 2→0, 3→1, 3→2 (prereq is second element). in[0]=2,in[1]=1,in[2]=1,in[3]=0. Start with 3. Then 1 or 2. Then remaining 2 or 1. Finally 0. Order: [3,1,2,0] or [3,2,1,0]. Wait — re-read: [[0,1]] means prereq 1 for course 0 → edge 1→0. Let me recheck: in[0]=1 (edge from 1), in[1]=1 (edge from ?). Actually [[0,1],[0,2],[1,3],[2,3]]: [0,1]=take 1 before 0=1→0; [0,2]=2→0; [1,3]=3→1; [2,3]=3→2. in[0]=2,in[1]=1,in[2]=1,in[3]=0. Start:3, then 1&2, then 0. Answer:[3,1,2,0] or [3,2,1,0]."
+        },
+        {
+          "question": "Why is the in-degree approach (Kahn's) particularly clean for Course Schedule?",
+          "options": [
+            "It avoids building an adjacency list",
+            "In-degree directly models 'number of unsatisfied prerequisites' — when in-degree reaches 0, all prerequisites for that course are met",
+            "It uses less memory",
+            "DFS cannot solve Course Schedule"
+          ],
+          "answer": 1,
+          "explanation": "In-degree = number of prerequisites not yet taken. When in-degree reaches 0, all prerequisites are complete — the course is ready to be taken. This maps perfectly to the problem semantics."
+        }
+      ],
+      "visual_aid": {
+        "type": "course_schedule_trace",
+        "description": "Course Schedule II Kahn's trace — actual course order",
+        "diagram": "numCourses=4, prerequisites=[[1,0],[2,0],[3,1],[3,2]]\nEdges: 0→1, 0→2, 1→3, 2→3\nin-degrees: [0:0, 1:1, 2:1, 3:2]\n\nInterpretation: take course 0 before 1, 0 before 2, 1 before 3, 2 before 3\n\nKahn's:\n  Queue=[0]  (only in-degree-0 node)\n\n  Dequeue 0 → order=[0]\n    in[1]=1-1=0 → enqueue 1\n    in[2]=1-1=0 → enqueue 2\n    Queue=[1,2]\n\n  Dequeue 1 → order=[0,1]\n    in[3]=2-1=1\n    Queue=[2]\n\n  Dequeue 2 → order=[0,1,2]\n    in[3]=1-1=0 → enqueue 3\n    Queue=[3]\n\n  Dequeue 3 → order=[0,1,2,3]\n    Queue=[]\n\nReturn [0,1,2,3] ✓\n(Take 0 first — no prerequisites.\n Then 1 and 2 (prereq 0 done).\n Finally 3 (prereqs 1 and 2 done).)"
+      },
+      "complexity_summary": {
+        "time": "O(V+E) — V=numCourses, E=prerequisites.length",
+        "space": "O(V+E) — adjacency list + in-degree + queue",
+        "cycle_detection": "result.length < numCourses → return false/[]",
+        "edge_direction": "prerequisites=[course,prereq] → adj[prereq].push(course)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-207",
+          "title": "Course Schedule",
+          "difficulty": "Medium",
+          "pattern": "Kahn's: cycle detection (result.length check)",
+          "blind75": true
+        },
+        {
+          "id": "lc-210",
+          "title": "Course Schedule II",
+          "difficulty": "Medium",
+          "pattern": "Kahn's: return dequeue order",
+          "blind75": true
+        },
+        {
+          "id": "lc-630",
+          "title": "Course Schedule III",
+          "difficulty": "Hard",
+          "pattern": "Greedy with priority queue — different problem"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M9-L3-TH-1",
+            "question": "In Course Schedule, prerequisite `[a, b]` means 'take b before a'. Why does this translate to edge b→a in the graph (not a→b)?",
+            "options": [
+              "Edge direction is arbitrary; both directions produce the same result",
+              "A DIRECTED EDGE u→v in a topological sort means 'u must come before v'; if [a,b] means 'b before a', then the edge must be b→a (b precedes a); if we built edge a→b instead, topological sort would put a before b, which REVERSES the prerequisite — a would come first even though b must be taken first; the edge direction encodes the 'before' relationship: source → destination means 'source is scheduled before destination'",
+              "The edge direction doesn't matter for Kahn's algorithm",
+              "Edge a→b is correct; the lesson has an error in the implementation"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Edge direction: prerequisite→course (b→a for [a,b]) in the ordering' — topological sort outputs u before v for every edge u→v; to enforce 'b before a', the edge must be b→a; building edge a→b would output a before b, contradicting the prerequisite; `adj[b].push(a)` in the code correctly implements this."
+          },
+          {
+            "id": "L2M9-L3-TH-2",
+            "question": "Course Schedule I returns a boolean; Course Schedule II returns an array. How does this affect the implementation?",
+            "options": [
+              "Course Schedule II requires a completely different algorithm than Course Schedule I",
+              "Both use IDENTICAL KAHN'S ALGORITHM logic; the only difference is the RETURN VALUE: Course Schedule I returns `processed === numCourses` (boolean feasibility check); Course Schedule II returns the actual ordering array `order` when complete, or `[]` when a cycle is detected; the ordering is built automatically as Kahn's processes vertices; no structural change is needed — just track the dequeued vertices in an array",
+              "Course Schedule II requires additional BFS passes to determine the exact order",
+              "Course Schedule I is O(V) while Course Schedule II is O(V+E) due to the extra tracking"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Course Schedule I: check result.length==n; Course Schedule II: return result or [] if impossible' — the Kahn's BFS is identical in both problems; the order array is built naturally as vertices are dequeued; Course Schedule I just checks if the count matches; Course Schedule II returns the order itself; this demonstrates how a single algorithm solves both variants with minimal code change."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M9-L3-LG-1",
+            "question": "For `findOrder(4, [[1,0],[2,0],[3,1],[3,2]])`, what edges are built in the graph and what is the resulting order?",
+            "options": [
+              "Edges 0→1, 0→2, 1→3, 2→3; result [0,1,2,3] or [0,2,1,3]",
+              "Prerequisite [1,0]→edge 0→1; [2,0]→edge 0→2; [3,1]→edge 1→3; [3,2]→edge 2→3; in-degrees: 0=0,1=1,2=1,3=2; Kahn's starts with [0], processes 0→decrements 1 and 2 both to 0, enqueues [1,2]; processes 1→decrements 3 to 1; processes 2→decrements 3 to 0, enqueues 3; processes 3; result=[0,1,2,3] — confirmed by direct execution",
+              "Edges 1→0, 2→0, 3→1, 3→2; result is reverse [3,2,1,0]",
+              "All four edges point from 3; result starts with 3"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution returning [0,1,2,3]; prerequisites [a,b] build edge b→a: [1,0]→0→1, [2,0]→0→2, [3,1]→1→3, [3,2]→2→3; course 0 has no prerequisites (in-degree=0) and is scheduled first; 1 and 2 depend only on 0; 3 depends on both 1 and 2."
+          },
+          {
+            "id": "L2M9-L3-LG-2",
+            "question": "For `canFinish(2, [[1,0],[0,1]])`, which cycle is created and why does the function return false?",
+            "options": [
+              "Edges 0→1 and 1→0 create a mutual dependency; neither 0 nor 1 can ever reach in-degree 0; Kahn's processes 0 vertices, result.length=0 < 2, returns false — confirmed",
+              "The cycle is course 0 requiring course 1 and vice versa; canFinish returns true because 0+1=1",
+              "No cycle exists; both courses can be completed independently",
+              "The function returns false because there are only 2 courses but 2 prerequisites"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution returning false; [1,0]→edge 0→1 (take 0 before 1); [0,1]→edge 1→0 (take 1 before 0); these create a cycle 0→1→0; both vertices have in-degree 1; neither ever reaches in-degree 0; Kahn's processes 0 vertices; processed=0 < numCourses=2 → return false."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M9-L3-SY-1",
+            "question": "In `findOrder`, `if (--inDeg[v] === 0) queue.push(v)` uses the pre-decrement `--inDeg[v]`. How does this differ from `inDeg[v]--; if (inDeg[v] === 0)`?",
+            "options": [
+              "Both forms are identical in JavaScript",
+              "Both forms produce the SAME RESULT for this specific use case: pre-decrement `--inDeg[v]` decrements first then evaluates (reading the NEW value); post-decrement `inDeg[v]--; if (inDeg[v]===0)` decrements first (in the separate statement) then checks the new value; functionally equivalent here; the pre-decrement form is more CONCISE (single expression) and common in competitive programming; the lesson's `if (--inDeg[v] === 0)` is a stylistic choice for brevity",
+              "Pre-decrement mutates the array; post-decrement creates a copy",
+              "Pre-decrement is O(1); post-decrement requires array reallocation"
+            ],
+            "answer": 1,
+            "explanation": "In this specific context (decrement then check zero), both pre-decrement-in-condition and post-decrement-with-separate-check produce identical results: both decrement inDeg[v] and then check if the new value equals 0; pre-decrement is idiomatic shorthand; the lesson uses `--inDeg[v]` consistently as a compact form without semantic difference."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M9-L3-CC-1",
+            "title": "Course Schedule I and II",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both Course Schedule variants from this lesson.",
+            "requirements": [
+              "Implement `canFinishImpl(numCourses, prerequisites)` returning true/false",
+              "Implement `findOrderImpl(numCourses, prerequisites)` returning valid order or []"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function canFinishImpl(numCourses, prerequisites) {\n  // TODO: [a,b] -> edge b->a; Kahn's BFS; return processed===numCourses\n}\n\nfunction findOrderImpl(numCourses, prerequisites) {\n  // TODO: same Kahn's structure; return order array or []\n}"
+            },
+            "test_cases": [
+              {
+                "input": "canFinishImpl(2, [[1,0]])",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "canFinishImpl(2, [[1,0],[0,1]])",
+                "expected": false,
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(findOrderImpl(4, [[1,0],[2,0],[3,1],[3,2]]))",
+                "expected": "[0,1,2,3]",
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(findOrderImpl(2, [[1,0],[0,1]]))",
+                "expected": "[]",
+                "type": "hidden"
+              },
+              {
+                "input": "canFinishImpl(1, [])",
+                "expected": true,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function canFinishImpl(numCourses, prerequisites) {\n  const adj = Array.from({length:numCourses},()=>[]);\n  const inDeg = new Array(numCourses).fill(0);\n  for (const [a,b] of prerequisites) { adj[b].push(a); inDeg[a]++; }\n  const queue = [];\n  for (let v=0;v<numCourses;v++) if(inDeg[v]===0) queue.push(v);\n  let processed = 0;\n  while (queue.length) {\n    const u = queue.shift(); processed++;\n    for (const v of adj[u]) if(--inDeg[v]===0) queue.push(v);\n  }\n  return processed === numCourses;\n}\n\nfunction findOrderImpl(numCourses, prerequisites) {\n  const adj = Array.from({length:numCourses},()=>[]);\n  const inDeg = new Array(numCourses).fill(0);\n  for (const [a,b] of prerequisites) { adj[b].push(a); inDeg[a]++; }\n  const queue = [];\n  for (let v=0;v<numCourses;v++) if(inDeg[v]===0) queue.push(v);\n  const order = [];\n  while (queue.length) {\n    const u = queue.shift(); order.push(u);\n    for (const v of adj[u]) if(--inDeg[v]===0) queue.push(v);\n  }\n  return order.length===numCourses ? order : [];\n}"
+            },
+            "complexity_analysis": "O(V+E) time, O(V+E) space for adjacency list.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Edge direction: for [a,b] (prerequisite b for course a), build edge b→a: adj[b].push(a); inDeg[a]++."
+              },
+              {
+                "level": 2,
+                "text": "canFinishImpl: count processed vertices; return processed===numCourses."
+              },
+              {
+                "level": 3,
+                "text": "findOrderImpl: push each dequeued vertex to order array; return order if complete, [] if cycle."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 4,
+      "title": "Alien Dictionary",
+      "tag": "ADDED",
+      "objective": "Derive the character ordering in an alien alphabet by comparing adjacent words and building a DAG of character precedence, then applying topological sort.",
+      "concepts": [
+        "Problem: given sorted alien words, find character ordering",
+        "Compare adjacent word pairs to extract ordering rules",
+        "First differing character between adjacent words gives one ordering rule",
+        "Build directed graph: edge from earlier char to later char",
+        "Topological sort on character graph gives the alien alphabet",
+        "Invalid input: word[i] is a prefix of word[i+1] but comes after it",
+        "Handle multiple valid orderings: any valid topo sort is acceptable",
+        "O(V+E) topo sort where V=26 (fixed alphabet), E=number of ordering rules"
+      ],
+      "explanation": "Alien Dictionary (#269, NeetCode 150) gives a list of words sorted in an alien language's alphabetical order. Determine the order of characters in that alphabet. The approach: compare adjacent word pairs. For each pair (word[i], word[i+1]), find the first character position where they differ. The character in word[i] comes before the character in word[i+1] in the alien alphabet. Add this directed edge to a graph. If no differing character is found and word[i] is longer than word[i+1], this is an invalid input (a longer word comes before its prefix, which violates any consistent ordering). After processing all adjacent pairs, perform topological sort on the character graph. Any valid topological order is an acceptable answer. If the graph has a cycle (contradictory ordering rules), return ''.",
+      "analogy": "Alien Dictionary is like being a linguist who finds ancient language tablets arranged in alphabetical order. You compare adjacent words to infer letter ordering: if 'bca' comes before 'bda', you know 'c' comes before 'd' in that alphabet. Comparing enough word pairs gives enough ordering rules to reconstruct the alphabet. Topological sort puts these rules together into a consistent ordering.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// ALIEN DICTIONARY (#269)\n// O(V+E) time where V=unique chars, E=ordering rules derived\nfunction alienOrder(words) {\n    // Build graph and in-degree map for all chars in words\n    const adj = new Map();\n    const inDeg = new Map();\n    // Initialise all characters\n    for (const word of words) {\n        for (const c of word) {\n            if (!adj.has(c)) adj.set(c, new Set());\n            if (!inDeg.has(c)) inDeg.set(c, 0);\n        }\n    }\n\n    // Extract ordering rules from adjacent word pairs\n    for (let i = 0; i < words.length - 1; i++) {\n        const w1 = words[i], w2 = words[i+1];\n        const minLen = Math.min(w1.length, w2.length);\n        // Check for invalid case: longer word is prefix of shorter word\n        if (w1.length > w2.length && w1.slice(0, minLen) === w2) return '';\n\n        for (let j = 0; j < minLen; j++) {\n            if (w1[j] !== w2[j]) {\n                // w1[j] comes BEFORE w2[j] in alien alphabet\n                if (!adj.get(w1[j]).has(w2[j])) {\n                    adj.get(w1[j]).add(w2[j]);\n                    inDeg.set(w2[j], inDeg.get(w2[j]) + 1);\n                }\n                break; // only first differing char gives ordering info\n            }\n        }\n    }\n\n    // Kahn's topological sort on character graph\n    const queue = [];\n    for (const [c, deg] of inDeg) {\n        if (deg === 0) queue.push(c);\n    }\n    const result = [];\n    while (queue.length) {\n        queue.sort(); // lexicographic ordering (optional, for deterministic output)\n        const c = queue.shift();\n        result.push(c);\n        for (const next of adj.get(c)) {\n            inDeg.set(next, inDeg.get(next) - 1);\n            if (inDeg.get(next) === 0) queue.push(next);\n        }\n    }\n    // Cycle detection: if not all chars in result, invalid\n    return result.length === inDeg.size ? result.join('') : '';\n}\n\nconsole.log(alienOrder(['wrt','wrf','er','ett','rftt']));\n// 'wertf' or similar valid ordering\n// Rules derived: w->e (wrt vs er), r->t (wrt vs wrf? No: compare wrt/wrf: t>f),\n// Actually: wrt vs wrf -> t before f. er vs ett -> r before t. ett vs rftt -> e before r.\n// Graph: t->f, r->t, e->r, w->e. Topo: w->e->r->t->f. Result: 'wertf'\n\nconsole.log(alienOrder(['z','x']));     // 'zx'\nconsole.log(alienOrder(['z','x','z'])); // '' (z->x then x->z: cycle)",
+        "explanation": "The break after the first differing character is critical. Only the first position where two adjacent words differ gives ordering information. Subsequent differing characters provide no ordering information between those words (you only know the ordering based on the first difference). Without break, you would add incorrect ordering rules for characters after the first differing position."
+      },
+      "common_mistakes": [
+        "Not breaking after the first differing character — only the first differing character between adjacent words gives valid ordering information; continuing to compare further characters would add incorrect or conflicting edges",
+        "Not checking the invalid prefix case (longer word before shorter prefix) — 'ab' before 'a' is impossible in any alphabetical ordering; return '' immediately when this is detected",
+        "Forgetting to initialise in-degrees for characters that appear only in later words — all characters in the word list must be initialised in inDeg, even those that never appear as a target of an ordering rule"
+      ],
+      "interview_relevance": "Alien Dictionary (#269) is NeetCode 150 and a classic hard graph construction problem. It tests two skills simultaneously: building a graph from implicit constraints (word comparisons) and applying topological sort. Interviewers evaluate whether candidates correctly handle the invalid prefix case and correctly identify the edge direction (word[i][j] -> word[i+1][j] for first differing j).",
+      "mini_challenge": "Implement alienOrder and verify it returns a valid ordering for ['wrt','wrf','er','ett','rftt']. Trace which ordering rules are derived from each adjacent word pair. Then verify it returns '' for ['z','x','z'] due to the cycle and '' for ['abc','ab'] due to the invalid prefix case. Finally, count the minimum number of rules needed to uniquely determine the alien alphabet for n distinct characters.",
+      "flashcards": [
+        {
+          "front": "Alien Dictionary: problem summary?",
+          "back": "Given a lexicographically sorted list of words in an unknown alien alphabet, determine the ordering of characters. Build a DAG from character ordering constraints implied by adjacent words, then topological sort."
+        },
+        {
+          "front": "Alien Dictionary: how to derive character ordering from adjacent words?",
+          "back": "Compare adjacent words character by character. Find the FIRST position where characters differ: word1[i] → word2[i] (word1[i] must come BEFORE word2[i]). Add directed edge word1[i]→word2[i]. Only the FIRST difference matters — stop there."
+        },
+        {
+          "front": "Alien Dictionary: invalid input detection?",
+          "back": "If word1 is a PREFIX of word2 but appears AFTER it (e.g., 'abc' before 'ab'): invalid ordering. This is the only edge case requiring early return ''. Standard cycle detection also applies."
+        },
+        {
+          "front": "Alien Dictionary: how many distinct characters can there be?",
+          "back": "26 at most (lowercase English letters). The graph has at most 26 nodes. Only include nodes/characters that actually appear in the word list. Track which characters exist with a Set before building edges."
+        },
+        {
+          "front": "Alien Dictionary: Kahn's vs DFS for topological sort?",
+          "back": "Either works. Kahn's: straightforward with in-degree array. DFS: integrate naturally if building a character adjacency set. Problem asks for a STRING of characters in order, so Kahn's dequeue result joined as a string is clean."
+        },
+        {
+          "front": "Alien Dictionary: what if multiple valid orderings exist?",
+          "back": "Return any valid ordering (any valid topological order). LeetCode accepts any correct answer. If the answer is unique (one node has in-degree 0 at every step), only one ordering exists."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "words=['wrt','wrf','er','ett','rftt']. First adjacent pair: 'wrt' vs 'wrf'. What edge is derived?",
+          "options": [
+            "w→w (first chars equal, skip)",
+            "t→f (first differing characters at index 2: 'wrt'[2]='t', 'wrf'[2]='f')",
+            "r→r (second chars equal)",
+            "wrt→wrf (whole word edge)"
+          ],
+          "answer": 1,
+          "explanation": "'wrt'[0]='w'='w'[0] — equal. 'wrt'[1]='r'='r'[1] — equal. 'wrt'[2]='t' vs 'wrf'[2]='f' — DIFFERENT. Edge: t→f (t comes before f in alien alphabet)."
+        },
+        {
+          "question": "words=['ab','adc']. What edge is derived?",
+          "options": [
+            "a→a (first chars equal)",
+            "b→d (first differing chars at index 1: 'ab'[1]='b', 'adc'[1]='d')",
+            "ab→adc (no edge — different lengths)",
+            "d→b"
+          ],
+          "answer": 1,
+          "explanation": "'ab'[0]='a'='adc'[0] — equal. 'ab'[1]='b' vs 'adc'[1]='d' — DIFFERENT. Edge: b→d (b comes before d in alien alphabet)."
+        },
+        {
+          "question": "words=['abc','ab']. What is the issue?",
+          "options": [
+            "No issue — they share a prefix",
+            "Invalid: 'abc' appears before 'ab' but 'ab' is a prefix of 'abc'. In valid lexicographic order, shorter prefixes come FIRST.",
+            "Invalid: different lengths cannot be compared",
+            "Cycle detected between a,b,c"
+          ],
+          "answer": 1,
+          "explanation": "In valid lexicographic ordering, if word1 is a prefix of word2, then word2 > word1 — word1 must appear BEFORE word2. Here 'ab' (prefix of 'abc') appears AFTER 'abc' — invalid. Return ''."
+        },
+        {
+          "question": "Alien Dictionary result has 3 chars but the word list uses 5 distinct chars. What happened?",
+          "options": [
+            "Cycle detected — return ''",
+            "result.length(3) < total_chars(5): cycle exists among the 5 characters",
+            "Algorithm bug — should always return all chars",
+            "Some characters had no constraints (isolated nodes)"
+          ],
+          "answer": 1,
+          "explanation": "result.length < total_distinct_chars: Kahn's cycle detection. Some characters are in a cycle and never reached in-degree 0. Return '' (invalid or cyclic)."
+        }
+      ],
+      "visual_aid": {
+        "type": "alien_dict_trace",
+        "description": "Alien Dictionary edge derivation and topological sort",
+        "diagram": "words=['wrt','wrf','er','ett','rftt']\n\nEdge derivation from adjacent pairs:\n  'wrt'→'wrf': w=w, r=r, t≠f → edge t→f\n  'wrf'→'er':  w≠e → edge w→e\n  'er'→'ett':  e=e, r≠t → edge r→t\n  'ett'→'rftt': e≠r → edge e→r\n\nGraph:\n  t→f, w→e, r→t, e→r\n  chars: {w,r,t,e,f}\n\nIn-degrees: w=0, r=1(e→r), t=1(r→t), e=1(w→e), f=1(t→f)\n\nKahn's: Start with {w}\n  Dequeue w → order=[w]\n    in[e]=0 → enqueue e\n  Dequeue e → order=[w,e]\n    in[r]=0 → enqueue r\n  Dequeue r → order=[w,e,r]\n    in[t]=0 → enqueue t\n  Dequeue t → order=[w,e,r,t]\n    in[f]=0 → enqueue f\n  Dequeue f → order=[w,e,r,t,f]\n\nResult: 'wertf' ✓"
+      },
+      "complexity_summary": {
+        "time": "O(C) where C = total chars across all words (edge derivation) + O(V+E) topo sort (V≤26, E≤26)",
+        "space": "O(V+E) — adjacency list + in-degree (V≤26)",
+        "invalid_cases": "1) word1 is prefix of word2 but appears after → return ''. 2) cycle → return ''.",
+        "note": "V≤26 (alphabet size) so graph operations are effectively O(1)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-269",
+          "title": "Alien Dictionary",
+          "difficulty": "Hard",
+          "pattern": "Build constraint graph from adjacent words + topological sort",
+          "blind75": true
+        },
+        {
+          "id": "lc-953",
+          "title": "Verifying an Alien Dictionary",
+          "difficulty": "Easy",
+          "pattern": "Verify given order using custom comparator — no topo sort needed"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M9-L4-TH-1",
+            "question": "In Alien Dictionary, why does only the FIRST DIFFERING CHARACTER between two adjacent words give an ordering rule?",
+            "options": [
+              "All differing characters give ordering rules; only the first is implemented for efficiency",
+              "The alien words are LEXICOGRAPHICALLY SORTED in the alien alphabet; comparing adjacent words character by character: the FIRST POSITION where they differ reveals the relative ordering of those two characters in the alien alphabet; characters at LATER POSITIONS cannot be inferred — for example, if word1='ba' and word2='bc', we know b<b is not a rule (same); 'a' vs 'c' at position 1 tells us a comes before c; but characters after the first difference give no information (they might occur in any order in the alien alphabet); `break` after the first difference is NECESSARY for correctness",
+              "Only the last differing character is used; the first is arbitrary",
+              "All characters in both words contribute to the ordering rules"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'First differing character between adjacent words gives one ordering rule' and the code: `break; // only first differing char gives ordering info` — in a sorted list, adjacent entries share the longest common prefix; the relative order is determined entirely by the first position where they differ; subsequent characters could appear in any order in the alien alphabet and cannot be inferred."
+          },
+          {
+            "id": "L2M9-L4-TH-2",
+            "question": "What INVALID INPUT condition does Alien Dictionary check for, and why does it immediately return ''?",
+            "options": [
+              "Invalid input is when two identical words are adjacent",
+              "INVALID: `words[i]` is a PREFIX of `words[i+1]` but `words[i]` is LONGER — e.g., ['abc','ab'] where 'ab' comes after 'abc' which is impossible in any sorted order (shorter strings always precede their longer prefix in lexicographic order); detected by: `w1.length > w2.length && w1.slice(0, minLen) === w2`; this returns '' immediately because no valid alien alphabet can explain this ordering — it's an impossibility, not just a cycle",
+              "Invalid input is when any word contains non-alphabetic characters",
+              "Invalid input occurs when there are more than 26 unique characters"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Invalid input: word[i] is a prefix of word[i+1] but comes after it' — in any sorted list, a string must precede all strings for which it is a proper prefix; if 'abc' appears before 'ab' in the word list, this is impossible regardless of character ordering; the code checks for this and returns '' (invalid/empty) before even attempting topological sort."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M9-L4-LG-1",
+            "question": "For `alienOrder(['wrt','wrf','er','ett','rftt'])`, what ordering RULES are derived from adjacent word comparisons?",
+            "options": [
+              "Rules: t→f (wrt vs wrf: position 2, 't' before 'f'); r→t (er vs ett: position 1, 'r' before 't'); e→r (ett vs rftt: position 0, 'e' before 'r'); w→e (wrt vs er: position 0, 'w' before 'e'); giving graph t<f, r<t, e<r, w<e → ordering w,e,r,t,f = 'wertf' — confirmed by direct execution",
+              "Only one rule is derived: 'w' before 'e'",
+              "Rules are derived from all character pairs, not just adjacent words",
+              "The rule set includes r→e and f→t which reverse the actual ordering"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution returning 'wertf'; rules: wrt vs wrf→t before f; er vs ett→r before t; ett vs rftt→e before r; wrt vs er→w before e; graph: w→e→r→t→f; topological sort gives w,e,r,t,f confirming all positional constraints."
+          },
+          {
+            "id": "L2M9-L4-LG-2",
+            "question": "Why does `alienOrder(['z','x','z'])` return '' (empty string)?",
+            "options": [
+              "The function returns '' because there are only 2 unique characters",
+              "Comparing 'z' and 'x': z→x (z comes before x). Comparing 'x' and 'z': x→z (x comes before z). This creates cycle z→x→z; topological sort finds a cycle (result.length < inDeg.size); returns '' indicating no valid alien alphabet exists — confirmed by direct execution returning empty string",
+              "The function returns '' because 'z' appears twice",
+              "The empty string is returned when all input words are single characters"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: 'z','x' → rule z→x; 'x','z' → rule x→z; these two rules form a cycle (z→x→z); Kahn's topological sort cannot process the cycle; result.length < inDeg.size → return ''; the cycle means no valid ordering of the alien alphabet satisfies both constraints simultaneously."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M9-L4-SY-1",
+            "question": "In `alienOrder`, the adjacency list uses `adj.set(c, new Set())` (a Set of neighbours) rather than an array. Why use a Set for the neighbour list?",
+            "options": [
+              "Set is always faster than Array for adjacency lists",
+              "DEDUPLICATION: two different adjacent word pairs might derive the SAME ordering rule (e.g., 'ab' before 'ac' and 'ab' before 'ad' both tell us 'a' doesn't need additional edges from a); if the same edge c1→c2 is 'derived' from multiple word pair comparisons, storing in a Set automatically deduplicates; the code checks `if (!adj.get(w1[j]).has(w2[j]))` before adding — using a Set makes this both the membership check and the storage in one structure; without deduplication, in-degrees would be incorrectly inflated",
+              "Set prevents the `break` statement from terminating the wrong loop",
+              "Set is required because characters (not integers) are the keys"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: `if (!adj.get(w1[j]).has(w2[j])) { adj.get(w1[j]).add(w2[j]); inDeg.set(w2[j], inDeg.get(w2[j])+1); }` — this guard prevents adding duplicate edges; a Set makes the `.has()` check O(1) and `.add()` idempotent; without deduplication, the same rule derived from multiple word pairs would increment in-degree multiple times, corrupting Kahn's algorithm."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M9-L4-CC-1",
+            "title": "Alien Dictionary",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement Alien Dictionary from this lesson.",
+            "requirements": [
+              "Implement `alienOrderImpl(words)` matching the lesson's DAG-building + Kahn's approach"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function alienOrderImpl(words) {\n  // TODO: initialise all chars; compare adjacent word pairs;\n  // invalid: longer prefix issue; Kahn's topo sort on char graph\n  // return result string or '' if invalid/cycle\n}"
+            },
+            "test_cases": [
+              {
+                "input": "alienOrderImpl(['wrt','wrf','er','ett','rftt'])",
+                "expected": "wertf",
+                "type": "visible"
+              },
+              {
+                "input": "alienOrderImpl(['z','x'])",
+                "expected": "zx",
+                "type": "visible"
+              },
+              {
+                "input": "alienOrderImpl(['z','x','z'])",
+                "expected": "",
+                "type": "visible"
+              },
+              {
+                "input": "alienOrderImpl(['abc','ab'])",
+                "expected": "",
+                "type": "hidden"
+              },
+              {
+                "input": "alienOrderImpl(['z']).length",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function alienOrderImpl(words) {\n  const adj = new Map();\n  const inDeg = new Map();\n  for (const w of words) for (const c of w) {\n    if (!adj.has(c)) adj.set(c, new Set());\n    if (!inDeg.has(c)) inDeg.set(c, 0);\n  }\n  for (let i=0;i<words.length-1;i++) {\n    const w1=words[i],w2=words[i+1];\n    const ml=Math.min(w1.length,w2.length);\n    if (w1.length>w2.length && w1.slice(0,ml)===w2) return '';\n    for (let j=0;j<ml;j++) {\n      if (w1[j]!==w2[j]) {\n        if (!adj.get(w1[j]).has(w2[j])) {\n          adj.get(w1[j]).add(w2[j]);\n          inDeg.set(w2[j], inDeg.get(w2[j])+1);\n        }\n        break;\n      }\n    }\n  }\n  const queue=[];\n  for (const [c,d] of inDeg) if(d===0) queue.push(c);\n  const result=[];\n  while (queue.length) {\n    queue.sort();\n    const c=queue.shift();\n    result.push(c);\n    for (const next of adj.get(c)) {\n      inDeg.set(next, inDeg.get(next)-1);\n      if (inDeg.get(next)===0) queue.push(next);\n    }\n  }\n  return result.length===inDeg.size ? result.join('') : '';\n}"
+            },
+            "complexity_analysis": "O(C) where C = total chars across all words; topological sort O(26*26) since at most 26 chars; effectively O(C) overall.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Initialise adj and inDeg Maps for ALL characters across all words first."
+              },
+              {
+                "level": 2,
+                "text": "Compare adjacent word pairs; check invalid prefix case; break after first differing character."
+              },
+              {
+                "level": 3,
+                "text": "Kahn's topo sort on the character graph; return '' if cycle (result.length !== inDeg.size)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 5,
+      "title": "Reconstruct Itinerary",
+      "tag": "ADDED",
+      "objective": "Reconstruct the smallest lexicographic Eulerian path in a directed graph using Hierholzer's algorithm with a DFS post-order approach.",
+      "concepts": [
+        "Eulerian path: path that visits every EDGE exactly once",
+        "Eulerian circuit: Eulerian path that starts and ends at the same vertex",
+        "Hierholzer's algorithm: DFS that appends to result in post-order",
+        "Post-order: append destination AFTER all edges from it are exhausted",
+        "Reverse the result at the end (same as topological sort)",
+        "Lexicographic order: sort adjacency lists so smaller destinations are tried first",
+        "Existence condition: exactly 0 or 2 vertices with odd degree (undirected); in/out degree balance (directed)",
+        "O(E log E) time: E edges total, sorting adjacency lists O(E log E)"
+      ],
+      "explanation": "Reconstruct Itinerary (#332) gives a list of flight tickets and asks for the smallest lexicographic itinerary starting from 'JFK' that uses all tickets exactly once. This is finding an Eulerian path in a directed graph. Hierholzer's algorithm: sort each airport's destination list lexicographically (smallest first). DFS from 'JFK': at each airport, greedily take the next available (smallest) destination. Append the current airport to the result AFTER all its outgoing flights are exhausted (post-order). Reverse the result. This post-order approach handles the case where taking a greedy path leads to a dead end: the dead-end airport is appended first (it has no more outgoing flights), then we backtrack and the current airport is appended after. After reversal, dead-end airports are at the end of the itinerary, and the start ('JFK') is first. This is identical in structure to DFS topological sort: post-order traversal gives the reverse of the desired order.",
+      "analogy": "Reconstruct Itinerary is like planning a road trip where you must drive every road exactly once. Hierholzer's algorithm drives greedily down the smallest available road at each intersection. When you reach a dead end (no more roads to take), you record that location as part of your final route — it must come last in the itinerary. You then backtrack and continue from the intersection where you had other choices. After recording all dead ends by backtracking, the route is completed in reverse order of recording.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// RECONSTRUCT ITINERARY (#332)\n// O(E log E) time: sorting adjacency lists\nfunction findItinerary(tickets) {\n    // Build adjacency list: airport -> sorted list of destinations\n    const adj = new Map();\n    for (const [from, to] of tickets) {\n        if (!adj.has(from)) adj.set(from, []);\n        adj.get(from).push(to);\n    }\n    // Sort destinations lexicographically ASCENDING\n    for (const [_, dests] of adj) dests.sort();\n    // Note: we'll use pop() (O(1)) to take from the front of sorted array\n    // So reverse sort to use pop() instead of shift()\n    for (const [_, dests] of adj) dests.reverse(); // now smallest is at end\n\n    const result = [];\n\n    function dfs(airport) {\n        const dests = adj.get(airport) || [];\n        while (dests.length) {\n            const next = dests.pop(); // take smallest (reversed, so pop = smallest)\n            dfs(next);               // recurse into next airport\n        }\n        result.push(airport); // POST-ORDER: append after all edges exhausted\n    }\n\n    dfs('JFK');\n    return result.reverse(); // reverse post-order = correct itinerary order\n}\n\nconsole.log(findItinerary([['MUC','LHR'],['JFK','MUC'],['SFO','SJC'],['LHR','SFO']]));\n// ['JFK','MUC','LHR','SFO','SJC']\n\nconsole.log(findItinerary([['JFK','SFO'],['JFK','ATL'],['SFO','ATL'],['ATL','JFK'],['ATL','SFO']]));\n// ['JFK','ATL','JFK','SFO','ATL','SFO']\n// Not ['JFK','SFO','ATL','JFK','ATL','SFO'] because ATL < SFO lexicographically\n\n// WHY POST-ORDER REVERSAL WORKS:\n// Example: JFK->SFO->JFK (dead end: JFK has ATL remaining)\n//   dfs(JFK): take SFO\n//     dfs(SFO): take JFK\n//       dfs(JFK): take ATL\n//         dfs(ATL): take SFO\n//           dfs(SFO): no outgoing. POST: result=['SFO']\n//         ATL exhausted. POST: result=['SFO','ATL']\n//       JFK exhausted. POST: result=['SFO','ATL','JFK']\n//     SFO exhausted. POST: result=['SFO','ATL','JFK','SFO']\n//   JFK exhausted. POST: result=['SFO','ATL','JFK','SFO','JFK']\n// Reverse: ['JFK','SFO','JFK','ATL','SFO'] -> valid itinerary using all tickets",
+        "explanation": "Using pop() instead of shift() for dequeuing is an O(1) optimisation. Since we reversed the sorted array, the smallest destination is now at the end (index -1), and pop() extracts it in O(1) instead of shift()'s O(n). This changes the total from O(E²) (if shift is used) to O(E log E) (sorting) + O(E) (all pops)."
+      },
+      "common_mistakes": [
+        "Appending the airport in pre-order (before recursing) instead of post-order — pre-order appends JFK first before exploring, which would give the wrong order; always append to result AFTER all outgoing edges from the current airport are used",
+        "Forgetting to reverse the result at the end — post-order gives the itinerary in reverse (dead-ends first, start last); reversal is mandatory",
+        "Using shift() instead of pop() for lexicographic ordering — to get lexicographic smallest first with pop(), the adjacency lists must be sorted in descending order (reversed) so the smallest element is at the end; using shift() on ascending-sorted lists works too but is O(n) per operation"
+      ],
+      "interview_relevance": "Reconstruct Itinerary (#332) is Blind 75 and NeetCode 150. It is one of the most algorithmically rich problems in both lists, requiring knowledge of Eulerian paths, Hierholzer's algorithm, and lexicographic ordering. The post-order reversal insight — which is identical to DFS topological sort — connects two seemingly unrelated problems. Interviewers evaluate whether candidates derive the post-order approach or just recall it.",
+      "mini_challenge": "Implement findItinerary and verify both test cases. Trace the DFS recursion for [[JFK,SFO],[JFK,ATL],[SFO,ATL],[ATL,JFK],[ATL,SFO]] step by step: show which airport is popped at each DFS call and when each airport is appended to result. Verify the reversal gives the correct output. Then explain: why is Hierholzer's algorithm O(E log E) and not O(E)? (The sorting of adjacency lists dominates; the DFS itself is O(E).)",
+      "flashcards": [
+        {
+          "front": "Reconstruct Itinerary: what algorithm?",
+          "back": "Hierholzer's algorithm — find an Eulerian path (a path that uses every edge exactly once). Greedily follow edges using DFS, and add nodes to the result in POST-ORDER (after exploring all outgoing edges). Reverse at the end."
+        },
+        {
+          "front": "Reconstruct Itinerary: lexicographic order constraint?",
+          "back": "Sort each airport's destination list alphabetically. DFS always takes the lexicographically smallest available destination first. This ensures the LEXICOGRAPHICALLY SMALLEST itinerary is found."
+        },
+        {
+          "front": "Reconstruct Itinerary: why post-order (add to result after recursion)?",
+          "back": "A dead-end airport (no outgoing edges left) is added first. Its predecessor is added after all its outgoing paths are exhausted. Reversing the post-order result gives the correct flight path order."
+        },
+        {
+          "front": "Reconstruct Itinerary: multiset or sorted array for destinations?",
+          "back": "SORTED destinations array with a pointer (or shift/pop for O(1) removal). For each airport: adj[airport] = sorted destinations. Remove a destination BEFORE recursing (so the edge is 'used'). This is the Hierholzer approach."
+        },
+        {
+          "front": "Euler path vs Euler circuit?",
+          "back": "Euler PATH: every edge used exactly once, start and end at different vertices (exists if exactly 2 vertices have odd degree in undirected, or 1 vertex with out-degree=in-degree+1 and 1 with in-degree=out-degree+1 in directed). Euler CIRCUIT: same start and end. Reconstruct Itinerary starts at 'JFK' and uses all edges."
+        },
+        {
+          "front": "Reconstruct Itinerary: why is a simple DFS (without post-order) wrong?",
+          "back": "Simple DFS may go down a dead-end branch and get stuck before using all edges. Post-order DFS correctly backtracks: when a dead-end is reached, it is placed at the END of the result (it will be at the tail of the reversed path), allowing the algorithm to find the complete Eulerian path."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "tickets=[['MUC','LHR'],['JFK','MUC'],['SFO','SJC'],['LHR','SFO']]. Result?",
+          "options": [
+            "['JFK','MUC','LHR','SFO','SJC']",
+            "['JFK','LHR','MUC','SFO','SJC']",
+            "['JFK','SFO','SJC','MUC','LHR']",
+            "['SFO','SJC','JFK','MUC','LHR']"
+          ],
+          "answer": 0,
+          "explanation": "Must start at JFK. JFK→MUC, MUC→LHR, LHR→SFO, SFO→SJC. Uses all 4 tickets. Result: ['JFK','MUC','LHR','SFO','SJC']."
+        },
+        {
+          "question": "Why must destinations be sorted lexicographically before DFS?",
+          "options": [
+            "DFS requires sorted input to work",
+            "To ensure we always pick the lexicographically smallest next airport, finding the smallest valid itinerary",
+            "Sorting prevents infinite loops",
+            "To enable path compression"
+          ],
+          "answer": 1,
+          "explanation": "Multiple valid itineraries may exist. Problem requires the lexicographically smallest one. By always choosing the smallest available destination first (sorted order), the DFS naturally finds the lex-smallest valid Eulerian path."
+        },
+        {
+          "question": "tickets=[['JFK','KUL'],['JFK','NRT'],['NRT','JFK']]. Post-order DFS pushes: KUL, JFK, NRT, JFK. Reversed?",
+          "options": [
+            "['JFK','NRT','JFK','KUL']",
+            "['KUL','JFK','NRT','JFK']",
+            "['JFK','KUL','NRT','JFK']",
+            "['NRT','JFK','KUL','JFK']"
+          ],
+          "answer": 0,
+          "explanation": "Post-order (reversed will fix): Sort JFK's destinations: ['KUL','NRT']. DFS tries KUL first → dead end → push KUL. Backtrack → try NRT → DFS NRT→JFK → JFK has no more destinations (KUL taken) → dead end → push JFK. Back to NRT → push NRT. Back to JFK → push JFK. Post-order: [KUL,JFK,NRT,JFK]. Reversed: [JFK,NRT,JFK,KUL]."
+        },
+        {
+          "question": "The Hierholzer algorithm for Eulerian path uses which traversal?",
+          "options": [
+            "BFS — level-by-level",
+            "DFS with post-order — add to result after all outgoing edges exhausted",
+            "Topological sort",
+            "Bellman-Ford"
+          ],
+          "answer": 1,
+          "explanation": "Hierholzer's key: DFS, but add each node to the result ONLY AFTER all its outgoing edges are consumed. Post-order ensures dead-ends are placed at the tail (last position in reversed result), allowing backtracking to find unused edges."
+        }
+      ],
+      "visual_aid": {
+        "type": "hierholzer_trace",
+        "description": "Reconstruct Itinerary post-order DFS trace",
+        "diagram": "tickets=[['JFK','KUL'],['JFK','NRT'],['NRT','JFK']]\nSorted adj: JFK=['KUL','NRT'], NRT=['JFK']\n\nDFS from JFK:\n  JFK: sorted dests=['KUL','NRT'], take KUL first\n    Visit KUL: dests=[] → dead end\n    POST-ORDER: push KUL. result=[KUL]\n  JFK: remaining dests=['NRT'], take NRT\n    Visit NRT: dests=['JFK'], take JFK\n      Visit JFK: dests=[] → dead end (KUL used, NRT used)\n      POST-ORDER: push JFK. result=[KUL,JFK]\n    POST-ORDER: push NRT. result=[KUL,JFK,NRT]\n  POST-ORDER: push JFK. result=[KUL,JFK,NRT,JFK]\n\nREVERSE: [JFK,NRT,JFK,KUL] ✓\n\nVerify: JFK→NRT(ticket1)✓, NRT→JFK(ticket2)✓, JFK→KUL(ticket3)✓"
+      },
+      "complexity_summary": {
+        "time": "O(E log E) — E = number of tickets (sort per airport) + O(E) DFS",
+        "space": "O(E) — result stack + adjacency lists",
+        "algorithm": "Hierholzer's — Eulerian path via post-order DFS",
+        "sorting": "Required for lexicographic smallest result"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-332",
+          "title": "Reconstruct Itinerary",
+          "difficulty": "Hard",
+          "pattern": "Hierholzer's Eulerian path — sorted DFS + post-order",
+          "blind75": true
+        },
+        {
+          "id": "custom-euler1",
+          "title": "Determine if Eulerian path exists: count odd-degree vertices",
+          "difficulty": "Medium",
+          "pattern": "Eulerian path existence check"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M9-L5-TH-1",
+            "question": "What is the difference between an EULERIAN PATH and a TOPOLOGICAL SORT? Why does Reconstruct Itinerary use a different algorithm?",
+            "options": [
+              "Both solve the same problem; Hierholzer's is just a renamed topological sort",
+              "TOPOLOGICAL SORT: orders VERTICES such that all edges point forward (for dependency problems on DAGs); EULERIAN PATH: finds a path that visits every EDGE exactly once (not just vertices); Reconstruct Itinerary requires using each ticket (edge) exactly once — a classic Eulerian path problem; topological sort would only ensure vertex ordering; Hierholzer's algorithm specifically handles the 'visit each edge once' constraint via DFS with post-order reversal, which ensures dead-ends are placed correctly in the reverse itinerary",
+              "Eulerian path is for undirected graphs only; topological sort is for directed",
+              "Both algorithms use identical code; the difference is only in problem framing"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concepts: 'Eulerian path: path that visits every EDGE exactly once' and 'Topological sort: linear ordering of vertices where every edge u->v has u before v' — the fundamental difference: topo sort orders vertices; Eulerian path uses edges; Reconstruct Itinerary is an Eulerian path problem (use every ticket/edge once) requiring Hierholzer's algorithm, not topological sort."
+          },
+          {
+            "id": "L2M9-L5-TH-2",
+            "question": "Why is POST-ORDER REVERSAL the key insight in Hierholzer's algorithm for Reconstruct Itinerary?",
+            "options": [
+              "Post-order reversal is only needed when the graph has dead-end airports",
+              "Hierholzer's uses post-order because DEAD-ENDS (airports with no outgoing tickets) must appear LAST in the itinerary, but DFS visits them FIRST; when DFS reaches a dead-end, it has no more edges to follow — it appends the dead-end airport to result (post-order); when the dead-end is found early (e.g., a stub path), it should appear LATE in the itinerary (after all detours are taken); appending in post-order and then reversing naturally places early-dead-ends at the end of the reconstructed itinerary",
+              "Post-order is needed only to handle the starting airport JFK",
+              "The reversal converts DFS pre-order to topological order for the airports"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's trace: 'dfs(JFK) explores SFO which explores JFK which explores ATL which explores SFO (dead-end → appended first); ATL appended second; JFK appended; SFO appended; JFK appended last; reverse gives correct itinerary' — post-order naturally handles the case where a path stub must be 'saved' until after the main itinerary routes are exhausted."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M9-L5-LG-1",
+            "question": "For tickets `[['MUC','LHR'],['JFK','MUC'],['SFO','SJC'],['LHR','SFO']]`, what is the reconstructed itinerary?",
+            "options": [
+              "['JFK','MUC','LHR','SFO','SJC'] — the only valid Eulerian path from JFK using all 4 tickets — confirmed by direct execution",
+              "['JFK','SFO','SJC','MUC','LHR'] — sorted by destination alphabetically",
+              "['JFK','LHR','MUC','SFO','SJC'] — incorrect ticket usage",
+              "There is no valid itinerary starting from JFK"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: ['JFK','MUC','LHR','SFO','SJC']; the only path from JFK that uses all 4 tickets: JFK→MUC (ticket 2), MUC→LHR (ticket 1), LHR→SFO (ticket 4), SFO→SJC (ticket 3); each airport has exactly the connections needed for this single valid Eulerian path."
+          },
+          {
+            "id": "L2M9-L5-LG-2",
+            "question": "Why does the algorithm reverse the adjacency lists (using `dests.reverse()` before DFS) and then use `pop()` instead of `shift()`?",
+            "options": [
+              "pop() is incorrect; shift() must always be used for correct ordering",
+              "After sorting destinations ASCENDING (lexicographic order) and then REVERSING them, the smallest destination is now at the END of the array; `pop()` removes from the END in O(1); this is more efficient than `shift()` which removes from the START in O(n) (requires shifting all elements); the reverse-then-pop pattern gives O(1) lexicographic-smallest extraction — a common trick when processing sorted arrays from front to back using a stack-like interface",
+              "pop() and shift() produce the same ordering regardless of sort direction",
+              "Reversing is needed only for airports with more than 3 outgoing tickets"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's comment: 'So reverse sort to use pop() instead of shift()' — `shift()` is O(n) because it removes from the front and shifts all elements; `pop()` is O(1) from the end; sorting ascending then reversing puts the smallest at the end, making `pop()` equivalent to taking the smallest destination; this optimization is common for priority-based greedy DFS."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M9-L5-SY-1",
+            "question": "In `findItinerary`, `const dests = adj.get(airport) || []` uses `|| []` as a fallback. When is this fallback needed?",
+            "options": [
+              "The fallback is always triggered; adj.get always returns undefined",
+              "The fallback `|| []` handles airports that appear ONLY AS DESTINATIONS (never as origins) — these airports have no outgoing tickets and therefore no entry in the `adj` Map; when DFS visits such an airport, `adj.get(airport)` returns `undefined`; without `|| []`, iterating `undefined` with `while(dests.length)` would throw a TypeError; the `|| []` provides an empty array as a safe default, correctly representing 'no outgoing tickets from this airport' (it's a dead-end)",
+              "The fallback handles the case when adj has been garbage collected",
+              "|| [] converts the return type from Set to Array for the while loop"
+            ],
+            "answer": 1,
+            "explanation": "The `|| []` fallback handles dead-end airports: if an airport appears as a destination (in some ticket's 'to' field) but never as a source (no ticket departs from it), it's never added to adj; adj.get returns undefined for such airports; `|| []` safely converts this to an empty array, allowing the while loop to terminate immediately for dead-ends."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M9-L5-CC-1",
+            "title": "Reconstruct Itinerary",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement Reconstruct Itinerary from this lesson.",
+            "requirements": [
+              "Implement `findItineraryImpl(tickets)` matching the lesson's Hierholzer's post-order DFS"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function findItineraryImpl(tickets) {\n  // TODO: build adj map; sort then reverse dests; DFS with pop();\n  // post-order append; reverse result at end; always start from JFK\n}"
+            },
+            "test_cases": [
+              {
+                "input": "JSON.stringify(findItineraryImpl([['MUC','LHR'],['JFK','MUC'],['SFO','SJC'],['LHR','SFO']]))",
+                "expected": "[\"JFK\",\"MUC\",\"LHR\",\"SFO\",\"SJC\"]",
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(findItineraryImpl([['JFK','SFO'],['JFK','ATL'],['SFO','ATL'],['ATL','JFK'],['ATL','SFO']]))",
+                "expected": "[\"JFK\",\"ATL\",\"JFK\",\"SFO\",\"ATL\",\"SFO\"]",
+                "type": "visible"
+              },
+              {
+                "input": "findItineraryImpl([['JFK','KUL'],['JFK','NRT'],['NRT','JFK']])[1]",
+                "expected": "NRT",
+                "type": "visible"
+              },
+              {
+                "input": "findItineraryImpl([['JFK','A'],['A','B'],['B','JFK']]).length",
+                "expected": 4,
+                "type": "hidden"
+              },
+              {
+                "input": "findItineraryImpl([['JFK','SFO']])[1]",
+                "expected": "SFO",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function findItineraryImpl(tickets) {\n  const adj = new Map();\n  for (const [from,to] of tickets) {\n    if (!adj.has(from)) adj.set(from,[]);\n    adj.get(from).push(to);\n  }\n  for (const [_,d] of adj) { d.sort(); d.reverse(); }\n  const result = [];\n  function dfs(airport) {\n    const dests = adj.get(airport) || [];\n    while (dests.length) { const next = dests.pop(); dfs(next); }\n    result.push(airport);\n  }\n  dfs('JFK');\n  return result.reverse();\n}"
+            },
+            "complexity_analysis": "O(E log E) for sorting adjacency lists; O(E) DFS traversal; O(E log E) overall.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Build adj Map; sort each destination list ascending; then reverse (smallest at end for O(1) pop)."
+              },
+              {
+                "level": 2,
+                "text": "DFS: while(dests.length) take next=dests.pop(); recurse dfs(next); AFTER loop: result.push(airport) (post-order)."
+              },
+              {
+                "level": 3,
+                "text": "result.reverse() at end gives correct itinerary order (reverse of DFS post-order)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 6,
+      "title": "Graph Pattern Thinking",
+      "tag": null,
+      "objective": "Map any graph problem to the correct algorithm within 60 seconds using a complete decision guide covering all Level 1 and Level 2 graph patterns.",
+      "concepts": [
+        "Complete graph algorithm decision tree: BFS, DFS, Dijkstra, Bellman-Ford, Union-Find, Topo Sort",
+        "Topological sort signals: 'ordering', 'dependencies', 'valid schedule', DAG required",
+        "Eulerian path signals: 'use every edge once', 'reconstruct itinerary', Hierholzer's",
+        "Shortest path signals: unweighted->BFS, non-neg->Dijkstra, neg weights->BF, k-hops->BF",
+        "Connectivity signals: DFS/BFS for full traversal, Union-Find for incremental queries",
+        "Module 9 NeetCode 150 problems mapped",
+        "Skills unlocked: Topological Sort, Eulerian Path",
+        "Full Level 2 graph skills: Dijkstra + BF + Union-Find + Topo Sort + Eulerian"
+      ],
+      "explanation": "The complete graph algorithm decision tree for Level 2: (1) Unweighted connectivity/reachability → BFS or DFS (L1-M10). (2) Weighted shortest path, non-negative → Dijkstra (L2-M07). (3) Weighted shortest path, negative weights → Bellman-Ford (L2-M07). (4) K-hop shortest path → Bellman-Ford K+1 rounds (L2-M07). (5) Cycle detection / connectivity counting, incremental → Union-Find (L2-M08). (6) Minimum spanning tree → Kruskal with Union-Find (L2-M08). (7) Ordering / dependency resolution / scheduling → Topological sort (Kahn's or DFS) (L2-M09). (8) Use every edge exactly once / reconstruct path → Hierholzer's Eulerian path (L2-M09). Recognition signals: 'valid ordering', 'prerequisites', 'can all tasks be completed' → topological sort. 'Use all flights', 'visit every edge' → Eulerian path. After completing all 16 modules of Level 2, all major graph patterns from competitive programming and industry interviews are covered.",
+      "analogy": "The complete graph decision tree is like a hospital triage protocol. Unweighted symptoms → ward A (BFS/DFS). Weight-related symptoms → ward B (shortest path algorithms). Connectivity symptoms → ward C (Union-Find). Ordering symptoms → ward D (topological sort). Edge-coverage symptoms → ward E (Eulerian path). The triage nurse (you) must route the patient (problem) to the correct ward in under 60 seconds. The wrong ward gives wrong treatment.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// COMPLETE GRAPH ALGORITHM DECISION GUIDE\n\nfunction selectGraphAlgorithm(props) {\n    const { weighted, negEdges, kHop, incremental, ordering,\n            eulerianPath, mst, allPairs } = props;\n\n    if (eulerianPath)  return \"Hierholzer's O(E log E)\";\n    if (ordering)      return 'Topological Sort (Kahn BFS or DFS post-order) O(V+E)';\n    if (mst)           return \"Kruskal O(E log E) or Prim O((V+E) log V)\";\n    if (incremental)   return 'Union-Find O(α(n)) per query';\n    if (allPairs)      return 'Floyd-Warshall O(V^3)';\n    if (kHop)          return 'Bellman-Ford K+1 rounds O(K*E)';\n    if (negEdges)      return 'Bellman-Ford O(V*E)';\n    if (weighted)      return \"Dijkstra's O((V+E) log V)\";\n    return 'BFS or DFS O(V+E)'; // unweighted\n}\n\n// MODULE 9 NEETCODE 150 PROBLEMS:\nconst module9_problems = [\n    { id: 207,  title: 'Course Schedule',           algorithm: 'Kahn BFS topo sort',       nc150: true },\n    { id: 210,  title: 'Course Schedule II',        algorithm: 'Kahn BFS + return order',   nc150: true },\n    { id: 269,  title: 'Alien Dictionary',          algorithm: 'Build DAG + topo sort',     nc150: true },\n    { id: 332,  title: 'Reconstruct Itinerary',     algorithm: \"Hierholzer's post-order\",   nc150: true },\n    { id: 310,  title: 'Minimum Height Trees',      algorithm: 'Kahn BFS leaf pruning',     nc150: true },\n    { id: 2115, title: 'All Ancestors in a DAG',    algorithm: 'Reverse BFS + bit set',     nc150: false },\n];\nconsole.log('Module 9 NeetCode 150 problems:',\n    module9_problems.filter(p => p.nc150).length); // 5\n\n// MINIMUM HEIGHT TREES (#310) — Kahn-style leaf pruning\n// Find all roots that minimise tree height = trim leaves iteratively\nfunction findMinHeightTrees(n, edges) {\n    if (n === 1) return [0];\n    const adj = Array.from({length: n}, () => new Set());\n    for (const [u, v] of edges) { adj[u].add(v); adj[v].add(u); }\n\n    let leaves = [];\n    for (let i = 0; i < n; i++) if (adj[i].size === 1) leaves.push(i);\n\n    let remaining = n;\n    while (remaining > 2) {\n        remaining -= leaves.length;\n        const newLeaves = [];\n        for (const leaf of leaves) {\n            const neighbour = [...adj[leaf]][0];\n            adj[neighbour].delete(leaf);\n            if (adj[neighbour].size === 1) newLeaves.push(neighbour);\n        }\n        leaves = newLeaves;\n    }\n    return leaves; // 1 or 2 centroid nodes\n}",
+        "explanation": "Minimum Height Trees uses Kahn's leaf-pruning approach: repeatedly remove leaf nodes (degree 1) until 1 or 2 nodes remain. These are the centroids — the roots that minimise tree height. This is analogous to Kahn's algorithm where leaves are vertices with in-degree 1 that are safe to remove. The stopping condition (remaining > 2) ensures we always have at least one centroid."
+      },
+      "common_mistakes": [
+        "Not recognising topological sort as the correct algorithm for ordering/dependency problems — 'can all tasks be completed?', 'find a valid schedule', 'prerequisites satisfied' are all topological sort signals",
+        "Confusing Eulerian path (every edge once) with Hamiltonian path (every vertex once) — Eulerian path has a polynomial algorithm (Hierholzer's); Hamiltonian path is NP-complete; they are completely different problems",
+        "Not completing Course Schedule, Alien Dictionary, and Reconstruct Itinerary before proceeding — these three problems are the direct application problems for this module and must be solved before Level 3"
+      ],
+      "interview_relevance": "Module 9 covers 5 NeetCode 150 problems including Course Schedule I/II (Blind 75), Alien Dictionary (NeetCode 150), and Reconstruct Itinerary (Blind 75). The complete graph decision tree from this lesson is the capstone of Level 2 graph work. Being able to select any graph algorithm within 60 seconds of reading a problem description is the target proficiency for senior roles.",
+      "mini_challenge": "For each of the following problem descriptions, state the correct algorithm and why in one sentence: (1) 'Given tasks with dependencies, find a valid execution order.' (2) 'Given flights, find a route that uses all tickets exactly once.' (3) 'Connect all cities with minimum total cable.' (4) 'Find the fastest route between cities with variable road speeds.' (5) 'Determine if two servers are in the same network after adding connections one at a time.' Map each to the module that covers it.",
+      "flashcards": [
+        {
+          "front": "Graph algorithm selection across all modules: complete map?",
+          "back": "Unweighted → BFS (L1-M10). Non-negative weights → Dijkstra (L2-M07). Negative weights → Bellman-Ford (L2-M07). Dynamic connectivity/cycle detection → Union-Find (L2-M08). MST → Kruskal (L2-M08). Topological order / dependency → Kahn's or DFS topo (L2-M09). Euler path → Hierholzer (L2-M09)."
+        },
+        {
+          "front": "Kahn's vs DFS topo: which to use when?",
+          "back": "Kahn's (BFS-based): when you need the ORDERED RESULT (Course Schedule II), when cycle detection via result.length is cleaner. DFS topo: when integrating with existing DFS traversal (Alien Dictionary), when three-colour cycle detection is already in use."
+        },
+        {
+          "front": "Module 9 NeetCode 150 problems?",
+          "back": "5 problems: #207 Course Schedule (cycle detect), #210 Course Schedule II (topo order), #269 Alien Dictionary (constraint DAG + topo), #332 Reconstruct Itinerary (Euler path), #310 Minimum Height Trees (topo/peeling from leaves)."
+        },
+        {
+          "front": "Minimum Height Trees (#310): what algorithm?",
+          "back": "Repeatedly 'peel' leaf nodes (degree 1) from the graph — exactly like Kahn's but for undirected graphs. When ≤ 2 nodes remain, those are the roots of minimum height trees. At most 2 roots for any tree."
+        },
+        {
+          "front": "Course Schedule I vs II: what changes in code?",
+          "back": "I: only need to detect cycle → return result.length === numCourses (boolean). II: also return the ORDER → return the result array itself (or [] on cycle). Implementation is identical except the return value."
+        },
+        {
+          "front": "L2 graph algorithm progression?",
+          "back": "L1-M10: BFS/DFS basics. L2-M07: weighted paths (Dijkstra, Bellman-Ford). L2-M08: Union-Find and MST. L2-M09: topological sort and Euler paths. Together: complete graph algorithm toolkit for senior interviews."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "'Given a build system where tasks have dependencies, what order should tasks run?' Which algorithm?",
+          "options": [
+            "BFS shortest path",
+            "Dijkstra — minimize build time",
+            "Kahn's topological sort — tasks are nodes, dependencies are edges, find valid execution order",
+            "Bellman-Ford — some builds have negative duration?"
+          ],
+          "answer": 2,
+          "explanation": "Dependencies = directed edges (prerequisite → dependent). Valid execution order = topological order. Kahn's processes tasks when all their dependencies are complete (in-degree 0). Cycle detection identifies circular dependencies."
+        },
+        {
+          "question": "Problem: 'Does a Hamiltonian path exist?' (visit every vertex exactly once). Which algorithm handles this?",
+          "options": [
+            "Topological sort",
+            "BFS",
+            "Backtracking — NP-complete, no polynomial algorithm",
+            "Union-Find"
+          ],
+          "answer": 2,
+          "explanation": "Hamiltonian path is NP-complete — no known polynomial algorithm. Topological sort checks if all nodes can be ordered (different problem). Eulerian path visits every EDGE once (polynomial). Hamiltonian visits every VERTEX once (NP-complete)."
+        },
+        {
+          "question": "Minimum Height Trees: why does 'peeling leaves' give minimum height tree roots?",
+          "options": [
+            "Leaf nodes have lowest degree",
+            "The root of a minimum height tree is the 'center' of the tree — removing leaves iteratively converges to the center",
+            "Peeling gives topological order",
+            "It minimizes total edge weight"
+          ],
+          "answer": 1,
+          "explanation": "The center of a tree (1 or 2 nodes) minimises the max distance to any leaf = minimises tree height. Repeatedly removing outermost leaves converges to the center. Exactly like Kahn's: leaves = in-degree-1 nodes in undirected graph."
+        },
+        {
+          "question": "Alien Dictionary fails (returns '') in how many distinct cases?",
+          "options": [
+            "One — cycle in character ordering",
+            "Two — (1) prefix word appears after longer word, (2) cycle in character DAG",
+            "Three — cycle, prefix, and empty input",
+            "One — cycle only (prefix is not a cycle)"
+          ],
+          "answer": 1,
+          "explanation": "Two distinct failure cases: (1) Prefix violation — 'abc' before 'ab' in sorted list is invalid. (2) Cycle in character ordering DAG — circular constraint means no valid alphabet order exists. Both return ''."
+        }
+      ],
+      "visual_aid": {
+        "type": "complete_graph_map",
+        "description": "Complete L2 graph algorithm decision map",
+        "diagram": "COMPLETE L2 GRAPH ALGORITHM MAP:\n\nProblem Type                    Algorithm              Module\n───────────────────────────────────────────────────────────\nShortest path (unweighted)      BFS                    L1-M10\nShortest path (non-neg weights) Dijkstra               L2-M07\nShortest path (neg weights)     Bellman-Ford           L2-M07\nShortest path (k hops)          Bellman-Ford K+1 rds   L2-M07\nDynamic connectivity            Union-Find             L2-M08\nCycle in undirected graph       Union-Find             L2-M08\nMinimum spanning tree           Kruskal (UF + sort)    L2-M08\nTopological order               Kahn's or DFS topo     L2-M09\nCycle in directed graph         Kahn's or 3-colour DFS L2-M09\nEulerian path                   Hierholzer (DFS+post)  L2-M09\nAll-pairs shortest path         Floyd-Warshall         L2-M07\nMinimum height tree roots       Leaf peeling (Kahn's)  L2-M09\n\nKEY DISTINCTIONS:\n  Eulerian (every EDGE once): Hierholzer O(E log E)\n  Hamiltonian (every VERTEX once): NP-complete\n  DAG topological order: Kahn's O(V+E)\n  Undirected cycle: Union-Find O(α(n))\n  Directed cycle: 3-colour DFS O(V+E)"
+      },
+      "complexity_summary": {
+        "kahns_topo": "O(V+E)",
+        "dfs_topo": "O(V+E)",
+        "alien_dictionary": "O(C) edge build + O(V+E) topo, V≤26",
+        "hierholzer_euler": "O(E log E) sort + O(E) DFS",
+        "minimum_height_trees": "O(V) leaf-peeling",
+        "module9_nc150_count": 5
+      },
+      "practice_problems": [
+        {
+          "id": "lc-207",
+          "title": "Course Schedule",
+          "difficulty": "Medium",
+          "pattern": "Kahn's cycle detection",
+          "blind75": true
+        },
+        {
+          "id": "lc-210",
+          "title": "Course Schedule II",
+          "difficulty": "Medium",
+          "pattern": "Kahn's topological order",
+          "blind75": true
+        },
+        {
+          "id": "lc-269",
+          "title": "Alien Dictionary",
+          "difficulty": "Hard",
+          "pattern": "Constraint DAG + topological sort",
+          "blind75": true
+        },
+        {
+          "id": "lc-332",
+          "title": "Reconstruct Itinerary",
+          "difficulty": "Hard",
+          "pattern": "Hierholzer Eulerian path",
+          "blind75": true
+        },
+        {
+          "id": "lc-310",
+          "title": "Minimum Height Trees",
+          "difficulty": "Medium",
+          "pattern": "Leaf peeling — Kahn's on undirected tree"
+        },
+        {
+          "id": "lc-329",
+          "title": "Longest Increasing Path in a Matrix",
+          "difficulty": "Hard",
+          "pattern": "DFS with memoisation on implicit DAG"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M9-L6-TH-1",
+            "question": "What are the RECOGNITION SIGNALS that indicate Topological Sort vs Eulerian Path for a graph problem?",
+            "options": [
+              "Both signals are interchangeable; any graph problem can use either algorithm",
+              "TOPOLOGICAL SORT SIGNALS: 'ordering', 'dependencies', 'valid schedule', 'DAG', 'what must come before what' — the problem involves VERTEX ORDERING respecting directed constraints; EULERIAN PATH SIGNALS: 'use every edge once', 'reconstruct itinerary', 'visit all connections', 'Euler circuit' — the problem involves traversing EVERY EDGE exactly once; the key distinction: topo sort is about VERTEX ORDERING in DAGs; Eulerian path is about EDGE COVERAGE in any directed graph",
+              "Topological sort applies to weighted graphs; Eulerian path to unweighted",
+              "Both algorithms apply only to undirected graphs"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concepts: \"Topological sort signals: 'ordering', 'dependencies', 'valid schedule', DAG required\" and \"Eulerian path signals: 'use every edge once', 'reconstruct itinerary', Hierholzer's\" — the problem domain (vertex ordering vs edge traversal) is the primary distinguishing feature; recognizing this within 60 seconds is the target skill."
+          },
+          {
+            "id": "L2M9-L6-TH-2",
+            "question": "In the COMPLETE DECISION GUIDE, what is the priority order for checking graph algorithm signals?",
+            "options": [
+              "Always start with the fastest algorithm (BFS) and escalate to slower ones",
+              "The decision guide checks in order: EULERIAN PATH first (most specific), then ORDERING/TOPO SORT, then MST, then INCREMENTAL/UNION-FIND, then ALL-PAIRS/FLOYD-WARSHALL, then K-HOP/BF, then NEGATIVE EDGES/BF, then WEIGHTED/DIJKSTRA, finally UNWEIGHTED/BFS or DFS; more specific signals (Eulerian path, MST) are checked before general ones (weighted, unweighted) to prevent misclassification",
+              "The order doesn't matter; all signals are checked simultaneously",
+              "The priority is: weighted first, then unweighted, then structural properties"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's `selectGraphAlgorithm` function: the if-chain checks eulerianPath → ordering → mst → incremental → allPairs → kHop → negEdges → weighted → default BFS/DFS; this ordering ensures the most specific conditions (rare, distinctive signals like Eulerian path) are matched before general conditions (most problems are just 'weighted' or 'unweighted')."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M9-L6-LG-1",
+            "question": "How does Minimum Height Trees (#310) use Kahn's ALGORITHM structure, and what does it remove instead of in-degree-0 vertices?",
+            "options": [
+              "Minimum Height Trees uses standard Kahn's for directed cycle detection",
+              "MHT uses ITERATIVE LEAF PRUNING — structurally identical to Kahn's but for UNDIRECTED trees: instead of removing zero-in-degree vertices (sources), it repeatedly removes LEAVES (vertices with degree 1 = only one connection); each pruning round removes all current leaves and creates new leaves from their former neighbours; when only 1 or 2 vertices remain (the centroid), those are the roots giving minimum height; 'remaining > 2' replaces Kahn's 'queue not empty' as the termination condition",
+              "MHT requires Bellman-Ford because tree heights are weighted",
+              "MHT uses DFS to find the longest path (diameter) and returns its midpoint"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: `while (remaining > 2)` removes leaves iteratively, analogous to Kahn's removing zero-in-degree vertices; the leaf (degree-1 node) in an undirected tree is the analog of a zero-in-degree vertex in a DAG; the centroid nodes that survive are the 1-2 vertices giving minimum height — the lesson explicitly calls this 'Kahn-style leaf pruning'."
+          },
+          {
+            "id": "L2M9-L6-LG-2",
+            "question": "How many NC150 problems are covered in Module 9, and which one is NOT in NC150?",
+            "options": [
+              "5 NC150 problems; #2115 All Ancestors in a DAG is not NC150 (nc150:false)",
+              "6 NC150 problems; all are included",
+              "4 NC150 problems; #310 and #2115 are both excluded",
+              "5 NC150 problems; #269 Alien Dictionary is not NC150"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: module9_problems.filter(p=>p.nc150).length=5; the 6 problems are #207, #210, #269, #332, #310 (all nc150:true) and #2115 All Ancestors in a DAG (nc150:false); the 5 NC150 problems cover Course Schedule I/II, Alien Dictionary, Reconstruct Itinerary, and Minimum Height Trees."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M9-L6-SY-1",
+            "question": "In `findMinHeightTrees`, `const neighbour = [...adj[leaf]][0]` converts a Set to an array to access the single neighbour. Why does a leaf have exactly ONE element in its adjacency Set?",
+            "options": [
+              "Leaves always have two neighbours; the second is the root",
+              "A LEAF in a tree has DEGREE 1 — exactly one edge connecting it to the rest of the tree; `adj[leaf].size === 1` is the leaf detection condition; since leaf's adjacency Set has exactly 1 element, spreading it `[...adj[leaf]]` creates a 1-element array and `[0]` accesses that single neighbour; after the leaf is removed (`adj[neighbour].delete(leaf)`), the former neighbour may become a new leaf if its degree drops to 1",
+              "Leaves have one element because adj is an array, not a Set",
+              "The spread is needed to handle leaves with multiple neighbours in special cases"
+            ],
+            "answer": 1,
+            "explanation": "A tree leaf has exactly degree 1 by definition; the condition `adj[i].size === 1` identifies leaves; spreading the size-1 Set and indexing [0] is the standard pattern for extracting the single element from a Set without iteration; the adjacent Set (not array) is used to enable O(1) deletion of bidirectional edges when a leaf is pruned."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M9-L6-CC-1",
+            "title": "Graph Algorithm Classifier and Minimum Height Trees",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+            "problem_statement": "Build a complete graph pattern classifier and implement Minimum Height Trees.",
+            "requirements": [
+              "Implement `selectGraphAlgorithmImpl(props)` matching the lesson's complete decision guide",
+              "Implement `findMinHeightTreesImpl(n, edges)` matching the lesson's Kahn-style leaf pruning"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function selectGraphAlgorithmImpl(props) {\n  // props: {weighted, negEdges, kHop, incremental, ordering, eulerianPath, mst, allPairs}\n  // TODO: complete decision guide in priority order\n}\n\nfunction findMinHeightTreesImpl(n, edges) {\n  // TODO: Kahn-style leaf pruning; return 1 or 2 centroid nodes\n}"
+            },
+            "test_cases": [
+              {
+                "input": "selectGraphAlgorithmImpl({eulerianPath:true})",
+                "expected": "Hierholzer's O(E log E)",
+                "type": "visible"
+              },
+              {
+                "input": "selectGraphAlgorithmImpl({ordering:true})",
+                "expected": "Topological Sort (Kahn BFS or DFS post-order) O(V+E)",
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(findMinHeightTreesImpl(4, [[1,0],[1,2],[1,3]]))",
+                "expected": "[1]",
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(findMinHeightTreesImpl(6, [[3,0],[3,1],[3,2],[3,4],[5,4]]))",
+                "expected": "[3,4]",
+                "type": "hidden"
+              },
+              {
+                "input": "selectGraphAlgorithmImpl({weighted:true, negEdges:false})",
+                "expected": "Dijkstra's O((V+E) log V)",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function selectGraphAlgorithmImpl(props) {\n  const {weighted,negEdges,kHop,incremental,ordering,eulerianPath,mst,allPairs}=props;\n  if (eulerianPath) return \"Hierholzer's O(E log E)\";\n  if (ordering) return 'Topological Sort (Kahn BFS or DFS post-order) O(V+E)';\n  if (mst) return 'Kruskal O(E log E) or Prim O((V+E) log V)';\n  if (incremental) return 'Union-Find O(α(n)) per query';\n  if (allPairs) return 'Floyd-Warshall O(V^3)';\n  if (kHop) return 'Bellman-Ford K+1 rounds O(K*E)';\n  if (negEdges) return 'Bellman-Ford O(V*E)';\n  if (weighted) return \"Dijkstra's O((V+E) log V)\";\n  return 'BFS or DFS O(V+E)';\n}\n\nfunction findMinHeightTreesImpl(n, edges) {\n  if (n === 1) return [0];\n  const adj = Array.from({length:n},()=>new Set());\n  for (const [u,v] of edges) { adj[u].add(v); adj[v].add(u); }\n  let leaves = [];\n  for (let i=0;i<n;i++) if(adj[i].size===1) leaves.push(i);\n  let remaining = n;\n  while (remaining > 2) {\n    remaining -= leaves.length;\n    const newLeaves = [];\n    for (const leaf of leaves) {\n      const nb = [...adj[leaf]][0];\n      adj[nb].delete(leaf);\n      if (adj[nb].size===1) newLeaves.push(nb);\n    }\n    leaves = newLeaves;\n  }\n  return leaves;\n}"
+            },
+            "complexity_analysis": "selectGraphAlgorithmImpl: O(1). findMinHeightTreesImpl: O(n) — each node removed once.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "selectGraphAlgorithmImpl: check in order: eulerianPath→ordering→mst→incremental→allPairs→kHop→negEdges→weighted→BFS/DFS."
+              },
+              {
+                "level": 2,
+                "text": "findMinHeightTreesImpl: initialise adj as Sets (for O(1) deletion); find initial leaves (degree===1)."
+              },
+              {
+                "level": 3,
+                "text": "Prune loop: while remaining>2, remove all current leaves, identify new leaves from their former neighbours."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "module_summary": {
+    "total_lessons": 6,
+    "level": "L2",
+    "neetcode150_problems": 5,
+    "blind75_problems": 4,
+    "core_patterns": [
+      "Kahn's algorithm: in-degree array + queue of 0-in-degree nodes, decrement on edge traversal",
+      "Kahn's cycle detection: result.length < V after algorithm → cycle exists",
+      "DFS topological sort: post-order DFS → push on BLACK → reverse result",
+      "DFS cycle detection: GREY neighbour = back edge = cycle",
+      "Edge direction in Course Schedule: [a,b] means b→a (take b before a)",
+      "Alien Dictionary: first differing char between adjacent words → directed edge",
+      "Alien Dictionary failure cases: prefix violation OR cycle → return ''",
+      "Hierholzer's Eulerian path: DFS + post-order push + reverse; remove edge before recursing",
+      "Lex-smallest Eulerian path: sort destination lists alphabetically before DFS",
+      "Minimum Height Trees: leaf peeling = Kahn's on undirected graph (remove degree-1 nodes iteratively)"
+    ],
+    "prerequisite_modules": [
+      "L1-M10 (basic graphs)",
+      "L2-M07 (directed graphs)",
+      "L2-M08 (Union-Find)"
+    ],
+    "unlocks_modules": [
+      "L2-M10 (Greedy and Intervals — final L2 module)",
+      "Advanced: Strongly Connected Components, Tarjan's algorithm"
+    ],
+    "recommended_problem_order": [
+      "lc-207",
+      "lc-210",
+      "lc-269",
+      "lc-310",
+      "lc-332"
+    ],
+    "spaced_review_target": "Re-solve 3 problems from Modules 7–8 from scratch before Module 10",
+    "module_difficulty": "Medium-Hard — Kahn's and DFS topo (L1-L3) are learnable from templates. Alien Dictionary (L4) is the hardest problem conceptually (building the constraint DAG). Reconstruct Itinerary (L5) is hard due to Hierholzer's counter-intuitive post-order reversal.",
+    "honest_time_estimate": "12-14 hours. Kahn's (L1): 2 hrs. DFS topo (L2): 2 hrs. Course Schedule I+II (L3): 2 hrs. Alien Dictionary (L4): 3 hrs. Reconstruct Itinerary (L5): 3 hrs. Review (L6): 1.5 hrs.",
+    "euler_vs_hamiltonian": "CRITICAL DISTINCTION: Eulerian path (visit every EDGE once) = polynomial O(E log E) via Hierholzer. Hamiltonian path (visit every VERTEX once) = NP-complete. Do NOT confuse these in interviews."
+  },
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "advanced": "Lessons 1-3 (Kahn's BFS in-degree, DFS three-colour post-order, Course Schedule edge direction)",
+      "hard": "Lessons 4-5 (Alien Dictionary DAG derivation, Reconstruct Itinerary Hierholzer's post-order DFS)",
+      "capstone": "Lesson 6 (complete 8-signal decision guide, Kahn-style leaf pruning for MHT, full Level 2 graph synthesis)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

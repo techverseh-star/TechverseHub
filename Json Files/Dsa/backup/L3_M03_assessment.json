@@ -1,0 +1,821 @@
+{
+  "module_id": "L3-M03",
+  "module_title": "Advanced Tree Patterns",
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "note_on_relationship_to_existing_quiz": "This assessment is a SEPARATE, additive practice layer.",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "lesson_title": "Segment Tree On Problems",
+      "theory_mcq": [
+        {
+          "id": "L3M3-L1-TH-1",
+          "question": "For Falling Squares, why is COORDINATE COMPRESSION necessary before applying the segment tree?",
+          "options": [
+            "Coordinate compression is only for performance; the algorithm works without it",
+            "Positions can be up to 10^8 but the number of DISTINCT RELEVANT POSITIONS is at most 2*n (each square contributes at most 2 coordinates: its left edge and right edge-1); allocating a segment tree of size 10^8 would require ~400 MB; compressing to 2*n positions reduces the tree size to O(n), making the O(n log n) approach feasible; the compressed indices preserve all relative ordering and interval containment relationships",
+            "Coordinate compression converts the problem from 2D to 1D",
+            "Segment trees only work with indices 1..n; compression enforces this"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Coordinate compression: map large value range to small index range' and 'O(n log n) with coordinate compression for large-value problems' — without compression, a segment tree on positions up to 10^8 would require O(10^8) space and time, making it infeasible; compression to 2n positions reduces this to O(n log n)."
+        },
+        {
+          "id": "L3M3-L1-TH-2",
+          "question": "In Falling Squares, the lazy propagation uses `Math.max` instead of addition for both tree and lazy arrays. Why?",
+          "options": [
+            "Math.max is used because heights can never decrease",
+            "The UPDATE semantics differ: in a range-add lazy tree, adding delta means heights increase by a fixed amount for all elements; in Falling Squares, a square SETS all heights in its range to max(current, newHeight) — it doesn't add; when a new square of height H lands on a range, every position in that range becomes max(existing_height, H); the lazy tag represents a pending SET-TO-MAX operation; combining two pending set-to-max operations: max(max(x,a),b) = max(x, max(a,b)) — they compose by taking the max of the two values",
+            "max is used because segment trees must use associative operations",
+            "Math.max prevents negative heights from appearing in the tree"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `tree[node]=Math.max(tree[node],val)` and `lazy[node]=Math.max(lazy[node],val)` — the operation is 'set to max', not 'add delta'; two pending max-set operations combine: if lazy tag is already 10 and a new value of 8 arrives, the pending tag stays 10 (max(10,8)=10); lazy tags compose by max not by addition."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M3-L1-LG-1",
+          "question": "For `fallingSquares([[1,2],[2,3],[6,1]])`, trace the first two squares and explain why the answer is [2,5,5].",
+          "options": [
+            "Square 1 at [1,2): height 2; Square 2 at [2,5): base=2 (overlaps), height 2+3=5; Square 3 at [6,6]: height 0+1=1; maxH=[2,5,5] ✓",
+            "Square 1: height 2; Square 2: lands next to square 1, height 3; maxH=[2,3,3]",
+            "All three squares land independently; heights=[2,3,1]; maxH=[2,3,3]",
+            "Square 2 fully overlaps square 1 so height=2+3=5; square 3 at position 6 is isolated; maxH=[2,5,5]"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: [2,5,5]; Square 1 at [1,2], size 2: covers positions [1,2]; base=0, height=2; maxH=2; Square 2 at [2,3], size 3: covers positions [2,4]; query([2,4]) includes position 2 which has height 2; base=2, height=2+3=5; maxH=5; Square 3 at [6,6], size 1: no overlap, height=1; maxH stays 5."
+        },
+        {
+          "id": "L3M3-L1-LG-2",
+          "question": "The lesson states the segment tree generalisation requires the ASSOCIATIVITY of the merge operation. For Falling Squares (max merge), verify associativity: `max(max(a,b), c) == max(a, max(b,c))`.",
+          "options": [
+            "max(max(3,5),2)=max(5,2)=5; max(3,max(5,2))=max(3,5)=5 ✓ — max is associative",
+            "max is not associative; the segment tree must process left-to-right only",
+            "max(max(a,b),c) is always max(a,c) — b is irrelevant",
+            "Associativity holds only for distinct values; equal values break it"
+          ],
+          "answer": 0,
+          "explanation": "max IS associative: max(max(a,b),c) = max(a,b,c) = max(a,max(b,c)) for any values; this is the fundamental reason max (and min, sum, XOR, GCD) can be stored in segment tree nodes — the order of combining sub-ranges doesn't matter; non-associative operations (like average) cannot be directly used in segment trees."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M3-L1-SY-1",
+          "question": "In the Falling Squares coordinate compression, `const compress = new Map(sorted.map((v,i) => [v, i+1]))` uses `i+1` (not `i`). Why 1-indexed compression?",
+          "options": [
+            "1-indexing is required because Map indices start at 1",
+            "1-INDEXED COMPRESSION matches the segment tree's 1-indexed convention (root=1, children=2i, 2i+1); if compressed to 0-indexed and used as segment tree range, position 0 would map to segment tree node 0 which is unused (root is at index 1); the +1 shift ensures compressed coordinates 1..2n align with the segment tree's 1-indexed range [1..n]; if 0-indexed, the segment tree calls would need adjustment throughout",
+            "i+1 prevents Map from storing key 0 which has special meaning",
+            "1-indexing provides one extra position for the sentinel element"
+          ],
+          "answer": 1,
+          "explanation": "The segment tree in the lesson initialises with range [l=1, r=n]; coordinate compression uses i+1 to produce indices 1..n matching this range; 0-indexed compression would produce 0..n-1 and would require passing l=0 to the segment tree, changing the child navigation formula; the i+1 convention aligns coordinate-compressed indices with the segment tree's natural 1-indexed structure."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M3-L1-CC-1",
+          "title": "Falling Squares",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement Falling Squares from this lesson.",
+          "requirements": [
+            "Implement `fallingSquaresImpl(positions)` matching the lesson's coordinate compression + lazy max segment tree approach"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function fallingSquaresImpl(positions) {\n  // Step 1: coordinate compress left and left+size-1 for each square\n  // Step 2: lazy seg tree with range MAX update (not add)\n  // Step 3: for each square: query base height, set new height, track global max\n}"
+          },
+          "test_cases": [
+            {
+              "input": "JSON.stringify(fallingSquaresImpl([[1,2],[2,3],[6,1]]))",
+              "expected": "[2,5,5]",
+              "type": "visible"
+            },
+            {
+              "input": "JSON.stringify(fallingSquaresImpl([[100,100],[200,100]]))",
+              "expected": "[100,100]",
+              "type": "visible"
+            },
+            {
+              "input": "JSON.stringify(fallingSquaresImpl([[1,5],[2,2],[7,5]]))",
+              "expected": "[5,7,7]",
+              "type": "visible"
+            },
+            {
+              "input": "fallingSquaresImpl([[1,1]])[0]",
+              "expected": 1,
+              "type": "hidden"
+            },
+            {
+              "input": "fallingSquaresImpl([[1,4],[2,4],[3,4]])[2]",
+              "expected": 12,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function fallingSquares(positions){\n  const coords=new Set();\n  for(const[l,size]of positions){coords.add(l);coords.add(l+size-1);}\n  const sorted=[...coords].sort((a,b)=>a-b);\n  const compress=new Map(sorted.map((v,i)=>[v,i+1]));\n  const n=sorted.length;\n  const tree=new Array(4*(n+1)).fill(0),lazy=new Array(4*(n+1)).fill(0);\n  function pushDown(node){if(lazy[node]>0){tree[2*node]=Math.max(tree[2*node],lazy[node]);lazy[2*node]=Math.max(lazy[2*node],lazy[node]);tree[2*node+1]=Math.max(tree[2*node+1],lazy[node]);lazy[2*node+1]=Math.max(lazy[2*node+1],lazy[node]);lazy[node]=0;}}\n  function update(ql,qr,val,node=1,l=1,r=n){if(qr<l||r<ql)return;if(ql<=l&&r<=qr){tree[node]=Math.max(tree[node],val);lazy[node]=Math.max(lazy[node],val);return;}pushDown(node);const mid=(l+r)>>1;update(ql,qr,val,2*node,l,mid);update(ql,qr,val,2*node+1,mid+1,r);tree[node]=Math.max(tree[2*node],tree[2*node+1]);}\n  function query(ql,qr,node=1,l=1,r=n){if(qr<l||r<ql)return 0;if(ql<=l&&r<=qr)return tree[node];pushDown(node);const mid=(l+r)>>1;return Math.max(query(ql,qr,2*node,l,mid),query(ql,qr,2*node+1,mid+1,r));}\n  const result=[];let maxH=0;\n  for(const[l,size]of positions){const cl=compress.get(l),cr=compress.get(l+size-1);const base=query(cl,cr);const nh=base+size;update(cl,cr,nh);maxH=Math.max(maxH,nh);result.push(maxH);}\n  return result;\n}\nconst fallingSquaresImpl = fallingSquares;"
+          },
+          "complexity_analysis": "O(n log n) — coordinate compression O(n log n) + n segment tree operations O(log n) each.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "Coordinate compress: collect all l and l+size-1 values; sort and map to 1..k."
+            },
+            {
+              "level": 2,
+              "text": "Lazy tag uses Math.max (not +=): tree[node]=max(tree[node],val); lazy[node]=max(lazy[node],val)."
+            },
+            {
+              "level": 3,
+              "text": "For each square: base=query(cl,cr); newHeight=base+size; update(cl,cr,newHeight); track maxHeight."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 2,
+      "lesson_title": "Heavy-Light Decomposition Intro",
+      "theory_mcq": [
+        {
+          "id": "L3M3-L2-TH-1",
+          "question": "Why does any root-to-leaf path cross at most O(log n) LIGHT EDGES?",
+          "options": [
+            "Light edges are rare because most edges are heavy",
+            "Every time a path TAKES A LIGHT EDGE from parent v to child u (u is NOT the heavy child of v), the subtree size STRICTLY MORE THAN HALVES: `size[u] < size[v]/2` (because u is not the largest child, so some other child has size >= size[u], meaning size[v] >= 2*size[u]); starting from n at the root and halving at each light edge: after k light edges, the subtree size is at most n/2^k; when the subtree size reaches 1 (a leaf), k <= log2(n); therefore at most O(log n) light edges on any root-to-leaf path",
+            "Light edges are limited to O(log n) because the tree has height O(log n)",
+            "A path can only cross a light edge when changing chains, which happens O(log n) times"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Property: any root-to-leaf path crosses at most O(log n) light edges' — the key inequality: when taking a light edge to child u, size[u] <= size[parent]/2 (since u lost the heavy child competition to some sibling); this halving means light edges can only occur O(log n) times before reaching a leaf; this is why HLD achieves O(log^2 n) path queries."
+        },
+        {
+          "id": "L3M3-L2-TH-2",
+          "question": "In HLD's DFS2, why are heavy children extended IN THE SAME CHAIN while light children START NEW CHAINS?",
+          "options": [
+            "Heavy children are extended in-chain so they have consecutive DFS positions",
+            "CONTIGUOUS SEGMENT TREE LAYOUT: the key advantage of HLD is that all nodes on a chain get CONSECUTIVE POSITIONS in the DFS order; this means any query on a chain segment corresponds to a CONTIGUOUS RANGE in the segment tree array — queryable in O(log n); if light children were included in the chain, the consecutive positions would be broken; by separating chains at light edges, each chain maps to a clean contiguous range, enabling the segment tree to answer chain queries in O(log n)",
+            "Heavy children are extended in-chain to minimise the number of DFS calls",
+            "Light children start new chains because they are at leaf level"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `this._dfs2(this.heavy[v], h); // extend chain to heavy child` — heavy extension ensures all nodes on a chain receive consecutive pos[] values; when a path query is decomposed into O(log n) chain segments, each segment is a contiguous range in the seg tree, enabling O(log n) per chain query."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M3-L2-LG-1",
+          "question": "For a star graph (one central node with n-1 leaves), what is the heavy child of the center?",
+          "options": [
+            "Any one of the n-1 leaves can be designated as the heavy child",
+            "ALL LEAVES have subtree size 1; the heavy child is the one with the LARGEST subtree size; since all leaves have equal size=1, the heavy child is chosen by tie-breaking (the one processed first in the adjacency list); for a star graph with n-1 leaves: the center has heavy child = one leaf (size 1 > any other subtree consideration); the center's heavy child is just one of its n-1 equal-sized children — chosen deterministically by iteration order",
+            "Star graphs have no heavy children because all subtrees are equal size",
+            "The heavy child of the center is the leaf with the highest index"
+          ],
+          "answer": 1,
+          "explanation": "In the HLD implementation, `if (this.size[u] > maxSize)` updates the heavy child when a strictly larger subtree is found; for a star graph, all leaf subtrees have size=1, so the heavy child is whichever leaf appears first in the adjacency list (tie-breaking by first encounter); this is valid — any leaf can be the heavy child when all are equal size."
+        },
+        {
+          "id": "L3M3-L2-LG-2",
+          "question": "Why is HLD's path query complexity O(log²n) and NOT O(log n)?",
+          "options": [
+            "O(log²n) because the tree has height log n and each level costs log n",
+            "O(log²n) = O(log n) chain jumps × O(log n) per chain query: when the path from u to v spans MULTIPLE CHAINS, each chain change requires one chain segment query on the segment tree (O(log n)); there are at most O(log n) light edge crossings (= chain changes) on any u-to-v path; total = O(log n) chains × O(log n) per seg tree query = O(log²n); an O(log n) result would require O(1) per chain query, which isn't achievable with a standard segment tree",
+            "O(log²n) because each node is visited log n times during the path traversal",
+            "O(log²n) is a loose bound; the actual complexity is O(log n)"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'O(log^2 n) path query: O(log n) chains * O(log n) per chain segment tree query' — the two multiplicative log factors come from two distinct sources: the number of chain segments visited (O(log n) light edges) and the cost per chain segment query on the underlying segment tree (O(log n)); these cannot be combined into a single O(log n) without using more advanced techniques."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M3-L2-SY-1",
+          "question": "In `pathQuery`, the line `if (this.depth[this.head[u]] < this.depth[this.head[v]]) [u,v]=[v,u]` swaps u and v. What invariant does this maintain?",
+          "options": [
+            "It ensures u always has a lower index than v",
+            "It ensures U IS ON THE DEEPER CHAIN HEAD: by keeping u as the one whose chain head is deeper (further from root), we always process the deeper chain first; this guarantees progress toward the root — we always climb from the deeper chain to the shallower one; processing the shallower chain first would risk infinite loops (the shallow chain's head might be above the LCA, causing overshoot); the invariant 'deeper chain head first' ensures we always make progress by jumping to the shallower side after each chain segment",
+            "The swap ensures u < v for consistent segment tree indexing",
+            "The swap ensures both u and v are always on the same chain"
+          ],
+          "answer": 1,
+          "explanation": "The invariant ensures we always process the path segment on the deeper chain first: `u = this.parent[this.head[u]]` after processing the chain segment from head[u] to u; this jumps u UPWARD (towards the root); if u's chain head were shallower than v's chain head, climbing u would potentially overshoot past the LCA; keeping u on the deeper chain ensures each jump reduces depth correctly."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M3-L2-CC-1",
+          "title": "HLD Pattern Recogniser",
+          "difficulty": "Intermediate",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement heavy child computation and chain identification from HLD.",
+          "requirements": [
+            "Implement `computeHeavyChild(adj, root)` returning heavy[] array where heavy[v] = heavy child of v (-1 if leaf)",
+            "Implement `countChains(heavy, n)` returning the number of maximal chains"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function computeHeavyChild(adj, root) {\n  // DFS to compute subtree sizes; heavy[v] = child with largest subtree\n  const n=adj.length, size=new Array(n).fill(1), heavy=new Array(n).fill(-1);\n  // TODO: iterative or recursive DFS\n  return heavy;\n}\n\nfunction countChains(heavy, n) {\n  // A new chain starts at every node with heavy[parent]!==node (i.e., light edge to parent)\n  // Root always starts a chain; each node where parent's heavy child != node starts a new chain\n  // TODO: count distinct chain heads\n}"
+          },
+          "test_cases": [
+            {
+              "input": "JSON.stringify(computeHeavyChild([[1,2],[0,3,4],[0],[1],[1]], 0))",
+              "expected": "[1,3,-1,-1,-1]",
+              "type": "visible"
+            },
+            {
+              "input": "computeHeavyChild([[1],[0,2,3],[1],[1]], 0)[0]",
+              "expected": 1,
+              "type": "visible"
+            },
+            {
+              "input": "countChains([-1,3,-1,-1], 4)",
+              "expected": 3,
+              "type": "visible"
+            },
+            {
+              "input": "computeHeavyChild([[1,2],[0],[0]], 0)[0]",
+              "expected": 1,
+              "type": "hidden"
+            },
+            {
+              "input": "countChains([-1,-1,-1,-1], 4)",
+              "expected": 4,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function computeHeavyChild(adj, root) {\n  const n=adj.length,size=new Array(n).fill(1),heavy=new Array(n).fill(-1);\n  const parent=new Array(n).fill(-1);\n  const order=[];const visited=new Array(n).fill(false);\n  const stack=[root];visited[root]=true;\n  while(stack.length){const v=stack.pop();order.push(v);for(const u of adj[v])if(!visited[u]){visited[u]=true;parent[u]=v;stack.push(u);}}\n  for(let i=order.length-1;i>=0;i--){\n    const v=order[i];\n    if(parent[v]!==-1)size[parent[v]]+=size[v];\n    let maxS=0;\n    for(const u of adj[v])if(u!==parent[v]&&size[u]>maxS){maxS=size[u];heavy[v]=u;}\n  }\n  return heavy;\n}\n\nfunction countChains(heavy, n) {\n  const isHeavyChild=new Set(heavy.filter(h=>h!==-1));\n  let chains=0;\n  for(let v=0;v<n;v++)if(!isHeavyChild.has(v))chains++;\n  return chains;\n}"
+          },
+          "complexity_analysis": "computeHeavyChild: O(n). countChains: O(n).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "computeHeavyChild: BFS/DFS to get traversal order; process reverse order to compute subtree sizes bottom-up."
+            },
+            {
+              "level": 2,
+              "text": "heavy[v] = child u with max size[u]; if no children, heavy[v]=-1."
+            },
+            {
+              "level": 3,
+              "text": "countChains: a new chain starts at every node that is NOT a heavy child of any node; count = n - |{v : v is someone's heavy child}|."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 3,
+      "lesson_title": "Euler Tour And LCA",
+      "theory_mcq": [
+        {
+          "id": "L3M3-L3-TH-1",
+          "question": "In the Binary Lifting preprocessing, `ancestor[v][k] = ancestor[ancestor[v][k-1]][k-1]` doubles the jump distance at each level. Why does this correctly compute the 2^k-th ancestor?",
+          "options": [
+            "The formula is an approximation; exact ancestors require O(n) computation",
+            "2^k = 2^(k-1) + 2^(k-1): to reach the 2^k-th ancestor, first jump 2^(k-1) steps (from v to ancestor[v][k-1]), then jump another 2^(k-1) steps from there (to ancestor[ancestor[v][k-1]][k-1]); this telescoping identity is the core of binary lifting — each level's table is computed from the previous level in O(1) per entry; the total preprocessing is O(n log n) since each of the n nodes has log n entries, each computed O(1)",
+            "The formula works only for nodes at depths that are powers of 2",
+            "ancestor[v][k] stores the k-th ancestor, not 2^k-th"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'ancestor[v][k] = ancestor[ancestor[v][k-1]][k-1]' and '2^k = 2 * 2^(k-1): jump 2^(k-1) twice' — the doubling formula correctly builds a jump table where each level k represents jumping 2^k steps; this enables O(log n) LCA queries by decomposing the depth difference into binary representation and applying the appropriate jumps."
+        },
+        {
+          "id": "L3M3-L3-TH-2",
+          "question": "In the LCA query, after equalising depths, the algorithm jumps both nodes UP SIMULTANEOUSLY from high to low power-of-2. Why must it jump from HIGHEST to LOWEST (LOG-1 down to 0)?",
+          "options": [
+            "Jumping from lowest to highest also works; the direction is arbitrary",
+            "GREEDY BINARY DECOMPOSITION from largest to smallest: we want to find the DEEPEST ancestors that are STILL DIFFERENT; jumping from the largest bit first ensures we take the largest possible steps while both ancestors remain distinct; if we jumped from bit 0 upward, we'd overshoot past the LCA early, potentially making both ancestors equal when they shouldn't be; descending from LOG-1 to 0 greedily 'narrows in' on the LCA from above without overshooting",
+            "Descending direction is needed for cache efficiency in the ancestor array",
+            "Jumping from lowest to highest would cause index out-of-bounds errors"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's LCA query code: `for(let k=this.LOG-1; k>=0; k--)` — the greedy approach: process bits from largest to smallest; at each step, check if jumping 2^k steps would make both equal (if so, we've overshot — don't jump); if they're still different after the jump, take it; this finds the maximum depth where u and v are still different, placing both just below the LCA; their common parent is the LCA."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M3-L3-LG-1",
+          "question": "For the tree with edges [[1],[0,2,5],[1,3],[2,4],[3],[1]], `lca(3,5)=1`. Trace the LCA query.",
+          "options": [
+            "Depths: 0→0, 1→1, 2→2, 3→3, 4→4, 5→2; lca(3,5): depth[3]=3>depth[5]=2; equalise: diff=1, jump 3 up by 2^0=1 → node 2; depth[2]=depth[5]=2; u=2≠v=5; jump both: 2^k ancestors differ→jump; ancestors[2][0]=1, ancestors[5][0]=1 → same! So don't jump at k=0; return ancestor[2][0]=1 ✓",
+            "lca(3,5)=2 because node 2 is at depth 2 above node 3",
+            "lca(3,5)=0 because the root is the only common ancestor",
+            "lca(3,5)=3 because node 3 is deeper"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: lca(3,5)=1; the tree is a path 0-1-2-3-4 with an additional edge 1-5; depths: 0=0,1=1,2=2,3=3,4=4,5=2; lca(3,5): depth[3]=3>depth[5]=2; diff=1 → jump u=3 by 2^0=1 → u=2; now depth[2]=depth[5]=2 but u≠v; jump both at k=LOG-1 down: ancestors[2][0]=1=ancestors[5][0]=1 → same, don't jump; return ancestor[2][0]=1."
+        },
+        {
+          "id": "L3M3-L3-LG-2",
+          "question": "The Euler Tour LCA approach reduces LCA to range minimum. How many entries does the Euler tour array have for a tree with n nodes?",
+          "options": [
+            "2n-1 entries: each of the n nodes is entered once and exited once (except root exited at the end), producing 2n-1 total entries in the traversal",
+            "n entries: one per node",
+            "n log n entries: the Euler tour stores ancestors at each level",
+            "n^2 entries: all pairs of nodes"
+          ],
+          "answer": 0,
+          "explanation": "Matching the lesson's concept: 'O(n) Euler tour + O(n log n) sparse table = O(1) LCA queries' — the Euler tour visits each edge twice (once going down, once going back up) and visits each node once per edge incident; total entries = 2n-1 for a tree with n nodes and n-1 edges; the LCA of u and v is the minimum-depth node in the Euler tour between the first occurrences of u and v."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M3-L3-SY-1",
+          "question": "The LCA uses `Math.ceil(Math.log2(n)) + 1` for LOG. Why the `+1`?",
+          "options": [
+            "+1 is a safety margin; Math.ceil(Math.log2(n)) is exact",
+            "For n=1: `Math.log2(1)=0`, `Math.ceil(0)=0`, so LOG=0 would give 0 levels — the ancestor table would have 0 columns and `ancestor[v][0]=parent` could not be stored; the +1 ensures at least 1 level exists; for n=2: `Math.ceil(Math.log2(2))=1+1=2` levels — ancestor[v][0]=direct parent, ancestor[v][1]=grandparent; more generally, +1 provides a safety margin ensuring we have enough levels for the maximum possible depth, preventing off-by-one errors in queries",
+            "+1 converts 0-indexed LOG to 1-indexed",
+            "+1 handles the case where the tree is a path (worst case depth = n-1)"
+          ],
+          "answer": 1,
+          "explanation": "The +1 ensures the LOG value is always sufficient: for a chain of n nodes, the maximum depth is n-1; ceil(log2(n)) levels might be exactly enough but the +1 provides a safety margin; for n=1, ceil(log2(1))=0 without +1 would give 0 levels (broken); +1 also guards against floating-point imprecision in Math.log2 for exact powers of 2."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M3-L3-CC-1",
+          "title": "Lowest Common Ancestor (Binary Lifting)",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement Binary Lifting LCA from this lesson.",
+          "requirements": [
+            "Implement the `LCA` class with constructor(n, adj, root) and lca(u, v) method"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "class LCA {\n  constructor(n, adj, root=0) {\n    // TODO: compute depths and parents via BFS/DFS\n    // TODO: fill binary lifting table: ancestor[v][k]=ancestor[ancestor[v][k-1]][k-1]\n  }\n  lca(u, v) {\n    // TODO: equalise depths; jump both until just below LCA; return parent\n  }\n}"
+          },
+          "test_cases": [
+            {
+              "input": "new LCA(6,[[1],[0,2,5],[1,3],[2,4],[3],[1]]).lca(3,5)",
+              "expected": 1,
+              "type": "visible"
+            },
+            {
+              "input": "new LCA(6,[[1],[0,2,5],[1,3],[2,4],[3],[1]]).lca(2,4)",
+              "expected": 2,
+              "type": "visible"
+            },
+            {
+              "input": "new LCA(6,[[1],[0,2,5],[1,3],[2,4],[3],[1]]).lca(0,4)",
+              "expected": 0,
+              "type": "visible"
+            },
+            {
+              "input": "new LCA(3,[[1,2],[0],[0]]).lca(1,2)",
+              "expected": 0,
+              "type": "hidden"
+            },
+            {
+              "input": "new LCA(4,[[1],[0,2,3],[1],[1]]).lca(2,3)",
+              "expected": 1,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "class LCA {\n  constructor(n,adj,root=0){\n    this.n=n;this.LOG=Math.ceil(Math.log2(n))+1;\n    this.depth=new Array(n).fill(0);\n    this.ancestor=Array.from({length:n},()=>new Array(this.LOG).fill(-1));\n    const parent=new Array(n).fill(-1);const stack=[root];const visited=new Array(n).fill(false);visited[root]=true;\n    while(stack.length){const v=stack.pop();for(const u of adj[v]){if(!visited[u]){visited[u]=true;parent[u]=v;this.depth[u]=this.depth[v]+1;stack.push(u);}}}\n    for(let v=0;v<n;v++)this.ancestor[v][0]=parent[v];\n    for(let k=1;k<this.LOG;k++)for(let v=0;v<n;v++){const mid=this.ancestor[v][k-1];this.ancestor[v][k]=mid===-1?-1:this.ancestor[mid][k-1];}\n  }\n  lca(u,v){\n    if(this.depth[u]<this.depth[v])[u,v]=[v,u];\n    let diff=this.depth[u]-this.depth[v];\n    for(let k=0;k<this.LOG;k++)if((diff>>k)&1)u=this.ancestor[u][k];\n    if(u===v)return u;\n    for(let k=this.LOG-1;k>=0;k--)if(this.ancestor[u][k]!==this.ancestor[v][k]){u=this.ancestor[u][k];v=this.ancestor[v][k];}\n    return this.ancestor[u][0];\n  }\n}\n"
+          },
+          "complexity_analysis": "constructor: O(n log n). lca(): O(log n). Space: O(n log n) for ancestor table.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "BFS/DFS to set parent[] and depth[] for all nodes."
+            },
+            {
+              "level": 2,
+              "text": "ancestor[v][0]=parent[v]; for k=1..LOG: ancestor[v][k]=ancestor[ancestor[v][k-1]][k-1] (if exists, else -1)."
+            },
+            {
+              "level": 3,
+              "text": "lca(): equalise depths using binary bits of depth difference; then jump both from LOG-1 to 0 while ancestors differ; return ancestor[u][0]."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 4,
+      "lesson_title": "AVL Tree And Red-Black Tree Theory",
+      "theory_mcq": [
+        {
+          "id": "L3M3-L4-TH-1",
+          "question": "An AVL tree's balance factor is `height(left) - height(right)` and must stay in {-1, 0, 1}. When is a LEFT-RIGHT rotation (not a simple right rotation) needed?",
+          "options": [
+            "Left-right rotation is always needed when the tree is left-heavy",
+            "LEFT-RIGHT ROTATION is needed when: (1) the node z is LEFT-HEAVY (bf > 1) AND (2) z's LEFT CHILD y is RIGHT-HEAVY (bf(y) < 0); this 'knee' configuration cannot be fixed by a simple right rotation because rotating z right would place y as the new root with y's right subtree causing imbalance; the left-right double rotation: first rotate y LEFT (converting to left-left case), then rotate z RIGHT; example: z has left child y=5, y has right child x=7 — this right-heavy left subtree requires the double rotation",
+            "Left-right rotation is needed when the tree has more than 3 levels",
+            "Left-right rotation is always applied before right rotation for consistency"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `if(balanceFactor(node.left)<0) node.left=leftRotate(node.left); return rightRotate(node)` — the double rotation handles the 'bent' case where left child is right-heavy; a simple right rotation would not restore balance; the fix: rotate the left child left first (straightening the path), then rotate the root right."
+        },
+        {
+          "id": "L3M3-L4-TH-2",
+          "question": "Red-Black trees guarantee height <= 2*log2(n+1). How is this derived from the invariants?",
+          "options": [
+            "Red-Black trees have exactly log2(n) height due to perfect balance",
+            "From the invariants: (4) no consecutive red nodes means any path alternates red-black; (5) equal black-height on all paths means every path has the same number of black nodes; if the black-height is b, then any path has at least b nodes (all black) and at most 2b nodes (alternating red-black); the shortest path uses b black nodes, the longest 2b; since paths have length b to 2b, and there are n+1 leaves, b >= log2(n+1)/2; maximum height = 2b <= 2*log2(n+1); this is less strict than AVL's 1.44*log2(n) but requires fewer rotations on insert/delete",
+            "Height bound comes from the root-black requirement alone",
+            "2*log2(n+1) is an approximate bound; exact height may be higher"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Height bound: <= 2*log2(n+1)' — the bound follows from invariants 4 and 5: equal black-height b on all paths, no consecutive reds → max path length = 2b; n+1 leaves in a complete binary tree of height 2b means 2b >= log2(n+1); thus height <= 2*log2(n+1); Red-Black trades perfect balance for simpler rebalancing operations."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M3-L4-LG-1",
+          "question": "For a left rotation on node z (z.right = y, y.left = T2): what is the new root and where does T2 end up?",
+          "options": [
+            "New root = y; T2 becomes z's right child; z becomes y's left child — confirmed by the code",
+            "New root = z; y becomes z's left child; T2 stays as y's left",
+            "New root = T2; y and z become T2's children",
+            "New root = y; T2 becomes y's right child; z becomes y's left child"
+          ],
+          "answer": 0,
+          "explanation": "Matching the lesson's leftRotate code: `y.left=z; z.right=T2; return y` — y becomes the new root, z becomes y's left child, and T2 (originally y's left subtree) becomes z's right child; this preserves BST ordering: T2 has keys between z and y, so placing it as z's right maintains the invariant (z < T2 < y)."
+        },
+        {
+          "id": "L3M3-L4-LG-2",
+          "question": "Why do most standard libraries (Java TreeMap, C++ std::map) use Red-Black trees rather than AVL trees?",
+          "options": [
+            "Red-Black trees have better worst-case performance than AVL trees",
+            "FEWER ROTATIONS ON INSERT/DELETE: AVL trees can require O(log n) ROTATIONS after an insertion (rebalancing may propagate all the way to the root); Red-Black trees require at most 2 rotations + O(log n) recolouring per insert and at most 3 rotations per delete; recolouring is much cheaper than rotation (no structural change); for map/dictionary workloads with frequent insertions, Red-Black trees have significantly smaller constant factors; AVL's slightly better search performance (shorter height) is outweighed by slower updates in insert/delete-heavy workloads",
+            "Red-Black trees are easier to implement correctly",
+            "AVL trees use more memory per node than Red-Black trees"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Red-Black more permissive: fewer rotations, used in most standard libraries' — the engineering tradeoff: AVL trees are slightly better for search-heavy workloads (shorter height); Red-Black trees are better for insert/delete-heavy workloads (constant number of rotations per modification); since map/dictionary data structures are typically used for both operations, the Red-Black tree's better mutation performance wins in practice."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M3-L4-SY-1",
+          "question": "In the AVL `balance` function, `updateHeight(node)` is called BEFORE checking the balance factor. Why must height be updated before computing bf?",
+          "options": [
+            "updateHeight can be called at any time; the order doesn't affect the result",
+            "The balance factor uses `height(node.left) - height(node.right)` which reads `node.height` of children; CHILDREN'S HEIGHTS WERE ALREADY UPDATED by their own recursive balance() calls earlier in the recursion; but the CURRENT NODE's height may be stale (it stored the height before the rotation changed its subtree); updateHeight(node) recomputes `node.height = 1 + max(height(left), height(right))` using the freshly-updated children heights; if height were computed before updateHeight, it would use the old stale height giving an incorrect balance factor",
+            "updateHeight must run before balance factor to initialise the height field to a non-null value",
+            "The order only matters for leaf nodes which have no children"
+          ],
+          "answer": 1,
+          "explanation": "The recursion processes bottom-up: children are balanced first (their heights are updated), then the parent runs balance(); by the time balance(node) is called, node.left.height and node.right.height are current; updateHeight(node) recomputes node.height from these current children heights; then balanceFactor(node) correctly reads the updated height; if updateHeight were skipped or called after bf, the balance decision would be based on a stale height."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M3-L4-CC-1",
+          "title": "AVL Tree Rotations",
+          "difficulty": "Advanced",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement AVL tree rotations and balance function from this lesson.",
+          "requirements": [
+            "Implement `avlInsert(node, val)` building a balanced AVL tree using the four rotation cases"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "class AVLNode{constructor(val){this.val=val;this.left=this.right=null;this.height=1;}}\nfunction height(node){return node?node.height:0;}\nfunction updateHeight(node){node.height=1+Math.max(height(node.left),height(node.right));}\nfunction leftRotate(z){const y=z.right,T2=y.left;y.left=z;z.right=T2;updateHeight(z);updateHeight(y);return y;}\nfunction rightRotate(z){const y=z.left,T3=y.right;y.right=z;z.left=T3;updateHeight(z);updateHeight(y);return y;}\n\nfunction avlInsert(node, val) {\n  // TODO: standard BST insert then balance()\n  // balance: bf>1 (left heavy): left-right case OR left-left case\n  //          bf<-1 (right heavy): right-left case OR right-right case\n}"
+          },
+          "test_cases": [
+            {
+              "input": "(() => { let r=null; [1,2,3].forEach(v=>r=avlInsert(r,v)); return r.val; })()",
+              "expected": 2,
+              "type": "visible"
+            },
+            {
+              "input": "(() => { let r=null; [3,2,1].forEach(v=>r=avlInsert(r,v)); return r.val; })()",
+              "expected": 2,
+              "type": "visible"
+            },
+            {
+              "input": "(() => { let r=null; [1,2,3].forEach(v=>r=avlInsert(r,v)); return r.height; })()",
+              "expected": 2,
+              "type": "visible"
+            },
+            {
+              "input": "(() => { let r=null; [1,3,2].forEach(v=>r=avlInsert(r,v)); return r.val; })()",
+              "expected": 2,
+              "type": "hidden"
+            },
+            {
+              "input": "(() => { let r=null; [5,3,7,1,4].forEach(v=>r=avlInsert(r,v)); return r.val; })()",
+              "expected": 5,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "class AVLNode{constructor(val){this.val=val;this.left=this.right=null;this.height=1;}}\nfunction height(node){return node?node.height:0;}\nfunction balanceFactor(node){return node?height(node.left)-height(node.right):0;}\nfunction updateHeight(node){node.height=1+Math.max(height(node.left),height(node.right));}\nfunction leftRotate(z){const y=z.right,T2=y.left;y.left=z;z.right=T2;updateHeight(z);updateHeight(y);return y;}\nfunction rightRotate(z){const y=z.left,T3=y.right;y.right=z;z.left=T3;updateHeight(z);updateHeight(y);return y;}\nfunction balance(node){\n  updateHeight(node);const bf=balanceFactor(node);\n  if(bf>1){if(balanceFactor(node.left)<0)node.left=leftRotate(node.left);return rightRotate(node);}\n  if(bf<-1){if(balanceFactor(node.right)>0)node.right=rightRotate(node.right);return leftRotate(node);}\n  return node;\n}\nfunction avlInsert(node,val){\n  if(!node)return new AVLNode(val);\n  if(val<node.val)node.left=avlInsert(node.left,val);\n  else if(val>node.val)node.right=avlInsert(node.right,val);\n  return balance(node);\n}\n"
+          },
+          "complexity_analysis": "avlInsert: O(log n) per insert — O(log n) descent + O(1) rotation at each level. O(n) total for n inserts.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "Standard BST insert: if val<node.val go left, else go right; create new AVLNode at null."
+            },
+            {
+              "level": 2,
+              "text": "After inserting child, call balance(node): updateHeight then check balanceFactor."
+            },
+            {
+              "level": 3,
+              "text": "Four cases: LL→rightRotate; LR→leftRotate(left) then rightRotate; RR→leftRotate; RL→rightRotate(right) then leftRotate."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 5,
+      "lesson_title": "B-Trees And Database Index Connection",
+      "theory_mcq": [
+        {
+          "id": "L3M3-L5-TH-1",
+          "question": "Why is a B-tree of order m=1000 superior to a BST for database queries on 1 million records?",
+          "options": [
+            "B-trees are always better than BSTs regardless of m",
+            "DISK I/O MINIMISATION: each database access reads one DISK PAGE (typically 4-16 KB); a BST node stores one key and two pointers — each node access = one disk read = O(log2(n))=~20 disk reads for 1M records; a B-tree node of order 1000 stores up to 999 keys — one disk read reads 999 keys (one full disk page); height = log1000(1M) = log(10^6)/log(10^3) = 2 disk reads; the 10x improvement per level compounds: 2 vs 20 disk reads; disk seeks take ~5-10ms each; 2 vs 20 reads = 10x speedup × 5ms = 50ms vs 100ms per query — significant in practice",
+            "B-trees have better asymptotic complexity than BSTs",
+            "B-trees use less memory than BSTs for n records"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's comparison: 'B-tree m=1000: height=2 disk reads for 1M records' vs BST 'height~20 disk reads' — the key insight is the FANOUT: each node stores m-1 keys and m pointers; a single disk page read retrieves m child pointers, reducing tree height to log_m(n); for m=1000: log1000(10^6)=2; this directly reduces disk I/O by 10x compared to BST."
+        },
+        {
+          "id": "L3M3-L5-TH-2",
+          "question": "Why does the B+ tree store ALL DATA AT LEAVES (not at internal nodes)?",
+          "options": [
+            "B+ trees store data at leaves because internal nodes need to fit in a single disk page",
+            "B+ TREE LEAF SCAN ADVANTAGE: for range queries like 'SELECT * WHERE age BETWEEN 20 AND 30', a B+ tree can traverse the leaf linked list sequentially after finding age=20; internal nodes only store routing keys (no data pointers), allowing more keys per node (higher fanout, lower height); data is only at leaves so a sequential scan reads leaves in O(records_in_range) time without backtracking; in a B-tree (data everywhere), a range query might require jumping back up and down the tree for each record in the range",
+            "B+ trees store data at leaves to simplify the deletion algorithm",
+            "Leaf storage enables O(1) point queries without traversing the tree"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'B+ tree variant: all data at leaves, internal nodes only for routing' and 'Primary index: very efficient range query (leaf scan)' — B+ leaves form a doubly linked list; once the range start is found via tree traversal, the remaining records are read by sequential leaf scanning without re-traversing the tree; this is the primary database advantage of B+ over B-trees."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M3-L5-LG-1",
+          "question": "For 1 million records: BST needs ~20 disk reads but B-tree m=100 needs only 3. Verify: log100(10^6) = ?",
+          "options": [
+            "log100(10^6) = log(10^6)/log(100) = 6/2 = 3 ✓",
+            "log100(10^6) = 100^3 = 10^6 ✓ (too many steps)",
+            "log100(10^6) = 6 (using natural log)",
+            "log100(10^6) = 4 (since 100^4 = 10^8 > 10^6)"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: Math.ceil(Math.log(1e6)/Math.log(100))=3; change of base formula: log_b(x) = log(x)/log(b); log100(10^6) = log(10^6)/log(100) = 6*log(10) / (2*log(10)) = 6/2 = 3; a B-tree of order 100 for 1 million records requires at most 3 disk reads to find any record."
+        },
+        {
+          "id": "L3M3-L5-LG-2",
+          "question": "A database has a range query 'SELECT * WHERE salary > 50000'. Should it use a B+ tree index or a hash index?",
+          "options": [
+            "B+ TREE INDEX: hash indexes don't support range queries (unordered structure); a B+ tree locates the first record with salary>50000 in O(log n) then scans leaves sequentially for all qualifying records; hash indexes only support equality checks (WHERE salary=50000) in O(1), but for range queries, the entire hash table must be scanned — O(n)",
+            "Hash index: faster O(1) lookup per record",
+            "Both are equivalent for range queries; choose based on index size",
+            "Neither; a full table scan is always used for range queries"
+          ],
+          "answer": 0,
+          "explanation": "Matching the lesson's concept: 'Hash Index: NOT supported for range queries (unordered)' — hash functions destroy ordering information; B+ tree maintains sorted order among leaves, enabling range queries via leaf list traversal; this is why all major databases use B+ trees for range-queryable columns and hash indexes only for equality-based lookups."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M3-L5-SY-1",
+          "question": "In `BTreeNode`, the `next` pointer (`this.next = null`) creates a linked list between leaf nodes. What JavaScript pattern does this represent and why is it used?",
+          "options": [
+            "next is a standard tree pointer for parent tracking",
+            "INTRUSIVE LINKED LIST: rather than maintaining a separate list data structure, the linked list connection is built INTO the node objects themselves; `node.next` points directly to the adjacent leaf node in sorted order; this enables O(1) navigation from one leaf to the next during range scans without going back up to internal nodes; it's called 'intrusive' because the list pointers are embedded in the nodes (not a wrapper structure); JavaScript linked lists are naturally implemented this way using object references",
+            "next is used for garbage collection hints in JavaScript",
+            "next stores the B-tree's sibling pointer for rebalancing"
+          ],
+          "answer": 1,
+          "explanation": "The `next` pointer in B+ tree leaf nodes creates an intrusive singly-linked list of all leaves in sorted order; this enables sequential range scans: after finding the start of a range, traverse `node.next` repeatedly to collect all qualifying records without re-traversing internal nodes; this is the key performance feature of B+ trees for range queries."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M3-L5-CC-1",
+          "title": "B-Tree Height Calculator and Index Selector",
+          "difficulty": "Intermediate",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement B-tree analysis and index selection utilities from this lesson.",
+          "requirements": [
+            "Implement `btreeHeight(n, m)` returning the ceil(log_m(n)) height of a B-tree",
+            "Implement `selectDatabaseIndex(queryType)` returning the appropriate index type"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function btreeHeight(n, m) {\n  // TODO: ceil(log_m(n)) — change of base formula: log_m(n) = Math.log(n)/Math.log(m)\n}\n\nfunction selectDatabaseIndex(queryType) {\n  // queryType: 'equality', 'range', 'prefix'\n  // TODO: return 'Hash Index', 'B+ Tree', or 'B+ Tree' based on query type\n}"
+          },
+          "test_cases": [
+            {
+              "input": "btreeHeight(1000000, 100)",
+              "expected": 3,
+              "type": "visible"
+            },
+            {
+              "input": "btreeHeight(1000000, 1000)",
+              "expected": 2,
+              "type": "visible"
+            },
+            {
+              "input": "selectDatabaseIndex('equality')",
+              "expected": "Hash Index",
+              "type": "visible"
+            },
+            {
+              "input": "selectDatabaseIndex('range')",
+              "expected": "B+ Tree",
+              "type": "hidden"
+            },
+            {
+              "input": "btreeHeight(1000000, 2)",
+              "expected": 20,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function btreeHeight(n, m) {\n  return Math.ceil(Math.log(n)/Math.log(m));\n}\n\nfunction selectDatabaseIndex(queryType) {\n  if(queryType==='equality')return'Hash Index';\n  return'B+ Tree';\n}"
+          },
+          "complexity_analysis": "btreeHeight: O(1). selectDatabaseIndex: O(1).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "btreeHeight: change of base formula: log_m(n) = Math.log(n)/Math.log(m); apply Math.ceil."
+            },
+            {
+              "level": 2,
+              "text": "selectDatabaseIndex: only hash indexes support equality in O(1); B+ tree supports both range and prefix queries."
+            },
+            {
+              "level": 3,
+              "text": "btreeHeight(1M, 2) = ceil(log2(10^6)) = ceil(19.93) = 20 — matches BST height."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 6,
+      "lesson_title": "Advanced Tree Thinking",
+      "theory_mcq": [
+        {
+          "id": "L3M3-L6-TH-1",
+          "question": "The Skyline Problem (#218) can be solved with either a segment tree or a max-heap + events. What is the CONCEPTUAL DIFFERENCE between these two approaches?",
+          "options": [
+            "Both approaches are identical; they use the same algorithm",
+            "SEGMENT TREE approach: processes buildings online using coordinate-compressed ranges; range MAX updates for each building; queries the max height at each event point; natural choice when buildings have complex overlapping; O(n log n); MAX-HEAP approach: maintains a set of currently 'active' buildings; at each event (building start/end), updates the heap; the current max height is heap.top(); conceptually simpler (no coordinate compression needed); O(n log n) with a proper heap; the heap approach is the lesson's implementation; the segment tree is the 'generalist tool'",
+            "The segment tree approach is always faster",
+            "The max-heap approach requires sorting; the segment tree doesn't"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's comment: 'ALTERNATIVELY solved with a max-heap + events' — both achieve O(n log n) for the Skyline Problem; the heap approach maintains active heights directly (easier to reason about conceptually); the segment tree generalises better to related problems; the lesson shows both as valid approaches with different tradeoffs in code complexity vs generality."
+        },
+        {
+          "id": "L3M3-L6-TH-2",
+          "question": "When should you choose HLD over LCA Binary Lifting for a tree problem?",
+          "options": [
+            "HLD is always better than LCA; binary lifting is redundant",
+            "HLD for PATH AGGREGATE QUERIES (sum/max of VALUES on a path), LCA binary lifting for ANCESTOR QUERIES (which node is the LCA?, distance between nodes): LCA binary lifting answers 'which node is the LCA?' in O(log n); HLD with segment tree answers 'what is the max edge weight on the path from u to v?' in O(log^2 n); for pure LCA queries, binary lifting is simpler and faster; for queries involving aggregation over path elements (edges or nodes), HLD provides the segment tree infrastructure needed",
+            "HLD is for directed graphs; LCA binary lifting is for undirected trees",
+            "Binary lifting handles dynamic trees; HLD only works for static trees"
+          ],
+          "answer": 1,
+          "explanation": "The key distinction: LCA binary lifting answers 'who is the LCA?' — a structural query; HLD provides infrastructure for 'what is the aggregated property along the path?' — a value query; if you only need LCA, binary lifting is O(log n) and simpler; if you need path aggregates (sum of weights, max value), HLD's segment tree is necessary at the cost of O(log^2 n)."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M3-L6-LG-1",
+          "question": "Module 3 has 2 NC150 problems (#218 Skyline and #315 Count Smaller). They use 'Seg Tree or Priority Queue' and 'Fenwick + coord compress' respectively. What is the COMMON THREAD?",
+          "options": [
+            "Both use Red-Black trees internally",
+            "Both use COORDINATE COMPRESSION combined with a RANGE DATA STRUCTURE: #218 Skyline compresses x-positions and uses a segment tree (or sorted multiset) to track max heights; #315 Count Smaller compresses values (ranks) and uses a Fenwick tree to count smaller already-seen elements; coordinate compression maps a large-value problem to a manageable index range; the range data structure (segment tree or Fenwick) then answers queries on that compressed range; this pattern — compress then apply range DS — is the unified technique",
+            "Both problems require O(n log²n) solutions",
+            "Both problems are solvable with only sorting and binary search"
+          ],
+          "answer": 1,
+          "explanation": "Both module 3 NC150 problems follow the pattern: (1) coordinate-compress the key values to indices 1..n, (2) apply a range data structure (Fenwick or segment tree) on the compressed indices; #218 uses max-height tracking on compressed x-positions; #315 uses frequency counting on compressed value ranks; this compression + range DS combination is the unified Level 3 technique."
+        },
+        {
+          "id": "L3M3-L6-LG-2",
+          "question": "How many total techniques does `advancedTreeTechniques` cover, and what is the ordering principle?",
+          "options": [
+            "7 techniques ordered from most specific (Segment Tree) to most general (B+ Tree), covering array→tree→database",
+            "5 techniques covering only tree algorithms",
+            "7 techniques in random order",
+            "6 techniques ordered by complexity"
+          ],
+          "answer": 0,
+          "explanation": "The lesson's advancedTreeTechniques array has 7 entries: Segment Tree, Fenwick Tree, Lazy Segment Tree, LCA Binary Lifting, HLD, AVL/Red-Black, B+ Tree; the ordering progresses from ARRAY RANGE STRUCTURES (Segment, Fenwick, Lazy Segment) → TREE PATH STRUCTURES (LCA, HLD) → SELF-BALANCING BSTs (AVL/RB) → DISK-BASED (B+ Tree); this covers the full spectrum from in-memory arrays to disk-based database indices."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M3-L6-SY-1",
+          "question": "In `getSkyline`, `maxHeap.push(-h)` uses a NEGATIVE HEIGHT for entering buildings. Why store negatives?",
+          "options": [
+            "Negative heights trigger special sorting behavior for entering events",
+            "COMBINED EVENT SORTING: events are stored as `[x, h]` where x is the x-coordinate and h is the height (negative for entry, positive for exit); sorting by `[x, h]` in ascending order puts ENTRY EVENTS BEFORE EXIT EVENTS at the same x (because -h < 0 < +h); for equal x and type, taller entering buildings come first (more negative = first) and shorter exiting buildings come first (smaller positive = first); this encoding ensures events at the same x are processed in the correct order without a secondary sort key — the negative/positive encoding handles all priority rules",
+            "Negatives are stored to enable binary search on heights",
+            "Negative heights represent buildings that extend underground"
+          ],
+          "answer": 1,
+          "explanation": "The negative encoding is the classic 'events as signed values' trick: for an entry event with height h: store -h (negative); for an exit event: store +h; sorting by value puts entries before exits at the same x (negative < positive), and sorts taller entries first (more negative = earlier); this eliminates the need for a complex multi-key comparator while correctly handling all the edge cases in the Skyline problem."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M3-L6-CC-1",
+          "title": "The Skyline Problem and Advanced Tree Classifier",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+          "problem_statement": "Implement the Skyline Problem and the Module 3 decision guide.",
+          "requirements": [
+            "Implement `getSkylineImpl(buildings)` matching the lesson's event-based max-heap approach",
+            "Implement `selectAdvancedTree(query)` returning the technique for a given query type"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function getSkylineImpl(buildings) {\n  // TODO: events [x,-h] for enter, [x,h] for exit; sort; maintain maxHeap\n}\n\nfunction selectAdvancedTree(query) {\n  // query types: 'array_range', 'path_lca', 'path_aggregate', 'ordered_set', 'disk_range'\n  // TODO: return technique string\n}"
+          },
+          "test_cases": [
+            {
+              "input": "JSON.stringify(getSkylineImpl([[2,9,10],[3,7,15],[5,12,12],[15,20,10],[19,24,8]]))",
+              "expected": "[[2,10],[3,15],[7,12],[12,0],[15,10],[20,8],[24,0]]",
+              "type": "visible"
+            },
+            {
+              "input": "selectAdvancedTree('path_lca')",
+              "expected": "LCA Binary Lifting",
+              "type": "visible"
+            },
+            {
+              "input": "selectAdvancedTree('path_aggregate')",
+              "expected": "Heavy-Light Decomposition",
+              "type": "visible"
+            },
+            {
+              "input": "selectAdvancedTree('disk_range')",
+              "expected": "B+ Tree",
+              "type": "hidden"
+            },
+            {
+              "input": "selectAdvancedTree('array_range')",
+              "expected": "Segment Tree",
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function getSkyline(buildings){\n  const events=[];\n  for(const[l,r,h]of buildings){events.push([l,-h]);events.push([r,h]);}\n  events.sort((a,b)=>a[0]!==b[0]?a[0]-b[0]:a[1]-b[1]);\n  const result=[];const maxHeap=[0];\n  for(const[x,h]of events){\n    if(h<0)maxHeap.push(-h);\n    else{const idx=maxHeap.indexOf(h);if(idx!==-1)maxHeap.splice(idx,1);}\n    maxHeap.sort((a,b)=>b-a);const curMax=maxHeap[0];\n    if(!result.length||result[result.length-1][1]!==curMax)result.push([x,curMax]);\n  }\n  return result;\n}\nconst getSkylineImpl=getSkyline;\n\nfunction selectAdvancedTree(query){\n  const map={\n    'array_range':'Segment Tree',\n    'path_lca':'LCA Binary Lifting',\n    'path_aggregate':'Heavy-Light Decomposition',\n    'ordered_set':'AVL / Red-Black Tree',\n    'disk_range':'B+ Tree'\n  };\n  return map[query]||'Segment Tree';\n}"
+          },
+          "complexity_analysis": "getSkylineImpl: O(n² log n) with naive array-heap; O(n log n) with sorted multiset. selectAdvancedTree: O(1).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "getSkylineImpl: events [x,-h] for enter and [x,h] for exit; sort events; track maxHeap of active heights."
+            },
+            {
+              "level": 2,
+              "text": "For entry: push height to heap; for exit: remove height from heap; if current max changes, add [x, newMax] to result."
+            },
+            {
+              "level": 3,
+              "text": "selectAdvancedTree: map query type to technique; 'path_lca'→binary lifting; 'path_aggregate'→HLD."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "hard": "Lessons 1-3 (lazy max seg tree + coord compress for Falling Squares, HLD O(log n) light edge bound, LCA binary lifting O(n log n) preprocessing)",
+      "advanced": "Lessons 4-5 (AVL four rotation cases, Red-Black height proof, B-tree log_m height vs BST, B+ leaf scan for range queries)",
+      "capstone": "Lesson 6 (7-technique decision guide, Skyline event encoding, coordinate-compress+range-DS as unified Level 3 pattern)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

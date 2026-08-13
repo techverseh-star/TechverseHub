@@ -1,0 +1,826 @@
+{
+  "module_id": "L3-M06",
+  "module_title": "Geometry And Spatial Algorithms",
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "note_on_relationship_to_existing_quiz": "This assessment is a SEPARATE, additive practice layer.",
+  "known_source_discrepancies": [
+    "L3: The lesson's console.log claims rectangleArea([[0,0,2,2],[1,0,3,3],[1,0,2,1]])=6, but verified execution returns 8. Manual geometry: strip x=[0,1] area=2, strip x=[1,2] area=3, strip x=[2,3] area=3; total=8. The algorithm implementation is correct; only the console.log comment is wrong. Assessment tests use verified value 8."
+  ],
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "lesson_title": "Coordinate Geometry Basics",
+      "theory_mcq": [
+        {
+          "id": "L3M6-L1-TH-1",
+          "question": "The cross product `cross(A,B,C) = (B-A) × (C-A)` returns a SCALAR in 2D. What does each sign of this scalar represent geometrically?",
+          "options": [
+            "Positive = the three points are collinear; negative = they are not",
+            "POSITIVE (>0): C is to the LEFT of ray A→B (counter-clockwise turn A→B→C); NEGATIVE (<0): C is to the RIGHT of ray A→B (clockwise turn); ZERO: A, B, C are COLLINEAR (on the same line); this sign encodes the orientation of the ordered triple (A,B,C) and is the fundamental primitive for all geometric decisions in the lesson",
+            "Positive = segments AB and AC are parallel; negative = they are perpendicular",
+            "Positive = A is the leftmost point; negative = C is the leftmost point"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Cross product sign: positive=CCW, negative=CW, zero=collinear' — the 2D cross product |AxB| = ax*by - ay*bx encodes the signed area of the triangle formed by A, B, C; positive = left turn (CCW), negative = right turn (CW), zero = collinear; this is the foundation for segment intersection and convex hull."
+        },
+        {
+          "id": "L3M6-L1-TH-2",
+          "question": "Segment intersection requires FOUR orientation tests. Why aren't two tests sufficient?",
+          "options": [
+            "Two tests would suffice; four tests handle only collinear edge cases",
+            "The GENERAL CASE test is: o1≠o2 AND o3≠o4 — segments AB and CD intersect if C and D are on opposite sides of line AB AND A and B are on opposite sides of line CD; this requires 4 orientation computations (o1=orient(A,B,C), o2=orient(A,B,D), o3=orient(C,D,A), o4=orient(C,D,B)); COLLINEAR SPECIAL CASES (when one endpoint lies exactly on the other segment) require additional onSegment tests for each of the four orientations being zero; total: 4 orientation + up to 4 onSegment checks",
+            "Four tests are needed only when segments are parallel",
+            "Each orientation test checks one endpoint; four endpoints require four tests"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `const o1=orientation(A,B,C), o2=orientation(A,B,D), o3=orientation(C,D,A), o4=orientation(C,D,B)` — the general case (o1≠o2 && o3≠o4) needs all four to check that each segment properly straddles the other's line; the collinear case (any oi=0) needs onSegment tests; two tests would miss the collinear overlap cases."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M6-L1-LG-1",
+          "question": "For `cross([0,0],[1,1],[0,1])`, compute the result. Which orientation does this represent?",
+          "options": [
+            "cross = (1-0)*(1-0) - (1-0)*(0-0) = 1*1 - 1*0 = 1 > 0 → CCW (C=[0,1] is left of ray A→B)",
+            "cross = (1-0)*(0-0) - (1-0)*(1-0) = 0-1 = -1 → CW",
+            "cross = 0 → collinear (all three on the same line)",
+            "cross = 2 → the three points form a right angle"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: cross([0,0],[1,1],[0,1])=1; calculation: (B[0]-A[0])*(C[1]-A[1])-(B[1]-A[1])*(C[0]-A[0]) = (1-0)*(1-0)-(1-0)*(0-0) = 1*1-1*0 = 1; positive → CCW, meaning [0,1] is to the LEFT of ray [0,0]→[1,1]."
+        },
+        {
+          "id": "L3M6-L1-LG-2",
+          "question": "For the X-shaped intersection test `segmentsIntersect([0,0],[1,1],[0,1],[1,0])`, which of the four orientations are computed and what is each result?",
+          "options": [
+            "o1=orient([0,0],[1,1],[0,1])=1(CCW); o2=orient([0,0],[1,1],[1,0])=2(CW); o3=orient([0,1],[1,0],[0,0])=2(CW); o4=orient([0,1],[1,0],[1,1])=1(CCW); o1≠o2 AND o3≠o4 → true ✓",
+            "All four orientations are CCW; segments don't intersect",
+            "Two orientations are zero (collinear); handled by onSegment checks",
+            "o1=o2=1; o3≠o4; mixed result"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: segmentsIntersect([0,0],[1,1],[0,1],[1,0])=true; the X-shape: segment AB=[0,0]→[1,1] and CD=[0,1]→[1,0] cross diagonally; C=[0,1] is CCW (left) of AB, D=[1,0] is CW (right) of AB (o1≠o2); A=[0,0] and B=[1,1] are on opposite sides of CD (o3≠o4); general case satisfied → intersect."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M6-L1-SY-1",
+          "question": "In distance comparisons (like closest pair), the lesson advises 'avoid sqrt for comparison'. Why is `dx*dx + dy*dy` preferred over `Math.sqrt(dx*dx+dy*dy)` for comparisons?",
+          "options": [
+            "Math.sqrt introduces floating-point errors that make comparisons unreliable",
+            "When COMPARING distances (is dist(A,B) < dist(A,C)?), only the RELATIVE ORDER matters; since sqrt is a MONOTONICALLY INCREASING function: sqrt(a) < sqrt(b) iff a < b for non-negative a,b; comparing squared distances `dx²+dy²` gives the same ordering as comparing actual distances without the O(1) sqrt computation; avoiding sqrt: (1) faster (no transcendental function), (2) avoids floating-point imprecision from irrational results, (3) enables exact integer arithmetic when coordinates are integers",
+            "Math.sqrt returns NaN for negative values; squared distances prevent this",
+            "sqrt has O(log n) complexity; squared distances give O(1)"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Distance: Euclidean sqrt(dx^2+dy^2), avoid sqrt for comparison' — the monotone property of sqrt preserves ordering; comparing squared distances gives identical ordering with exact integer arithmetic; this is a common computational geometry optimization that avoids introducing floating-point errors from sqrt computation."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M6-L1-CC-1",
+          "title": "Geometric Primitives: Cross Product and Segment Intersection",
+          "difficulty": "Advanced",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement the geometric primitives from this lesson.",
+          "requirements": [
+            "Implement `crossImpl(A, B, C)` returning the 2D cross product scalar",
+            "Implement `segmentsIntersectImpl(A, B, C, D)` using four orientation tests"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function crossImpl(A, B, C) {\n  // TODO: (B[0]-A[0])*(C[1]-A[1]) - (B[1]-A[1])*(C[0]-A[0])\n}\n\nfunction segmentsIntersectImpl(A, B, C, D) {\n  // TODO: four orientations; general case o1≠o2&&o3≠o4; collinear onSegment checks\n}"
+          },
+          "test_cases": [
+            {
+              "input": "crossImpl([0,0],[1,1],[0,1])",
+              "expected": 1,
+              "type": "visible"
+            },
+            {
+              "input": "segmentsIntersectImpl([0,0],[1,1],[0,1],[1,0])",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "segmentsIntersectImpl([0,0],[1,1],[2,2],[3,3])",
+              "expected": false,
+              "type": "visible"
+            },
+            {
+              "input": "crossImpl([0,0],[2,0],[0,2])",
+              "expected": 4,
+              "type": "hidden"
+            },
+            {
+              "input": "segmentsIntersectImpl([0,0],[1,0],[0,0],[0,1])",
+              "expected": true,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function cross(A,B,C){return(B[0]-A[0])*(C[1]-A[1])-(B[1]-A[1])*(C[0]-A[0]);}\nfunction orientation(A,B,C){const val=cross(A,B,C);if(val===0)return 0;return val>0?1:2;}\nfunction onSegment(P,Q,R){return Math.min(P[0],R[0])<=Q[0]&&Q[0]<=Math.max(P[0],R[0])&&Math.min(P[1],R[1])<=Q[1]&&Q[1]<=Math.max(P[1],R[1]);}\nfunction segmentsIntersect(A,B,C,D){const o1=orientation(A,B,C),o2=orientation(A,B,D),o3=orientation(C,D,A),o4=orientation(C,D,B);if(o1!==o2&&o3!==o4)return true;if(o1===0&&onSegment(A,C,B))return true;if(o2===0&&onSegment(A,D,B))return true;if(o3===0&&onSegment(C,A,D))return true;if(o4===0&&onSegment(C,B,D))return true;return false;}\nconst crossImpl=cross;\nconst segmentsIntersectImpl=segmentsIntersect;"
+          },
+          "complexity_analysis": "crossImpl: O(1). segmentsIntersectImpl: O(1).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "crossImpl: (B[0]-A[0])*(C[1]-A[1]) - (B[1]-A[1])*(C[0]-A[0])."
+            },
+            {
+              "level": 2,
+              "text": "orientation helper: cross>0→1(CCW), cross<0→2(CW), cross=0→0(collinear)."
+            },
+            {
+              "level": 3,
+              "text": "segmentsIntersect: if(o1!==o2&&o3!==o4) return true; then 4 collinear onSegment checks."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 2,
+      "lesson_title": "Convex Hull",
+      "theory_mcq": [
+        {
+          "id": "L3M6-L2-TH-1",
+          "question": "Graham Scan pops a point from the hull stack when `cross(prev, top, p) <= 0`. Why does a NON-POSITIVE cross product signal that `top` should be removed?",
+          "options": [
+            "A non-positive cross product means top is the leftmost point",
+            "NON-POSITIVE (≤0) means the turn from prev→top→p is NOT a LEFT TURN (not CCW): cross=0 means collinear (top is redundant — doesn't add a corner to the hull); cross<0 means a RIGHT TURN (CW) — top is 'inside' the hull relative to the new point p; in both cases, keeping top would create a CONCAVITY in what should be a convex polygon; popping top and continuing the while loop ensures all three consecutive hull points always make a left turn (CCW) — maintaining the convexity invariant",
+            "Non-positive means the point is outside the current hull boundary",
+            "Non-positive means two consecutive edges are parallel"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Stack invariant: top three points must make a left turn (CCW). Pop on right turn: if the turn is CW, the middle point is not on the hull' and code: `if(cross(prev,top,p)<=0) hull.pop()` — the ≤0 catches both CW (negative) and collinear (zero) cases; both should remove top since collinear points are interior to a hull edge and CW points create non-convex corners."
+        },
+        {
+          "id": "L3M6-L2-TH-2",
+          "question": "Why does Graham Scan start by finding the LOWEST (then leftmost) point as the anchor?",
+          "options": [
+            "The lowest point is always on the convex hull, and choosing it guarantees unique polar angle ordering",
+            "The ANCHOR GUARANTEES TWO PROPERTIES: (1) it is ALWAYS ON THE CONVEX HULL (any extreme point in any direction is a hull vertex); (2) all other points have POSITIVE y-difference or are to its right at same y — so all polar angles from the anchor are in [0°, 180°], giving UNIQUE ordering (no ambiguity from full 360° angles); if any other interior point were chosen as anchor, some other points might have negative polar angles from it, breaking the CCW sweep assumption",
+            "The lowest point minimises the sorting comparison function",
+            "Starting from the lowest point ensures the hull is built clockwise"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Lowest point: starting anchor, minimum y (then minimum x for tie)' — the lowest-leftmost point is guaranteed to be on the convex hull (it's the extreme point in the -y direction); from this anchor, all other points have angles in [0°, 180°] measured CCW from horizontal, giving unambiguous polar angle ordering for the sort step."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M6-L2-LG-1",
+          "question": "For points `[[0,3],[1,1],[2,2],[4,4],[0,0],[1,2],[3,1],[3,3]]`, the convex hull has 4 points. Which 4 points form the hull?",
+          "options": [
+            "Hull vertices: [0,0] (bottom-left), [3,1] (bottom-right), [4,4] (top-right), [0,3] (top-left) — the four extreme points",
+            "Hull vertices: [0,0],[1,1],[4,4],[0,3] — includes an interior point",
+            "Hull vertices: all 8 points — all points are on the hull",
+            "Hull vertices: [0,0],[3,1],[3,3],[0,3] — excludes the true rightmost"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: convexHull returns 4 points; the hull of these 8 points is: [0,0] (leftmost bottom), [3,1] (rightmost bottom), [4,4] (rightmost top), [0,3] (leftmost top); all other points ([1,1],[2,2],[1,2],[3,3]) are inside this quadrilateral; these 4 points are the extreme points of the set."
+        },
+        {
+          "id": "L3M6-L2-LG-2",
+          "question": "Jarvis March is O(nh) where h = hull size. When is it FASTER than Graham Scan's O(n log n)?",
+          "options": [
+            "Jarvis March is always slower; Graham Scan is always preferred",
+            "Jarvis March is faster when h (hull vertices) is VERY SMALL — specifically when h = O(log n) or smaller; O(nh) < O(n log n) iff h < log n; for a uniformly random point set, the expected hull size is O(log n) making Jarvis March O(n log n) on average; for adversarial inputs where h = O(n) (all points on the hull, e.g., a circle), Jarvis March degrades to O(n²) while Graham Scan remains O(n log n); Graham Scan is generally preferred unless the hull is known to be very small",
+            "Jarvis March is faster for n < 100 points",
+            "Jarvis March is faster when the input is already sorted"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Jarvis March (gift wrapping): O(nh) where h = hull size' — the comparison: O(nh) vs O(n log n); Jarvis wins when h < log n; for n=10^6 and h=20, Jarvis does 20*10^6 vs Graham's ~10^6*20 = similar; for h=n/2 (semicircle), Jarvis is O(n²/2) >> O(n log n)."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M6-L2-SY-1",
+          "question": "In the polar angle sort, collinear points (cross=0) are sorted by DISTANCE from anchor. Why is distance tie-breaking important?",
+          "options": [
+            "Distance tie-breaking is optional; any ordering of collinear points works",
+            "WITHOUT DISTANCE TIE-BREAKING for collinear points: when two points A and B have the same polar angle from the anchor, their order in the sort is undefined; if B is processed before A (and B is farther), the while loop would pop A incorrectly; specifically, if a NEARER collinear point is processed AFTER a farther one, the cross product for the triple (anchor, farther, nearer) is 0 (≤0), causing the farther point to be popped and the hull to lose a collinear boundary point; sorting nearer points first ensures correct hull construction with collinear edge handling",
+            "Distance tie-breaking ensures the sort is stable",
+            "Distance tie-breaking is needed only for the Jarvis March variant"
+          ],
+          "answer": 1,
+          "explanation": "The distance tie-breaking within collinear points ensures that closer points are processed first; when the while loop encounters a collinear triple (cross=0), it pops the middle point (keeping only the farthest collinear point in the hull); processing closer-before-farther collinear points ensures the farthest collinear point ends up on the hull edge; without this, intermediate collinear points might be kept while the true endpoint is lost."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M6-L2-CC-1",
+          "title": "Convex Hull — Graham Scan",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement Graham Scan convex hull from this lesson.",
+          "requirements": [
+            "Implement `convexHullImpl(points)` matching the lesson's anchor + polar sort + stack approach"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function convexHullImpl(points) {\n  // TODO: find anchor (lowest y, then leftmost x)\n  //       sort others by polar angle; distance for collinear tie-break\n  //       stack: pop when cross(prev,top,p)<=0; push p\n}"
+          },
+          "test_cases": [
+            {
+              "input": "convexHullImpl([[0,3],[1,1],[2,2],[4,4],[0,0],[1,2],[3,1],[3,3]]).length",
+              "expected": 4,
+              "type": "visible"
+            },
+            {
+              "input": "convexHullImpl([[0,0],[1,0],[0,1],[1,1]]).length",
+              "expected": 4,
+              "type": "visible"
+            },
+            {
+              "input": "convexHullImpl([[0,0],[1,1],[2,2]]).length",
+              "expected": 2,
+              "type": "visible"
+            },
+            {
+              "input": "convexHullImpl([[0,0],[2,0],[1,1],[0,2],[2,2]]).length",
+              "expected": 4,
+              "type": "hidden"
+            },
+            {
+              "input": "convexHullImpl([[1,1]]).length",
+              "expected": 1,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function cross(A,B,C){return(B[0]-A[0])*(C[1]-A[1])-(B[1]-A[1])*(C[0]-A[0]);}\nfunction orientation(A,B,C){const val=cross(A,B,C);if(val===0)return 0;return val>0?1:2;}\nfunction onSegment(P,Q,R){return Math.min(P[0],R[0])<=Q[0]&&Q[0]<=Math.max(P[0],R[0])&&Math.min(P[1],R[1])<=Q[1]&&Q[1]<=Math.max(P[1],R[1]);}\nfunction segmentsIntersect(A,B,C,D){const o1=orientation(A,B,C),o2=orientation(A,B,D),o3=orientation(C,D,A),o4=orientation(C,D,B);if(o1!==o2&&o3!==o4)return true;if(o1===0&&onSegment(A,C,B))return true;if(o2===0&&onSegment(A,D,B))return true;if(o3===0&&onSegment(C,A,D))return true;if(o4===0&&onSegment(C,B,D))return true;return false;}\nfunction convexHull(points){\n  if(points.length<=2)return points;\n  let anchor=points[0];for(const p of points)if(p[1]<anchor[1]||(p[1]===anchor[1]&&p[0]<anchor[0]))anchor=p;\n  const others=points.filter(p=>p!==anchor);\n  others.sort((A,B)=>{const c=cross(anchor,A,B);if(c!==0)return c>0?-1:1;const dA=(A[0]-anchor[0])**2+(A[1]-anchor[1])**2,dB=(B[0]-anchor[0])**2+(B[1]-anchor[1])**2;return dA-dB;});\n  const hull=[anchor];for(const p of others){while(hull.length>=2){const top=hull[hull.length-1],prev=hull[hull.length-2];if(cross(prev,top,p)<=0)hull.pop();else break;}hull.push(p);}\n  return hull;\n}\nconst convexHullImpl=convexHull;"
+          },
+          "complexity_analysis": "O(n log n) — dominated by polar angle sort. O(n) space.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "Find anchor: min y, then min x for tie. Filter anchor from others."
+            },
+            {
+              "level": 2,
+              "text": "Sort: if cross(anchor,A,B)!==0 return cross>0?-1:1; else sort by squared distance."
+            },
+            {
+              "level": 3,
+              "text": "Stack: while hull.length>=2 && cross(prev,top,p)<=0 pop; then push p."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 3,
+      "lesson_title": "Line Sweep Algorithms",
+      "known_source_discrepancy_note": "The lesson's console.log claims rectangleArea([[0,0,2,2],[1,0,3,3],[1,0,2,1]])=6, but verified execution returns 8. Manual geometry check: the union of these three rectangles covers x=[0,3] with varying heights — total area=8. The algorithm implementation is correct; only the console.log comment is wrong. Assessment tests use verified value 8.",
+      "theory_mcq": [
+        {
+          "id": "L3M6-L3-TH-1",
+          "question": "In the rectangle area line sweep, events are sorted by X-COORDINATE and PROCESSED LEFT TO RIGHT. Why is left-to-right processing correct for computing union area?",
+          "options": [
+            "Right-to-left would also work; left-to-right is just a convention",
+            "UNION AREA = sum of (covered_y_length × strip_width) for each vertical strip: as the sweep line moves from x=prevX to x=currX, the current active set of y-intervals is CONSTANT in this strip (no rectangles start or end between prevX and currX by construction, since events only occur at x-coordinates of rectangle edges); the covered y-length times the horizontal width gives the area of this strip; processing events in x-order ensures we compute each strip's contribution exactly once; the count array correctly tracks which y-intervals are 'covered' (count>0 means at least one active rectangle)",
+            "Left-to-right matches the iteration direction of the count array",
+            "Processing events in x-order prevents double-counting at shared boundaries"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's approach: events sorted by x; between consecutive x-events, the active set doesn't change; covered_y × (x_curr - x_prev) correctly captures the strip's contribution; this additive decomposition of 2D area into 1D strips processed sequentially is the line sweep principle."
+        },
+        {
+          "id": "L3M6-L3-TH-2",
+          "question": "The `count` array tracks how many rectangles cover each y-interval. Why use a COUNT (not a boolean flag) to determine coverage?",
+          "options": [
+            "Boolean would work; count array is only needed for weighted area",
+            "MULTIPLE OVERLAPPING RECTANGLES: when two rectangles cover the same y-interval, a boolean flag would be set to false when EITHER rectangle's end event arrives (even if another rectangle still covers that interval); the count allows correct handling: adding a rectangle increments count, removing decrements; only when count drops to 0 does the interval become uncovered; this correctly handles arbitrary overlaps: even if rect A ends at some x, rect B still covering the same interval means the interval stays active (count goes from 2 to 1, remaining >0)",
+            "Count avoids memory allocation overhead of a boolean array",
+            "Count enables computing the TOTAL overlap area rather than just the union"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `count[i] += type` (+1 for start, -1 for end) — if only a boolean were used, removing rectangle A from an interval also covered by rectangle B would incorrectly mark the interval as uncovered; the count correctly handles n-way overlaps: the interval is covered when count > 0 (at least one rectangle still active)."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M6-L3-LG-1",
+          "question": "For `rectangleArea([[0,0,2,2],[1,0,3,3],[1,0,2,1]])`, the verified result is 8. Manually verify by computing each vertical strip's contribution.",
+          "options": [
+            "x=[0,1]: covered y=[0,2] (R1 only), height=2, width=1, area=2; x=[1,2]: R1 covers [0,2], R2 covers [0,3], union=[0,3], height=3, width=1, area=3; x=[2,3]: R2 covers [0,3], height=3, width=1, area=3; total=2+3+3=8 ✓",
+            "x=[0,1]: area=2; x=[1,2]: area=2 (only R1 height); x=[2,3]: area=3; total=7",
+            "The answer is 6 as the lesson claims",
+            "x=[0,2]: area=4; x=[1,3]: area=6; union=4+6-2=8 by inclusion-exclusion"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution (returns 8) and manual geometry: strip x=[0,1]: only R1 active, covers y=[0,2], area=1×2=2; strip x=[1,2]: R1 covers [0,2], R2 covers [0,3], union=[0,3], area=1×3=3; strip x=[2,3]: only R2 active, covers [0,3], area=1×3=3; total=2+3+3=8; the lesson's console.log claiming 6 is incorrect."
+        },
+        {
+          "id": "L3M6-L3-LG-2",
+          "question": "In the Shamos-Hoey segment intersection algorithm, the ACTIVE SET maintains segments sorted by y-coordinate at the current sweep line. Why must the sort order be DYNAMIC (re-evaluated as x changes)?",
+          "options": [
+            "The active set can be statically sorted once; y-order doesn't change",
+            "SEGMENTS CAN SWAP Y-ORDER: a segment S1 might be above S2 at x=a but below S2 at x=b if S1 and S2 INTERSECT; when two segments are about to swap position in the y-order, they must be ADJACENT in the sorted active set; adjacent segments that swap order have just intersected (the only time order changes); the algorithm detects this: if inserting a new segment causes it to be adjacent to a segment with which it intersects, an intersection is found; the dynamic reordering as x advances allows detecting the moment of order-swap = intersection",
+            "Dynamic sorting is needed only for vertical segments",
+            "The active set is re-sorted because new events can arrive at any time"
+          ],
+          "answer": 1,
+          "explanation": "The Shamos-Hoey insight: segments can only change their relative y-order when they intersect; by maintaining them sorted by y at the current x and checking adjacent pairs after each insertion/deletion event, the algorithm detects intersections as soon as two segments become adjacent and their y-values compare as crossing — at that moment, they must intersect."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M6-L3-SY-1",
+          "question": "Events are represented as `[x, type, y1, y2]` arrays with `type: +1 for start, -1 for end`. Why use +1/-1 (not +1/0 or true/false)?",
+          "options": [
+            "+1/-1 is required for the sort to work correctly",
+            "ALGEBRAIC SIGN TRICK: `count[i] += type` with type=+1 (start) increments the count and type=-1 (end) decrements it in a single unified operation; using +1/0 would require: `if(type===1) count[i]++; else count[i]--` — two branches; using +1/-1 allows a branchless `count[i] += type` that correctly adds for starts and subtracts for ends; this algebraic approach is cleaner and avoids conditional branches in the inner loop",
+            "+1/-1 ensures events with the same x-coordinate sort correctly",
+            "Type values must be odd for the modular arithmetic to work correctly"
+          ],
+          "answer": 1,
+          "explanation": "The +1/-1 encoding enables the elegant `count[i] += type` update: starting a rectangle adds 1 (more coverage), ending removes 1 (less coverage); the count correctly represents how many rectangles currently cover each y-interval; this algebraic trick avoids if-else branching and makes the code more concise and error-free."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M6-L3-CC-1",
+          "title": "Rectangle Area II — Line Sweep",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement Rectangle Area II from this lesson.",
+          "requirements": [
+            "Implement `rectangleAreaImpl(rectangles)` matching the lesson's coordinate compression + line sweep approach"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function rectangleAreaImpl(rectangles) {\n  // TODO: collect y values, sort, build yMap;\n  //       events [x,±1,y1,y2]; sort by x;\n  //       sweep: add covered y-height × width to result; update count array\n}"
+          },
+          "test_cases": [
+            {
+              "input": "rectangleAreaImpl([[0,0,2,2],[1,0,3,3],[1,0,2,1]])",
+              "expected": 8,
+              "type": "visible"
+            },
+            {
+              "input": "rectangleAreaImpl([[0,0,1,1]])",
+              "expected": 1,
+              "type": "visible"
+            },
+            {
+              "input": "rectangleAreaImpl([[0,0,2,2],[2,0,4,2]])",
+              "expected": 8,
+              "type": "visible"
+            },
+            {
+              "input": "rectangleAreaImpl([[0,0,1000000000,1000000000]])",
+              "expected": 49,
+              "type": "hidden"
+            },
+            {
+              "input": "rectangleAreaImpl([[0,0,2,2],[1,1,3,3]])",
+              "expected": 7,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function rectangleArea(rectangles){\n  const MOD=1e9+7;const ySet=new Set();\n  for(const[x1,y1,x2,y2]of rectangles){ySet.add(y1);ySet.add(y2);}\n  const yCoords=[...ySet].sort((a,b)=>a-b);const yMap=new Map(yCoords.map((y,i)=>[y,i]));const m=yCoords.length;\n  const events=[];for(const[x1,y1,x2,y2]of rectangles){events.push([x1,1,y1,y2]);events.push([x2,-1,y1,y2]);}\n  events.sort((a,b)=>a[0]-b[0]);\n  const count=new Array(m).fill(0);let prevX=0,result=0;\n  for(const[x,type,y1,y2]of events){let coveredY=0;for(let i=0;i<m-1;i++)if(count[i]>0)coveredY+=yCoords[i+1]-yCoords[i];result=(result+coveredY*(x-prevX))%MOD;prevX=x;for(let i=yMap.get(y1);i<yMap.get(y2);i++)count[i]+=type;}\n  return result;\n}\nconst rectangleAreaImpl=rectangleArea;"
+          },
+          "complexity_analysis": "O(n² log n) — n events, each with O(n) inner y-scan; O(n log n) possible with segment tree.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "Collect all y-values, sort, build yMap (y→compressed index)."
+            },
+            {
+              "level": 2,
+              "text": "Events: for each rect push [x1,+1,y1,y2] and [x2,-1,y1,y2]; sort events by x."
+            },
+            {
+              "level": 3,
+              "text": "At each event: compute coveredY from count array; add coveredY*(x-prevX) to result; update count for this event's y-range."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 4,
+      "lesson_title": "Closest Pair Of Points",
+      "theory_mcq": [
+        {
+          "id": "L3M6-L4-TH-1",
+          "question": "The divide-and-conquer merge step checks points in the STRIP of width 2δ. Why is it proven that each strip point needs to check AT MOST 7 other strip points?",
+          "options": [
+            "7 is an arbitrary constant; fewer points could be checked",
+            "PACKING ARGUMENT: within a δ×2δ rectangle on one side of the midline, any two points must be at least δ apart (otherwise they'd be a closer pair than δ, contradicting our definition of δ as the minimum of left and right results); the δ×2δ rectangle can contain at most 8 points with pairwise distance ≥ δ (proved by a grid packing argument: divide the rectangle into 8 cells of δ/2 × δ/2, each can contain at most 1 point); combining both sides: a 2δ×2δ square around any strip point contains at most 8 points; the y-sorted strip only needs to check forward until |Δy| < δ, limiting to at most 7 comparisons",
+            "7 points are checked because each recursive call processes 7 points",
+            "The strip bound is 6 points, not 7 — the lesson has a minor error"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Strip bound: at most 8 points in any delta x delta region. Sort by y in strip: only check next 7 points in y-sorted order' — the packing argument proves that in a δ×2δ strip region on one side, at most 8 points can exist with pairwise distance ≥ δ; combined from both sides of the midline, any point in the strip has at most 7 relevant neighbours to check; this bounds the inner loop constant."
+        },
+        {
+          "id": "L3M6-L4-TH-2",
+          "question": "The algorithm sorts the strip by Y-COORDINATE before checking pairs. Why is sorting by y (not by x or by distance) the correct approach?",
+          "options": [
+            "Y-sorting enables cache-efficient memory access patterns",
+            "Y-SORTING ENABLES EARLY TERMINATION of the inner loop: we're looking for pairs with distance < δ; two points with |y_j - y_i| ≥ δ CANNOT be a closer pair regardless of their x-separation (Euclidean distance ≥ |Δy| ≥ δ); in y-sorted order, we can stop the inner loop as soon as strip[j][1]-strip[i][1] ≥ δ; this gives the O(1) pair-checking constant per strip point (at most 7 remaining points satisfy the y-condition); without y-sorting, we'd have no early termination criterion and might check all O(n) strip points for each strip point",
+            "Y-sorting matches the vertical sweep line direction",
+            "Y-sorting prevents duplicate pairs from being checked twice"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `strip.sort((a,b)=>a[1]-b[1])` and `while strip[j][1]-strip[i][1] < delta` — the early termination by y-distance is the key: if Δy ≥ δ then Euclidean distance ≥ δ, so those pairs can never improve δ; y-sorting allows the inner loop to terminate as soon as the y-gap reaches δ, bounding the total work by O(7n) = O(n) for the strip step."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M6-L4-LG-1",
+          "question": "For points `[[2,3],[12,30],[40,50],[5,1],[12,10],[3,4]]`, the closest pair is [2,3] and [3,4] with distance √2 ≈ 1.414. Verify this is indeed the minimum.",
+          "options": [
+            "dist([2,3],[3,4]) = sqrt((3-2)²+(4-3)²) = sqrt(1+1) = sqrt(2) ≈ 1.414 ✓; all other pairs are farther apart",
+            "The closest pair is [5,1] and [3,4] with distance sqrt(8) ≈ 2.83",
+            "The closest pair is [12,30] and [12,10] with distance 20",
+            "The closest pair is [2,3] and [5,1] with distance sqrt(13)"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: closestPair returns 1.4142... = √2; dist([2,3],[3,4]) = sqrt(1+1) = √2 ≈ 1.414; other nearby candidates: dist([2,3],[5,1]) = sqrt(9+4) = sqrt(13) ≈ 3.6; dist([5,1],[12,10]) = sqrt(49+81) ≈ 11.4; [2,3] and [3,4] are clearly the closest."
+        },
+        {
+          "id": "L3M6-L4-LG-2",
+          "question": "The base case handles `n ≤ 3` by brute force. Why use 3 as the threshold (not 2)?",
+          "options": [
+            "n=3 is arbitrary; n=2 would also work as the base case",
+            "WITH n=2 AS BASE: the recursion would split odd-sized arrays into sizes 1 and n-1; for 3 points, it would recurse into [1 point] and [2 points]; a single point has infinite minimum distance (no pair) = Infinity; combining: delta=min(Inf, dist(pt1,pt2)) = dist(pt1,pt2); this technically works but is inefficient; WITH n=3: both cases [1,2] and [2,1] are handled in O(1) brute force without recursion overhead; n=3 as base also avoids the degenerate n=1 case where no pairs exist and Infinity must propagate correctly through the min operation",
+            "n=3 prevents the recursion from reaching the empty array case",
+            "Using n=3 ensures the strip always has at least one point to check"
+          ],
+          "answer": 1,
+          "explanation": "n≤3 as base case: with 1 or 2 or 3 points, brute force is O(1)/O(1)/O(3) respectively; for n=3, the recursion would otherwise call _closest on 1 point (returning Infinity) and 2 points; while this works, n≤3 avoids unnecessary recursion depth for the common case; any constant ≥2 works for correctness but n≤3 is the conventional choice for clean implementation."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M6-L4-SY-1",
+          "question": "The outer `closestPair` sorts by X but the strip also sorts by Y. Why does the algorithm sort TWICE?",
+          "options": [
+            "Double sorting is redundant; the algorithm could be simplified",
+            "TWO DIFFERENT PURPOSES: the INITIAL x-sort divides the point set into LEFT and RIGHT halves by position along the sweep axis — this is required for the divide-and-conquer split at the midpoint; the STRIP y-sort enables the O(7) per-point bound in the merge step by allowing early termination when |Δy| ≥ δ; these are independent requirements with different axes; combining them into one sort would not satisfy both requirements; the x-sort is done ONCE, the y-sort is done for each recursive merge step's strip (giving the O(n log²n) complexity if re-sorted at each level)",
+            "Double sorting prevents the algorithm from finding incorrect pairs",
+            "The strip y-sort converts from 2D to 1D to enable binary search"
+          ],
+          "answer": 1,
+          "explanation": "The two sorts serve completely different roles: x-sort enables the binary split of the problem (left/right halves); y-sort within the strip enables early termination of the O(7) inner loop; they cannot be combined; re-sorting the strip at each recursion level is why the naive implementation is O(n log²n) rather than O(n log n); an O(n log n) version pre-sorts by y and merges y-order during recursion."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M6-L4-CC-1",
+          "title": "Closest Pair of Points",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement the closest pair divide-and-conquer from this lesson.",
+          "requirements": [
+            "Implement `closestPairImpl(points)` matching the lesson's divide-and-conquer with strip optimization"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function closestPairImpl(points) {\n  // TODO: sort by x; recursive _closest:\n  //   base case n<=3: brute force\n  //   split at mid; get dL and dR; delta=min(dL,dR)\n  //   build strip |x-midX|<delta; sort by y; check next points with |Δy|<delta\n}"
+          },
+          "test_cases": [
+            {
+              "input": "Math.round(closestPairImpl([[2,3],[12,30],[40,50],[5,1],[12,10],[3,4]])*1e6)/1e6",
+              "expected": 1.414214,
+              "type": "visible"
+            },
+            {
+              "input": "closestPairImpl([[0,0],[3,4]])",
+              "expected": 5,
+              "type": "visible"
+            },
+            {
+              "input": "closestPairImpl([[0,0],[1,0],[2,0]]).toFixed(1)",
+              "expected": "1.0",
+              "type": "visible"
+            },
+            {
+              "input": "Math.round(closestPairImpl([[0,0],[1,1]])*1e4)/1e4",
+              "expected": 1.4142,
+              "type": "hidden"
+            },
+            {
+              "input": "closestPairImpl([[0,0],[0,5],[0,10],[5,0]]).toFixed(0)",
+              "expected": "5",
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function dist(p1,p2){return Math.sqrt((p1[0]-p2[0])**2+(p1[1]-p2[1])**2);}\nfunction closestPair(points){points=[...points].sort((a,b)=>a[0]-b[0]);return _closest(points);}\nfunction _closest(pts){const n=pts.length;if(n<=3){let minD=Infinity;for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)minD=Math.min(minD,dist(pts[i],pts[j]));return minD;}const mid=Math.floor(n/2);const midX=pts[mid][0];const dL=_closest(pts.slice(0,mid));const dR=_closest(pts.slice(mid));let delta=Math.min(dL,dR);const strip=pts.filter(p=>Math.abs(p[0]-midX)<delta);strip.sort((a,b)=>a[1]-b[1]);for(let i=0;i<strip.length;i++)for(let j=i+1;j<strip.length&&strip[j][1]-strip[i][1]<delta;j++)delta=Math.min(delta,dist(strip[i],strip[j]));return delta;}\nconst closestPairImpl=closestPair;"
+          },
+          "complexity_analysis": "O(n log²n) — sort O(n log n) + n log n merge steps each O(n) strip sort.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "Base case n<=3: brute force all pairs with Math.sqrt."
+            },
+            {
+              "level": 2,
+              "text": "Split at mid; get dL=_closest(left), dR=_closest(right); delta=min(dL,dR)."
+            },
+            {
+              "level": 3,
+              "text": "Strip: filter |p[0]-midX|<delta; sort by y; inner loop: stop when strip[j][1]-strip[i][1]>=delta."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 5,
+      "lesson_title": "Rectangle Overlap And Area Problems",
+      "theory_mcq": [
+        {
+          "id": "L3M6-L5-TH-1",
+          "question": "Rectangle overlap uses STRICT inequality `x1 < x4` (not ≤). What does `isRectangleOverlap([0,0,1,1],[1,0,2,1])` return and why?",
+          "options": [
+            "Returns false — rectangles that only TOUCH at an edge (x=1) do not OVERLAP (no shared interior area); the strict inequality `x1 < x4` (0 < 2 ✓) and `x3 < x2` (1 < 1 ✗) — the second condition fails since the rectangles share only the boundary line x=1; a 'touching' rectangle has zero overlap area; strict inequality correctly identifies zero-area intersections as non-overlapping",
+            "Returns true — the rectangles share the edge x=1 which is an overlap",
+            "Returns true — touching rectangles always overlap by definition",
+            "Returns false — but because x3=x2=1 is interpreted as parallel"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: isRectangleOverlap([0,0,1,1],[1,0,2,1])=false; condition: x1<x4 AND x3<x2 AND y1<y4 AND y3<y2; check: 0<2=true, 1<1=FALSE → result=false; the rectangles share only the edge x=1 (zero-width intersection); the strict inequalities correctly model 'positive area overlap' — touching edges do not count."
+        },
+        {
+          "id": "L3M6-L5-TH-2",
+          "question": "In `computeArea`, `Math.max(0, min_x2-max_x1)` for intersection width ensures non-negative. When is this clamping necessary?",
+          "options": [
+            "The clamping is never necessary for valid rectangle inputs",
+            "WHEN RECTANGLES DON'T OVERLAP: if the rectangles are disjoint (no x-range overlap), `Math.min(ax2,bx2) - Math.max(ax1,bx1)` is NEGATIVE (the min of the right edges is less than the max of the left edges); without `Math.max(0,...)`, the intersection area would be negative, making the union area `area1 + area2 - negative = area1 + area2 + positive` — LARGER than both rectangles combined (wrong); `Math.max(0,...)` correctly treats non-overlapping dimensions as having 0 intersection",
+            "Clamping is only needed when coordinates are negative",
+            "Clamping converts the intersection from a rectangle to a line segment"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `const iX=Math.max(0,Math.min(ax2,bx2)-Math.max(ax1,bx1))` — for non-overlapping rectangles, the unclamped value is negative (no overlap means min(right edges) < max(left edges)); clamping to 0 correctly gives zero intersection area; then area1+area2-0 = correct union area; confirmed: computeArea(-3,0,3,4,0,-1,9,2)=45."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M6-L5-LG-1",
+          "question": "For `computeArea(-3,0,3,4,0,-1,9,2)`, the answer is 45. Verify using inclusion-exclusion.",
+          "options": [
+            "Area1=(3-(-3))*(4-0)=24; Area2=(9-0)*(2-(-1))=27; Intersection: x=[max(-3,0),min(3,9)]=[0,3] width=3; y=[max(0,-1),min(4,2)]=[0,2] height=2; interArea=6; union=24+27-6=45 ✓",
+            "Area1=24; Area2=27; No intersection (disjoint); union=51",
+            "Union=45 but intersection is 3 (not 6)",
+            "Area1=24; Area2=27; Intersection=3*3=9; union=42"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: computeArea(-3,0,3,4,0,-1,9,2)=45; Area1=(3-(-3))*(4-0)=6*4=24; Area2=(9-0)*(2-(-1))=9*3=27; intersection x=[0,3] width=3, y=[0,2] height=2, interArea=6; by inclusion-exclusion: 24+27-6=45 ✓."
+        },
+        {
+          "id": "L3M6-L5-LG-2",
+          "question": "For `maxPoints([[1,1],[2,2],[3,3]])`, the result is 3. Why is the slope-fraction approach better than using floating-point slopes?",
+          "options": [
+            "Floating-point slopes would also give 3; slope fractions are just cleaner code",
+            "FLOATING-POINT PRECISION: slope = dy/dx as float; for very similar slopes (e.g., (1,1000000) and (1,1000001)), floating-point division might round to the same float even when the slopes are different; SLOPE FRACTION as reduced GCD pair (dy/gcd, dx/gcd) uses EXACT INTEGERS; any two collinear points through the same anchor have EXACTLY THE SAME reduced fraction; non-collinear points get different fractions with certainty; for [[1,1],[2,2],[3,3]]: slope 1/1 for both pairs from [1,1] — same fraction → count=3 ✓",
+            "Slope fractions are faster because integer division is O(1)",
+            "Floating-point slopes work for this case; fractions only needed for edge cases"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `const g=gcd(Math.abs(dx),Math.abs(dy)); dx/=g; dy/=g` — normalising to reduced fraction ensures exact canonical representation; floating-point dy/dx can suffer from cancellation errors for near-collinear points; the GCD normalisation gives exact rational slope representation as integer pairs."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M6-L5-SY-1",
+          "question": "In `maxPoints`, `slopes` is a Map that initialises new slope keys with `(slopes.get(key) || 1) + 1`. Why start at 1 (not 0)?",
+          "options": [
+            "Starting at 1 accounts for the anchor point i itself",
+            "COUNTS TOTAL POINTS ON THE LINE (not just additional ones): when processing points j > i through anchor i, the first time a slope key is seen we're adding point j as the SECOND point on this line (anchor i is already one); the count should represent 'how many points on this line including the anchor'; initializing at 1 for the first occurrence means 'anchor i plus one new point j = 2 points on line'; subsequent occurrences increment: 2→3→... giving the true total count including the anchor; if started at 0, the result would be one less than the actual number of collinear points",
+            "Starting at 1 prevents the Map from returning undefined for unseen keys",
+            "The || 1 handles the case where slope is 0 (horizontal lines)"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `slopes.set(key, (slopes.get(key)||1)+1)` — the count represents 'total collinear points including anchor i'; first encounter: slopes.get(key)=undefined, `undefined||1=1`, then +1=2 (anchor + point j = 2 points); second encounter (another collinear point j'): 2+1=3; the `||1` initialisation includes anchor i in the count."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M6-L5-CC-1",
+          "title": "Rectangle Overlap, Area, and Max Points on Line",
+          "difficulty": "Advanced",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement the three rectangle/geometry problems from this lesson.",
+          "requirements": [
+            "Implement `isRectangleOverlapImpl(rec1, rec2)` using strict inequality",
+            "Implement `computeAreaImpl(ax1,ay1,ax2,ay2,bx1,by1,bx2,by2)` using inclusion-exclusion",
+            "Implement `maxPointsImpl(points)` using normalised slope fractions"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function isRectangleOverlapImpl(rec1, rec2) {\n  // TODO: strict inequality: x1<x4&&x3<x2&&y1<y4&&y3<y2\n}\n\nfunction computeAreaImpl(ax1,ay1,ax2,ay2,bx1,by1,bx2,by2) {\n  // TODO: area1+area2 - max(0,minX2-maxX1)*max(0,minY2-maxY1)\n}\n\nfunction maxPointsImpl(points) {\n  // TODO: anchor loop; slope map with GCD-reduced fractions; count collinear\n}"
+          },
+          "test_cases": [
+            {
+              "input": "isRectangleOverlapImpl([0,0,2,2],[1,1,3,3])",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "computeAreaImpl(-3,0,3,4,0,-1,9,2)",
+              "expected": 45,
+              "type": "visible"
+            },
+            {
+              "input": "maxPointsImpl([[1,1],[2,2],[3,3]])",
+              "expected": 3,
+              "type": "visible"
+            },
+            {
+              "input": "isRectangleOverlapImpl([0,0,1,1],[1,0,2,1])",
+              "expected": false,
+              "type": "hidden"
+            },
+            {
+              "input": "maxPointsImpl([[1,1],[3,2],[5,3],[4,1],[2,3],[1,4]])",
+              "expected": 4,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function isRectangleOverlap(rec1,rec2){const[x1,y1,x2,y2]=rec1;const[x3,y3,x4,y4]=rec2;return x1<x4&&x3<x2&&y1<y4&&y3<y2;}\nfunction computeArea(ax1,ay1,ax2,ay2,bx1,by1,bx2,by2){const a1=(ax2-ax1)*(ay2-ay1),a2=(bx2-bx1)*(by2-by1);const iX=Math.max(0,Math.min(ax2,bx2)-Math.max(ax1,bx1)),iY=Math.max(0,Math.min(ay2,by2)-Math.max(ay1,by1));return a1+a2-iX*iY;}\nfunction gcd(a,b){while(b)[a,b]=[b,a%b];return a;}\nfunction maxPoints(points){const n=points.length;if(n<=2)return n;let result=2;for(let i=0;i<n;i++){const slopes=new Map();for(let j=i+1;j<n;j++){let dx=points[j][0]-points[i][0],dy=points[j][1]-points[i][1];if(dx===0){slopes.set('vertical',(slopes.get('vertical')||1)+1);continue;}if(dy===0){slopes.set('horizontal',(slopes.get('horizontal')||1)+1);continue;}const g=gcd(Math.abs(dx),Math.abs(dy));dx/=g;dy/=g;if(dx<0){dx=-dx;dy=-dy;}const key=`${dy}/${dx}`;slopes.set(key,(slopes.get(key)||1)+1);}for(const[,count]of slopes)result=Math.max(result,count);}return result;}\nconst isRectangleOverlapImpl=isRectangleOverlap;\nconst computeAreaImpl=computeArea;\nconst maxPointsImpl=maxPoints;"
+          },
+          "complexity_analysis": "isRectangleOverlapImpl: O(1). computeAreaImpl: O(1). maxPointsImpl: O(n²) — n anchor points × n-1 others.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "isRectangleOverlap: x1<x4&&x3<x2&&y1<y4&&y3<y2 — all four strict inequalities must hold."
+            },
+            {
+              "level": 2,
+              "text": "computeArea: interX=max(0,min(ax2,bx2)-max(ax1,bx1)); interY similar; return area1+area2-interX*interY."
+            },
+            {
+              "level": 3,
+              "text": "maxPoints: for each anchor i, build slopes Map; slope key = reduced dy/dx fraction with canonical positive dx; include anchor in count via ||1 init."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 6,
+      "lesson_title": "Geometry Problem Thinking",
+      "theory_mcq": [
+        {
+          "id": "L3M6-L6-TH-1",
+          "question": "The lesson explicitly labels geometry as OPTIONAL for product company tracks. What is the reasoning?",
+          "options": [
+            "Geometry problems are too hard for product company interviews",
+            "OPPORTUNITY COST: the time spent mastering convex hull, line sweep, and closest pair could be invested in higher-ROI topics; product company interviews (FAANG, startups) primarily test: DP, graphs, arrays/hashing, trees, greedy, binary search; geometry appears in fewer than 5% of product interviews but requires 15-20 hours to master; GEOSPATIAL and COMPETITIVE PROGRAMMING tracks have much higher geometry frequency; the lesson's explicit guidance: 'skip if targeting general SWE; study if targeting geospatial/competitive' is a rational return-on-investment recommendation for limited study time",
+            "Geometry problems are not included in NeetCode 150",
+            "Geometry algorithms always require specialized libraries, making them impractical"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's productTrackNote: 'If targeting general product companies: Study #149 and rectangles; Skip convex hull, line sweep, closest pair; Use saved time for: hard DP, advanced graphs, system design DSA' — the lesson explicitly calculates the opportunity cost and recommends selective study based on target company track."
+        },
+        {
+          "id": "L3M6-L6-TH-2",
+          "question": "The lesson identifies CROSS PRODUCT as 'the universal geometric primitive'. What makes it 'universal' — why can so many geometry algorithms reduce to it?",
+          "options": [
+            "Cross product is universal because it is the fastest geometric operation",
+            "CROSS PRODUCT ENCODES SIGNED AREA and ORIENTATION — both fundamental geometric properties: (1) orientation test (CCW/CW/collinear) → enables sorting by polar angle (convex hull), finding which side of a line a point is on (half-plane queries), segment intersection (four orientation tests); (2) signed area → enables computing polygon areas (shoelace formula = sum of cross products), checking if polygon is convex; essentially any geometric algorithm that needs to determine WHICH SIDE of a line something is on or HOW POINTS RELATE SPATIALLY reduces to cross product; it's the 2D analog of the dot product in 1D (sign encodes inequality)",
+            "Cross product is universal because it works in both 2D and 3D",
+            "Cross product universality comes from its O(1) computational complexity"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concepts: 'Cross product: the universal geometric primitive' — orientation (left/right/collinear), polar angle sorting, segment intersection, convex hull construction, polygon area — all reduce to cross product sign or magnitude; it's the geometric generalization of 'comparison' for spatial reasoning."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M6-L6-LG-1",
+          "question": "Module 6 has 3 NC150 problems: #149 (slope fraction), #587 (convex hull), #850 (line sweep). Which is the HIGHEST PRIORITY for general product company preparation and why?",
+          "options": [
+            "#149 Max Points on a Line — direct coordinate arithmetic with GCD, O(n²), no advanced data structures; frequently appears in product interviews; the slope-fraction approach is a clean algorithmic insight teachable in 20 minutes; #587 and #850 require advanced algorithms (convex hull, line sweep + segment tree) rarely seen in product interviews",
+            "#850 Rectangle Area II — the most complex algorithm, so mastering it covers the others",
+            "#587 Erect the Fence — convex hull is the most impressive algorithm to demonstrate",
+            "All three are equally important for product company preparation"
+          ],
+          "answer": 0,
+          "explanation": "Matching the lesson's productTrackNote: '#149 Max Points on a Line: slope fraction, O(n²)' is listed as the primary product-track geometry problem; the lesson explicitly recommends studying #149 and rectangle operations (#223, #836) while skipping #587 and #850; #149 tests a concrete algorithmic insight (GCD normalisation) without requiring advanced spatial data structures."
+        },
+        {
+          "id": "L3M6-L6-LG-2",
+          "question": "The lesson maps 4 problem signals to geometry algorithms. Which signal MOST CLEARLY indicates a line sweep solution?",
+          "options": [
+            "'union area of many rectangles' or 'detect if any segments intersect' — these require processing across the full x-range with an active set maintained at each x-event; direct coordinate arithmetic is insufficient for 'many' rectangles; O(n log n) line sweep is the correct approach",
+            "'point orientation' or 'collinearity' → cross product O(1)",
+            "'outer boundary of point set' → convex hull O(n log n)",
+            "'minimum distance among all pairs' → closest pair O(n log n)"
+          ],
+          "answer": 0,
+          "explanation": "Matching the lesson's taxonomy: 'Line Sweep: signals: union area of many rectangles, detect segment intersections' — the key signal is 'many' (not 2-3) objects requiring global interaction analysis; direct formulas work for 2 rectangles; for n rectangles where n is large, the O(n log n) line sweep is required; the 'active set' concept (what's currently active as we sweep) is the hallmark of line sweep problems."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M6-L6-SY-1",
+          "question": "In the `geometryAlgorithms` array, each entry has a `required` field categorising the algorithm as 'Always', 'Product track', or 'Competitive/geo companies only'. How does this field transform a static data structure into a DECISION TOOL?",
+          "options": [
+            "The required field is metadata for display purposes only",
+            "PROGRAMMATIC FILTER: `geometryAlgorithms.filter(a => a.required !== 'Competitive/geo companies only')` instantly extracts the product-track subset without iterating through the full decision guide manually; the `required` field encodes the TARGET AUDIENCE directly in the data — enabling queries like 'what should I study for product companies?' (filter by required='Always' or 'Product track') or 'what's optional for me?' (filter required='Competitive'); this transforms the static list into a configurable recommendation engine based on the user's target company type",
+            "The required field prevents the array from containing duplicate entries",
+            "Required strings are used for i18n (internationalisation) support"
+          ],
+          "answer": 1,
+          "explanation": "The required field enables `geometryAlgorithms.filter(a => a.required.includes('Product'))` to dynamically generate a tailored study guide; this is the same module-field pattern used throughout the curriculum for gap tracking and sprint planning; embedding metadata in the data structure makes analysis programmatic rather than requiring manual reading."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M6-L6-CC-1",
+          "title": "Geometry Decision Guide and Module Summary",
+          "difficulty": "Intermediate",
+          "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+          "problem_statement": "Implement the geometry algorithm selector and module summary.",
+          "requirements": [
+            "Implement `selectGeometryAlgo(signal)` returning the algorithm name for a given signal",
+            "Implement `module6Summary()` returning {total, nc150, productTrack} counts"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "const MODULE6 = [\n  {id:149, algorithm:'Slope fraction', nc150:true, productTrack:true},\n  {id:587, algorithm:'Convex Hull', nc150:true, productTrack:false},\n  {id:850, algorithm:'Line sweep + seg tree', nc150:true, productTrack:false},\n];\n\nfunction selectGeometryAlgo(signal) {\n  // signals: 'collinear', 'convex hull', 'union area', 'closest pair', 'overlap'\n  // TODO: return algorithm name\n}\n\nfunction module6Summary() {\n  // TODO: total, nc150, productTrack counts\n}"
+          },
+          "test_cases": [
+            {
+              "input": "selectGeometryAlgo('collinear')",
+              "expected": "Cross Product",
+              "type": "visible"
+            },
+            {
+              "input": "selectGeometryAlgo('convex hull')",
+              "expected": "Graham Scan",
+              "type": "visible"
+            },
+            {
+              "input": "module6Summary().nc150",
+              "expected": 3,
+              "type": "visible"
+            },
+            {
+              "input": "selectGeometryAlgo('union area')",
+              "expected": "Line Sweep",
+              "type": "hidden"
+            },
+            {
+              "input": "module6Summary().productTrack",
+              "expected": 1,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "const MODULE6=[{id:149,algorithm:'Slope fraction',nc150:true,productTrack:true},{id:587,algorithm:'Convex Hull',nc150:true,productTrack:false},{id:850,algorithm:'Line sweep + seg tree',nc150:true,productTrack:false}];\n\nfunction selectGeometryAlgo(signal){\n  if(signal.includes('collinear')||signal.includes('orientation')||signal.includes('intersection'))return'Cross Product';\n  if(signal.includes('convex')||signal.includes('hull'))return'Graham Scan';\n  if(signal.includes('union')||signal.includes('segment intersect')||signal.includes('sweep'))return'Line Sweep';\n  if(signal.includes('closest')||signal.includes('minimum distance'))return'Closest Pair D&C';\n  if(signal.includes('overlap')||signal.includes('rectangle'))return'Direct Arithmetic';\n  return'Cross Product';\n}\n\nfunction module6Summary(){\n  return{total:MODULE6.length,nc150:MODULE6.filter(p=>p.nc150).length,productTrack:MODULE6.filter(p=>p.productTrack).length};\n}"
+          },
+          "complexity_analysis": "selectGeometryAlgo: O(|signal|). module6Summary: O(n).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "selectGeometryAlgo: check signal keywords; collinear/orientation→Cross Product; convex/hull→Graham Scan."
+            },
+            {
+              "level": 2,
+              "text": "union/sweep→Line Sweep; closest/minimum distance→Closest Pair; overlap/rectangle→Direct Arithmetic."
+            },
+            {
+              "level": 3,
+              "text": "module6Summary: filter nc150 and productTrack separately from MODULE6 array."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "advanced": "Lessons 1-2 (cross product sign interpretation, four orientation tests for intersection, Graham Scan anchor guarantee, CCW stack invariant)",
+      "hard": "Lessons 3-4 (line sweep count array for overlapping rectangles, verified area=8, strip packing bound of 7 points, dual y-sort necessity)",
+      "product_track": "Lesson 5-6 (rectangle overlap strict inequality, GCD slope fractions for maxPoints, geometry algorithm selection guide, optional vs required for product vs geo companies)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

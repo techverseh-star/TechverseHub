@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { GraduationCap, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/AuthProvider";
+import ReactMarkdown from "react-markdown";
 
 interface LessonChatProps {
     lessonTitle: string;
@@ -18,17 +20,24 @@ interface Message {
 }
 
 export default function LessonChat({ lessonTitle, lessonContent, currentCode, language }: LessonChatProps) {
+    const { session } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
+    const [dimensions, setDimensions] = useState({ width: 350, height: 500 });
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        const el = scrollRef.current;
+        if (el) {
+            // Only auto-scroll if the user is near the bottom
+            const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+            if (isNearBottom) {
+                el.scrollTop = el.scrollHeight;
+            }
         }
-    }, [messages, loading]);
+    }, [messages]);
 
     async function handleSendMessage() {
         if (!input.trim() || loading) return;
@@ -37,6 +46,12 @@ export default function LessonChat({ lessonTitle, lessonContent, currentCode, la
         setMessages((prev) => [...prev, userMsg]);
         setInput("");
         setLoading(true);
+
+        setTimeout(() => {
+            if (scrollRef.current) {
+                scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+            }
+        }, 10);
 
         try {
             const systemContext = `You are an AI Tutor helping a student with a coding lesson.
@@ -51,7 +66,10 @@ Be helpful, encouraging, and concise. Guide them to the solution rather than jus
 
             const res = await fetch("/api/ai/groq", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+                },
                 body: JSON.stringify({
                     task: "chat",
                     code: currentCode,
@@ -98,20 +116,65 @@ Be helpful, encouraging, and concise. Guide them to the solution rather than jus
     return (
         <>
             {/* Floating Button */}
-            {!isOpen && (
-                <Button
-                    onClick={() => setIsOpen(true)}
-                    className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 z-50 flex items-center justify-center"
-                >
-                    <GraduationCap className="h-7 w-7 text-primary-foreground" />
-                </Button>
-            )}
+            <Button
+                onClick={() => setIsOpen(true)}
+                className={cn(
+                    "fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 z-40 flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    isOpen ? "scale-50 opacity-0 pointer-events-none" : "scale-100 opacity-100 pointer-events-auto"
+                )}
+                aria-hidden={isOpen}
+                tabIndex={isOpen ? -1 : 0}
+            >
+                <GraduationCap className="h-7 w-7 text-primary-foreground" />
+            </Button>
 
             {/* Chat Window */}
-            {isOpen && (
-                <div className="fixed bottom-6 right-6 w-[350px] h-[500px] bg-background border border-border rounded-xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in duration-200">
+            <div 
+                className={cn(
+                    "fixed bottom-6 right-6 bg-background border border-border shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    isOpen ? "scale-100 opacity-100 rounded-xl pointer-events-auto" : "scale-0 opacity-0 rounded-[40%] pointer-events-none"
+                )}
+                style={{ 
+                    width: dimensions.width, 
+                    height: dimensions.height,
+                    transformOrigin: 'calc(100% - 28px) calc(100% - 28px)'
+                }}
+                aria-hidden={!isOpen}
+            >
+                {/* Resize Handle */}
+                    <div
+                        className="absolute top-0 left-0 w-6 h-6 cursor-nwse-resize z-50 flex items-start justify-start p-1"
+                        onPointerDown={(e) => {
+                            e.preventDefault();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const startWidth = dimensions.width;
+                            const startHeight = dimensions.height;
+
+                            const onPointerMove = (moveEvent: PointerEvent) => {
+                                const deltaX = startX - moveEvent.clientX;
+                                const deltaY = startY - moveEvent.clientY;
+                                
+                                setDimensions({
+                                    width: Math.max(300, Math.min(800, startWidth + deltaX)),
+                                    height: Math.max(400, Math.min(800, startHeight + deltaY)),
+                                });
+                            };
+
+                            const onPointerUp = () => {
+                                document.removeEventListener('pointermove', onPointerMove);
+                                document.removeEventListener('pointerup', onPointerUp);
+                            };
+
+                            document.addEventListener('pointermove', onPointerMove);
+                            document.addEventListener('pointerup', onPointerUp);
+                        }}
+                    >
+                        <div className="w-2 h-2 border-t-2 border-l-2 border-muted-foreground/50 rounded-tl-[2px]" />
+                    </div>
+
                     {/* Header */}
-                    <div className="bg-primary/10 p-4 flex items-center justify-between border-b border-border">
+                    <div className="bg-primary/10 p-4 flex items-center justify-between border-b border-border rounded-t-xl shrink-0">
                         <div className="flex items-center gap-2">
                             <GraduationCap className="h-5 w-5 text-primary" />
                             <h3 className="font-semibold text-sm">AI Tutor</h3>
@@ -139,13 +202,17 @@ Be helpful, encouraging, and concise. Guide them to the solution rather than jus
                             >
                                 <div
                                     className={cn(
-                                        "max-w-[85%] rounded-lg px-3 py-2 text-sm",
+                                        "max-w-[90%] rounded-lg px-3 py-2 text-sm overflow-x-auto",
                                         msg.role === "user"
                                             ? "bg-primary text-primary-foreground"
-                                            : "bg-muted text-muted-foreground"
+                                            : "bg-muted text-foreground prose prose-sm dark:prose-invert prose-p:my-1 prose-pre:my-1 prose-pre:p-2 prose-pre:bg-[#1e1e1e] prose-pre:text-gray-300 prose-pre:border prose-pre:border-border prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5"
                                     )}
                                 >
-                                    {msg.content}
+                                    {msg.role === "assistant" ? (
+                                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                    ) : (
+                                        msg.content
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -179,7 +246,6 @@ Be helpful, encouraging, and concise. Guide them to the solution rather than jus
                         </form>
                     </div>
                 </div>
-            )}
         </>
     );
 }

@@ -5,107 +5,141 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { getProblems, PracticeProblem } from "@/lib/api"; // Updated import
-import { Code, CheckCircle, Search, ChevronRight, Target, Flame, Trophy, Loader2 } from "lucide-react";
+import { BookOpen, CheckCircle, ChevronRight, Loader2, Flame } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AdUnit } from "@/components/AdUnit";
+import { PracticeSummaryLevel } from "@/lib/practiceData";
+import { useAuth } from "@/components/AuthProvider";
 
-import { LANGUAGES } from "@/lib/constants";
+function PracticeSkeleton() {
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <main className="max-w-5xl mx-auto px-4 py-12">
+        <div className="text-center mb-12 space-y-4">
+          <Skeleton className="h-10 w-80 mx-auto" />
+          <Skeleton className="h-5 w-96 mx-auto" />
+          <Skeleton className="h-12 w-80 mx-auto rounded-full" />
+        </div>
 
-const DIFFICULTIES = ["Easy", "Medium", "Hard"];
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-32" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="p-6 flex items-center gap-5">
+              <Skeleton className="h-14 w-14 rounded-2xl shrink-0" />
+              <div className="space-y-2 flex-1">
+                <Skeleton className="h-6 w-56" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            </Card>
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}
 
 function PracticePageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [user, setUser] = useState<any>(null);
-  const [problems, setProblems] = useState<PracticeProblem[]>([]);
-  const [solvedProblems, setSolvedProblems] = useState<Set<string>>(new Set());
-  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(searchParams.get("lang"));
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
-  const [search, setSearch] = useState("");
+  const { user, loading: authLoading } = useAuth();
+  const [levels, setLevels] = useState<PracticeSummaryLevel[]>([]);
+  const [completedLessons, setCompletedLessons] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [expandedLevel, setExpandedLevel] = useState<number | null>(1);
+  const searchParams = useSearchParams();
+  const urlCategory = searchParams.get('category');
+  const [category, setCategory] = useState<'Web dev' | 'Dsa'>((urlCategory as 'Web dev' | 'Dsa') || 'Web dev');
 
   useEffect(() => {
-    async function loadUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/auth/login");
-        return;
-      }
-      setUser(user);
+    if (urlCategory === 'Dsa' || urlCategory === 'Web dev') {
+      setCategory(urlCategory);
     }
-    loadUser();
-  }, [router]);
+  }, [urlCategory]);
+
+  const handleCategoryChange = (newCategory: 'Web dev' | 'Dsa') => {
+    setCategory(newCategory);
+    router.replace(`/practice?category=${encodeURIComponent(newCategory)}`, { scroll: false });
+  };
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.push("/auth/login");
+    }
+  }, [authLoading, user, router]);
 
   useEffect(() => {
     if (!user) return;
 
-    async function loadProblems() {
+    async function loadData() {
       setLoading(true);
+      try {
+        const res = await fetch(`/api/practice?category=${encodeURIComponent(category)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setLevels(data);
+        }
+        const { data: progress } = await supabase
+          .from("lesson_progress")
+          .select("lesson_id")
+          .eq("user_id", user.id)
+          .eq("completed", true);
 
-      // Fetch from API instead of direct DB or hardcoded
-      const problemsData = await getProblems();
-      setProblems(problemsData);
-
-      const { data: submissionsData } = await supabase
-        .from("submissions")
-        .select("problem_id")
-        .eq("user_id", user.id)
-        .eq("status", "passed");
-
-      if (submissionsData) {
-        setSolvedProblems(new Set(submissionsData.map(s => s.problem_id)));
+        if (progress) {
+          setCompletedLessons(progress.map((p: any) => p.lesson_id));
+        }
+      } catch (error) {
+        console.error("Failed to load practice data", error);
+      } finally {
+        setLoading(false);
+        setHasLoadedOnce(true);
       }
-
-      setLoading(false);
     }
 
-    loadProblems();
-  }, [user]);
+    loadData();
+  }, [user, category]);
 
-  const filteredProblems = problems.filter(problem => {
-    const matchesLanguage = !selectedLanguage || problem.language === selectedLanguage;
-    const matchesDifficulty = selectedDifficulty === "all" || problem.difficulty === selectedDifficulty;
-    const matchesSearch = problem.title.toLowerCase().includes(search.toLowerCase());
-    return matchesLanguage && matchesDifficulty && matchesSearch;
-  });
+  // Derived state for Dashboard
+  let totalLessons = 0;
+  let completedCount = 0;
+  let nextLessonUrl: string | null = null;
+  let nextLessonTitle: string | null = null;
 
-  const getLanguageProblems = (lang: string) => problems.filter(p => p.language === lang);
-
-  const getDifficultyStyles = (difficulty: string) => {
-    switch (difficulty) {
-      case "Easy": return "bg-green-500/10 text-green-500 border-green-500/20";
-      case "Medium": return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
-      case "Hard": return "bg-red-500/10 text-red-500 border-red-500/20";
-      default: return "";
+  for (const level of levels) {
+    for (const module of level.modules) {
+      for (const lesson of module.lessons) {
+        totalLessons++;
+        if (completedLessons.includes(lesson.lessonId)) {
+          completedCount++;
+        } else if (!nextLessonUrl) {
+          nextLessonUrl = `/practice/${level.level}/${module.moduleId}/${lesson.lessonId}?category=${encodeURIComponent(category)}`;
+          nextLessonTitle = lesson.title;
+        }
+      }
     }
-  };
+  }
 
-  const getDifficultyIcon = (difficulty: string) => {
-    switch (difficulty) {
-      case "Easy": return <Target className="h-4 w-4" />;
-      case "Medium": return <Flame className="h-4 w-4" />;
-      case "Hard": return <Trophy className="h-4 w-4" />;
-      default: return null;
-    }
-  };
+  const progressPercentage = totalLessons === 0 ? 0 : Math.round((completedCount / totalLessons) * 100);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading problems...</p>
-          </div>
-        </div>
-      </div>
-    );
+  if (loading && !hasLoadedOnce) {
+    return <PracticeSkeleton />;
   }
 
   if (!user) return null;
@@ -121,267 +155,191 @@ function PracticePageContent() {
             format={null}
           />
         </aside>
-        <main className="flex-1 w-full max-w-[1600px] mx-auto">
-          <div className="w-full px-4 py-8">
-            {!selectedLanguage ? (
-              <>
-                <div className="text-center mb-12">
-                  <h1 className="text-4xl font-bold mb-4">
-                    Practice <span className="gradient-text">Arena</span>
-                  </h1>
-                  <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                    Solve coding challenges, earn XP, and master algorithms across 6 programming languages
-                  </p>
-                </div>
+        <main className="flex-1 py-12 relative overflow-hidden">
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="text-center mb-16 relative">
+              <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl mb-4">
+                {category === 'Web dev' ? 'Full Stack Web Dev ' : 'Data Structures & Algorithms '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-500">Interactive Labs</span>
+              </h1>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
+                {category === 'Web dev' 
+                  ? 'Master web development with structured theory, examples, and hands-on coding practice.'
+                  : 'Master Data Structures and Algorithms with step-by-step breakdowns, mental models, and hands-on practice.'}
+              </p>
+              
+              <div className="inline-flex bg-secondary/50 p-1.5 rounded-full border border-border/50 backdrop-blur-sm gap-1">
+                <Button 
+                  variant="ghost"
+                  onClick={() => handleCategoryChange('Web dev')}
+                  size="lg"
+                  className={`rounded-full px-8 transition-all duration-300 ${category === 'Web dev' ? 'bg-background shadow-md text-foreground hover:bg-background' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}
+                >
+                  Web Development
+                </Button>
+                <Button 
+                  variant="ghost"
+                  onClick={() => handleCategoryChange('Dsa')}
+                  size="lg"
+                  className={`rounded-full px-8 transition-all duration-300 ${category === 'Dsa' ? 'bg-background shadow-md text-foreground hover:bg-background' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}
+                >
+                  Data Structures & Algorithms
+                </Button>
+              </div>
+            </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-12">
-                  {LANGUAGES.map((lang) => {
-                    const langProblems = getLanguageProblems(lang.id);
-                    const solvedCount = langProblems.filter(p => solvedProblems.has(p.id)).length;
-
-                    return (
-                      <Card
-                        key={lang.id}
-                        className="cursor-pointer hover:border-primary/50 transition-all group"
-                        onClick={() => setSelectedLanguage(lang.id)}
-                      >
-                        <CardContent className="p-4 text-center">
-                          <div className="text-4xl mb-2 flex justify-center">
-                            <lang.iconComponent className="w-10 h-10" />
-                          </div>
-                          <h3 className="font-semibold group-hover:text-primary transition-colors">{lang.name}</h3>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            <span className="font-medium text-primary">{solvedCount}</span>/{langProblems.length} solved
-                          </p>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                  {DIFFICULTIES.map((difficulty) => {
-                    const diffProblems = problems.filter(p => p.difficulty === difficulty);
-                    const solvedCount = diffProblems.filter(p => solvedProblems.has(p.id)).length;
-
-                    return (
-                      <Card key={difficulty} className={`border-l-4 ${difficulty === "Easy" ? "border-l-green-500" :
-                        difficulty === "Medium" ? "border-l-yellow-500" : "border-l-red-500"
-                        }`}>
-                        <CardContent className="p-6">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                              {getDifficultyIcon(difficulty)}
-                              <h3 className="font-semibold">{difficulty}</h3>
-                            </div>
-                            <Badge className={getDifficultyStyles(difficulty)}>
-                              {solvedCount}/{diffProblems.length}
-                            </Badge>
-                          </div>
-                          <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${difficulty === "Easy" ? "bg-green-500" :
-                                difficulty === "Medium" ? "bg-yellow-500" : "bg-red-500"
-                                }`}
-                              style={{ width: `${diffProblems.length > 0 ? (solvedCount / diffProblems.length) * 100 : 0}%` }}
-                            />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-
-                <div>
-                  <h2 className="text-2xl font-bold mb-6">All Problems</h2>
-                  <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                    <div className="relative flex-1 max-w-md">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search problems..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      <Badge
-                        variant={selectedDifficulty === "all" ? "default" : "outline"}
-                        className="cursor-pointer px-4 py-2"
-                        onClick={() => setSelectedDifficulty("all")}
-                      >
-                        All
-                      </Badge>
-                      {DIFFICULTIES.map((d) => (
-                        <Badge
-                          key={d}
-                          variant={selectedDifficulty === d ? "default" : "outline"}
-                          className={`cursor-pointer px-4 py-2 ${selectedDifficulty === d ? getDifficultyStyles(d) : ""}`}
-                          onClick={() => setSelectedDifficulty(d)}
-                        >
-                          {d}
-                        </Badge>
-                      ))}
-                    </div>
+            {/* Dashboard Progress Panel */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+              <Card className="bg-card/40 backdrop-blur-sm border-border/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Course Progress</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-end gap-2 mb-2">
+                    <span className="text-3xl font-bold">{progressPercentage}%</span>
+                    <span className="text-sm text-muted-foreground mb-1">({completedCount}/{totalLessons})</span>
                   </div>
+                  <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: `${progressPercentage}%` }} />
+                  </div>
+                </CardContent>
+              </Card>
 
-                  <div className="space-y-2">
-                    {filteredProblems.slice(0, 20).map((problem) => (
-                      <Link key={problem.id} href={`/practice/${problem.id}`}>
-                        <Card className="group hover:border-primary/50 transition-all">
-                          <CardContent className="flex items-center justify-between p-4">
-                            <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
-                                <Code className="h-5 w-5 text-muted-foreground" />
-                              </div>
-                              <div>
-                                <h3 className="font-medium group-hover:text-primary transition-colors">
-                                  {problem.title}
-                                </h3>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-sm text-muted-foreground capitalize flex items-center gap-1">
-                                    {(() => {
-                                      const Icon = LANGUAGES.find(l => l.id === problem.language)?.iconComponent;
-                                      return Icon && <Icon className="w-4 h-4" />;
-                                    })()}
-                                    {problem.language}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              {solvedProblems.has(problem.id) && (
-                                <CheckCircle className="h-5 w-5 text-green-500" />
-                              )}
-                              <Badge className={getDifficultyStyles(problem.difficulty)}>
-                                {problem.difficulty}
-                              </Badge>
-                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                          </CardContent>
-                        </Card>
+              <Card className="bg-card/40 backdrop-blur-sm border-border/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Study Streak</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-end gap-2">
+                    <span className="text-3xl font-bold flex items-center gap-1.5">
+                      <Flame className="h-7 w-7 text-orange-500 fill-orange-500/20" />
+                      1
+                    </span>
+                    <span className="text-sm text-muted-foreground mb-1">Day Streak</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">Keep learning to build your streak!</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card/40 backdrop-blur-sm border-border/50 md:col-span-1">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Next Up</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {nextLessonUrl ? (
+                    <div className="space-y-4">
+                      <p className="text-sm font-medium line-clamp-1">{nextLessonTitle}</p>
+                      <Link href={nextLessonUrl}>
+                        <Button className="w-full gap-2 bg-primary/20 text-primary hover:bg-primary/30 border-none">
+                          Continue <ChevronRight className="h-4 w-4" />
+                        </Button>
                       </Link>
-                    ))}
-                  </div>
-
-                  {filteredProblems.length > 20 && (
-                    <div className="text-center mt-6">
-                      <p className="text-muted-foreground">Showing 20 of {filteredProblems.length} problems. Select a language to see all.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-sm font-medium text-emerald-500">Course Completed! 🎉</p>
+                      <Button variant="outline" className="w-full gap-2 border-emerald-500/50 text-emerald-500" disabled>
+                        All Done
+                      </Button>
                     </div>
                   )}
-                </div>
-              </>
+                </CardContent>
+              </Card>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : levels.length === 0 ? (
+              <div className="text-center py-20 border border-dashed border-border/60 rounded-2xl bg-card/20">
+                <BookOpen className="h-10 w-10 text-muted-foreground/50 mx-auto mb-4" />
+                <p className="text-lg font-medium mb-1">No curriculum available yet</p>
+                <p className="text-muted-foreground text-sm">
+                  {category === 'Web dev' ? 'Web Development' : 'DSA'} lessons are coming soon. Check back later!
+                </p>
+              </div>
             ) : (
-              <>
-                <div className="flex items-center gap-4 mb-8">
-                  <Button variant="ghost" onClick={() => setSelectedLanguage(null)}>
-                    ← Back to All
-                  </Button>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <span className="text-4xl">
-                        {(() => {
-                          const Icon = LANGUAGES.find(l => l.id === selectedLanguage)?.iconComponent;
-                          return Icon && <Icon className="w-10 h-10" />;
-                        })()}
-                      </span>
+            <div className="space-y-8">
+              {levels.map((level) => (
+                <Card key={level.level} className="overflow-hidden border border-border bg-card shadow-none transition-all duration-300 rounded-2xl">
+                  <div
+                    className="p-6 cursor-pointer flex justify-between items-center hover:bg-secondary/5 transition-colors group"
+                    onClick={() => setExpandedLevel(expandedLevel === level.level ? null : level.level)}
+                  >
+                    <div className="flex items-center gap-5">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center text-primary font-bold text-2xl shadow-inner group-hover:scale-105 transition-transform duration-300">
+                        L{level.level}
+                      </div>
                       <div>
-                        <h1 className="text-3xl font-bold">{LANGUAGES.find(l => l.id === selectedLanguage)?.name} Problems</h1>
-                        <p className="text-muted-foreground">{filteredProblems.length} problems available</p>
+                        <h2 className="text-2xl font-bold tracking-tight">{level.title}</h2>
+                        <p className="text-muted-foreground">{level.modules.length} Modules</p>
                       </div>
                     </div>
+                    <ChevronRight className={`h-6 w-6 transition-transform ${expandedLevel === level.level ? 'rotate-90' : ''}`} />
                   </div>
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20">
-                    <Target className="h-5 w-5 text-primary" />
-                    <span className="font-medium">
-                      {filteredProblems.filter(p => solvedProblems.has(p.id)).length}/{filteredProblems.length} solved
-                    </span>
-                  </div>
-                </div>
 
-                <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                  <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search problems..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Badge
-                      variant={selectedDifficulty === "all" ? "default" : "outline"}
-                      className="cursor-pointer px-4 py-2"
-                      onClick={() => setSelectedDifficulty("all")}
-                    >
-                      All
-                    </Badge>
-                    {DIFFICULTIES.map((d) => (
-                      <Badge
-                        key={d}
-                        variant={selectedDifficulty === d ? "default" : "outline"}
-                        className={`cursor-pointer px-4 py-2 ${selectedDifficulty === d ? getDifficultyStyles(d) : ""}`}
-                        onClick={() => setSelectedDifficulty(d)}
-                      >
-                        {d}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                {DIFFICULTIES.map((difficulty) => {
-                  const diffProblems = filteredProblems.filter(p => p.difficulty === difficulty);
-                  if (diffProblems.length === 0) return null;
-                  const solvedCount = diffProblems.filter(p => solvedProblems.has(p.id)).length;
-
-                  return (
-                    <div key={difficulty} className="mb-8">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className={`p-2 rounded-lg ${getDifficultyStyles(difficulty)}`}>
-                          {getDifficultyIcon(difficulty)}
-                        </div>
-                        <h2 className="text-xl font-bold">{difficulty}</h2>
-                        <Badge variant="secondary">{solvedCount}/{diffProblems.length} solved</Badge>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {diffProblems.map((problem, idx) => (
-                          <Link key={problem.id} href={`/practice/${problem.id}`}>
-                            <Card className="group hover:border-primary/50 transition-all h-full">
-                              <CardContent className="flex items-center gap-4 p-4">
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm ${getDifficultyStyles(difficulty)}`}>
-                                  {idx + 1}
+                  {expandedLevel === level.level && (
+                    <div className="p-6 bg-background/40">
+                      <div className="grid grid-cols-1 gap-6">
+                        {level.modules.map((module, modIdx) => (
+                          <div key={module.moduleId} className="border border-border/50 rounded-xl p-6 bg-[#0a0a0a] relative overflow-hidden group/module hover:-translate-y-1 hover:border-primary/30 transition-all duration-300">
+                            {/* Subtle top gradient line */}
+                            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover/module:opacity-100 transition-opacity duration-500" />
+                            
+                            <div className="flex justify-between items-start mb-5">
+                              <div>
+                                <div className="flex gap-2 mb-3">
+                                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-semibold">
+                                    Level {level.level}
+                                  </Badge>
+                                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-semibold">
+                                    Module {modIdx + 1}
+                                  </Badge>
                                 </div>
-                                <div className="flex-1">
-                                  <h3 className="font-medium group-hover:text-primary transition-colors">
-                                    {problem.title}
-                                  </h3>
-                                  <p className="text-sm text-muted-foreground line-clamp-1">
-                                    {problem.description}
-                                  </p>
-                                </div>
-                                {solvedProblems.has(problem.id) && (
-                                  <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                                )}
-                              </CardContent>
-                            </Card>
-                          </Link>
+                                <h3 className="text-xl font-semibold mb-2 group-hover/module:text-primary transition-colors">{module.title}</h3>
+                                <p className="text-muted-foreground text-sm leading-relaxed mb-4">{module.description}</p>
+                              </div>
+                              <Badge variant="outline" className={`ml-4 shrink-0 font-medium tracking-wide ${
+                                module.difficulty === 'Easy' || module.difficulty === 'Beginner' ? 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10' :
+                                  module.difficulty === 'Medium' || module.difficulty === 'Intermediate' ? 'text-amber-500 border-amber-500/30 bg-amber-500/10' :
+                                    'text-rose-500 border-rose-500/30 bg-rose-500/10'
+                              }`}>
+                                {module.difficulty || 'All Levels'}
+                              </Badge>
+                            </div>
+
+                            <div className="space-y-4">
+                              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                                <BookOpen className="h-4 w-4 text-primary" />
+                                {module.lessons.length} Lessons
+                              </h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {module.lessons.map((lesson, idx) => (
+                                  <Link key={lesson.lessonId} href={`/practice/${level.level}/${module.moduleId}/${lesson.lessonId}?category=${encodeURIComponent(category)}`}>
+                                    <div className="p-3 border border-border/40 rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group/lesson flex items-start gap-3 h-full bg-background/50 hover:shadow-sm relative overflow-hidden">
+                                      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary scale-y-0 group-hover/lesson:scale-y-100 transition-transform origin-left duration-300" />
+                                      <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 font-medium text-sm transition-colors ${completedLessons.includes(lesson.lessonId) ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30' : 'bg-secondary/50 border border-border/50 group-hover/lesson:bg-primary/10 group-hover/lesson:text-primary group-hover/lesson:border-primary/20'}`}>
+                                        {completedLessons.includes(lesson.lessonId) ? <CheckCircle className="h-4 w-4" /> : idx + 1}
+                                      </div>
+                                      <div className="pt-1.5 flex-1 pr-2">
+                                        <p className={`font-medium transition-colors text-sm line-clamp-2 leading-tight ${completedLessons.includes(lesson.lessonId) ? 'text-emerald-500' : 'group-hover/lesson:text-primary'}`}>
+                                          {lesson.title}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>
-                  );
-                })}
-
-                {filteredProblems.length === 0 && (
-                  <div className="text-center py-16">
-                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                      <Code className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-lg font-medium mb-2">No problems found</h3>
-                    <p className="text-muted-foreground">Try adjusting your search or filter</p>
-                  </div>
-                )}
-              </>
+                  )}
+                </Card>
+              ))}
+            </div>
             )}
           </div>
         </main>
@@ -396,17 +354,7 @@ function PracticePageContent() {
 
 export default function PracticePage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading practice problems...</p>
-          </div>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<PracticeSkeleton />}>
       <PracticePageContent />
     </Suspense>
   );

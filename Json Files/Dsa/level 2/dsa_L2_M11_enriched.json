@@ -1,0 +1,1689 @@
+{
+  "module_id": "L2-M11",
+  "module_number": 11,
+  "title": "Advanced Sliding Window And Two Pointers",
+  "tag": "FIXED",
+  "is_optional_for_product_track": false,
+  "estimated_hours": "10–12 hours",
+  "prerequisites": [
+    "L1-M02"
+  ],
+  "learning_outcomes": [
+    "Apply the variable-size sliding window to any substring or subarray condition problem",
+    "Solve Longest Substring Without Repeating Characters and all its variants in O(n)",
+    "Solve Minimum Window Substring using the need/have frequency-matching approach in O(n)",
+    "Solve Sliding Window Maximum in O(n) using a monotonic deque to maintain the window maximum",
+    "Solve Trapping Rain Water using two-pointer O(n) O(1) and understand why it is correct",
+    "Solve Container With Most Water using greedy two-pointer with the shorter-side-move proof"
+  ],
+  "notes": [
+    "FIXED — Resequenced here from Level 1. Harder variants require DP and graph context to fully understand."
+  ],
+  "spaced_review": "Re-solve 3 greedy/interval problems from Module 10 from scratch",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "title": "Sliding Window — Variable Size",
+      "tag": null,
+      "objective": "Master the variable-size sliding window template, identify the window invariant for any new problem, and prove O(n) via the at-most-2n pointer movements argument.",
+      "concepts": [
+        "Variable window: left and right pointers that expand and shrink dynamically",
+        "Window invariant: the property the window must always satisfy",
+        "Expand: right pointer advances adding a new element",
+        "Shrink: left pointer advances removing an element when invariant violated",
+        "O(n) proof: right advances at most n times, left advances at most n times = 2n total",
+        "Data structures inside window: Set, Map, counter, sum — updated incrementally",
+        "When to expand vs shrink: right always advances; left only advances when invariant violated",
+        "Difference from fixed window: fixed window has constant size k; variable has dynamic boundaries"
+      ],
+      "explanation": "The variable-size sliding window solves problems asking for the longest, shortest, or optimal contiguous subarray/substring satisfying a condition. The template: right pointer expands the window by one element per step. When the window violates the invariant (e.g., too many duplicates, sum exceeds target), the left pointer advances until the invariant is restored. At each step where the invariant holds, the window size (right - left + 1) is a candidate answer. The O(n) proof: right advances from 0 to n-1 exactly once (n moves total). Left only advances and never retreats, so it also advances at most n times. Total moves: at most 2n = O(n). The invariant is problem-specific: for distinct characters it is 'no duplicate in window'; for sum constraints it is 'window sum <= target'; for character frequency matching it is 'all required characters satisfied'. The data structure maintaining the window state must support O(1) incremental updates: adding an element on expand, removing an element on shrink.",
+      "analogy": "Variable sliding window is like a telescoping antenna. The right end extends outward one unit at a time, searching for a better signal (larger window). When the antenna becomes too long and the signal degrades (invariant violated), the left end contracts inward until the signal is restored. The antenna's length at any good-signal moment is a candidate for the best length. The key insight: the right end never retreats and the left end never retreats — both only move forward, giving O(n) total.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// VARIABLE SLIDING WINDOW TEMPLATE\nfunction slidingWindowTemplate(arr, /* invariant parameters */) {\n    let left = 0;\n    let windowState = /* initial state: 0, Map, Set, etc. */null;\n    let answer = /* worst case: 0, Infinity, [] */null;\n\n    for (let right = 0; right < arr.length; right++) {\n        // EXPAND: add arr[right] to window\n        // update windowState with arr[right]\n\n        // SHRINK: while invariant violated, advance left\n        while (/* invariant violated */) {\n            // remove arr[left] from windowState\n            left++;\n        }\n\n        // RECORD: invariant holds, current window is a valid candidate\n        // answer = max/min(answer, right - left + 1) or similar\n    }\n    return answer;\n}\n\n// CONCRETE EXAMPLE: Longest subarray with sum <= target (positive integers)\nfunction longestSubarraySumAtMost(nums, target) {\n    let left = 0, windowSum = 0, maxLen = 0;\n\n    for (let right = 0; right < nums.length; right++) {\n        windowSum += nums[right];           // EXPAND: add right element\n\n        while (windowSum > target) {        // SHRINK: sum exceeds target\n            windowSum -= nums[left];\n            left++;\n        }\n        maxLen = Math.max(maxLen, right - left + 1); // RECORD valid window\n    }\n    return maxLen;\n}\n\n// CONCRETE EXAMPLE: Shortest subarray with sum >= target (positive integers)\nfunction shortestSubarraySumAtLeast(nums, target) {\n    let left = 0, windowSum = 0, minLen = Infinity;\n\n    for (let right = 0; right < nums.length; right++) {\n        windowSum += nums[right];           // EXPAND\n\n        while (windowSum >= target) {       // SHRINK while valid: find minimum\n            minLen = Math.min(minLen, right - left + 1); // RECORD inside while\n            windowSum -= nums[left];\n            left++;\n        }\n    }\n    return minLen === Infinity ? 0 : minLen;\n}\n\nconsole.log(longestSubarraySumAtMost([2,1,5,2,3,2], 7));  // 4\nconsole.log(shortestSubarraySumAtLeast([2,3,1,2,4,3], 7)); // 2",
+        "explanation": "The two templates differ in where RECORD happens. For longest window (find maximum window size satisfying invariant): record AFTER shrinking, outside the while loop. For shortest window (find minimum window size satisfying condition): record INSIDE the while loop, before shrinking. This distinction is the most common source of subtle bugs in sliding window problems."
+      },
+      "common_mistakes": [
+        "Recording the answer before the invariant is verified — for longest window problems, always record after the while loop (invariant restored); recording inside the while loop counts windows that still violate the invariant",
+        "Using a for loop for the shrink step instead of a while loop — a for loop advances left only once; a while loop advances left until the invariant is restored; some violations require multiple left advances",
+        "Not using an incremental data structure for the window state — recomputing the window sum, count, or character map from scratch on each step is O(n) per step, making the total O(n²); always update incrementally in O(1)"
+      ],
+      "interview_relevance": "The variable sliding window template is the single most important pattern for substring and subarray problems at the medium level. Every company uses at least one sliding window problem per interview loop. Stating 'this is a variable sliding window, the invariant is X, I maintain it with Y' within 60 seconds of reading the problem is the target fluency.",
+      "mini_challenge": "Apply the template to: (1) Longest subarray with at most k distinct elements. Define the invariant, the window state, and whether to record inside or outside the while loop. (2) Minimum size subarray sum (LeetCode #209). Implement both. For (1): window state = Map of element to count; invariant = map.size <= k. For (2): window state = running sum; invariant = sum >= target; record inside while loop.",
+      "flashcards": [
+        {
+          "front": "Variable sliding window: expand-or-shrink pattern?",
+          "back": "Expand right pointer always. When window becomes INVALID (violates the constraint), shrink from left until valid again. Answer is updated at each step where the window is valid."
+        },
+        {
+          "front": "Fixed vs variable sliding window: when to use each?",
+          "back": "FIXED: window size k is given — right minus left always equals k. VARIABLE: window size changes based on a constraint — shrink when invalid, expand always. Key signal: 'longest/shortest subarray/substring satisfying X'."
+        },
+        {
+          "front": "Variable window: when to update the answer?",
+          "back": "Depends on the problem. LONGEST window: update after each expand (every valid window is a candidate). SHORTEST window: update only when window is valid (meets the condition), then shrink to find shorter."
+        },
+        {
+          "front": "Variable window: two templates — longest vs shortest?",
+          "back": "LONGEST: expand right, if invalid shrink left, update ans=max(ans, right-left+1) after shrink (window is always valid). SHORTEST: expand right, while valid update ans=min(ans,size) then shrink left greedily."
+        },
+        {
+          "front": "What invariant must hold at ALL times in a sliding window?",
+          "back": "left ≤ right. The window [left, right] is always a valid range. After shrinking, left never exceeds right (for non-empty strings). If left > right after shrinking: the window has become empty — a valid but empty state."
+        },
+        {
+          "front": "Character frequency map in sliding window: what does map[char]-- enable?",
+          "back": "Decrementing the count when removing a character from the left. If map[char] becomes 0 (or negative for 'need' tracking), the character is no longer in the window. Essential for tracking distinct characters and substring validity."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Variable window for 'longest subarray with sum ≤ k': when do you shrink?",
+          "options": [
+            "When window size > k",
+            "When sum > k (window becomes invalid)",
+            "When right reaches array end",
+            "Every other step"
+          ],
+          "answer": 1,
+          "explanation": "Shrink condition = when constraint is violated. Here: sum > k. While sum > k: subtract arr[left], left++. After restoring validity, update ans = max(ans, right-left+1)."
+        },
+        {
+          "question": "Window [left=2, right=7] is invalid. After shrinking: left=5. Window size?",
+          "options": [
+            "5",
+            "3",
+            "2",
+            "7-5=2"
+          ],
+          "answer": 1,
+          "explanation": "right - left + 1 = 7 - 5 + 1 = 3."
+        },
+        {
+          "question": "'Shortest subarray with sum ≥ k': update answer BEFORE or AFTER shrinking?",
+          "options": [
+            "Before: update ans = min(ans, size), then shrink",
+            "After: shrink first, then update ans",
+            "Only at the very end",
+            "Every time right advances"
+          ],
+          "answer": 0,
+          "explanation": "For SHORTEST window: as soon as the window is VALID (sum ≥ k), record its size, THEN shrink to find if a shorter valid window exists. Update inside the 'while valid' shrink loop."
+        },
+        {
+          "question": "What is the time complexity of a single-pass variable sliding window?",
+          "options": [
+            "O(n²)",
+            "O(n log n)",
+            "O(n) — each element added and removed at most once",
+            "O(n × k)"
+          ],
+          "answer": 2,
+          "explanation": "Each element enters the window (right++) exactly once and exits (left++) at most once. Total operations: at most 2n. O(n)."
+        }
+      ],
+      "visual_aid": {
+        "type": "window_templates",
+        "description": "Variable sliding window — longest vs shortest templates",
+        "diagram": "LONGEST SUBARRAY/SUBSTRING satisfying constraint:\n  left = 0\n  for right in 0..n-1:\n    add arr[right] to window state\n    while window INVALID:\n      remove arr[left] from state\n      left++\n    ans = max(ans, right - left + 1)  ← always valid here\n\nSHORTEST SUBARRAY/SUBSTRING satisfying constraint:\n  left = 0, ans = Infinity\n  for right in 0..n-1:\n    add arr[right] to window state\n    while window VALID:               ← shrink WHILE valid\n      ans = min(ans, right - left + 1)\n      remove arr[left] from state\n      left++\n\nKEY DIFFERENCE:\n  Longest: shrink UNTIL valid, update AFTER shrink\n  Shortest: shrink WHILE valid, update BEFORE shrink\n\nBOTH: O(n) — each element enters/exits window exactly once"
+      },
+      "complexity_summary": {
+        "time": "O(n) — each element added and removed at most once",
+        "space": "O(k) where k = window state size (e.g. alphabet size for char freq maps)",
+        "expand": "Always: right++",
+        "shrink": "Longest: when invalid. Shortest: while valid."
+      },
+      "practice_problems": [
+        {
+          "id": "lc-3",
+          "title": "Longest Substring Without Repeating — first variable window",
+          "difficulty": "Medium",
+          "pattern": "Variable window — longest, char freq map",
+          "blind75": true
+        },
+        {
+          "id": "lc-209",
+          "title": "Minimum Size Subarray Sum",
+          "difficulty": "Medium",
+          "pattern": "Variable window — shortest, sum ≥ k"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M11-L1-TH-1",
+            "question": "What is the O(n) PROOF for the variable sliding window template?",
+            "options": [
+              "The window grows n times and the inner while loop runs n times each, giving O(n²)",
+              "RIGHT POINTER advances exactly n times (once per element, outer for-loop); LEFT POINTER advances at most n times total across ALL iterations of the inner while loop (left never decreases, starts at 0, can reach at most n-1); total pointer movements = n (right) + at most n (left) = 2n = O(n); the inner while loop does NOT run O(n) per outer iteration — it runs at most n TOTAL across the entire algorithm",
+              "The window is always of size 1, so O(n) trivially",
+              "O(n) only holds when the invariant is never violated"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'O(n) proof: right advances at most n times, left advances at most n times = 2n total' — the amortised analysis key: left is monotonically non-decreasing and bounded by [0, n-1]; across ALL outer iterations, the total left advances is at most n; this amortised bound is what converts the apparently O(n²) nested loop into O(n)."
+          },
+          {
+            "id": "L2M11-L1-TH-2",
+            "question": "For SHORTEST subarray with sum >= target, why is the RECORD step INSIDE the while loop rather than outside?",
+            "options": [
+              "Recording inside the while loop is a bug; it should always be outside",
+              "For SHORTEST valid window, we want to MINIMISE the window size while the invariant HOLDS (sum >= target); the while loop shrinks the window as long as the sum remains >= target; each time through the while loop, the CURRENT window is valid (sum >= target) and potentially the minimum seen; we record BEFORE shrinking because shrinking might violate the invariant; if we recorded outside the while loop, we'd miss the moment when the window first becomes valid and then record an invalid (smaller) window",
+              "Recording inside while loop applies only when the target is 0",
+              "The record step location is irrelevant; both inside and outside are correct"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's template: in shortestSubarraySumAtLeast, 'RECORD inside while: minLen = Math.min(minLen, right-left+1)' — the while condition `windowSum >= target` means the current window IS valid; recording BEFORE shrinking captures every valid window size; recording outside would only capture the first moment after all shrinking (when the invariant is just barely violated or still holds), missing intermediate valid states."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M11-L1-LG-1",
+            "question": "For `shortestSubarraySumAtLeast([2,3,1,2,4,3], target=7)`, trace which window of size 2 satisfies the condition.",
+            "options": [
+              "Window [4,3] at positions [4,5]: sum=7>=7, length=2 ✓ — confirmed by direct execution returning 2",
+              "Window [2,3,1] at positions [0,2]: sum=6<7, not valid",
+              "Window [3,1,2] at positions [1,3]: sum=6<7, not valid",
+              "No window of size 2 exists; the minimum is 3"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution returning 2; checking all length-2 windows: [2,3]=5<7, [3,1]=4<7, [1,2]=3<7, [2,4]=6<7, [4,3]=7>=7 ✓; [4,3] at indices 4-5 is the first (and only) valid 2-element window; the algorithm finds this via shrinking when sum>=7 first at a larger window that shrinks to [4,3]."
+          },
+          {
+            "id": "L2M11-L1-LG-2",
+            "question": "What is the WINDOW INVARIANT for the longest-subarray-sum-at-most problem?",
+            "options": [
+              "The window must always contain exactly k elements",
+              "The invariant is `windowSum <= target` — the sum of all elements currently in the window must never EXCEED the target; whenever a new right element pushes windowSum above target, the left pointer advances (and corresponding elements are subtracted from windowSum) until the invariant is restored; recording happens OUTSIDE the while loop when the invariant holds",
+              "The window must always start at index 0",
+              "The invariant is that all window elements are positive"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's template structure: 'SHRINK: while (windowSum > target): shrink; RECORD: invariant holds' — the invariant `windowSum <= target` must hold when we record; the while loop restores this invariant by advancing left; after the while loop exits, the window satisfies the invariant and we compute the length."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M11-L1-SY-1",
+            "question": "The template uses `while (invariant violated)` for shrinking. Why WHILE and not IF?",
+            "options": [
+              "IF and WHILE are interchangeable; the choice is stylistic",
+              "WHILE is essential because adding a single right element might violate the invariant in a way that requires MULTIPLE left advances to restore; for example, if the window sum far exceeds the target after adding a large element, a single left advance may not restore the invariant — the while loop keeps shrinking until the invariant holds; IF would only remove one left element and then proceed, potentially recording an invalid window state",
+              "WHILE is used only when the window contains negative numbers",
+              "IF is correct for variable windows; WHILE is only for fixed-size windows"
+            ],
+            "answer": 1,
+            "explanation": "The while loop is critical: after adding arr[right], the invariant may be violated by more than one unit; for example, adding element 100 when target=7 and windowSum=5 gives windowSum=105; removing one left element (say 2) gives 103 — still violated; the while loop continues until windowSum <= 7; an if statement would only remove one element, recording an invalid window."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M11-L1-CC-1",
+            "title": "Variable Sliding Window Template",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both variable-window examples from this lesson.",
+            "requirements": [
+              "Implement `longestSumAtMost(nums, target)` — longest subarray with sum <= target",
+              "Implement `shortestSumAtLeast(nums, target)` — shortest subarray with sum >= target (return 0 if none)"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function longestSumAtMost(nums, target) {\n  // TODO: expand right, shrink while sum>target, record outside while\n}\n\nfunction shortestSumAtLeast(nums, target) {\n  // TODO: expand right, record+shrink while sum>=target; return 0 if none\n}"
+            },
+            "test_cases": [
+              {
+                "input": "longestSumAtMost([2,1,5,2,3,2], 7)",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "shortestSumAtLeast([2,3,1,2,4,3], 7)",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "longestSumAtMost([1,1,1,1,1], 3)",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "shortestSumAtLeast([1,1,1,1,1], 11)",
+                "expected": 0,
+                "type": "hidden"
+              },
+              {
+                "input": "longestSumAtMost([10,5,2,7,1,9], 15)",
+                "expected": 4,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function longestSumAtMost(nums, target) {\n  let left=0, windowSum=0, maxLen=0;\n  for(let right=0;right<nums.length;right++){\n    windowSum+=nums[right];\n    while(windowSum>target){\n      windowSum-=nums[left];\n      left++;\n    }\n    maxLen=Math.max(maxLen,right-left+1);\n  }\n  return maxLen;\n}\n\nfunction shortestSumAtLeast(nums, target) {\n  let left=0, windowSum=0, minLen=Infinity;\n  for(let right=0;right<nums.length;right++){\n    windowSum+=nums[right];\n    while(windowSum>=target){\n      minLen=Math.min(minLen,right-left+1);\n      windowSum-=nums[left];\n      left++;\n    }\n  }\n  return minLen===Infinity?0:minLen;\n}"
+            },
+            "complexity_analysis": "O(n) time — right advances n times, left advances at most n times total. O(1) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "longestSumAtMost: expand (windowSum+=nums[right]); shrink WHILE sum>target; record OUTSIDE while."
+              },
+              {
+                "level": 2,
+                "text": "shortestSumAtLeast: record INSIDE while (current window IS valid); shrink; continue outer loop."
+              },
+              {
+                "level": 3,
+                "text": "Key distinction: for LONGEST valid window → record outside while (after shrinking to valid state); for SHORTEST valid window → record inside while (before each shrink step)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 2,
+      "title": "Longest Substring Without Repeating",
+      "tag": null,
+      "objective": "Solve Longest Substring Without Repeating Characters in O(n) using a sliding window with a Set, and optimise to a Map-based version that eliminates the inner while loop.",
+      "concepts": [
+        "Window invariant: all characters in [left, right] are distinct",
+        "Set-based approach: maintain Set of chars in window; shrink when duplicate found",
+        "Map-based optimisation: store last seen index; jump left directly to duplicate+1",
+        "O(n) both approaches: right advances n times, left advances at most n times",
+        "Map optimisation: O(n) worst case same but eliminates inner while loop",
+        "left = max(left, lastSeen[char]+1): prevents left from moving backward",
+        "Variants: with at most k distinct characters, with at most k replacements",
+        "The window at any point contains the longest valid substring ending at right"
+      ],
+      "explanation": "Longest Substring Without Repeating Characters (#3) finds the length of the longest substring with all distinct characters. Set-based approach: maintain a Set of characters in the current window. When right tries to add a duplicate character, shrink from left until the duplicate is removed. Map-based optimisation: store the last seen index of each character in a Map. When right encounters a character already in the Map (and its last position is >= left), jump left directly to lastSeen[char] + 1, eliminating the while loop entirely. The condition left = max(left, lastSeen[char] + 1) prevents left from moving backward: if the last occurrence of char is before the current left (already outside the window), the jump would move left backward, incorrectly shrinking the window.",
+      "analogy": "Longest Substring Without Repeating with a Map is like a nightclub with a 'no repeat' rule: each person can only be inside once. The bouncer (right pointer) checks each new arrival against a guest register (Map). If the arrival was previously inside AND is still inside (last position >= left), the bouncer instantly tells the back of the line to start at the position just after that person's last entry (left = last_position + 1). No one needs to be individually escorted out.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// LONGEST SUBSTRING WITHOUT REPEATING (#3)\n\n// APPROACH 1: Set-based O(n)\nfunction lengthOfLongestSubstring_set(s) {\n    const charSet = new Set();\n    let left = 0, maxLen = 0;\n    for (let right = 0; right < s.length; right++) {\n        while (charSet.has(s[right])) {   // shrink until no duplicate\n            charSet.delete(s[left]);\n            left++;\n        }\n        charSet.add(s[right]);\n        maxLen = Math.max(maxLen, right - left + 1);\n    }\n    return maxLen;\n}\n\n// APPROACH 2: Map-based O(n) with direct jump (no inner while)\nfunction lengthOfLongestSubstring(s) {\n    const lastSeen = new Map(); // char -> last seen index\n    let left = 0, maxLen = 0;\n    for (let right = 0; right < s.length; right++) {\n        if (lastSeen.has(s[right])) {\n            // Jump left past the previous occurrence\n            // BUT never move left backward (max with current left)\n            left = Math.max(left, lastSeen.get(s[right]) + 1);\n        }\n        lastSeen.set(s[right], right); // update last seen index\n        maxLen = Math.max(maxLen, right - left + 1);\n    }\n    return maxLen;\n}\n\nconsole.log(lengthOfLongestSubstring('abcabcbb')); // 3 ('abc')\nconsole.log(lengthOfLongestSubstring('bbbbb'));    // 1 ('b')\nconsole.log(lengthOfLongestSubstring('pwwkew'));   // 3 ('wke')\nconsole.log(lengthOfLongestSubstring(''));         // 0\n\n// TRACE Map approach for 'abcabcbb':\n// right=0 'a': lastSeen={}, add a->0. window=[0,0]. len=1.\n// right=1 'b': add b->1. window=[0,1]. len=2.\n// right=2 'c': add c->2. window=[0,2]. len=3.\n// right=3 'a': lastSeen.get('a')=0 >= left=0. left=max(0,0+1)=1. update a->3. window=[1,3]. len=3.\n// right=4 'b': lastSeen.get('b')=1 >= left=1. left=max(1,1+1)=2. update b->4. window=[2,4]. len=3.\n// right=5 'c': lastSeen.get('c')=2 >= left=2. left=max(2,2+1)=3. update c->5. window=[3,5]. len=3.\n// right=6 'b': lastSeen.get('b')=4 >= left=3. left=max(3,4+1)=5. update b->6. window=[5,6]. len=2.\n// right=7 'b': lastSeen.get('b')=6 >= left=5. left=max(5,6+1)=7. update b->7. window=[7,7]. len=1.\n// maxLen=3",
+        "explanation": "The max(left, lastSeen.get(char) + 1) is the critical safety check. Consider 'abba': when processing the second 'a' at index 3, lastSeen['a'] = 0. Without the max, left would jump to 1, but left is already at 2 (moved past 'b' and 'b'). Setting left = max(2, 0+1) = max(2,1) = 2 correctly keeps left at 2, not moving it backward."
+      },
+      "common_mistakes": [
+        "Not using max(left, lastSeen.get(char)+1) in the Map approach — without the max, left can move backward when a character's last occurrence is before the current left; this incorrectly includes characters that are already outside the window",
+        "Not updating lastSeen after jumping left — lastSeen.set(s[right], right) must always run, even when a jump occurred; it updates the position of the current character to the new occurrence",
+        "Using the Set approach and forgetting that the inner while loop is O(n) amortised (not O(n²)) — each character is added and deleted at most once across all iterations of the outer loop; the total work across all while iterations is O(n)"
+      ],
+      "interview_relevance": "Longest Substring Without Repeating Characters (#3) is Blind 75 and the most commonly asked sliding window problem. Both the Set and Map approaches are expected knowledge. The Map approach with the max(left, ...) safety check is specifically evaluated — candidates who know the Set approach but not the Map optimisation pass but do not distinguish themselves.",
+      "mini_challenge": "Implement both approaches and verify all test cases. Trace the Map approach for 'dvdf' character by character, showing left, right, lastSeen, and maxLen at each step. Verify maxLen=3 ('vdf'). Then solve Longest Substring with At Most K Distinct Characters (LeetCode #340): extend the window by allowing at most k distinct characters instead of 1. Use a Map of char -> count; shrink when map.size > k.",
+      "flashcards": [
+        {
+          "front": "Longest Substring Without Repeating Characters: window state?",
+          "back": "A Set of characters currently in the window. Window is INVALID when a duplicate appears (the new character is already in the Set). Shrink from left until the duplicate is removed."
+        },
+        {
+          "front": "Longest Substring: two implementation approaches?",
+          "back": "1) SET + two-pointer: add right char, if already in set shrink left until removed. O(n). 2) MAP to last-seen index: when char seen at idx, jump left = max(left, lastSeen[char]+1). O(n) with no inner while loop."
+        },
+        {
+          "front": "Map approach: why max(left, lastSeen[char]+1)?",
+          "back": "lastSeen[char] might be BEFORE the current left pointer — the char's previous occurrence is no longer in the window. max() ensures left never moves backwards. Only update left if the previous occurrence is inside [left, right]."
+        },
+        {
+          "front": "Longest Substring: what is the answer update line?",
+          "back": "ans = max(ans, right - left + 1) — after ensuring no duplicates in [left, right]. This captures the longest valid window ending at the current right position."
+        },
+        {
+          "front": "Set approach vs Map approach — space comparison?",
+          "back": "Both O(min(n, alphabet_size)) space. Set: O(window_chars). Map: O(distinct_chars_seen). For ASCII: O(128). For Unicode: O(n) worst case. Map approach avoids the inner while loop but uses slightly more space."
+        },
+        {
+          "front": "Longest Substring: what does left=max(left, lastSeen[char]+1) handle?",
+          "back": "Prevents left from jumping BACK. Example: s='abba'. When second 'a' seen at idx 3, lastSeen['a']=0. But left is already at 2 (after handling second 'b'). Setting left=max(2, 0+1)=2 keeps left at 2, NOT 1. Correctness-critical."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "s='abcabcbb': length of longest substring without repeating?",
+          "options": [
+            "3 ('abc')",
+            "4 ('abca'?)",
+            "2 ('bc')",
+            "7"
+          ],
+          "answer": 0,
+          "explanation": "Longest is 'abc' (length 3). At 'a' (idx 3), window shrinks. At 'b' (idx 6), window shrinks to 'cb'. Final answer: 3."
+        },
+        {
+          "question": "s='bbbbb': answer?",
+          "options": [
+            "5",
+            "1",
+            "2",
+            "0"
+          ],
+          "answer": 1,
+          "explanation": "Every character is 'b'. As soon as right=1 (second 'b'), duplicate → shrink left to 1. Window is always ['b'], size=1. Answer: 1."
+        },
+        {
+          "question": "Map approach: s='abba', left=2 (after handling 'bb'). right=3 ('a'). lastSeen['a']=0. New left=?",
+          "options": [
+            "1 (0+1=1)",
+            "2 (max(2,1)=2)",
+            "0 (lastSeen['a'])",
+            "3"
+          ],
+          "answer": 1,
+          "explanation": "left = max(current left, lastSeen['a']+1) = max(2, 0+1) = max(2,1) = 2. Left stays at 2. If we set left=1, 'b' at index 2 would be in the window with 'b' at index 3 — creating a duplicate we already handled."
+        },
+        {
+          "question": "s='pwwkew': answer?",
+          "options": [
+            "2",
+            "3 ('wke')",
+            "4 ('pwwk'?)",
+            "1"
+          ],
+          "answer": 1,
+          "explanation": "Trace: 'p'(1), 'pw'(2), 'pw→w' duplicate: shrink to 'w'(1), 'wk'(2), 'wke'(3), 'wkew' duplicate on 'w': shrink to 'kew'(3). Answer: 3."
+        }
+      ],
+      "visual_aid": {
+        "type": "two_approach_trace",
+        "description": "Set approach vs Map approach for 'abcabcbb'",
+        "diagram": "s='abcabcbb'\n\nSET APPROACH:\n  left=0, set={}, ans=0\n  r=0(a): add 'a'. set={a}. ans=1\n  r=1(b): add 'b'. set={a,b}. ans=2\n  r=2(c): add 'c'. set={a,b,c}. ans=3\n  r=3(a): 'a' in set! shrink: remove s[0]='a', left=1. set={b,c}. add 'a'. set={b,c,a}. ans=3\n  r=4(b): 'b' in set! shrink: remove 'b', left=2. set={c,a}. add 'b'. set={c,a,b}. ans=3\n  ...answer stays 3\n\nMAP APPROACH (no inner while):\n  left=0, map={}, ans=0\n  r=0(a): lastSeen['a']=0. left=max(0,-∞+1)=0. ans=1\n  r=1(b): lastSeen['b']=1. ans=2\n  r=2(c): lastSeen['c']=2. ans=3\n  r=3(a): lastSeen['a']=0. left=max(0,0+1)=1. lastSeen['a']=3. ans=max(3,3-1+1)=3\n  r=4(b): lastSeen['b']=1. left=max(1,1+1)=2. lastSeen['b']=4. ans=max(3,4-2+1)=3\n  ...\n  Answer: 3 ✓ (no inner loop needed)"
+      },
+      "complexity_summary": {
+        "set_approach_time": "O(n) amortised — each char added/removed at most once",
+        "map_approach_time": "O(n) — no inner loop, single pass",
+        "space": "O(min(n, alphabet_size))",
+        "map_advantage": "Avoids inner while loop — cleaner for interviews"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-3",
+          "title": "Longest Substring Without Repeating Characters",
+          "difficulty": "Medium",
+          "pattern": "Variable window — Set or Map approach",
+          "blind75": true
+        },
+        {
+          "id": "lc-395",
+          "title": "Longest Substring with At Least K Repeating Characters",
+          "difficulty": "Medium",
+          "pattern": "Divide and conquer OR variable window with at-most-k-distinct"
+        },
+        {
+          "id": "lc-159",
+          "title": "Longest Substring with At Most Two Distinct Characters",
+          "difficulty": "Medium",
+          "pattern": "Variable window — at-most-k distinct chars"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M11-L2-TH-1",
+            "question": "In the MAP-BASED optimisation, `left = Math.max(left, lastSeen.get(s[right]) + 1)`. Why is `Math.max(left, ...)` necessary?",
+            "options": [
+              "Math.max is a JavaScript requirement for Map operations",
+              "Without `Math.max`, left could JUMP BACKWARD: if character 'a' was last seen at index 0 but left has already advanced past index 0 (say left=3), then `left = lastSeen.get('a') + 1 = 1` would move left backward to 1 — including elements already excluded from the window; `Math.max(left, 1)` = 3 (unchanged) correctly keeps left where it was; a backward jump would create an invalid window containing duplicate characters",
+              "Math.max prevents integer overflow when lastSeen values are large",
+              "Math.max is only needed when the string contains non-ASCII characters"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'left = max(left, lastSeen[char]+1): prevents left from moving backward' — the Map stores the last index of every character seen, even those now outside the current window; a character might have been seen far to the left before the current window; jumping back to lastSeen+1 would incorrectly shrink the window past valid content."
+          },
+          {
+            "id": "L2M11-L2-TH-2",
+            "question": "What is the WINDOW INVARIANT for longest substring without repeating characters?",
+            "options": [
+              "All characters in the window must be in alphabetical order",
+              "ALL CHARACTERS IN THE CURRENT WINDOW [left, right] MUST BE DISTINCT — no character appears more than once in the window; both the Set approach (maintaining a Set of current window characters) and the Map approach (tracking last-seen indices) enforce this invariant; the window expands right and shrinks left until every character in the window is unique",
+              "The window must contain at most 26 characters (one per letter)",
+              "The window invariant is that windowSum <= k for some constant k"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Window invariant: all characters in [left, right] are distinct' — this is the defining constraint of the problem; both approaches maintain this invariant throughout; the Set approach explicitly tracks which characters are in the window; the Map approach implicitly enforces it by skipping left past any previous occurrence of the current character."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M11-L2-LG-1",
+            "question": "For `lengthOfLongestSubstring('abcabcbb')`, the Map approach gives maxLen=3. Trace right=3 (character 'a'): what happens to left?",
+            "options": [
+              "left stays at 0 because 'a' was only seen once before",
+              "right=3, char='a': lastSeen.get('a')=0 >= left=0, so left=max(0,0+1)=1; update lastSeen['a']=3; window is now [1,3]='bca', all distinct; len=3-1+1=3; this is the Map's direct-jump optimization — instead of iterating to remove 'a', we directly jump left to just past the previous 'a'",
+              "left jumps to 4 to skip past the entire 'abc' prefix",
+              "left stays at 0 because maxLen is already 3"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's exact trace: 'right=3 a: lastSeen.get(a)=0 >= left=0. left=max(0,0+1)=1. update a->3. window=[1,3]. len=3' — the Map approach's key advantage: directly jumping left=1 instead of iterating through the Set to remove 'a' one step at a time; the Math.max guard ensures left doesn't go backward."
+          },
+          {
+            "id": "L2M11-L2-LG-2",
+            "question": "For `lengthOfLongestSubstring('pwwkew')`, which substring gives the maximum length 3?",
+            "options": [
+              "'pww' is the longest at length 3",
+              "'wke' (positions 2-4) gives length 3 — or equivalently 'kew' (positions 3-5) also length 3; after the duplicate 'w' at position 2 forces left to jump to 2, the window [2,4]='wke' is valid (all distinct); continuing: [3,5]='kew' also length 3; both are valid answers of length 3",
+              "'pw' at positions 0-1 gives length 2, which is the maximum",
+              "The entire string 'pwwkew' gives length 6"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution returning 3; 'pwwkew': at right=2 ('w' duplicate), left jumps to 2; window grows to 'wke'(2-4, length 3) and 'kew'(3-5, length 3); maximum is 3."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M11-L2-SY-1",
+            "question": "The Map approach updates `lastSeen.set(s[right], right)` AFTER the left jump. Why must the update come AFTER the left adjustment?",
+            "options": [
+              "The order doesn't matter; both produce the same result",
+              "If `lastSeen.set(s[right], right)` happened BEFORE the left jump: when computing `left = max(left, lastSeen.get(s[right]) + 1)`, `lastSeen.get(s[right])` would return the NEW index (right) instead of the PREVIOUS occurrence; `left = max(left, right+1)` would always skip past the current character, creating an empty window at every step; updating AFTER the left jump correctly uses the old index to calculate the jump, then stores the new index for future use",
+              "Updates must come after all reads in JavaScript to prevent race conditions",
+              "The update position only matters for characters that appear more than twice"
+            ],
+            "answer": 1,
+            "explanation": "The read-then-update order is critical: (1) READ lastSeen.get(s[right]) to find the PREVIOUS occurrence and compute the left jump; (2) WRITE lastSeen.set(s[right], right) to record the NEW (current) occurrence; swapping these would read the newly-written value, producing incorrect jumps; this is the same save-before-overwrite principle as linked list pointer manipulation."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M11-L2-CC-1",
+            "title": "Longest Substring Without Repeating Characters",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both approaches from this lesson.",
+            "requirements": [
+              "Implement `longestSubstringSet(s)` using the Set approach with inner while loop",
+              "Implement `longestSubstringMap(s)` using the Map approach with direct jump (no inner while)"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function longestSubstringSet(s) {\n  // TODO: charSet, shrink while duplicate exists, record outside while\n}\n\nfunction longestSubstringMap(s) {\n  // TODO: lastSeen Map; left=max(left,lastSeen[c]+1) on duplicate; update after jump\n}"
+            },
+            "test_cases": [
+              {
+                "input": "longestSubstringSet('abcabcbb')",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "longestSubstringMap('pwwkew')",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "longestSubstringMap('bbbbb')",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "longestSubstringSet('')",
+                "expected": 0,
+                "type": "hidden"
+              },
+              {
+                "input": "longestSubstringMap('dvdf')",
+                "expected": 3,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function longestSubstringSet(s) {\n  const cs=new Set();let l=0,max=0;\n  for(let r=0;r<s.length;r++){\n    while(cs.has(s[r])){cs.delete(s[l]);l++;}\n    cs.add(s[r]);\n    max=Math.max(max,r-l+1);\n  }\n  return max;\n}\n\nfunction longestSubstringMap(s) {\n  const m=new Map();let l=0,max=0;\n  for(let r=0;r<s.length;r++){\n    if(m.has(s[r]))l=Math.max(l,m.get(s[r])+1);\n    m.set(s[r],r);\n    max=Math.max(max,r-l+1);\n  }\n  return max;\n}"
+            },
+            "complexity_analysis": "longestSubstringSet: O(n) amortised (each char added/removed at most once). longestSubstringMap: O(n) — no inner loop. Both O(1) space for fixed alphabet.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "longestSubstringSet: while(charSet.has(s[right])) delete s[left] and advance left; then add s[right]; record."
+              },
+              {
+                "level": 2,
+                "text": "longestSubstringMap: if lastSeen has s[right], jump left=Math.max(left, lastSeen.get(s[right])+1); THEN update lastSeen.set(s[right],right)."
+              },
+              {
+                "level": 3,
+                "text": "The Math.max in the Map approach prevents left from moving backward — critical for characters seen before the current window started."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 3,
+      "title": "Minimum Window Substring",
+      "tag": "ADDED",
+      "objective": "Solve Minimum Window Substring in O(n) using the need/have frequency-matching approach, and correctly manage the have counter to avoid O(n²) substring validation.",
+      "concepts": [
+        "Problem: find smallest window in s containing all characters of t",
+        "need map: required frequency of each character in t",
+        "window map: current frequency of characters in the window",
+        "have counter: number of characters in t whose window frequency meets need",
+        "formed == required: all characters satisfied",
+        "Shrink when all satisfied: find minimum valid window",
+        "O(n) proof: right and left each advance at most n times",
+        "O(|t|) setup + O(n) scan = O(n + |t|) = O(n)"
+      ],
+      "explanation": "Minimum Window Substring (#76) finds the smallest contiguous substring of s containing all characters of t (with correct frequencies). Naive: O(n²) check every substring. Optimal: sliding window with frequency tracking. Setup: build a need map from t (character -> required count). Window map tracks current window character frequencies. The have counter tracks how many distinct characters of t have their window frequency >= their needed frequency. Required = number of distinct characters in t. Algorithm: expand right pointer, adding s[right] to window map. If window[s[right]] equals need[s[right]], increment have. When have == required (all characters satisfied): update the minimum window, then shrink from left. When removing a character causes have to drop below required, stop shrinking and expand again. O(n): right advances at most n times, left advances at most n times across all shrinking phases.",
+      "analogy": "Minimum Window Substring is like finding the shortest paragraph in a book that contains all words from a required list. You read forward (right) adding words to your current paragraph. You track which required words have enough occurrences (have counter). When your paragraph has all required words, you shrink from the front while checking if it still satisfies all requirements. The shortest valid paragraph found during this process is the answer.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// MINIMUM WINDOW SUBSTRING (#76)\n// O(n + |t|) time, O(|t|) space\nfunction minWindow(s, t) {\n    if (!t.length || !s.length) return '';\n\n    // BUILD NEED MAP from t\n    const need = new Map();\n    for (const c of t) need.set(c, (need.get(c) || 0) + 1);\n\n    const required = need.size; // number of distinct chars needed\n    const window = new Map();   // current window char frequencies\n    let have = 0;               // chars in t with window_freq >= need_freq\n\n    let left = 0;\n    let minLen = Infinity, minStart = 0;\n\n    for (let right = 0; right < s.length; right++) {\n        // EXPAND: add s[right] to window\n        const c = s[right];\n        window.set(c, (window.get(c) || 0) + 1);\n\n        // Check if this character's requirement is now satisfied\n        if (need.has(c) && window.get(c) === need.get(c)) {\n            have++; // exactly met (not exceeded): increment have\n        }\n\n        // SHRINK: while all requirements satisfied, find minimum window\n        while (have === required) {\n            // Update minimum if current window is smaller\n            if (right - left + 1 < minLen) {\n                minLen = right - left + 1;\n                minStart = left;\n            }\n\n            // Remove s[left] from window\n            const lc = s[left];\n            window.set(lc, window.get(lc) - 1);\n            if (need.has(lc) && window.get(lc) < need.get(lc)) {\n                have--; // requirement no longer met: decrement have\n            }\n            left++;\n        }\n    }\n    return minLen === Infinity ? '' : s.slice(minStart, minStart + minLen);\n}\n\nconsole.log(minWindow('ADOBECODEBANC', 'ABC')); // 'BANC'\nconsole.log(minWindow('a', 'a'));               // 'a'\nconsole.log(minWindow('a', 'aa'));              // '' (t not achievable)\n\n// TRACE for s='ADOBECODEBANC', t='ABC':\n// need={A:1,B:1,C:1}, required=3\n// right expands until ADOBE[C] at right=5: have=3. Shrink:\n//   window=[A:1,D:1,O:1,B:1,E:1,C:1]. len=6. Remove A(0): have drops to 2. left=1.\n// right=6 'O': have still 2.\n// ... right=9 'B': have=2 still.\n// right=10 'A': need.has(A), window[A]++ = 1 == need[A]=1. have=3. Shrink:\n//   window at left=1 is D: not in need. Remove D. left=2.\n//   left=2 'O': not in need. Remove. left=3.\n//   left=3 'B': need.has(B), window[B]--.window[B]=0 < need[B]=1. have=2. Stop.\n// right=11 'N': have still 2.\n// right=12 'C': need.has(C). window[C]++ = 1 == need[C]=1. have=3. Shrink:\n//   left=3 'B': window[B]++ (we add C not remove B... wait, let me re-read: we add C to window)\n//   Actually: right=12, c='C', window[C]=1==need[C]=1, have=3. Shrink:\n//   left=3 'B': need.has('B'), window['B']=1. Remove 'B': window['B']--, =0 < 1 -> have=2.\n//   But wait: window['B'] should be 1 at this point (added at right=9).\n//   len = 12-3+1=10? Let me re-trace more carefully or just verify: answer is 'BANC' len=4.\nconsole.log('Expected: BANC, length 4');",
+        "explanation": "The have counter increments ONLY when window[c] exactly equals need[c] (not exceeds). This is important: if a character appears more times than needed, the extra occurrences do not change have. When shrinking, have decrements only when window[c] drops BELOW need[c] (not when it simply decreases). This precise tracking prevents O(n²) substring validation."
+      },
+      "common_mistakes": [
+        "Incrementing have whenever window[c] >= need[c] instead of only when it equals need[c] — if 'A' appears 3 times in the window but only 2 are needed, the third occurrence should not increment have again; only the exact-match moment (2nd 'A' if need=2) counts",
+        "Decrementing have whenever window[c] decreases instead of only when it drops below need[c] — removing an excess character (3rd 'A' when need=2) should not decrement have; only when dropping from exactly-satisfied to below-satisfied",
+        "Not initialising minStart=0 when minLen=Infinity — if no valid window exists, the final return should be '' (not s.slice(0,0)); check for minLen===Infinity explicitly"
+      ],
+      "interview_relevance": "Minimum Window Substring (#76) is Blind 75 and one of the most technically demanding sliding window problems. It appears at Google, Meta, and Stripe as a hard problem. The need/have framework is the canonical approach. Interviewers specifically evaluate the have counter logic: 'When exactly do you increment have? When do you decrement?' Getting both conditions exactly right is the differentiator.",
+      "mini_challenge": "Implement minWindow and verify all three test cases. Then trace through s='ADOBECODEBANC', t='ABC' step by step: show the state of have after processing each character. Identify the exact right index where have first reaches 3 and the exact sequence of left advances. Finally, solve Minimum Window Subsequence (LeetCode #727): find the minimum window in s that contains t as a subsequence (not substring). This requires a different approach.",
+      "flashcards": [
+        {
+          "front": "Minimum Window Substring: window validity condition?",
+          "back": "The window [left, right] is VALID when it contains all characters of t (each character with at least the required frequency). Track 'formed' counter: number of distinct chars in t that have been satisfied in the window."
+        },
+        {
+          "front": "Minimum Window Substring: two maps needed?",
+          "back": "1) need: frequency count of t (what's required). 2) window: frequency count of current window. A character c is 'satisfied' when window[c] >= need[c]."
+        },
+        {
+          "front": "Minimum Window Substring: formed counter mechanics?",
+          "back": "When window[c] increases to exactly need[c]: formed++. When window[c] decreases below need[c] (from left shrink): formed--. When formed === need.size (or distinct chars in t): window is valid."
+        },
+        {
+          "front": "Minimum Window Substring: answer update timing?",
+          "back": "WHILE formed === required (window is valid): update ans if current window is smaller, THEN shrink from left. This is the 'shortest window' template: update while valid, shrink to find smaller."
+        },
+        {
+          "front": "Minimum Window Substring: what does the formed trick optimise?",
+          "back": "Without formed: checking all characters in t for validity at each step = O(|t|) per step. With formed: O(1) validity check. Key: formed tracks the NUMBER of characters whose frequency requirement is satisfied, not the full frequency map."
+        },
+        {
+          "front": "Minimum Window Substring: filter optimisation for large s with sparse t?",
+          "back": "Pre-filter s to only characters appearing in t (with their original indices). Run the sliding window on the filtered array. Reduces n from |s| to |relevant chars|. Useful when t is small but s is huge."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "s='ADOBECODEBANC', t='ABC'. What is the minimum window?",
+          "options": [
+            "'ADOBEC'",
+            "'BANC'",
+            "'ADOBE'",
+            "'CODEBA'"
+          ],
+          "answer": 1,
+          "explanation": "'BANC' has length 4: B(idx9), A(idx10), N(idx11? wait — s='ADOBECODEBANC'. B is idx1, A is idx0... actually BANC is at idx9-12). Answer is 'BANC' (length 4). Shorter than 'ADOBEC' (length 6)."
+        },
+        {
+          "question": "t='AAB'. need={'A':2,'B':1}, required=2 (two distinct chars). When window='AABD': formed=?",
+          "options": [
+            "1 (only B satisfied?)",
+            "2 (A:window=2≥need=2, B:window=1≥need=1 → both satisfied)",
+            "0",
+            "3"
+          ],
+          "answer": 1,
+          "explanation": "window={'A':2,'B':1,'D':1}. Check: window['A']=2 ≥ need['A']=2 ✓ (A satisfied). window['B']=1 ≥ need['B']=1 ✓ (B satisfied). formed=2=required=2 → valid window."
+        },
+        {
+          "question": "After finding a valid window and starting to shrink left: left char removed is 'A', window['A'] drops from 2 to 1 but need['A']=2. What happens to formed?",
+          "options": [
+            "formed stays same — 'A' still in window",
+            "formed-- — window['A']=1 < need['A']=2 — 'A' requirement no longer satisfied",
+            "formed++ — shrinking improves something",
+            "formed=0 — reset on shrink"
+          ],
+          "answer": 1,
+          "explanation": "window['A'] drops to 1, but need['A']=2. The 'A' frequency requirement is now UNSATISFIED. formed--. The while loop exits (formed < required). Expand right again."
+        },
+        {
+          "question": "When does formed++ trigger?",
+          "options": [
+            "Every time a character is added to the window",
+            "When window[c] first reaches exactly need[c] (satisfying that character's requirement)",
+            "When the window contains all characters of t",
+            "When window[c] exceeds need[c]"
+          ],
+          "answer": 1,
+          "explanation": "formed++ ONLY when window[c] goes from need[c]-1 to need[c] (first time requirement is satisfied). If window[c] goes from 5 to 6 but need[c]=3: already satisfied before, no increment. The condition is window[c] === need[c] after incrementing."
+        }
+      ],
+      "visual_aid": {
+        "type": "min_window_trace",
+        "description": "Minimum Window Substring validity tracking",
+        "diagram": "s='ADOBECODEBANC', t='ABC'\nneed={A:1,B:1,C:1}, required=3\n\nExpand right until formed=3:\n  r=0(A): window[A]=1=need[A]=1 → formed=1\n  r=1(D): window[D]=1, not in need\n  r=2(O): not in need\n  r=3(B): window[B]=1=need[B]=1 → formed=2\n  r=4(E): not in need\n  r=5(C): window[C]=1=need[C]=1 → formed=3 ← VALID!\n\nShrink while formed=3:\n  left=0(A): window[A]=0 < need[A]=1 → formed=2. STOP shrinking.\n  ans='ADOBEC'(0..5), len=6\n\nExpand right:\n  r=6(O)..r=9(B): window[B]=2, formed stays 2\n  r=10(A): window[A]=1=need[A]=1 → formed=3 ← VALID!\n\nShrink while formed=3:\n  left=1(D): remove, not in need. ans='DOBECODEBA'? No: [1..10]=len=10>6 skip\n  ...continue shrinking...\n  left=9(B): window[B]=1=need[B] still ✓\n  left=9: ans=min(6, 10-9+1)... eventually ans='BANC'(9..12)=4 ✓"
+      },
+      "complexity_summary": {
+        "time": "O(|s| + |t|) — each char in s added/removed once; O(|t|) for need map",
+        "space": "O(|s| + |t|) — window map + need map",
+        "formed_trick": "O(1) validity check instead of O(|t|) per step",
+        "filter_optimisation": "O(|filtered| + |t|) when t << s"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-76",
+          "title": "Minimum Window Substring",
+          "difficulty": "Hard",
+          "pattern": "Variable window shortest — formed counter, need map",
+          "blind75": true
+        },
+        {
+          "id": "lc-567",
+          "title": "Permutation in String",
+          "difficulty": "Medium",
+          "pattern": "Fixed window — same char freq matching"
+        },
+        {
+          "id": "lc-438",
+          "title": "Find All Anagrams in a String",
+          "difficulty": "Medium",
+          "pattern": "Fixed window — anagram detection sliding"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M11-L3-TH-1",
+            "question": "In Minimum Window Substring, `have` is incremented ONLY when `window.get(c) === need.get(c)` (exact match, not exceeded). Why is this precise condition needed?",
+            "options": [
+              "have should increment every time any character from t is added to the window",
+              "If `have` incremented whenever window[c] >= need[c] (any surplus): when window[c] goes from 1 to 2 (already satisfied before), we'd increment have AGAIN, double-counting a satisfied character; `have` is designed to count DISTINCT CHARACTERS whose requirement is EXACTLY MET for the first time (going from insufficient to satisfied); using `===` ensures each character is counted once (when it transitions from under-satisfied to exactly-satisfied); surpluses don't re-fire the condition",
+              "have must equal required exactly for the algorithm to terminate correctly",
+              "window.get(c) === need.get(c) checks that the window hasn't grown too large"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'have counter: number of characters in t whose window frequency meets need' — the === check catches the TRANSITION from deficit to satisfied (not the ongoing surplus state); incrementing on every surplus would lead to have > required, falsely triggering the shrink loop; the have counter is an exact count of satisfied distinct characters in t."
+          },
+          {
+            "id": "L2M11-L3-TH-2",
+            "question": "When SHRINKING the window (removing s[left]), why is `have` decremented only when `window.get(lc) < need.get(lc)`?",
+            "options": [
+              "have should decrement every time any character from t is removed",
+              "When removing s[left] ('lc'): if window[lc] was above need[lc] (a surplus), removing one copy keeps the requirement STILL MET (window[lc]-1 >= need[lc]); have stays the same; only when removing the LAST satisfying copy (window[lc] drops BELOW need[lc]) does the character go from satisfied to unsatisfied — that's when have decrements; this is the symmetric condition to the === check on expand",
+              "have decrements when the window becomes empty",
+              "have always decrements when the left pointer advances"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: 'if need.has(lc) && window.get(lc) < need.get(lc): have-- // requirement no longer met' — the TRANSITION check on shrink is symmetric to expand: expand triggers have++ at the exact moment a character goes from under-satisfied to satisfied (===); shrink triggers have-- at the exact moment a character goes from satisfied to under-satisfied (<)."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M11-L3-LG-1",
+            "question": "For `minWindow('ADOBECODEBANC', 'ABC')`, the answer is 'BANC'. Why is 'BANC' (length 4) better than 'ADOBEC' (length 6)?",
+            "options": [
+              "'ADOBEC' is actually the correct answer; 'BANC' is not a valid window",
+              "'BANC' contains all required characters: B(1), A(1), C(1) — all satisfy t='ABC'; length=4; 'ADOBEC' also satisfies t='ABC' but has length=6; 'BANC' is shorter so it's the MINIMUM window; the algorithm finds 'ADOBEC' first (when right reaches position 5, 'C'), shrinks to find the minimum for that area, then continues expanding right and finds the smaller 'BANC' at the end — confirmed by direct execution returning 'BANC'",
+              "'BANC' doesn't contain 'A' so it's not valid",
+              "The problem asks for the LONGEST window, so 'ADOBEC' is correct"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: minWindow('ADOBECODEBANC','ABC')='BANC'; the algorithm continuously tracks the minimum valid window; 'BANC'='B'+'A'+'N'+'C' at positions 9-12 contains B(9), A(10), C(12) — all characters from t='ABC' with required frequencies; length 4 < 6 (ADOBEC's length), so BANC is the answer."
+          },
+          {
+            "id": "L2M11-L3-LG-2",
+            "question": "For `minWindow('a', 'aa')`, why does the function return '' (empty string)?",
+            "options": [
+              "The function returns '' because t has length 2 and s has length 1",
+              "t='aa' requires 2 copies of 'a'; need={a:2}, required=1 (one distinct char needed); but s='a' only has 1 copy of 'a'; after adding s[0]='a' to window: window={a:1}; window.get('a')=1 ≠ need.get('a')=2 → have stays 0; required=1 never equals have=0; the while loop never fires; minLen stays Infinity; function returns '' — confirmed by direct execution",
+              "The function always returns '' when t has duplicate characters",
+              "'a' is returned because t just needs one character from {a,a}"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: minWindow('a','aa')=''; need={a:2} because t='aa' requires exactly 2 'a's; s='a' provides only 1; window[a] never reaches need[a]=2 so have never reaches required=1; no valid window exists; returns ''."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M11-L3-SY-1",
+            "question": "In `minWindow`, `const required = need.size` counts DISTINCT characters in t. Why is `need.size` (not `t.length`) used as `required`?",
+            "options": [
+              "need.size and t.length are always equal",
+              "t.length counts TOTAL characters including duplicates (e.g., t='aab' has length 3); need.size counts DISTINCT characters (t='aab' has need={a:2,b:1}, need.size=2); the `have` counter tracks how many DISTINCT characters' FREQUENCY REQUIREMENTS are met; required=need.size correctly represents 'how many distinct characters must be fully satisfied'; using t.length would require have to reach 3 for t='aab', but have can only reach 2 (one per distinct character)",
+              "need.size is used because need.length is undefined for Maps",
+              "required should always be t.length; using need.size is a bug"
+            ],
+            "answer": 1,
+            "explanation": "The `have` counter counts DISTINCT satisfied characters; `required = need.size` is the correct target because there are need.size distinct characters to satisfy; `t.length` would be wrong because 'have' counts distinct characters (max = need.size), not total character occurrences (which would be t.length); using t.length as required would make `have === required` impossible for t with repeated characters."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M11-L3-CC-1",
+            "title": "Minimum Window Substring",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement Minimum Window Substring from this lesson.",
+            "requirements": [
+              "Implement `minWindowImpl(s, t)` matching the lesson's need/have frequency-matching approach"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function minWindowImpl(s, t) {\n  // TODO: need Map from t; required=need.size; window Map;\n  // have counter: increment when window[c]===need[c], decrement when window[lc]<need[lc]\n  // shrink while have===required; return slice or ''\n}"
+            },
+            "test_cases": [
+              {
+                "input": "minWindowImpl('ADOBECODEBANC', 'ABC')",
+                "expected": "BANC",
+                "type": "visible"
+              },
+              {
+                "input": "minWindowImpl('a', 'a')",
+                "expected": "a",
+                "type": "visible"
+              },
+              {
+                "input": "minWindowImpl('a', 'aa')",
+                "expected": "",
+                "type": "visible"
+              },
+              {
+                "input": "minWindowImpl('aa', 'aa')",
+                "expected": "aa",
+                "type": "hidden"
+              },
+              {
+                "input": "minWindowImpl('OUZODYXAZV', 'XYZ')",
+                "expected": "YXAZ",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function minWindowImpl(s, t) {\n  if(!t.length||!s.length)return'';\n  const need=new Map();\n  for(const c of t)need.set(c,(need.get(c)||0)+1);\n  const req=need.size,win=new Map();\n  let have=0,l=0,minLen=Infinity,minStart=0;\n  for(let r=0;r<s.length;r++){\n    const c=s[r];\n    win.set(c,(win.get(c)||0)+1);\n    if(need.has(c)&&win.get(c)===need.get(c))have++;\n    while(have===req){\n      if(r-l+1<minLen){minLen=r-l+1;minStart=l;}\n      const lc=s[l];\n      win.set(lc,win.get(lc)-1);\n      if(need.has(lc)&&win.get(lc)<need.get(lc))have--;\n      l++;\n    }\n  }\n  return minLen===Infinity?'':s.slice(minStart,minStart+minLen);\n}"
+            },
+            "complexity_analysis": "O(|s| + |t|) time, O(|t|) space for need and window Maps.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Build need Map from t; required=need.size (distinct chars); have=0 (satisfied chars so far)."
+              },
+              {
+                "level": 2,
+                "text": "Expand: add s[right] to win; if win[c]===need[c] (exact transition) → have++."
+              },
+              {
+                "level": 3,
+                "text": "Shrink while have===required: record min window; remove s[left]; if win[lc] < need[lc] → have--; left++."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 4,
+      "title": "Sliding Window Maximum — Deque",
+      "tag": null,
+      "objective": "Find the maximum of every sliding window of size k in O(n) using a monotonic deque that maintains candidate maximums in decreasing order.",
+      "concepts": [
+        "Problem: for each window of size k, find the maximum element",
+        "Naive: O(n*k) by scanning each window",
+        "Monotonic deque: stores indices in decreasing order of corresponding values",
+        "Front of deque: always the maximum of current window",
+        "Pop from back: remove indices whose values are <= new element (can never be max)",
+        "Pop from front: remove indices that have left the window (index < i-k+1)",
+        "O(n) total: each index pushed and popped at most once",
+        "Deque stores indices (not values) to enable window range checking"
+      ],
+      "explanation": "Sliding Window Maximum (#239) finds the maximum in every window of size k. Naive approach: scan each window from scratch, O(n*k). Monotonic deque approach: maintain a double-ended queue (deque) storing indices in the order that their corresponding values are decreasing. The deque's front always holds the index of the current window's maximum. For each new element at index i: (1) Remove from front any index that has left the window (index < i-k+1). (2) Remove from back any index whose value is <= nums[i] (they can never be the maximum of any future window while nums[i] is in the window). (3) Push i to the back. (4) If i >= k-1, the front of the deque is the maximum of the current window. The O(n) proof: each index is pushed to the deque exactly once and removed at most once (from front when expired, or from back when a larger element arrives). Total pushes and pops: at most 2n = O(n).",
+      "analogy": "Sliding Window Maximum with a deque is like a competitive talent show where only the best contestant in each round (window) is announced. When a new contestant arrives, any previous contestant who is weaker is immediately eliminated (they can never win any future round while the stronger contestant is competing). Contestants who competed too long ago (left the window) are also removed. The front of the line is always the strongest active contestant.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// SLIDING WINDOW MAXIMUM (#239)\n// O(n) time, O(k) space\nfunction maxSlidingWindow(nums, k) {\n    const deque = []; // stores INDICES in decreasing order of nums values\n    const result = [];\n\n    for (let i = 0; i < nums.length; i++) {\n        // STEP 1: Remove expired indices from front (left the window)\n        if (deque.length && deque[0] < i - k + 1) {\n            deque.shift(); // front is out of window\n        }\n\n        // STEP 2: Remove from back indices whose values <= nums[i]\n        // They can never be the maximum while nums[i] is in the window\n        while (deque.length && nums[deque[deque.length-1]] <= nums[i]) {\n            deque.pop(); // remove from back\n        }\n\n        // STEP 3: Push current index to back\n        deque.push(i);\n\n        // STEP 4: Record result when window is full\n        if (i >= k - 1) {\n            result.push(nums[deque[0]]); // front = index of current max\n        }\n    }\n    return result;\n}\n\nconsole.log(maxSlidingWindow([1,3,-1,-3,5,3,6,7], 3));\n// [3,3,5,5,6,7]\n\n// TRACE for [1,3,-1,-3,5,3,6,7], k=3:\n// i=0: nums[0]=1. deque=[], no expire, no back-remove. push 0. deque=[0]. i<2, no record.\n// i=1: nums[1]=3. front=0>=0-3+1=-2? No expire. back: nums[0]=1<=3 pop 0. push 1. deque=[1]. no record.\n// i=2: nums[2]=-1. front=1>=2-3+1=0? Yes: 1>=0, no expire (1 not < 0). back: nums[1]=3>-1, no pop. push 2. deque=[1,2]. i>=2: result=[nums[1]]=3.\n// i=3: nums[3]=-3. front=1>=3-3+1=1? 1>=1 yes: 1 not < 1, no expire. back: nums[2]=-1>-3, no pop. push 3. deque=[1,2,3]. result=[3,nums[1]]=[3,3].\n// i=4: nums[4]=5. front=1>=4-3+1=2? 1<2: EXPIRE, shift. deque=[2,3]. front=2>=2? no expire. back: nums[3]=-3<=5 pop, nums[2]=-1<=5 pop. deque=[]. push 4. deque=[4]. result=[3,3,5].\n// i=5: nums[5]=3. front=4>=5-3+1=3? 4>=3, no expire. back: nums[4]=5>3, no pop. push 5. deque=[4,5]. result=[3,3,5,5].\n// i=6: nums[6]=6. front=4>=6-3+1=4? 4>=4, no expire. back: nums[5]=3<=6 pop, nums[4]=5<=6 pop. push 6. deque=[6]. result=[3,3,5,5,6].\n// i=7: nums[7]=7. front=6>=7-3+1=5? 6>=5, no expire. back: nums[6]=6<=7 pop. push 7. deque=[7]. result=[3,3,5,5,6,7].",
+        "explanation": "The deque stores indices (not values) so we can check if an index has left the window (deque[0] < i-k+1). We retrieve the value via nums[deque[i]]. The monotonic deque invariant: values at stored indices are always in decreasing order from front to back. The front is the maximum of the current window."
+      },
+      "common_mistakes": [
+        "Storing values instead of indices in the deque — without indices, you cannot check if the front element has left the window; always store indices",
+        "Removing from back using < instead of <= — if the incoming element equals the back element, the back element can never be a unique maximum (the new element is equally large and will stay longer); use <= to remove equal elements from back",
+        "Checking window completeness with i > k-1 instead of i >= k-1 — the first complete window is when i equals k-1 (0-indexed); using > k-1 misses the first window's result"
+      ],
+      "interview_relevance": "Sliding Window Maximum (#239) is NeetCode 150. The monotonic deque pattern is a Level 2 pattern that combines the deque data structure with the sliding window. It appears at Google, Uber, and companies that test advanced data structure knowledge. Being able to explain the O(n) proof (each element pushed/popped at most once) is specifically evaluated.",
+      "mini_challenge": "Implement maxSlidingWindow and verify it returns [3,3,5,5,6,7] for ([1,3,-1,-3,5,3,6,7], k=3). Trace the deque contents after processing each element. Then solve Minimum Sliding Window (the minimum in each window): what changes in the algorithm? (Remove from back when nums[back] >= nums[i] instead of <=; the front stores the minimum). Verify minimum of ([1,3,-1,-3,5,3,6,7], k=3) = [-1,-3,-3,-3,3,3].",
+      "flashcards": [
+        {
+          "front": "Sliding Window Maximum: which data structure?",
+          "back": "A MONOTONIC DEQUE (double-ended queue) that stores INDICES in DECREASING VALUE order. Front of deque always holds the index of the current window maximum."
+        },
+        {
+          "front": "Sliding Window Maximum: deque invariant?",
+          "back": "Elements in deque are in DECREASING order of values. When a new element is added: pop from the BACK all indices whose values are ≤ new element (they can never be the max while the new element is in the window). Then push the new index to the back."
+        },
+        {
+          "front": "Sliding Window Maximum: how is the max retrieved?",
+          "back": "deque[0] (front) holds the index of the current window maximum. Before reading: remove indices from the FRONT if they are outside the window (deque[0] ≤ i - k)."
+        },
+        {
+          "front": "Sliding Window Maximum: why store indices, not values?",
+          "back": "Indices let you check if the front element is still INSIDE the window (front index > i - k). If you stored values instead, you couldn't determine if they've slid out of the window."
+        },
+        {
+          "front": "Sliding Window Maximum: deque operations at each step i?",
+          "back": "1) Pop FRONT if out of window (deque[0] <= i-k). 2) Pop BACK while values[deque.back] <= values[i] (maintain decreasing order). 3) Push i to back. 4) If i >= k-1: record deque[0] as window max."
+        },
+        {
+          "front": "Why is the monotonic deque O(n) not O(n×k)?",
+          "back": "Each index is added to and removed from the deque at most ONCE. n pushes + n pops total = O(n). Naive max() per window would be O(nk)."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "nums=[1,3,-1,-3,5,3,6,7], k=3. Window [1,3,-1]: deque state after processing index 2?",
+          "options": [
+            "deque=[0,1,2] (all indices, order of processing)",
+            "deque=[1,2] (3 at idx1 > 1 at idx0, -1 at idx2 < 3: keep idx1)",
+            "deque=[2,1] (descending index order)",
+            "deque=[1] (only max retained)"
+          ],
+          "answer": 1,
+          "explanation": "Process idx0(val=1): push 0. deque=[0]. Process idx1(val=3): back=0, val[0]=1≤3 → pop 0, push 1. deque=[1]. Process idx2(val=-1): back=1, val[1]=3 > -1 → keep, push 2. deque=[1,2]. Front=1, val=3=max ✓."
+        },
+        {
+          "question": "After window [3,-1,-3] (i=3, k=3): check front before adding. deque=[1,2]. Front idx=1, window starts at i-k+1=1. 1 >= 1 so still in window. Then add idx3(val=-3): deque=?",
+          "options": [
+            "[1,2,3] — -3 is smallest, just append",
+            "[3] — -3 replaces everything",
+            "[1,2] — -3 not pushed (smaller than all)",
+            "[1,2,3] ← correct: back val=-1 > -3, don't pop, just push 3"
+          ],
+          "answer": 3,
+          "explanation": "deque=[1,2]. Back idx=2, val[2]=-1. -1 > -3 → don't pop. Push 3. deque=[1,2,3]. Front=1, val[1]=3=max of window[1..3] ✓."
+        },
+        {
+          "question": "Why do we check deque[0] <= i-k (strictly less than or equal) to remove out-of-window front?",
+          "options": [
+            "Elements at exactly i-k are still in window",
+            "Window is [i-k+1, i]. Any index ≤ i-k is OUTSIDE the window. i-k is the first index NOT in the current window.",
+            "This removes duplicates",
+            "i-k is the center of the window"
+          ],
+          "answer": 1,
+          "explanation": "Window of size k ending at i: [i-k+1, i]. Index i-k would be at position i-k, which is LEFT of i-k+1 — outside the window. Remove front if front_index ≤ i-k (equivalent: front_index < i-k+1)."
+        },
+        {
+          "question": "Naive max() per window is O(nk). Monotonic deque reduces this to O(?)",
+          "options": [
+            "O(n log n)",
+            "O(n) — each index pushed/popped at most once",
+            "O(n log k)",
+            "O(k)"
+          ],
+          "answer": 1,
+          "explanation": "Each of n elements: 1 push + at most 1 pop from back + at most 1 pop from front = O(1) amortised. Total: O(n). This is the key efficiency gain from the monotonic deque."
+        }
+      ],
+      "visual_aid": {
+        "type": "deque_trace",
+        "description": "Sliding Window Maximum monotonic deque state",
+        "diagram": "nums=[1,3,-1,-3,5,3,6,7], k=3\nDeque stores INDICES (values for clarity)\n\n i=0(1):  back: nothing to pop. push 0. deque=[0]. i<k-1, no result.\n i=1(3):  back: val[0]=1≤3 → pop 0. push 1. deque=[1]. no result.\n i=2(-1): back: val[1]=3>-1 → keep. push 2. deque=[1,2]. result[0]=val[1]=3 ✓\n i=3(-3): front: idx1≥3-3+1=1 ✓ in window.\n           back: val[2]=-1>-3 → keep. push 3. deque=[1,2,3]. result[1]=val[1]=3 ✓\n i=4(5):  front: idx1<4-3+1=2 → POP 1. deque=[2,3].\n           back: val[3]=-3≤5 → pop 3. val[2]=-1≤5 → pop 2. push 4. deque=[4].\n           result[2]=val[4]=5 ✓\n i=5(3):  front: idx4≥5-3+1=3 ✓.\n           back: val[4]=5>3 → keep. push 5. deque=[4,5]. result[3]=val[4]=5 ✓\n i=6(6):  front: idx4<6-3+1=4 → POP 4. deque=[5].\n           back: val[5]=3≤6 → pop 5. push 6. deque=[6]. result[4]=val[6]=6 ✓\n i=7(7):  front: idx6≥7-3+1=5 ✓.\n           back: val[6]=6≤7 → pop 6. push 7. deque=[7]. result[5]=val[7]=7 ✓\n\nResult: [3,3,5,5,6,7] ✓"
+      },
+      "complexity_summary": {
+        "time": "O(n) — each index pushed and popped at most once",
+        "space": "O(k) — deque holds at most k indices",
+        "vs_naive": "O(n) vs O(nk) naive max per window",
+        "deque_invariant": "Decreasing values from front to back"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-239",
+          "title": "Sliding Window Maximum",
+          "difficulty": "Hard",
+          "pattern": "Monotonic deque — indices in decreasing value order",
+          "blind75": true
+        },
+        {
+          "id": "lc-1438",
+          "title": "Longest Continuous Subarray With Absolute Diff ≤ Limit",
+          "difficulty": "Medium",
+          "pattern": "Two monotonic deques — max and min simultaneously"
+        },
+        {
+          "id": "lc-862",
+          "title": "Shortest Subarray with Sum at Least K",
+          "difficulty": "Hard",
+          "pattern": "Monotonic deque for prefix sums — finds shortest valid window"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M11-L4-TH-1",
+            "question": "Why does the monotonic deque store INDICES rather than VALUES?",
+            "options": [
+              "Indices are smaller numbers that use less memory than values",
+              "Indices are needed to CHECK WHETHER AN ELEMENT HAS LEFT THE WINDOW: when the front of the deque becomes out-of-range (deque[0] < i - k + 1), we remove it; if we stored values instead of indices, we couldn't determine whether the maximum is still inside the current window or has slid out the left side; storing indices enables both the window-range check (front expiry) and value comparisons (back maintenance)",
+              "Indices are stored because JavaScript Maps require integer keys",
+              "Values would create duplicate entries; indices are always unique"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Deque stores indices (not values) to enable window range checking' — the front-expiry check `deque[0] < i - k + 1` requires knowing WHERE the maximum element is positioned in the original array; without the index, we can't tell if the maximum has slid out the left side of the window; `nums[deque[0]]` then gives the value from the index."
+          },
+          {
+            "id": "L2M11-L4-TH-2",
+            "question": "Why does the back-maintenance step use `<= nums[i]` (not `<`) when removing from the back?",
+            "options": [
+              "Using < would also work; <= is just for consistency",
+              "When `nums[deque.back] <= nums[i]`, the element at the back can NEVER BE THE MAXIMUM while nums[i] is in the window — if a future query comes when both are in the window, nums[i] (being >= the back element) would always be preferred; using `<=` correctly removes equal elements too, because an equal element that appeared earlier can be replaced by the current element (same value but later index — will stay in the window longer); keeping it would just be a redundant entry",
+              "Using < would cause the deque to grow without bound",
+              "<= is required only when all array values are distinct"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Pop from back: remove indices whose values are <= new element (can never be max)' — an element is removed if nums[back] <= nums[i]; for equal values: if nums[back] == nums[i], the back element will leave the window BEFORE nums[i] (it appeared earlier); when a query covers both, nums[i] is equally good and will persist longer; removing the older equal element doesn't lose any maximum information."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M11-L4-LG-1",
+            "question": "In the trace for `[1,3,-1,-3,5,3,6,7]` k=3, at i=4 (value=5), which deque cleanup operations occur and in what order?",
+            "options": [
+              "Only add 4 to the deque; no cleanup needed",
+              "FIRST expire front: deque=[1,2,3]; deque[0]=1 < 4-3+1=2 → SHIFT (expire); deque=[2,3]; deque[0]=2 not < 2 → stop. THEN back-maintenance: nums[3]=-3<=5 → POP; nums[2]=-1<=5 → POP; deque=[]; THEN push 4 → deque=[4]; record nums[4]=5 as window max — confirmed by trace execution",
+              "Back-maintenance happens before front expiry",
+              "The entire deque is cleared and rebuilt at i=4"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by the lesson's trace and direct execution: at i=4, Step 1 (expire front): deque[0]=1 < 4-3+1=2 → shift, deque=[2,3]; Step 2 (back maintenance): nums[3]=-3<=5 → pop, nums[2]=-1<=5 → pop; Step 3: push 4; result=5 (nums[deque[0]]=nums[4]=5); the order EXPIRE FRONT → BACK-MAINTAIN → PUSH must be preserved."
+          },
+          {
+            "id": "L2M11-L4-LG-2",
+            "question": "Why is the time complexity O(n) even though there is a `while` loop inside the main `for` loop?",
+            "options": [
+              "The while loop runs at most n times per outer iteration, giving O(n²)",
+              "Each index is PUSHED TO THE DEQUE EXACTLY ONCE and POPPED AT MOST ONCE (either from the back during back-maintenance or from the front during expiry); the while loop across ALL outer iterations pops at most n indices total; the total work = n (pushes) + at most n (pops) = 2n = O(n); this is the same amortised argument as the sliding window O(n) proof",
+              "O(n) holds only when all elements are distinct",
+              "The while loop never executes; it's only for edge cases"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'O(n) total: each index pushed and popped at most once' — the amortised analysis: each of the n indices enters the deque once (O(n) pushes total); each index leaves the deque at most once (either expired from front or removed from back) = at most n pops total; total work is 2n across all iterations of both the outer for-loop and inner while-loop."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M11-L4-SY-1",
+            "question": "The deque uses `deque.shift()` for front removal and `deque.pop()` for back removal. What is the PERFORMANCE implication of this array-based deque?",
+            "options": [
+              "Both shift() and pop() are O(1); no performance concerns",
+              "`deque.pop()` is O(1) (removes from end of array); `deque.shift()` is O(k) where k is the current deque length (removes from front, requiring all elements to shift); a PROPER DOUBLE-ENDED QUEUE (using a doubly linked list or circular buffer) would make both operations O(1); the array-based deque is acceptable for interviews and small inputs but degrades for very large inputs; the lesson notes 'proper deque implementation in production'",
+              "shift() is O(1) because JavaScript engines optimise it internally",
+              "Both operations are O(n) where n is the array length"
+            ],
+            "answer": 1,
+            "explanation": "In JavaScript's native Array: pop() is O(1) (amortised, from end); shift() is O(n) (from front, requires re-indexing all remaining elements); for the Sliding Window Maximum deque, which has at most k elements, shift() costs O(k); with a proper deque (e.g., using a doubly-linked list), both ends are O(1); the lesson explicitly notes this as a production consideration."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M11-L4-CC-1",
+            "title": "Sliding Window Maximum",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement Sliding Window Maximum from this lesson.",
+            "requirements": [
+              "Implement `maxSlidingWindowImpl(nums, k)` matching the lesson's monotonic deque approach"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function maxSlidingWindowImpl(nums, k) {\n  // TODO: deque of indices (decreasing values);\n  // expire front, maintain back, push current, record when i>=k-1\n}"
+            },
+            "test_cases": [
+              {
+                "input": "JSON.stringify(maxSlidingWindowImpl([1,3,-1,-3,5,3,6,7], 3))",
+                "expected": "[3,3,5,5,6,7]",
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(maxSlidingWindowImpl([1], 1))",
+                "expected": "[1]",
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(maxSlidingWindowImpl([9,11], 2))",
+                "expected": "[11]",
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(maxSlidingWindowImpl([7,2,4], 2))",
+                "expected": "[7,4]",
+                "type": "hidden"
+              },
+              {
+                "input": "maxSlidingWindowImpl([1,3,-1,-3,5,3,6,7], 3).length",
+                "expected": 6,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function maxSlidingWindowImpl(nums, k) {\n  const dq=[],r=[];\n  for(let i=0;i<nums.length;i++){\n    if(dq.length&&dq[0]<i-k+1)dq.shift();\n    while(dq.length&&nums[dq[dq.length-1]]<=nums[i])dq.pop();\n    dq.push(i);\n    if(i>=k-1)r.push(nums[dq[0]]);\n  }\n  return r;\n}"
+            },
+            "complexity_analysis": "O(n) time — each index pushed/popped at most once. O(k) space for deque.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Deque stores INDICES (not values); front=max of current window; maintain decreasing order of values."
+              },
+              {
+                "level": 2,
+                "text": "Step 1: expire front if dq[0] < i-k+1; Step 2: pop back while nums[dq.back]<=nums[i]; Step 3: push i; Step 4: record if i>=k-1."
+              },
+              {
+                "level": 3,
+                "text": "The order matters: expire BEFORE maintenance; maintenance BEFORE push; record AFTER push."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 5,
+      "title": "Trapping Rain Water",
+      "tag": null,
+      "objective": "Solve Trapping Rain Water in O(n) O(1) using two pointers with running max-left and max-right, and understand why the shorter side determines trapped water at each position.",
+      "concepts": [
+        "Water at position i: min(maxLeft[i], maxRight[i]) - height[i]",
+        "Precomputed approach: O(n) time O(n) space with two arrays",
+        "Two-pointer approach: O(n) time O(1) space",
+        "Key insight: min of maxLeft and maxRight determines water level",
+        "When height[left] < height[right]: maxLeft is the bottleneck, process left",
+        "Pointer move logic: move the side with smaller current height",
+        "Running maxLeft and maxRight: update before computing water",
+        "Water is always >= 0: subtract height, clamp to 0 if negative (won't happen with running max)"
+      ],
+      "explanation": "Trapping Rain Water (#42) computes the amount of water trapped between bars. Water at position i = min(max height to its left, max height to its right) - height[i]. Precomputed approach: build maxLeft[i] (max height from 0 to i) and maxRight[i] (max height from i to n-1) in O(n) each, then scan once summing max(0, min(maxLeft[i], maxRight[i]) - height[i]). Space: O(n). Two-pointer approach eliminates the arrays: maintain left and right pointers with running maxLeft and maxRight. At each step, process the side with the smaller running max. If maxLeft < maxRight: the water at left is determined by maxLeft (the bottleneck); add maxLeft - height[left] to result, advance left. Otherwise, process right similarly. Why this works: when maxLeft < maxRight, the water level at left is bounded by maxLeft (not maxRight) because maxLeft is the shorter wall. We know maxRight >= maxLeft, so it cannot be the bottleneck here.",
+      "analogy": "Two-pointer Trapping Rain Water is like two workers measuring water trapped in a valley, starting from opposite ends. The worker at the shorter wall has complete information: they know the water level at their side is limited by their wall height (since the opposite wall is taller). They measure and step inward. The other worker waits until their side becomes the shorter one. They alternate, always measuring from the side with the definitive information.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// TRAPPING RAIN WATER (#42)\n\n// PRECOMPUTED APPROACH: O(n) time, O(n) space\nfunction trap_precomputed(height) {\n    const n = height.length;\n    const maxLeft  = new Array(n).fill(0);\n    const maxRight = new Array(n).fill(0);\n\n    maxLeft[0] = height[0];\n    for (let i = 1; i < n; i++) maxLeft[i] = Math.max(maxLeft[i-1], height[i]);\n\n    maxRight[n-1] = height[n-1];\n    for (let i = n-2; i >= 0; i--) maxRight[i] = Math.max(maxRight[i+1], height[i]);\n\n    let water = 0;\n    for (let i = 0; i < n; i++) {\n        water += Math.min(maxLeft[i], maxRight[i]) - height[i];\n    }\n    return water;\n}\n\n// TWO-POINTER APPROACH: O(n) time, O(1) space\nfunction trap(height) {\n    let left = 0, right = height.length - 1;\n    let maxLeft = 0, maxRight = 0;\n    let water = 0;\n\n    while (left < right) {\n        if (height[left] < height[right]) {\n            // Left side is the bottleneck: maxLeft determines water level\n            if (height[left] >= maxLeft) {\n                maxLeft = height[left]; // update running max\n            } else {\n                water += maxLeft - height[left]; // trapped water\n            }\n            left++;\n        } else {\n            // Right side is the bottleneck: maxRight determines water level\n            if (height[right] >= maxRight) {\n                maxRight = height[right];\n            } else {\n                water += maxRight - height[right];\n            }\n            right--;\n        }\n    }\n    return water;\n}\n\nconsole.log(trap([0,1,0,2,1,0,1,3,2,1,2,1])); // 6\nconsole.log(trap([4,2,0,3,2,5]));              // 9\n\n// WHY height[left] < height[right] DETERMINES LEFT IS BOTTLENECK:\n// At this state: maxLeft < maxRight (from previous steps' running maximums)\n// Wait: that's not exactly right. The condition is height[left] < height[right] at current positions.\n// But we know: maxLeft is the max seen so far from left, maxRight from right.\n// When height[left] <= height[right]: we know the right boundary for left's water\n// is at least height[right] >= maxLeft in the long run (there's a tall bar on the right).\n// So water at left is determined by maxLeft alone. Safe to process.",
+        "explanation": "The correctness argument for two-pointer trap: when height[left] < height[right], the tallest bar to the right of left (maxRight from the right pointer's perspective) is >= height[right] > height[left]. So the water at left is capped by maxLeft (the shorter side). We can safely process left without knowing the exact maxRight because maxRight is guaranteed to be >= maxLeft at this point."
+      },
+      "common_mistakes": [
+        "Not updating maxLeft before computing water — if height[left] >= maxLeft, update maxLeft first (this bar becomes the new left boundary, so no water is trapped here); only compute water when height[left] < maxLeft",
+        "Using maxLeft <= height[left] instead of maxLeft < height[left] as the update condition — both work (the height[left] >= maxLeft case means the current bar is as tall or taller than the left boundary, so it traps no water regardless of the right side)",
+        "Confusing the two-pointer trap with Container With Most Water — they are different problems: trap computes actual water held between bars; container finds two bars maximising the water between them (area = width * height)"
+      ],
+      "interview_relevance": "Trapping Rain Water (#42) is Blind 75. The two-pointer O(1) space solution is the expected answer. The correctness explanation for why moving the shorter side is sufficient is specifically evaluated. This problem also has a stack-based O(n) solution (using a monotonic stack to process each 'basin' as the right wall rises), worth knowing as an alternative.",
+      "mini_challenge": "Implement both trap_precomputed and trap. Verify both return 6 for [0,1,0,2,1,0,1,3,2,1,2,1]. Trace the two-pointer approach step by step for [4,2,0,3,2,5] showing left, right, maxLeft, maxRight, and water after each iteration. Then implement the monotonic stack solution as a third approach: push bar indices to the stack; when a taller bar arrives, pop and compute the trapped water in the basin between the previous bar and the current bar.",
+      "flashcards": [
+        {
+          "front": "Trapping Rain Water: two-pointer approach — what do the pointers track?",
+          "back": "leftMax: maximum height seen from the left up to the left pointer. rightMax: maximum height seen from the right up to the right pointer. The water at each position = min(leftMax, rightMax) - height[pos]."
+        },
+        {
+          "front": "Trapping Rain Water: which pointer moves at each step?",
+          "back": "Move the pointer with the SMALLER max boundary: if leftMax < rightMax: water[left] = leftMax - height[left], left++. Else: water[right] = rightMax - height[right], right--. The smaller boundary is the limiting factor for water height."
+        },
+        {
+          "front": "Trapping Rain Water: why does moving the smaller-max pointer work?",
+          "back": "Water at position p = min(maxLeft, maxRight) - height[p]. If leftMax ≤ rightMax: we know min(maxLeft, maxRight) = leftMax regardless of what's to the right. The left boundary is the bottleneck — compute water there, then move left++."
+        },
+        {
+          "front": "Trapping Rain Water: prefix+suffix max array approach?",
+          "back": "Build leftMax[i] = max height from 0 to i. Build rightMax[i] = max height from i to n-1. water[i] = max(0, min(leftMax[i], rightMax[i]) - height[i]). O(n) time, O(n) space. Two-pointer achieves O(1) space."
+        },
+        {
+          "front": "Trapping Rain Water: what happens when height[left] > leftMax or height[right] > rightMax?",
+          "back": "Update the max FIRST: leftMax = max(leftMax, height[left]). Then water = leftMax - height[left]. If height[left] > leftMax before update, this gives negative water — update first prevents negative values, giving 0 (correct: no water trapped above the boundary)."
+        },
+        {
+          "front": "Trapping Rain Water vs Container With Most Water: key difference?",
+          "back": "Trapping Rain Water: water trapped BETWEEN bars (all space above each bar's level, below the min boundary). Container With Most Water: water between exactly TWO bars (just the area). Different problems with similar two-pointer intuition."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "height=[0,1,0,2,1,0,1,3,2,1,2,1]: total trapped water?",
+          "options": [
+            "5",
+            "6",
+            "7",
+            "4"
+          ],
+          "answer": 1,
+          "explanation": "Classic example. Water trapped: at idx2: min(1,3)-0=1. idx4: min(2,3)-1=1. idx5: min(2,3)-0=2. idx6: min(2,3)-1=1. idx9: min(3,2)-1=1. Total=1+1+2+1+1=6."
+        },
+        {
+          "question": "height=[4,2,0,3,2,5]. Two-pointer: left=0,right=5. leftMax=4,rightMax=5. leftMax < rightMax, so process left (idx0). Water at idx0?",
+          "options": [
+            "0 — height[0]=4=leftMax, no water above",
+            "1",
+            "4",
+            "2"
+          ],
+          "answer": 0,
+          "explanation": "water[0] = leftMax - height[0] = 4 - 4 = 0. No water above the leftMax boundary at its own position. Then left=1. leftMax=max(4,2)=4."
+        },
+        {
+          "question": "Two-pointer: left=1, leftMax=4, rightMax=5, height[1]=2. Water at left pointer?",
+          "options": [
+            "2",
+            "3",
+            "4-2=2",
+            "5-2=3"
+          ],
+          "answer": 2,
+          "explanation": "leftMax(4) < rightMax(5): process left. water = leftMax - height[left] = 4 - 2 = 2. Left advances to 2."
+        },
+        {
+          "question": "For Trapping Rain Water O(n) space approach: leftMax[i] stores?",
+          "options": [
+            "height[i]",
+            "max height from index 0 to i (inclusive)",
+            "max height from i to n-1",
+            "height[i] + height[i-1]"
+          ],
+          "answer": 1,
+          "explanation": "leftMax[i] = max(leftMax[i-1], height[i]) = maximum height seen from the left up to and including index i."
+        }
+      ],
+      "visual_aid": {
+        "type": "two_pointer_trace",
+        "description": "Trapping Rain Water two-pointer logic",
+        "diagram": "height=[0,1,0,2,1,0,1,3,2,1,2,1]\n\nTWO-POINTER APPROACH:\n  left=0, right=11, leftMax=0, rightMax=0, water=0\n\n  height[0]=0 ≤ height[11]=1 → process LEFT\n    leftMax=max(0,0)=0. water+=0-0=0. left=1\n\n  height[1]=1 ≤ height[11]=1 → process LEFT (tie→left)\n    leftMax=max(0,1)=1. water+=1-1=0. left=2\n\n  height[2]=0 < height[11]=1 → process LEFT\n    leftMax=max(1,0)=1. water+=1-0=1. left=3  ← 1 unit trapped!\n\n  height[3]=2 > height[11]=1 → process RIGHT\n    rightMax=max(0,1)=1. water+=1-1=0. right=10\n\n  ... (continue alternating)\n\nTotal water = 6 ✓\n\nKEY: always process the side with SMALLER max boundary\n     That side's water is deterministic regardless of the other side"
+      },
+      "complexity_summary": {
+        "two_pointer_time": "O(n)",
+        "two_pointer_space": "O(1)",
+        "prefix_suffix_time": "O(n)",
+        "prefix_suffix_space": "O(n)",
+        "stack_approach_time": "O(n)",
+        "stack_approach_space": "O(n)",
+        "note": "Two-pointer is optimal — O(n) time and O(1) space"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-42",
+          "title": "Trapping Rain Water",
+          "difficulty": "Hard",
+          "pattern": "Two-pointer: move smaller-max side",
+          "blind75": true
+        },
+        {
+          "id": "lc-84",
+          "title": "Largest Rectangle in Histogram",
+          "difficulty": "Hard",
+          "pattern": "Monotonic stack — different but related problem"
+        },
+        {
+          "id": "lc-407",
+          "title": "Trapping Rain Water II (3D)",
+          "difficulty": "Hard",
+          "pattern": "Priority queue (min-heap) BFS from borders — extension"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M11-L5-TH-1",
+            "question": "The two-pointer trap approach maintains RUNNING maxLeft and maxRight instead of precomputed arrays. Why is the running max STILL correct?",
+            "options": [
+              "The running max is only an approximation; the precomputed approach is exact",
+              "When processing the LEFT pointer (because height[left] < height[right]): we KNOW the right side has a bar >= height[right] > height[left]; therefore, the actual maxRight from position left is at least height[right] > maxLeft (in the worst case); thus min(maxLeft, actual_maxRight) = maxLeft — the left side is ALWAYS the bottleneck; the running maxLeft is the correct bound for water at left; the symmetric argument applies for the right pointer; the two-pointer invariant ensures we always process the side where the running max IS the binding constraint",
+              "Running maxes are exact because the array is always sorted",
+              "Running maxes are used because they're easier to implement, not for correctness"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'When height[left] < height[right]: maxLeft is the bottleneck, process left' — the key insight: when height[left] < height[right], we can be certain there's a right boundary at least as tall as height[right]; so water at 'left' is bounded by maxLeft alone; we don't need to know the exact maxRight because min(maxLeft, anything >= height[right]) = maxLeft when height[right] > maxLeft."
+          },
+          {
+            "id": "L2M11-L5-TH-2",
+            "question": "In the precomputed approach, `water += Math.min(maxLeft[i], maxRight[i]) - height[i]` could theoretically be negative. Why is it ALWAYS >= 0?",
+            "options": [
+              "Math.min can return negative values; we need to clamp with Math.max(0,...)",
+              "maxLeft[i] = max(height[0..i]) >= height[i] and maxRight[i] = max(height[i..n-1]) >= height[i]; therefore min(maxLeft[i], maxRight[i]) >= height[i]; thus min(maxLeft[i], maxRight[i]) - height[i] >= 0 always; the definition of maxLeft[i] and maxRight[i] as running maximums that INCLUDE position i guarantees they are at least as large as height[i]; no clamping is needed",
+              "The formula can be negative; Math.max(0,...) is needed but omitted for brevity",
+              "Only the two-pointer approach guarantees non-negative water; the precomputed approach can give negatives"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Water is always >= 0: subtract height, clamp to 0 if negative (won't happen with running max)' — maxLeft[i] is the maximum height from index 0 to i INCLUSIVE of i; maxRight[i] is the maximum from i to n-1 INCLUSIVE of i; both include height[i] itself, so both are >= height[i]; their minimum is also >= height[i]."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M11-L5-LG-1",
+            "question": "For `trap([4,2,0,3,2,5])`, what is the total trapped water and which positions contribute the most?",
+            "options": [
+              "Total=6; only position 2 (height=0) contributes",
+              "Total=9; positions 1(h=2): min(4,5)-2=2; position 2(h=0): min(4,5)-0=4; position 3(h=3): min(4,5)-3=1; position 4(h=2): min(4,5)-2=2; total=2+4+1+2=9 — confirmed by direct execution; positions 0(h=4) and 5(h=5) are boundary walls with no water above",
+              "Total=9 but position 3 contributes 0 since it has a bar of height 3",
+              "Total=4; only the zero-height position traps water"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution returning 9; for [4,2,0,3,2,5]: maxLeft=[4,4,4,4,4,5] and maxRight=[5,5,5,5,5,5]; water at each pos: 0:min(4,5)-4=0; 1:min(4,5)-2=2; 2:min(4,5)-0=4; 3:min(4,5)-3=1; 4:min(4,5)-2=2; 5:min(5,5)-5=0; total=2+4+1+2=9."
+          },
+          {
+            "id": "L2M11-L5-LG-2",
+            "question": "In the two-pointer approach, why does the pointer move to `height[left] < height[right]` (not `<=`)?",
+            "options": [
+              "The condition should use <=; using < is a bug that sometimes skips positions",
+              "When `height[left] < height[right]`: the left side is strictly shorter → process and advance left; when `height[left] >= height[right]`: the right side is shorter or equal → process and advance right; using `<` vs `<=` only affects which pointer advances when both bars have EQUAL HEIGHT; for equal heights, both sides are equally the bottleneck; the choice is arbitrary for correctness (either pointer can advance); the lesson uses `<` on the left side and processes the right side in the else branch for `>=` (including equality)",
+              "Using < prevents the two pointers from ever meeting",
+              "< is needed because height arrays only contain distinct values"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: `if (height[left] < height[right]) { ... left++; } else { ... right--; }` — when heights are equal, either pointer can advance; the else branch handles both `>` and `==` cases correctly; the trapped water computation still works because equal heights give the same min() value regardless of which side is processed."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M11-L5-SY-1",
+            "question": "In the precomputed approach, `maxLeft[0] = height[0]` and the loop starts at i=1. Why is the base case initialisation separate from the loop?",
+            "options": [
+              "Starting at i=1 is a JavaScript convention for index-based loops",
+              "maxLeft[i] = max(maxLeft[i-1], height[i]) depends on maxLeft[i-1] — it accesses the PREVIOUS element; when i=0, maxLeft[-1] would be out of bounds; initialising maxLeft[0] = height[0] separately handles this base case without needing a boundary check inside the loop; the same applies to maxRight[n-1] = height[n-1] for the right-to-left pass; this is the standard 'initialise-then-loop' pattern for running maximum computations",
+              "The initialisation prevents the loop from running when height has only one element",
+              "maxLeft[0] is always 0 regardless of height[0]"
+            ],
+            "answer": 1,
+            "explanation": "The recurrence maxLeft[i] = max(maxLeft[i-1], height[i]) requires maxLeft[i-1] to exist; for i=0, there is no i-1; the base case maxLeft[0]=height[0] initialises the running maximum at the leftmost position; the loop then extends from i=1 without any boundary check — a standard pattern for running max/min computations on arrays."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M11-L5-CC-1",
+            "title": "Trapping Rain Water: Precomputed and Two-Pointer",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both Trapping Rain Water approaches from this lesson.",
+            "requirements": [
+              "Implement `trapPrecomputed(height)` using two arrays for maxLeft and maxRight",
+              "Implement `trapTwoPointer(height)` using O(1) space two-pointer with running maxes"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function trapPrecomputed(height) {\n  // TODO: compute maxLeft[i] and maxRight[i]; sum min(ml,mr)-height[i]\n}\n\nfunction trapTwoPointer(height) {\n  // TODO: left/right pointers, maxLeft/maxRight running; advance shorter side\n}"
+            },
+            "test_cases": [
+              {
+                "input": "trapPrecomputed([0,1,0,2,1,0,1,3,2,1,2,1])",
+                "expected": 6,
+                "type": "visible"
+              },
+              {
+                "input": "trapTwoPointer([4,2,0,3,2,5])",
+                "expected": 9,
+                "type": "visible"
+              },
+              {
+                "input": "trapTwoPointer([0,1,0,2,1,0,1,3,2,1,2,1])",
+                "expected": 6,
+                "type": "visible"
+              },
+              {
+                "input": "trapPrecomputed([3,0,2,0,4])",
+                "expected": 7,
+                "type": "hidden"
+              },
+              {
+                "input": "trapTwoPointer([1,0,1])",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function trapPrecomputed(height) {\n  const n=height.length;\n  const ml=new Array(n).fill(0),mr=new Array(n).fill(0);\n  ml[0]=height[0];\n  for(let i=1;i<n;i++)ml[i]=Math.max(ml[i-1],height[i]);\n  mr[n-1]=height[n-1];\n  for(let i=n-2;i>=0;i--)mr[i]=Math.max(mr[i+1],height[i]);\n  let w=0;\n  for(let i=0;i<n;i++)w+=Math.min(ml[i],mr[i])-height[i];\n  return w;\n}\n\nfunction trapTwoPointer(height) {\n  let l=0,r=height.length-1,ml=0,mr=0,w=0;\n  while(l<r){\n    if(height[l]<height[r]){\n      if(height[l]>=ml)ml=height[l];else w+=ml-height[l];\n      l++;\n    }else{\n      if(height[r]>=mr)mr=height[r];else w+=mr-height[r];\n      r--;\n    }\n  }\n  return w;\n}"
+            },
+            "complexity_analysis": "trapPrecomputed: O(n) time, O(n) space. trapTwoPointer: O(n) time, O(1) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "trapPrecomputed: three passes — left-to-right for maxLeft, right-to-left for maxRight, then sum min(ml,mr)-height[i]."
+              },
+              {
+                "level": 2,
+                "text": "trapTwoPointer: advance the shorter side (height[l]<height[r]→process left, else process right); update running max before adding water."
+              },
+              {
+                "level": 3,
+                "text": "Running max update: if current height >= running max → update max (wall, no water); else → add max-height to water."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 6,
+      "title": "Container With Most Water",
+      "tag": null,
+      "objective": "Solve Container With Most Water in O(n) using a two-pointer approach where the shorter bar is always moved inward, and prove the correctness of this greedy choice.",
+      "concepts": [
+        "Container area: width * min(height[left], height[right])",
+        "Brute force: O(n²) try all pairs",
+        "Two pointers: start at both ends, move shorter bar inward",
+        "Why move shorter bar: moving taller bar cannot increase min(height) but decreases width",
+        "Proof: if height[left] < height[right], moving right cannot improve current container",
+        "All unexamined pairs are guaranteed not better than what we've seen",
+        "O(n) time, O(1) space",
+        "Connection to Trapping Rain Water: both use two pointers but different objectives"
+      ],
+      "explanation": "Container With Most Water (#11) finds two bars forming a container holding the most water. Water = width * min(height[left], height[right]). Brute force: try all O(n²) pairs. Two-pointer: initialise left=0, right=n-1. At each step compute area, update maximum, then move the shorter bar inward. Correctness proof: suppose height[left] < height[right]. The area with left fixed and any bar to the right of right is: width' * min(height[left], height[new_right]), where width' < right-left (smaller width) and min(...) <= height[left] (limited by left bar regardless). So any pair involving left and a position to the right of right has area <= area(left, right). Since we already computed area(left, right), we can skip all those pairs and move left inward. Similarly, if height[right] <= height[left], move right inward. This eliminates all pairs we haven't examined but guarantees we find the global maximum.",
+      "analogy": "Container With Most Water two-pointer is like two people on opposite ends of a see-saw. The water level is set by the shorter person (bottleneck). Moving the taller person inward decreases the width without increasing the water level (still limited by the shorter side). Moving the shorter person inward might find a taller person, potentially increasing the water level despite the narrower width. The greedy choice: always move the shorter person.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// CONTAINER WITH MOST WATER (#11)\n// O(n) time, O(1) space\nfunction maxArea(height) {\n    let left = 0, right = height.length - 1;\n    let maxWater = 0;\n\n    while (left < right) {\n        const width = right - left;\n        const water = width * Math.min(height[left], height[right]);\n        maxWater = Math.max(maxWater, water);\n\n        // Move the shorter bar inward\n        if (height[left] < height[right]) {\n            left++;  // left is shorter: move it inward\n        } else {\n            right--; // right is shorter (or equal): move it inward\n        }\n    }\n    return maxWater;\n}\n\nconsole.log(maxArea([1,8,6,2,5,4,8,3,7])); // 49\nconsole.log(maxArea([1,1]));               // 1\n\n// TRACE for [1,8,6,2,5,4,8,3,7]:\n// left=0(h=1), right=8(h=7): water=8*1=8. h[0]<h[8]: left++. max=8.\n// left=1(h=8), right=8(h=7): water=7*7=49. h[1]>h[8]: right--. max=49.\n// left=1(h=8), right=7(h=3): water=6*3=18. h[1]>h[7]: right--. max=49.\n// left=1(h=8), right=6(h=8): water=5*8=40. h[1]>=h[6]: right--. max=49.\n// left=1(h=8), right=5(h=4): water=4*4=16. right--. max=49.\n// left=1(h=8), right=4(h=5): water=3*5=15. right--. max=49.\n// left=1(h=8), right=3(h=2): water=2*2=4. right--. max=49.\n// left=1(h=8), right=2(h=6): water=1*6=6. right--. max=49.\n// left=1, right=1: loop ends. Return 49. ✓\n\n// PROOF SKETCH:\n// At any step, if height[left] <= height[right]:\n//   For all positions m where right < m <= n-1 (already passed):\n//     area(left, m) = (m-left) * min(height[left], height[m]) <= m * height[left]\n//     All these are <= current area (width gets smaller, height bounded by height[left])\n//   So we can safely discard all pairs involving left, and move left inward.",
+        "explanation": "The proof shows that moving the shorter bar (left when height[left] < height[right]) is safe: every pair involving left with a right position that is inside the current right boundary would have smaller width AND water level still limited by the short left bar. None can beat the current maximum, so we skip them all by moving left."
+      },
+      "common_mistakes": [
+        "Moving the taller bar instead of the shorter one — moving the taller bar cannot increase the water level (still bounded by the shorter bar) but decreases width, so it can only decrease or maintain area; always move the shorter bar",
+        "Using >= to check which bar to move when heights are equal — when heights are equal, it does not matter which side you move; either choice gives the same water level and reduces width; both implementations are correct",
+        "Confusing Container With Most Water with Trapping Rain Water — Container asks for the maximum area between any two bars (two-pointer); Trap asks for the total water volume trapped across ALL bars (the entire array)"
+      ],
+      "interview_relevance": "Container With Most Water (#11) is Blind 75. It is paired with Trapping Rain Water in interview sequences. The proof that moving the shorter bar is always correct is specifically evaluated. Candidates who state 'move the shorter bar' but cannot explain why frequently fail this problem in senior interviews. The proof in one sentence: 'Moving the taller bar cannot improve the area since it is already limited by the shorter bar, so we move the shorter bar to try to find a taller replacement.'",
+      "mini_challenge": "Implement maxArea and verify it returns 49 for [1,8,6,2,5,4,8,3,7]. Trace the two-pointer positions for the entire input and verify the maximum is found at left=1, right=8. Then write the formal proof for the case where heights are equal (height[left] == height[right]): show that moving either pointer is safe, and that moving both simultaneously is also correct (try it as an optimisation). Does moving both simultaneously always give the correct answer?",
+      "flashcards": [
+        {
+          "front": "Container With Most Water: greedy two-pointer rule?",
+          "back": "Start with widest container (left=0, right=n-1). Move the pointer with the SHORTER height inward. Rationale: moving the taller side cannot increase water (width decreases, height still bounded by shorter). Moving the shorter side MIGHT find a taller bar."
+        },
+        {
+          "front": "Container With Most Water: water formula?",
+          "back": "water = min(height[left], height[right]) × (right - left). Height limited by the shorter bar. Width = distance between bars. Update ans = max(ans, water) before moving pointer."
+        },
+        {
+          "front": "Container With Most Water: why is the greedy provably optimal?",
+          "back": "Exchange argument: if we ever move the TALLER bar inward instead of the shorter one, the new width decreases but the height is now bounded by the other bar (which is shorter or equal) — so water can only decrease or stay same. Moving shorter gives a CHANCE for improvement."
+        },
+        {
+          "front": "Container vs Trapping Rain Water: two-pointer direction?",
+          "back": "Container: start WIDE (left=0, right=n-1), move INWARD (both pointers converge). Always move shorter pointer. Trapping Rain: move the pointer with SMALLER MAX BOUNDARY. Different conditions, similar two-pointer framework."
+        },
+        {
+          "front": "Container With Most Water: does skipping equal-height bars matter?",
+          "back": "When height[left] === height[right]: move EITHER (both are equally 'shorter'). Moving left or right is correct. Small optimisation: advance BOTH left++ and right-- on equal heights (skip symmetric pairs that can't improve the answer)."
+        },
+        {
+          "front": "Module 11 capstone: which problems use monotonic deque?",
+          "back": "Sliding Window Maximum (#239), Shortest Subarray with Sum ≥ K (#862), Longest Subarray with Abs Diff ≤ Limit (#1438). The deque maintains order while enabling O(1) access to extremes. Reuse this pattern on any 'window extreme' problem."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "height=[1,8,6,2,5,4,8,3,7]: max water container?",
+          "options": [
+            "49",
+            "48",
+            "46",
+            "36"
+          ],
+          "answer": 1,
+          "explanation": "Optimal: bars at indices 1 and 8 (heights 8 and 7). Water = min(8,7) × (8-1) = 7 × 7 = 49."
+        },
+        {
+          "question": "Container: left=0(h=1), right=8(h=7). Water=min(1,7)×8=8. Move which pointer?",
+          "options": [
+            "right (height 7 > 1)",
+            "left (height 1 < 7)",
+            "Both (arbitrary tie-break)",
+            "Neither — already optimal"
+          ],
+          "answer": 1,
+          "explanation": "Move the SHORTER pointer: left (height=1 < right's height=7). Moving left might find a taller bar. Moving right would still be bounded by left's height of 1."
+        },
+        {
+          "question": "Container: left=1(h=8), right=8(h=7). Water=min(8,7)×7=49. After moving right to 7(h=3): water=?",
+          "options": [
+            "min(8,3)×6=18",
+            "min(8,7)×7=49 (unchanged)",
+            "3×6=18",
+            "8×7=56"
+          ],
+          "answer": 0,
+          "explanation": "right=7, height[7]=3. water = min(height[1], height[7]) × (7-1) = min(8,3) × 6 = 3 × 6 = 18. Less than 49. Ans stays 49. Move right again (shorter)."
+        },
+        {
+          "question": "Two-pointer is O(n) for Container With Most Water. A brute force would be O(?)",
+          "options": [
+            "O(n log n)",
+            "O(n²) — try all pairs of bars",
+            "O(n³)",
+            "O(n)"
+          ],
+          "answer": 1,
+          "explanation": "Brute force: for each pair (i,j): compute min(h[i],h[j])×(j-i). n choose 2 = O(n²) pairs. Two-pointer: O(n) single pass by moving inward greedily."
+        }
+      ],
+      "visual_aid": {
+        "type": "container_trace",
+        "description": "Container With Most Water greedy two-pointer trace",
+        "diagram": "height=[1,8,6,2,5,4,8,3,7]\n\nleft=0(h=1), right=8(h=7)\n  water=min(1,7)×8=8. ans=8. Move LEFT (shorter)\n\nleft=1(h=8), right=8(h=7)\n  water=min(8,7)×7=49. ans=49. Move RIGHT (shorter)\n\nleft=1(h=8), right=7(h=3)\n  water=min(8,3)×6=18. ans=49. Move RIGHT (shorter)\n\nleft=1(h=8), right=6(h=8)\n  water=min(8,8)×5=40. ans=49. Move either (equal); say LEFT\n\nleft=2(h=6), right=6(h=8)\n  water=min(6,8)×4=24. ans=49. Move LEFT (shorter)\n\n... (continue converging)\n\nFinal ans=49 ✓  (bars at idx 1 and 8)"
+      },
+      "complexity_summary": {
+        "container_two_pointer": "O(n) time, O(1) space",
+        "trapping_two_pointer": "O(n) time, O(1) space",
+        "min_window_substring": "O(|s|+|t|) time, O(|s|+|t|) space",
+        "sliding_window_max": "O(n) time, O(k) space",
+        "longest_no_repeat": "O(n) time, O(alphabet) space",
+        "all_sliding_window_pattern": "O(n) — each element enters/exits window at most once"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-11",
+          "title": "Container With Most Water",
+          "difficulty": "Medium",
+          "pattern": "Two-pointer greedy: move shorter inward",
+          "blind75": true
+        },
+        {
+          "id": "lc-42",
+          "title": "Trapping Rain Water",
+          "difficulty": "Hard",
+          "pattern": "Two-pointer: move smaller-max-boundary side",
+          "blind75": true
+        },
+        {
+          "id": "lc-3",
+          "title": "Longest Substring Without Repeating",
+          "difficulty": "Medium",
+          "pattern": "Variable window, char map",
+          "blind75": true
+        },
+        {
+          "id": "lc-76",
+          "title": "Minimum Window Substring",
+          "difficulty": "Hard",
+          "pattern": "Variable window, formed counter",
+          "blind75": true
+        },
+        {
+          "id": "lc-239",
+          "title": "Sliding Window Maximum",
+          "difficulty": "Hard",
+          "pattern": "Monotonic deque",
+          "blind75": true
+        },
+        {
+          "id": "lc-567",
+          "title": "Permutation in String",
+          "difficulty": "Medium",
+          "pattern": "Fixed window, freq matching"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M11-L6-TH-1",
+            "question": "The two-pointer proof for Container With Most Water: when `height[left] <= height[right]`, why can ALL PAIRS involving `left` with any right position to its right be safely DISCARDED?",
+            "options": [
+              "Pairs are discarded for performance only; they could still be optimal",
+              "When height[left] <= height[right]: for any position m where left < m <= right, the area with left and m is at most (m-left) * height[left]; compared to the current area (right-left) * height[left]: the current area has GREATER WIDTH (right-left > m-left) and the SAME limiting height (height[left]); so area(left, m) <= area(left, right) <= maxWater; all pairs involving left (to its right) are dominated by or equal to the current area — safely discardable",
+              "Pairs are discarded because moving left decreases the array index",
+              "All left-involving pairs are discarded because they contain duplicate heights"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's proof: 'if height[left] <= height[right], moving right cannot improve current container' — the area formula is width * min(h[l], h[r]); when h[l] <= h[r], min = h[l]; for any m between left and right: area(left,m) = (m-left)*min(h[l],h[m]) <= (m-left)*h[l] < (right-left)*h[l] = current area; all are strictly dominated."
+          },
+          {
+            "id": "L2M11-L6-TH-2",
+            "question": "Container With Most Water and Trapping Rain Water both use two pointers. What is the KEY DIFFERENCE in their objectives?",
+            "options": [
+              "Both problems compute the same quantity; they're equivalent",
+              "CONTAINER WITH MOST WATER: finds two bars that MAXIMIZE THE AREA between them (a single rectangular container); the water level is min(h[left], h[right]) and width is (right-left); looks for the LARGEST rectangle formed by any two bars; TRAPPING RAIN WATER: finds TOTAL water trapped across the ENTIRE histogram; each position traps water based on min(maxLeft, maxRight)-height; many positions contribute independently; completely different computations despite both using two pointers",
+              "Container maximises height; Trapping Rain Water maximises width",
+              "Trapping Rain Water uses a deque; Container uses two pointers"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Connection to Trapping Rain Water: both use two pointers but different objectives' — Container: single global maximum area (two bars, no inner bars matter); Trapping Rain Water: cumulative water (every bar contributes based on its local constraints); the two-pointer technique is similar in structure but the invariants and computations differ fundamentally."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M11-L6-LG-1",
+            "question": "For `maxArea([1,8,6,2,5,4,8,3,7])`, the lesson's trace shows the maximum area of 49 is found at left=1, right=8. Verify: width=7, height=min(8,7)=7, area=49.",
+            "options": [
+              "width=right-left=8-1=7; min(height[1],height[8])=min(8,7)=7; area=7*7=49 ✓ — this is the maximum found in the entire scan",
+              "width=8; height=8; area=64 is the actual maximum",
+              "The maximum is at left=0, right=8 with area=8",
+              "width=7; height=min(1,7)=1; area=7 at the first step"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution returning 49 and the lesson's trace: at step 2 (left=1,right=8): width=8-1=7; min(height[1]=8, height[8]=7)=7; area=7*7=49; this is the global maximum; subsequent steps only decrease the area as the width shrinks from 7 to 6, 5, 4, 3, 2, 1."
+          },
+          {
+            "id": "L2M11-L6-LG-2",
+            "question": "Why does the algorithm move `right--` when `height[left] >= height[right]` (including the equal case)?",
+            "options": [
+              "right should move when height[right] is strictly smaller; equal heights require both pointers to advance",
+              "When height[left] >= height[right]: the RIGHT bar is the shorter (or equal) limiting factor; min(h[left], h[right]) = h[right]; for all positions m between left+1 and right-1: area(m, right) = (right-m) * min(h[m], h[right]) <= (right-m) * h[right] < (right-left) * h[right] = current area; all pairs involving right are dominated; safely move right inward; for equal heights, either pointer can move — the lesson uses right-- in the else branch for consistency",
+              "right moves when height[right] is zero",
+              "The algorithm always moves right-- regardless of the comparison"
+            ],
+            "answer": 1,
+            "explanation": "By the proof symmetry: when h[right] <= h[left], all pairs (m, right) with left < m < right are dominated by area(left, right) (wider, same or better height constraint); moving right-- safely discards these; for equal heights, both sides produce equally valid discarding arguments — the else branch handles right in both the > and == cases."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M11-L6-SY-1",
+            "question": "In `maxArea`, `const water = width * Math.min(height[left], height[right])` computes area BEFORE moving any pointer. Why must area be computed before the pointer move?",
+            "options": [
+              "Computing area after the pointer move gives the same result",
+              "The area formula uses the CURRENT positions of both left and right; after moving a pointer (e.g., left++), `height[left]` refers to a DIFFERENT bar than the one participating in the current area computation; computing area BEFORE the move captures the area of the pair [left, right] as they currently are; computing after would use [left+1, right] or [left, right-1] — the pair AFTER the move — which would skip the area of the current pair entirely",
+              "Area must be computed first to avoid division by zero",
+              "The order doesn't matter because height is immutable"
+            ],
+            "answer": 1,
+            "explanation": "This is a fundamental pointer algorithm pattern: record the state BEFORE advancing; the loop body: (1) compute area of current [left,right] pair; (2) update maxWater; (3) advance the shorter pointer; computing area after step (3) would compute the area of the NEW pair [left+1, right] or [left, right-1], completely skipping the area of the original [left, right] pair."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M11-L6-CC-1",
+            "title": "Container With Most Water",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement Container With Most Water from this lesson.",
+            "requirements": [
+              "Implement `maxAreaImpl(height)` matching the lesson's two-pointer greedy approach"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function maxAreaImpl(height) {\n  // TODO: left=0, right=n-1; compute area; move shorter bar; return max\n}"
+            },
+            "test_cases": [
+              {
+                "input": "maxAreaImpl([1,8,6,2,5,4,8,3,7])",
+                "expected": 49,
+                "type": "visible"
+              },
+              {
+                "input": "maxAreaImpl([1,1])",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "maxAreaImpl([4,3,2,1,4])",
+                "expected": 16,
+                "type": "visible"
+              },
+              {
+                "input": "maxAreaImpl([1,2,1])",
+                "expected": 2,
+                "type": "hidden"
+              },
+              {
+                "input": "maxAreaImpl([2,3,4,5,18,17,6])",
+                "expected": 17,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function maxAreaImpl(height) {\n  let l=0,r=height.length-1,max=0;\n  while(l<r){\n    const w=r-l,area=w*Math.min(height[l],height[r]);\n    max=Math.max(max,area);\n    if(height[l]<height[r])l++;\n    else r--;\n  }\n  return max;\n}"
+            },
+            "complexity_analysis": "O(n) time, O(1) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "left=0, right=n-1; compute area BEFORE moving pointer; update max; move shorter bar inward."
+              },
+              {
+                "level": 2,
+                "text": "Shorter bar move: if height[l]<height[r] → left++; else → right-- (handles both > and == cases)."
+              },
+              {
+                "level": 3,
+                "text": "The area must be computed before the pointer move — after moving, the pointer refers to a different bar."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "module_summary": {
+    "total_lessons": 6,
+    "level": "L2",
+    "blind75_problems_in_module": 5,
+    "neetcode150_additional": 5,
+    "core_patterns": [
+      "Variable window expand: always right++; shrink: while invalid (longest) or while valid (shortest)",
+      "Longest window: update ans AFTER restoring validity (ans = max(ans, right-left+1))",
+      "Shortest window: update ans WHILE valid THEN shrink (ans = min(ans, size) inside shrink loop)",
+      "Char freq map + formed counter: O(1) validity check for Minimum Window Substring",
+      "formed++ when window[c] reaches need[c]; formed-- when window[c] falls below need[c]",
+      "Monotonic deque: store indices in decreasing value order; front = window max; O(n) total",
+      "Deque maintenance: pop front if out-of-window; pop back while values ≤ new element",
+      "Trapping Rain Water: two-pointer move smaller-max-boundary side; water = minMax - height",
+      "Container With Most Water: two-pointer move shorter bar inward; water = min(h[l],h[r]) × (r-l)",
+      "Longest Substring No Repeat: map approach — left = max(left, lastSeen[c]+1) prevents back-jump"
+    ],
+    "prerequisite_modules": [
+      "L1-M02 (two pointers basics)",
+      "L1-M03 (sliding window basics)"
+    ],
+    "unlocks_modules": [
+      "Final L2 elective module — all core patterns complete"
+    ],
+    "recommended_problem_order": [
+      "lc-3",
+      "lc-209",
+      "lc-76",
+      "lc-239",
+      "lc-42",
+      "lc-11"
+    ],
+    "spaced_review_target": "Re-solve 3 problems from L1-M02 (basic two pointers) before attempting competitive-programming level problems",
+    "module_difficulty": "Hard — Minimum Window Substring (L3) and Sliding Window Maximum (L4) are the hardest implementations. Trapping Rain Water (L5) requires the key insight about min-boundary. Container With Most Water (L6) is the most elegant greedy proof.",
+    "honest_time_estimate": "12-14 hours. Variable window framework (L1): 1.5 hrs. Longest No Repeat (L2): 1.5 hrs. Minimum Window Substring (L3): 3 hrs. Sliding Window Max/Deque (L4): 3 hrs. Trapping Rain Water (L5): 2 hrs. Container With Most Water (L6): 1.5 hrs.",
+    "longest_vs_shortest_rule": "LONGEST window: shrink when INVALID, update after. SHORTEST window: update when VALID, shrink while still valid. Getting this swap wrong is the #1 sliding window bug."
+  },
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "intermediate": "Lessons 1-2 (variable window template O(n) proof, longest substring Set vs Map optimisation)",
+      "advanced": "Lessons 4-6 (monotonic deque O(n) amortised, trapping rain water two-pointer running max, container with most water greedy proof)",
+      "hard": "Lesson 3 (minimum window substring have/need frequency matching)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

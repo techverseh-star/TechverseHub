@@ -1,0 +1,1692 @@
+{
+  "module_id": "L3-M01",
+  "module_number": 1,
+  "title": "Hard DP — Advanced Patterns",
+  "tag": null,
+  "is_optional_for_product_track": false,
+  "estimated_hours": "14–18 hours",
+  "prerequisites": [
+    "L2-M01",
+    "L2-M02",
+    "L2-M03"
+  ],
+  "learning_outcomes": [
+    "Solve Palindrome Partitioning II in O(n²) using 2D palindrome DP with a 1D cut DP",
+    "Implement tree DP where each node returns a state vector rather than a single value",
+    "Solve Travelling Salesman Problem (TSP) in O(2^n * n²) using bitmask DP on subsets",
+    "Solve Digit DP problems by counting integers in a range satisfying a property in O(d * states)",
+    "Compute expected values using probability DP with careful state definition",
+    "Identify which advanced DP technique applies to a new problem within 2 minutes"
+  ],
+  "notes": [
+    "Bitmask and Digit DP appear in competitive programming and FAANG hard rounds."
+  ],
+  "spaced_review": "Re-solve 3 failed DP problems from Level 2 from scratch",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "title": "DP On Strings — Palindromes",
+      "tag": null,
+      "objective": "Solve Palindrome Partitioning II (minimum cuts) using a 2D palindrome table combined with a 1D cut DP, and connect it to the expand-around-centre approach from Level 2.",
+      "concepts": [
+        "Palindrome Partitioning II: minimum cuts to partition s into all-palindrome substrings",
+        "Approach: precompute 2D isPalin table then 1D cut DP",
+        "dp[i] = minimum cuts for s[0..i]",
+        "Transition: dp[i] = min over j <= i where isPalin[j][i] of (dp[j-1] + 1)",
+        "Base case: dp[-1] = -1 (virtual empty prefix costs -1 so full palindrome costs 0)",
+        "O(n^2) time: n^2 palindrome table + n^2 cut DP",
+        "Connection: isPalin table built same as Palindromic Substrings (L2-M01)",
+        "Optimisation: skip isPalin table by expanding around centres during cut DP"
+      ],
+      "explanation": "Palindrome Partitioning II (#132, NeetCode 150) finds the minimum number of cuts to split s so every piece is a palindrome. Two-phase approach: Phase 1: build isPalin[i][j] = true if s[i..j] is a palindrome (O(n²), same 2D DP as Palindromic Substrings). Phase 2: 1D cut DP. dp[i] = minimum cuts for s[0..i]. For each position i, try all possible last palindrome chunks s[j..i]: if isPalin[j][i], then dp[i] = min(dp[i], dp[j-1] + 1). The virtual base case: dp[-1] = -1 (one palindrome using the full prefix from 0 requires 0 cuts = dp[-1]+1 = 0). If the entire s[0..i] is a palindrome, dp[i] = 0 (no cuts needed). Time: O(n²) for both phases. The single-pass optimisation: instead of building the full isPalin table, expand around each centre and update the cut DP inline. This avoids the O(n²) space for the table.",
+      "analogy": "Palindrome Partitioning II is like cutting a necklace into palindromic bead segments with minimum cuts. First you mark which segments are palindromes (isPalin table). Then you decide the cut positions by trying every valid palindromic ending chunk: the minimum cuts to reach position i = the best minimum cuts to reach just before the last palindromic chunk, plus one more cut.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// PALINDROME PARTITIONING II (#132) — O(n^2) time and space\nfunction minCut(s) {\n    const n = s.length;\n\n    // Phase 1: build isPalin[i][j]\n    const isPalin = Array.from({length: n}, () => new Array(n).fill(false));\n    for (let i = 0; i < n; i++) isPalin[i][i] = true;\n    for (let i = 0; i < n-1; i++) isPalin[i][i+1] = s[i] === s[i+1];\n    for (let len = 3; len <= n; len++) {\n        for (let i = 0; i <= n-len; i++) {\n            const j = i+len-1;\n            isPalin[i][j] = s[i] === s[j] && isPalin[i+1][j-1];\n        }\n    }\n\n    // Phase 2: 1D cut DP\n    // dp[i] = min cuts for s[0..i]\n    const dp = new Array(n).fill(Infinity);\n    for (let i = 0; i < n; i++) {\n        if (isPalin[0][i]) {\n            dp[i] = 0; // s[0..i] is itself a palindrome: 0 cuts\n        } else {\n            for (let j = 1; j <= i; j++) {\n                if (isPalin[j][i]) {\n                    dp[i] = Math.min(dp[i], dp[j-1] + 1);\n                }\n            }\n        }\n    }\n    return dp[n-1];\n}\n\nconsole.log(minCut('aab'));    // 1 ('a' | 'ab' -> no... 'a' | 'a' | 'b' = 2? No: 'aa'+'b' = 1 cut)\nconsole.log(minCut('a'));      // 0\nconsole.log(minCut('ab'));     // 1\nconsole.log(minCut('aabb'));   // 1 ('aa' + 'bb')\n\n// SPACE-OPTIMISED: O(n) space using expand-around-centre\n// Instead of isPalin table, expand inline during cut DP\nfunction minCut_opt(s) {\n    const n = s.length;\n    const dp = Array.from({length: n+1}, (_,i) => i-1); // dp[i] = min cuts for s[0..i-1]\n    // dp[0] = -1 (empty prefix, virtual base), dp[i] = i-1 (worst: cut every char)\n\n    for (let centre = 0; centre < n; centre++) {\n        // Odd-length palindromes\n        for (let radius = 0; centre-radius >= 0 && centre+radius < n &&\n             s[centre-radius] === s[centre+radius]; radius++) {\n            dp[centre+radius+1] = Math.min(dp[centre+radius+1], dp[centre-radius] + 1);\n        }\n        // Even-length palindromes\n        for (let radius = 1; centre-radius+1 >= 0 && centre+radius < n &&\n             s[centre-radius+1] === s[centre+radius]; radius++) {\n            dp[centre+radius+1] = Math.min(dp[centre+radius+1], dp[centre-radius+1] + 1);\n        }\n    }\n    return dp[n];\n}\nconsole.log(minCut_opt('aab'));  // 1",
+        "explanation": "The space-optimised version uses dp[i] to represent minimum cuts for s[0..i-1] (1-indexed, with dp[0]=-1 as the virtual base). When we find a palindrome s[l..r] by expanding around a centre, we update dp[r+1] = min(dp[r+1], dp[l]+1): one more cut ending at r, with the best cuts to reach just before l."
+      },
+      "common_mistakes": [
+        "Initialising dp[i] = i (n-1 cuts to split every character) instead of Infinity and handling the no-palindrome case — initialise to Infinity and update only when a palindrome exists; alternatively initialise dp[i] = i-1 for the 1-indexed version",
+        "Forgetting the base case: if s[0..i] is itself a palindrome, dp[i] = 0 (no cuts needed) — without this check, the inner loop would incorrectly give dp[i] = dp[-1] + 1 which would reference an out-of-bounds index",
+        "Using O(n³) by not precomputing the isPalin table and instead checking palindromes naively in the inner loop — always precompute the O(n²) table first; the 2D DP brings the total to O(n²)"
+      ],
+      "interview_relevance": "Palindrome Partitioning II (#132) is NeetCode 150 and appears at Google as a hard DP problem. It is one of the clearest examples of combining two DP patterns (2D palindrome table + 1D cut DP) into a single solution. Interviewers evaluate whether candidates recognise the decomposition rather than attempting to solve it in one monolithic DP.",
+      "mini_challenge": "Implement minCut and verify minCut('aab')=1, minCut('aabb')=1. Trace the isPalin table for 'aab' (3x3) and the dp array step by step. Then implement minCut_opt and verify it gives the same answers. For the optimised version: explain why dp is sized n+1 and dp[0]=-1 rather than n with dp[-1]=-1.",
+      "flashcards": [
+        {
+          "front": "Palindrome DP: fill order for dp[i][j]?",
+          "back": "Fill by INCREASING substring LENGTH. dp[i][j] depends on dp[i+1][j-1] (a shorter inner substring). So: first fill len=1 (all true), then len=2 (adjacent pairs), then len=3..n. Never fill by row or column."
+        },
+        {
+          "front": "Palindromic Substrings vs Palindromic Subsequences: 2D table difference?",
+          "back": "SUBSTRING dp[i][j]: match case = dp[i+1][j-1] (extend inward), mismatch = false. Requires contiguous characters. SUBSEQUENCE dp[i][j]: match case = 2+dp[i+1][j-1], mismatch = max(dp[i+1][j], dp[i][j-1]). Can skip characters."
+        },
+        {
+          "front": "Minimum Cuts for Palindrome Partitioning (#132): recurrence?",
+          "back": "cuts[i] = minimum cuts to partition s[0..i] into palindromes. For each j from 0 to i: if s[j..i] is a palindrome: cuts[i] = min(cuts[i], (j==0 ? 0 : cuts[j-1]+1)). Precompute palindrome[i][j] with 2D DP. O(n²) total."
+        },
+        {
+          "front": "Longest Palindromic Subsequence: recurrence for match case?",
+          "back": "dp[i][j] = 2 + dp[i+1][j-1] when s[i]==s[j]. Two characters (s[i] and s[j]) plus the longest palindromic subsequence of the inner string. Edge: when i==j: dp[i][j]=1. When i+1>j-1 (two chars, s[i]==s[j]): dp[i][j]=2."
+        },
+        {
+          "front": "Palindrome DP: how to precompute isPalin[i][j] in O(n²)?",
+          "back": "Base: isPalin[i][i]=true (single char), isPalin[i][i+1]=(s[i]==s[i+1]) (pair). For len 3 to n: isPalin[i][j] = (s[i]==s[j]) AND isPalin[i+1][j-1]. Fill in increasing length order. O(n²) total."
+        },
+        {
+          "front": "Strange Printer (#664): interval DP recurrence?",
+          "back": "dp[i][j] = min turns to print s[i..j]. Base: dp[i][i]=1. If s[i]==s[j]: dp[i][j]=dp[i][j-1] (printing j while printing i costs nothing extra). For each k in [i,j-1]: dp[i][j]=min(dp[i][j], dp[i][k]+dp[k+1][j])."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Longest Palindromic Subsequence of 'bbbab': answer and dp[0][4]?",
+          "options": [
+            "4 — 'bbbb'",
+            "3 — 'bbb'",
+            "5 — whole string",
+            "2 — 'bb'"
+          ],
+          "answer": 0,
+          "explanation": "LPS of 'bbbab': pick b at positions 0,1,2,4 → 'bbbb' (length 4). Skip 'a'. dp[0][4]=4."
+        },
+        {
+          "question": "isPalin[i][j] fill order: which must be filled BEFORE isPalin[2][5]?",
+          "options": [
+            "isPalin[3][4] (inner substring i+1=3, j-1=4)",
+            "isPalin[1][6]",
+            "isPalin[2][6]",
+            "All of the above"
+          ],
+          "answer": 0,
+          "explanation": "isPalin[2][5] = (s[2]==s[5]) AND isPalin[3][4]. The inner substring [3][4] (length 2) must be filled before [2][5] (length 4). Fill by increasing length ensures this."
+        },
+        {
+          "question": "Palindrome Partitioning II (#132): s='aab'. How many minimum cuts?",
+          "options": [
+            "0",
+            "1",
+            "2",
+            "3"
+          ],
+          "answer": 1,
+          "explanation": "'aab' → 'aa|b' = 1 cut. 'aa' is a palindrome, 'b' is a palindrome. Answer: 1. (Not 0 — 'aab' is not itself a palindrome.)"
+        },
+        {
+          "question": "Longest Palindromic Subsequence: dp[i][j] when s[i] ≠ s[j]?",
+          "options": [
+            "0 — no palindrome possible",
+            "max(dp[i+1][j], dp[i][j-1]) — skip either endpoint",
+            "dp[i+1][j-1] — shrink both sides",
+            "1 — single character"
+          ],
+          "answer": 1,
+          "explanation": "When s[i]≠s[j]: neither endpoint can pair with the other. Best option: skip s[i] (→ dp[i+1][j]) OR skip s[j] (→ dp[i][j-1]). Take the max."
+        }
+      ],
+      "visual_aid": {
+        "type": "2d_dp_table",
+        "description": "Longest Palindromic Subsequence DP table for 'bbbab'",
+        "diagram": "LPS('bbbab') — fill by increasing length:\ns: b(0) b(1) b(2) a(3) b(4)\n\nLen=1: dp[i][i]=1 for all i\n\nLen=2:\n  dp[0][1]: b=b → 2\n  dp[1][2]: b=b → 2\n  dp[2][3]: b≠a → max(1,1)=1\n  dp[3][4]: a≠b → max(1,1)=1\n\nLen=3:\n  dp[0][2]: b=b → 2+dp[1][1]=2+1=3\n  dp[1][3]: b≠a → max(dp[2][3],dp[1][2])=max(1,2)=2\n  dp[2][4]: b=b → 2+dp[3][3]=2+1=3\n\nLen=4:\n  dp[0][3]: b≠a → max(dp[1][3],dp[0][2])=max(2,3)=3\n  dp[1][4]: b=b → 2+dp[2][3]=2+1=3\n\nLen=5:\n  dp[0][4]: b=b → 2+dp[1][3]=2+2=4 ✓\n\nAnswer: 4 ('bbbb')"
+      },
+      "complexity_summary": {
+        "lps_time": "O(n²)",
+        "lps_space": "O(n²) table or O(n) two-row optimised",
+        "palindrome_precompute": "O(n²) — fill by increasing length",
+        "min_cuts_time": "O(n²) — with precomputed palindrome table",
+        "fill_order_rule": "Always fill by INCREASING substring length for interval DP"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-516",
+          "title": "Longest Palindromic Subsequence",
+          "difficulty": "Medium",
+          "pattern": "Interval DP — match=2+inner, mismatch=max(skip L, skip R)"
+        },
+        {
+          "id": "lc-132",
+          "title": "Palindrome Partitioning II",
+          "difficulty": "Hard",
+          "pattern": "1D DP + precomputed palindrome table"
+        },
+        {
+          "id": "lc-664",
+          "title": "Strange Printer",
+          "difficulty": "Hard",
+          "pattern": "Interval DP — same char at endpoints reduces cost"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M1-L1-TH-1",
+            "question": "In Palindrome Partitioning II, why must the `isPalin` table be built BEFORE the cut DP, and what is the correct order for filling the isPalin table?",
+            "options": [
+              "isPalin can be built during the cut DP loop; order doesn't matter",
+              "The isPalin table must be built FIRST because the cut DP references `isPalin[j][i]` for all j <= i — these values must be precomputed; the table is filled in ORDER OF INCREASING LENGTH: first all length-1 palindromes (i==j, always true), then length-2 pairs (s[i]==s[i+1]), then length >= 3 (s[i]==s[j] AND isPalin[i+1][j-1]); increasing-length order ensures that when isPalin[i][j] is computed, isPalin[i+1][j-1] (the inner substring, shorter) is already filled",
+              "The isPalin table can be filled in any order since it is read-only after construction",
+              "isPalin is filled right-to-left along the diagonal"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's two-phase approach: 'Phase 1: build isPalin[i][j]; Phase 2: 1D cut DP' — the isPalin table recurrence `isPalin[i][j] = s[i]==s[j] && isPalin[i+1][j-1]` requires the inner subproblem isPalin[i+1][j-1] (strictly shorter) to be already computed; this is achieved by filling in increasing length order (len=1,2,3,...,n)."
+          },
+          {
+            "id": "L3M1-L1-TH-2",
+            "question": "In the cut DP, `dp[i] = 0` when `isPalin[0][i]` is true. Why is this base case correct?",
+            "options": [
+              "When the whole prefix is a palindrome, it still needs 1 cut to separate it",
+              "If `isPalin[0][i]` is true, the ENTIRE prefix s[0..i] is one palindrome — it requires ZERO CUTS (no partitioning needed, it's already a valid single-palindrome partition); the minimum cuts for s[0..i] is 0; without this explicit base case, the inner loop would compute dp[i] = dp[-1] + 1, requiring the virtual dp[-1] = -1 convention; the explicit check cleanly handles all prefixes that are palindromes",
+              "isPalin[0][i]=true means s[0..i] has no valid palindrome partition, so dp[i]=0 represents no solution",
+              "The base case dp[i]=0 applies to all positions i, not just palindromic prefixes"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'if isPalin[0][i]: dp[i]=0 (s[0..i] is itself a palindrome: 0 cuts)' — when the entire prefix from index 0 to i is a palindrome, it forms a single valid partition with 0 cuts needed; this is the optimal answer for such positions and must be checked before the inner loop to avoid incorrectly computing dp[i] = dp[-1]+1."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M1-L1-LG-1",
+            "question": "For `minCut('aab')`, verify the result is 1 by tracing dp[0], dp[1], dp[2].",
+            "options": [
+              "dp[0]=0 ('a' is palindrome); dp[1]=0 ('aa' is palindrome); dp[2]=1 (dp[1]+1=1, since isPalin[2][2]=true); minCut='aab' → 1 cut: 'aa'|'b' ✓",
+              "dp[0]=0; dp[1]=1; dp[2]=2; minCut='aab'→2",
+              "dp[0]=0; dp[1]=0; dp[2]=0; minCut→0",
+              "dp[0]=1; dp[1]=0; dp[2]=1; minCut→1"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: minCut('aab')=1; trace: dp[0]: isPalin[0][0]=true→dp[0]=0; dp[1]: isPalin[0][1]='aa'→true→dp[1]=0; dp[2]: isPalin[0][2]='aab'→false; inner j loop: j=1→isPalin[1][2]='ab'→false; j=2→isPalin[2][2]='b'→true→dp[2]=min(Inf,dp[1]+1)=1; return dp[2]=1 ✓."
+          },
+          {
+            "id": "L3M1-L1-LG-2",
+            "question": "Why does the space-optimised version `minCut_opt` initialise `dp` as `Array.from({length:n+1}, (_,i) => i-1)`?",
+            "options": [
+              "dp[i]=i-1 initialises worst-case cuts: i-1 cuts to split i characters",
+              "The SHIFTED INDEXING: dp[i] represents cuts for s[0..i-1] (the first i characters); dp[0]=-1 is the virtual base case (empty prefix costs -1, so 'entire-string-is-palindrome' costs -1+1=0 cuts); dp[i]=i-1 initialises the WORST CASE: i-1 cuts to make i single-character palindromes (all characters are length-1 palindromes); the expand-around-centre loop then improves these values",
+              "i-1 represents the index offset for 1-based indexing",
+              "dp[i]=i-1 is the recursive formula base case for digit DP"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's comment: 'dp[i] = min cuts for s[0..i-1]; dp[0]=-1 (empty prefix, virtual base)' — the shifted-by-1 indexing makes dp[0]=-1 the virtual base; dp[i]=i-1 is the default: splitting each character alone requires i-1 cuts for i characters; the expand-around-centre pass then updates dp[right+1]=min(dp[right+1], dp[left]+1) when s[left..right] is a palindrome."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M1-L1-SY-1",
+            "question": "In the isPalin table construction, the loop for length >= 3 uses `for (let len = 3; len <= n; len++)` with inner `const j = i + len - 1`. Why start at len=3 specifically?",
+            "options": [
+              "len=3 is an arbitrary starting point; len=2 would also work",
+              "Lengths 1 and 2 are handled by EXPLICIT BASE CASES (len=1: `isPalin[i][i]=true`; len=2: `isPalin[i][i+1]=s[i]===s[i+1]`); the general recurrence `isPalin[i][j] = s[i]===s[j] && isPalin[i+1][j-1]` requires j-1 >= i+1, meaning j >= i+2, which means len = j-i+1 >= 3; for len=2, i+1 > j-1 would access isPalin[i+1][i] (invalid/undefined index); starting the general loop at len=3 avoids this invalid access",
+              "len=3 matches the minimum palindrome partition size",
+              "Lengths 1 and 2 are computed by the cut DP phase, not the isPalin phase"
+            ],
+            "answer": 1,
+            "explanation": "The general recurrence `isPalin[i][j] = s[i]===s[j] && isPalin[i+1][j-1]` requires the inner pair (i+1, j-1) to be a valid index pair (i+1 <= j-1); for len=2 (j=i+1), i+1 = j and j-1 = i, so isPalin[i+1][i] = isPalin[j][j-1] which is invalid; starting at len=3 ensures j-1 >= i+1, making all inner references valid."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M1-L1-CC-1",
+            "title": "Palindrome Partitioning II",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement Palindrome Partitioning II from this lesson.",
+            "requirements": [
+              "Implement `minCutImpl(s)` matching the lesson's two-phase approach: isPalin table then 1D cut DP"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function minCutImpl(s) {\n  // Phase 1: build isPalin[i][j] (increasing length)\n  // Phase 2: dp[i] = min cuts for s[0..i]\n  //          if isPalin[0][i]: dp[i]=0; else min over j where isPalin[j][i]\n}"
+            },
+            "test_cases": [
+              {
+                "input": "minCutImpl('aab')",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "minCutImpl('a')",
+                "expected": 0,
+                "type": "visible"
+              },
+              {
+                "input": "minCutImpl('aabb')",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "minCutImpl('ab')",
+                "expected": 1,
+                "type": "hidden"
+              },
+              {
+                "input": "minCutImpl('aaaa')",
+                "expected": 0,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function minCutImpl(s) {\n  const n=s.length;\n  const isPalin=Array.from({length:n},()=>new Array(n).fill(false));\n  for(let i=0;i<n;i++)isPalin[i][i]=true;\n  for(let i=0;i<n-1;i++)isPalin[i][i+1]=s[i]===s[i+1];\n  for(let len=3;len<=n;len++)\n    for(let i=0;i<=n-len;i++){const j=i+len-1;isPalin[i][j]=s[i]===s[j]&&isPalin[i+1][j-1];}\n  const dp=new Array(n).fill(Infinity);\n  for(let i=0;i<n;i++){\n    if(isPalin[0][i])dp[i]=0;\n    else for(let j=1;j<=i;j++)if(isPalin[j][i])dp[i]=Math.min(dp[i],dp[j-1]+1);\n  }\n  return dp[n-1];\n}"
+            },
+            "complexity_analysis": "O(n²) time for both phases. O(n²) space for isPalin table.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Phase 1: fill isPalin[i][i]=true (len=1), isPalin[i][i+1]=s[i]===s[i+1] (len=2), then for len=3..n."
+              },
+              {
+                "level": 2,
+                "text": "Phase 2: if isPalin[0][i] → dp[i]=0; else iterate j=1..i, if isPalin[j][i] → dp[i]=min(dp[i],dp[j-1]+1)."
+              },
+              {
+                "level": 3,
+                "text": "Initialise dp with Infinity (not -1); handle base case isPalin[0][i] before the inner loop."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 2,
+      "title": "DP On Trees",
+      "tag": null,
+      "objective": "Implement tree DP where each DFS call returns a state vector (not a single value), enabling O(n) solutions for problems that would otherwise require multiple DFS passes.",
+      "concepts": [
+        "Tree DP: each node computes optimal values based on subtree results",
+        "State vector: dfs(node) returns [result_if_robbed, result_if_not_robbed]",
+        "House Robber III: rob subtree DP returning [robThis, skipThis] pairs",
+        "Maximum Path Sum: postorder gain closure (from L1-M08)",
+        "Tree diameter: postorder height return + closure for max",
+        "Binary Tree Cameras: greedy DP with three states (covered, camera, not-covered)",
+        "Re-rooting DP: compute subtree DP then propagate answers to all roots in O(n)",
+        "O(n) time: single DFS with O(depth) stack space"
+      ],
+      "explanation": "Tree DP solves optimisation problems on trees using DFS where each recursive call returns not just a single value but a state vector representing multiple possible choices. The canonical example is House Robber III (#337): each node can be robbed or not. dfs(node) returns [robThis, skipThis] where robThis = node.val + skipLeft + skipRight and skipThis = max(robLeft, skipLeft) + max(robRight, skipRight). The answer is max(rob, skip) at the root. Binary Tree Cameras (#968) uses three states: 0 (not covered, needs camera from parent), 1 (has a camera), 2 (covered by child's camera). Bottom-up: leaves are state 0 (not covered); if any child is state 0, current node must have a camera (state 1, increment camera count); if any child has a camera (state 1), current is covered (state 2); otherwise current is not covered (state 0). Re-rooting DP: when a problem asks for the answer rooted at every possible node (e.g., sum of distances in a tree), compute subtree answers first, then re-root in a second DFS propagating the answer from parent to children in O(n).",
+      "analogy": "Tree DP state vectors are like a manager asking each department head for two reports: 'give me your best quarterly result if your team is fully staffed, AND your best result if your team is half-staffed.' The manager combines these two reports from all department heads before making the final decision. Each department head does the same recursively with their own teams.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// HOUSE ROBBER III (#337) — tree DP with state vector\nfunction rob(root) {\n    function dfs(node) {\n        if (!node) return [0, 0]; // [robThis, skipThis]\n        const [leftRob, leftSkip]   = dfs(node.left);\n        const [rightRob, rightSkip] = dfs(node.right);\n        const robThis  = node.val + leftSkip + rightSkip; // rob: skip children\n        const skipThis = Math.max(leftRob, leftSkip) + Math.max(rightRob, rightSkip);\n        return [robThis, skipThis];\n    }\n    return Math.max(...dfs(root));\n}\n\n// BINARY TREE CAMERAS (#968) — greedy tree DP\n// States: 0=not covered, 1=has camera, 2=covered (no camera)\nfunction minCameraCover(root) {\n    let cameras = 0;\n    function dfs(node) {\n        if (!node) return 2; // null node: pretend covered (no camera needed)\n        const left = dfs(node.left);\n        const right = dfs(node.right);\n\n        if (left === 0 || right === 0) {\n            cameras++; // child not covered: must place camera here\n            return 1;\n        }\n        if (left === 1 || right === 1) {\n            return 2; // child has camera: this node is covered\n        }\n        return 0; // both children covered: this node NOT covered, parent must cover\n    }\n    const rootState = dfs(root);\n    if (rootState === 0) cameras++; // root uncovered: needs a camera\n    return cameras;\n}\n\n// SUM OF DISTANCES IN TREE (#834) — re-rooting DP\nfunction sumOfDistancesInTree(n, edges) {\n    const adj = Array.from({length:n}, () => []);\n    for (const [u,v] of edges) { adj[u].push(v); adj[v].push(u); }\n\n    const count = new Array(n).fill(1); // subtree size\n    const ans   = new Array(n).fill(0); // answer for each root\n\n    // DFS 1: compute subtree sizes and ans[0] (distances from root 0)\n    function dfs1(node, parent) {\n        for (const child of adj[node]) {\n            if (child === parent) continue;\n            dfs1(child, node);\n            count[node] += count[child];\n            ans[node]   += ans[child] + count[child];\n        }\n    }\n    // DFS 2: re-root: propagate from parent to children\n    function dfs2(node, parent) {\n        for (const child of adj[node]) {\n            if (child === parent) continue;\n            // Re-rooting: moving root from node to child:\n            // distances increase by (n - count[child]) for all outside the subtree\n            // distances decrease by count[child] for all inside the subtree\n            ans[child] = ans[node] - count[child] + (n - count[child]);\n            dfs2(child, node);\n        }\n    }\n    dfs1(0, -1);\n    dfs2(0, -1);\n    return ans;\n}",
+        "explanation": "Re-rooting DP is a powerful technique for problems where the answer depends on which node is the root. Computing from scratch for each root would be O(n²). Re-rooting: compute answer for one root (dfs1), then propagate to all other roots in O(1) per edge using the relationship: ans[child] = ans[parent] - count[child] + (n - count[child]). Total: O(n)."
+      },
+      "common_mistakes": [
+        "Not handling null nodes explicitly in tree DP — null nodes must return a valid state vector (e.g., [0,0] for House Robber or state 2 for Cameras); returning undefined causes incorrect parent computations",
+        "Confusing state 0 (not covered) with state 2 (covered) in Binary Tree Cameras — the three states must be precisely: 0=needs camera from above, 1=has own camera, 2=covered by child; mixing up 0 and 2 inverts the greedy logic",
+        "Computing re-rooting DP without first computing the subtree sizes and root-0 answer — re-rooting requires dfs1 before dfs2; dfs2 alone cannot work because it relies on count[] and ans[0]"
+      ],
+      "interview_relevance": "House Robber III (#337) and Binary Tree Cameras (#968) are NeetCode 150 and appear at senior-level interviews at Google and Meta. The state-vector return pattern (returning multiple values per DFS call) is the key insight that distinguishes tree DP from simple tree traversal. Sum of Distances in Tree (#834) is a hard problem that appears at Google specifically to test re-rooting DP.",
+      "mini_challenge": "Implement the House Robber III solution and verify it returns 7 for the tree [3,[4,[1,null,null],[3,null,null]],[5,null,[1,null,null]]]. Trace the [robThis, skipThis] pairs at each node. Then implement Binary Tree Cameras and verify it returns 1 for a single-node tree and 2 for a 5-node path. Explain why returning 2 (covered) for null nodes is the correct choice for the greedy to work.",
+      "flashcards": [
+        {
+          "front": "Tree DP: general pattern?",
+          "back": "Postorder DFS where each node returns a value (or pair of values) computed from its children's results. The key: combine children's DP values bottom-up. No repeated work — each node processed exactly once → O(n) for trees."
+        },
+        {
+          "front": "House Robber III (#337): what does each node return?",
+          "back": "A pair [rob, skip]: rob = max gain robbing this node (must skip both children); skip = max(robRightChild, skipRightChild) + max(robLeftChild, skipLeftChild). The parent decides which is better. Avoids the O(n²) recomputation of naive approach."
+        },
+        {
+          "front": "Binary Tree Maximum Path Sum: what does the helper return vs track globally?",
+          "back": "RETURNS: best ONE-SIDED gain from this node going down (max(0, nodeVal + max(leftGain, rightGain))). TRACKS globally: best two-sided path through this node (nodeVal + leftGain + rightGain). These are different values — the return is for the parent, the global is the answer."
+        },
+        {
+          "front": "Diameter of Binary Tree: tree DP recurrence?",
+          "back": "At each node: diameter_through_node = (leftHeight+1) + (rightHeight+1). Return value to parent: 1 + max(leftHeight, rightHeight). globalMax = max(globalMax, diameter_through_node). O(n) single DFS pass."
+        },
+        {
+          "front": "Distribute Coins (#979): tree DP approach?",
+          "back": "DFS returns the NET FLOW through each edge: flow = (coins in subtree) - (nodes in subtree). |flow| = number of moves needed through this edge. Sum |flow| over all edges = total moves. O(n) single pass."
+        },
+        {
+          "front": "Tree DP: when to use pair return vs global variable?",
+          "back": "PAIR return: when the node needs to track two mutually exclusive states (rob/skip, include/exclude). GLOBAL variable: when combining children gives a two-directional answer (max path sum, diameter) that the parent can't use directly. Both patterns are O(n)."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "House Robber III on tree [3,2,3,null,3,null,1]: max gain?",
+          "options": [
+            "7",
+            "6",
+            "9",
+            "5"
+          ],
+          "answer": 0,
+          "explanation": "Root=3: rob children's children (3+3+1=7) vs skip root (2+3=5). Rob root+grandchildren: 3+3+1=7. vs 2+3=5. Answer: 7."
+        },
+        {
+          "question": "Tree DP for Max Path Sum: leaf node returns what gain to its parent?",
+          "options": [
+            "max(0, leaf.val) — clamped to avoid negative contribution",
+            "leaf.val — always included",
+            "0 — leaves don't contribute",
+            "leaf.val + 1"
+          ],
+          "answer": 0,
+          "explanation": "gain(leaf) = leaf.val + max(0 from left null, 0 from right null) = leaf.val. But the gain returned to parent = max(0, leaf.val) — if the leaf is negative, its subtree contributes nothing positive. Clamping at 0 prevents extending the path into negative territory."
+        },
+        {
+          "question": "Diameter of Binary Tree: what is the diameter through a node with leftHeight=3, rightHeight=2?",
+          "options": [
+            "5",
+            "7",
+            "6 = (3+1)+(2+1)",
+            "4"
+          ],
+          "answer": 2,
+          "explanation": "diameter = (leftHeight+1) + (rightHeight+1) = 4 + 3 = 7? Wait: diameter = left_arm + right_arm. left_arm = leftHeight+1 = 4 edges. right_arm = rightHeight+1 = 3 edges. Total diameter = 7. But often stated as (leftH+1)+(rightH+1) = (3+1)+(2+1) = 4+3 = 7. Hmm — let me recheck: if leftHeight=3 (longest path has 3 edges to leaf), leftH+1=4 includes this node. Actually diameter through node = leftH + rightH + 2 = 3+2+2=7? No: standard: left_path_length = leftH+1 (edges from this node down-left), right_path_length = rightH+1 (edges down-right). Diameter = (leftH+1)+(rightH+1) = 3+1+2+1 = 7."
+        },
+        {
+          "question": "Distribute Coins: tree with root=0, left=3, right=0. Flow through root-left edge?",
+          "options": [
+            "flow=2 (left subtree has 3 coins, 1 node, excess=2, 2 moves needed through this edge)",
+            "flow=3",
+            "flow=1",
+            "flow=0"
+          ],
+          "answer": 0,
+          "explanation": "Left subtree: 3 coins, 1 node. Net flow = coins - nodes = 3-1 = 2. Two extra coins need to travel across the root-left edge. |flow|=2 moves. Similarly if right subtree has 0 coins, 1 node: flow=-1, 1 move inward. Total = 2+1+|root flow|."
+        }
+      ],
+      "visual_aid": {
+        "type": "tree_dp_pattern",
+        "description": "House Robber III DFS return pair pattern",
+        "diagram": "HOUSE ROBBER III — return [rob, skip] from each node:\n\nTree:       3\n           / \\\n          2   3\n           \\   \\\n            3   1\n\nPostorder DFS:\n  Leaf node 3 (left-right):  [rob=3, skip=0]\n  Leaf node 1 (right-right): [rob=1, skip=0]\n\n  Node 2 (left child of root):\n    left child: null → [0,0]\n    right child: [3,0]\n    rob(2)  = 2 + skip_left(0) + skip_right(0) = 2\n    skip(2) = max(rob_right=3, skip_right=0) + 0 = 3\n    Return [rob=2, skip=3]\n\n  Node 3 (right child of root):\n    left child: null → [0,0]\n    right child: [1,0]\n    rob(3)  = 3 + 0 + 0 = 3\n    skip(3) = 0 + max(1,0) = 1\n    Return [rob=3, skip=1]\n\n  Root (3):\n    rob(root)  = 3 + skip_left(3) + skip_right(1) = 3+3+1 = 7\n    skip(root) = max(rob_left=2,skip_left=3) + max(rob_right=3,skip_right=1)\n               = 3 + 3 = 6\n    Answer: max(7, 6) = 7 ✓"
+      },
+      "complexity_summary": {
+        "all_tree_dp": "O(n) — each node visited once in postorder DFS",
+        "space": "O(h) call stack where h = tree height",
+        "pair_return": "O(1) extra per node for [rob,skip] or [include,exclude] states",
+        "global_var": "O(1) extra for tracking diameter, max path sum globally"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-337",
+          "title": "House Robber III",
+          "difficulty": "Medium",
+          "pattern": "Tree DP — return [rob, skip] pair"
+        },
+        {
+          "id": "lc-124",
+          "title": "Binary Tree Maximum Path Sum",
+          "difficulty": "Hard",
+          "pattern": "Postorder gain + global max closure",
+          "blind75": true
+        },
+        {
+          "id": "lc-979",
+          "title": "Distribute Coins in Binary Tree",
+          "difficulty": "Medium",
+          "pattern": "Tree DP — return net flow, sum |flow|"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M1-L2-TH-1",
+            "question": "In House Robber III, why does `dfs(node)` return a STATE VECTOR `[robThis, skipThis]` instead of a single optimal value?",
+            "options": [
+              "Returning a state vector makes the code cleaner but a single value would also work",
+              "A SINGLE VALUE would lose critical information: the parent node needs to know BOTH options independently — 'what if I rob this child?' (use skipThis to constrain the child) and 'what if I skip this child?' (can use max(robChild, skipChild) freely); if dfs returned only max(robThis, skipThis), the parent couldn't enforce the 'no adjacent robbery' constraint; the parent computes robThis=val+leftSkip+rightSkip (uses skipThis from children) and skipThis=max(leftRob,leftSkip)+max(rightRob,rightSkip) (freely chooses best from children)",
+              "State vectors are required because trees have two children",
+              "Returning a vector enables memoisation of both states simultaneously"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'State vector: dfs(node) returns [robThis, skipThis]' — the key insight is that the parent's decision about whether to rob or skip DEPENDS ON the full state of each child; collapsing children's state to a single maximum loses the choice dimension that the parent needs to enforce the adjacency constraint."
+          },
+          {
+            "id": "L3M1-L2-TH-2",
+            "question": "In Binary Tree Cameras (#968), `null` nodes return state 2 (COVERED). Why not state 0 (not covered)?",
+            "options": [
+              "null nodes should return state 0 to force cameras on leaf nodes",
+              "If null returned state 0 (NOT COVERED), the parent of every leaf node would see a 'not covered' child and be FORCED to place a camera on itself (since one child is uncovered); this would place cameras at the PARENT LEVEL of every leaf, which is NOT optimal; leaves can be left uncovered by their own position (state 0), and the GRANDPARENT can cover them; returning state 2 (covered) for null makes the leaf node's children appear satisfied, allowing the leaf to return 0 (not covered) and letting the leaf's parent decide optimally",
+              "null returning state 2 prevents stack overflow in deep trees",
+              "State 2 for null is the default JavaScript behavior"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: `if (!node) return 2; // null node: pretend covered` — the null-as-covered convention enables the optimal leaf strategy: leaves return 0 (not covered by them, needs parent to cover); if null children returned 0, leaves would be forced to have cameras (unnecessarily); the grandparent coverage pattern is more efficient for trees."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M1-L2-LG-1",
+            "question": "For House Robber III on a tree with root=3, left=2, right=3 (3 is root, children have values 2 and 3): trace the dfs calls and final answer.",
+            "options": [
+              "dfs(left=2): [2,0]; dfs(right=3): [3,0]; at root=3: robThis=3+0+0=3, skipThis=max(2,0)+max(3,0)=5; max(3,5)=5",
+              "dfs(left=2): [2,0]; dfs(right=3): [3,0]; robThis=2+3=5 (wrong: adds child values not skipChild)",
+              "Answer is 3 (rob only the root)",
+              "Answer is 6 (rob all nodes including root)"
+            ],
+            "answer": 0,
+            "explanation": "Tracing House Robber III: dfs(null)=[0,0]; dfs(left=2): left=right=[0,0]; robThis=2+0+0=2; skipThis=max(0,0)+max(0,0)=0; return [2,0]; dfs(right=3): similarly [3,0]; at root=3: robThis=3+skipLeft+skipRight=3+0+0=3; skipThis=max(robLeft,skipLeft)+max(robRight,skipRight)=max(2,0)+max(3,0)=5; max(3,5)=5."
+          },
+          {
+            "id": "L3M1-L2-LG-2",
+            "question": "In the Re-rooting DP (Sum of Distances in Tree), what does `ans[child] = ans[node] - count[child] + (n - count[child])` compute?",
+            "options": [
+              "It computes the distance from child to all nodes outside the subtree",
+              "RE-ROOTING FORMULA: when moving the root from `node` to `child`, each node's distance to the new root changes; for the count[child] nodes INSIDE child's subtree: their distance decreases by 1 (they're one step closer to root) → subtract count[child]; for the (n-count[child]) nodes OUTSIDE child's subtree: their distance increases by 1 → add (n-count[child]); combined: ans[child] = ans[node] - count[child] + (n-count[child]); this propagates the answer from parent to all children in O(n) total",
+              "The formula computes BFS level of the child node",
+              "ans[child]=ans[node] means children always have the same answer as parent"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's comment: 'Re-rooting: moving root from node to child: distances increase by (n-count[child]) for all outside the subtree; distances decrease by count[child] for all inside' — the formula captures both effects simultaneously; DFS2 propagates this change to all children in a single O(n) pass, transforming the O(n²) naive multi-root approach into O(n)."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M1-L2-SY-1",
+            "question": "In `sumOfDistancesInTree`, `count` is initialised as `new Array(n).fill(1)` (each node counts itself). Why start at 1 rather than 0?",
+            "options": [
+              "Starting at 0 would also work; 1 is just an optimisation",
+              "Each node is counted as a SUBTREE OF SIZE 1 by itself; `count[node]` represents 'number of nodes in the subtree rooted at node INCLUDING node itself'; initialising with 1 means the base case is already set; during DFS1, `count[node] += count[child]` correctly accumulates: leaf nodes stay at 1 (no children contribute), internal nodes grow by the sizes of their subtrees; initialising with 0 would require explicitly adding 1 for each node in the DFS",
+              "count[node]=1 represents the edge count from node to its parent",
+              "count is initialised with 1 to represent the number of connected components"
+            ],
+            "answer": 1,
+            "explanation": "The convention `count[node] = size of subtree rooted at node` has the natural base case: every leaf has subtree size 1 (just itself); initialising with 1 and accumulating child counts via `count[node] += count[child]` correctly builds the subtree sizes; the formula in DFS2 then correctly uses `n - count[child]` = nodes NOT in child's subtree."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M1-L2-CC-1",
+            "title": "House Robber III and Binary Tree Cameras",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement tree DP problems from this lesson.",
+            "requirements": [
+              "Implement `robImpl(root)` matching the lesson's state-vector dfs returning [robThis, skipThis]",
+              "Implement `minCameraCoverImpl(root)` matching the lesson's three-state greedy tree DP"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function robImpl(root) {\n  // TODO: dfs returns [robThis, skipThis]; combine children; return max(dfs(root))\n}\n\nfunction minCameraCoverImpl(root) {\n  // TODO: dfs returns 0=uncovered, 1=has camera, 2=covered;\n  //       null→2; child=0→camera++,return 1; child=1→return 2; default→return 0\n}"
+            },
+            "test_cases": [
+              {
+                "input": "robImpl({val:3,left:{val:2,left:null,right:{val:3,left:null,right:null}},right:{val:3,left:null,right:{val:1,left:null,right:null}}})",
+                "expected": 7,
+                "type": "visible"
+              },
+              {
+                "input": "robImpl({val:3,left:{val:4,left:{val:1,left:null,right:null},right:{val:3,left:null,right:null}},right:{val:5,left:null,right:{val:1,left:null,right:null}}})",
+                "expected": 9,
+                "type": "visible"
+              },
+              {
+                "input": "minCameraCoverImpl({val:0,left:{val:0,left:{val:0,left:null,right:null},right:null},right:null})",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "robImpl({val:1,left:null,right:null})",
+                "expected": 1,
+                "type": "hidden"
+              },
+              {
+                "input": "minCameraCoverImpl({val:0,left:{val:0,left:null,right:null},right:{val:0,left:null,right:null}})",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function robImpl(root) {\n  function dfs(node){\n    if(!node)return[0,0];\n    const[lr,ls]=dfs(node.left),[rr,rs]=dfs(node.right);\n    return[node.val+ls+rs,Math.max(lr,ls)+Math.max(rr,rs)];\n  }\n  return Math.max(...dfs(root));\n}\n\nfunction minCameraCoverImpl(root) {\n  let cameras=0;\n  function dfs(node){\n    if(!node)return 2;\n    const l=dfs(node.left),r=dfs(node.right);\n    if(l===0||r===0){cameras++;return 1;}\n    if(l===1||r===1)return 2;\n    return 0;\n  }\n  if(dfs(root)===0)cameras++;\n  return cameras;\n}"
+            },
+            "complexity_analysis": "Both: O(n) — single DFS traversal. O(h) stack space where h=tree height.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "robImpl: dfs returns [robThis, skipThis]; robThis=val+leftSkip+rightSkip; skipThis=max(leftRob,leftSkip)+max(rightRob,rightSkip)."
+              },
+              {
+                "level": 2,
+                "text": "minCameraCoverImpl: null→2; if any child=0→cameras++,return 1; if any child=1→return 2; else return 0."
+              },
+              {
+                "level": 3,
+                "text": "After dfs(root), if rootState===0 → cameras++ (root has no parent to cover it)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 3,
+      "title": "DP With Bitmask",
+      "tag": "ADDED",
+      "objective": "Solve the Travelling Salesman Problem (TSP) and subset enumeration problems using bitmask DP, representing subsets as integers and iterating over subsets efficiently.",
+      "concepts": [
+        "Bitmask DP: represent a subset of n elements as an n-bit integer",
+        "Bit i set in mask: element i is in the subset",
+        "State: dp[mask][i] = best cost to have visited exactly the subset 'mask', ending at node i",
+        "TSP transition: dp[mask | (1<<j)][j] = min of dp[mask][i] + dist[i][j] for all j not in mask",
+        "TSP base case: dp[1<<0][0] = 0 (start at node 0, only node 0 visited)",
+        "TSP answer: min over all i of dp[(1<<n)-1][i] + dist[i][0] (return to start)",
+        "O(2^n * n^2) time and O(2^n * n) space: feasible for n <= 20",
+        "Subset enumeration: iterate over submasks of a mask in O(3^n) total"
+      ],
+      "explanation": "Bitmask DP represents subsets of n elements using binary integers where bit i indicates element i is included. The Travelling Salesman Problem (TSP) asks for the shortest tour visiting all n cities exactly once and returning to the start. Bitmask DP state: dp[mask][i] = minimum distance to visit exactly the cities in 'mask' ending at city i. Transition: for each city j not in mask, dp[mask | (1<<j)][j] = min(dp[mask | (1<<j)][j], dp[mask][i] + dist[i][j]). Base case: dp[1][0] = 0 (start at city 0, only city 0 visited, mask = 1 = binary '1'). Answer: min over i of dp[(1<<n)-1][i] + dist[i][0]. The bitmask (1<<n)-1 represents all n cities visited. The time complexity O(2^n * n²) is feasible for n <= 20 (about 20 million operations for n=20). Bitmask DP appears in competitive programming for any problem involving optimal selection of subsets where the order matters.",
+      "analogy": "Bitmask DP for TSP is like planning a road trip where each city is a switch on a control panel. The panel has n switches (one per city), all starting off. As you visit each city, you flip its switch. The state is the current panel configuration (which switches are on = which cities are visited) plus which city you are currently in. The DP fills in the minimum cost for every possible panel configuration and current position.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// TRAVELLING SALESMAN PROBLEM (TSP) — bitmask DP\n// O(2^n * n^2) time, O(2^n * n) space\nfunction tsp(dist) {\n    const n = dist.length;\n    const FULL = (1 << n) - 1; // all cities visited\n    const INF = Infinity;\n\n    // dp[mask][i] = min cost to visit exactly cities in 'mask', ending at city i\n    const dp = Array.from({length: 1 << n}, () => new Array(n).fill(INF));\n    dp[1][0] = 0; // start at city 0 (mask=1 means only city 0 visited)\n\n    for (let mask = 1; mask <= FULL; mask++) {\n        for (let i = 0; i < n; i++) {\n            if (dp[mask][i] === INF) continue;\n            if (!(mask & (1 << i))) continue; // city i not in mask\n\n            // Try extending to city j not yet visited\n            for (let j = 0; j < n; j++) {\n                if (mask & (1 << j)) continue; // already visited\n                const nextMask = mask | (1 << j);\n                dp[nextMask][j] = Math.min(dp[nextMask][j], dp[mask][i] + dist[i][j]);\n            }\n        }\n    }\n\n    // Return to start: complete the tour\n    let minTour = INF;\n    for (let i = 1; i < n; i++) { // start at 0, so end at i != 0\n        if (dp[FULL][i] !== INF) {\n            minTour = Math.min(minTour, dp[FULL][i] + dist[i][0]);\n        }\n    }\n    return minTour;\n}\n\n// TEST: 4 cities\nconst dist = [\n    [0,  10, 15, 20],\n    [10,  0,  35, 25],\n    [15, 35,  0,  30],\n    [20, 25, 30,   0]\n];\nconsole.log(tsp(dist)); // 80 (0->1->3->2->0: 10+25+30+15=80)\n\n// BITMASK OPERATIONS CHEATSHEET:\n// Check if bit i is set: mask & (1 << i)\n// Set bit i:             mask | (1 << i)\n// Clear bit i:           mask & ~(1 << i)\n// Number of set bits:    hammingWeight(mask)\n// All n bits set:        (1 << n) - 1\n// Lowest set bit:        mask & (-mask)\n// Remove lowest bit:     mask & (mask - 1)\n\n// SUBSET ENUMERATION: iterate all submasks of 'mask'\n// Used in subset DP problems\nfunction iterateSubmasks(mask) {\n    const submasks = [];\n    for (let sub = mask; sub > 0; sub = (sub-1) & mask) {\n        submasks.push(sub);\n    }\n    submasks.push(0); // empty subset\n    return submasks;\n}",
+        "explanation": "The submask enumeration loop (sub = (sub-1) & mask) iterates all non-empty subsets of mask in O(2^|mask|) per mask. Across all masks, the total is O(3^n) because each element can be: in the outer mask but not in sub (1 choice), in both (1 choice), or in neither (1 choice) = 3 choices per element."
+      },
+      "common_mistakes": [
+        "Initialising all of dp with 0 instead of Infinity — only dp[1][0] = 0 is valid; all other states are unreachable until the DP fills them; Infinity prevents unreachable states from propagating",
+        "Not checking that city i is actually in mask before extending — the inner loop must verify mask & (1<<i); without this, you would extend from states where city i is not the current last city",
+        "Forgetting the return leg (dist[i][0]) in the final answer — the DP fills in the cost to visit all cities ending at i; the tour requires returning to city 0; add dist[i][0] to complete the tour"
+      ],
+      "interview_relevance": "Bitmask DP appears in hard competitive programming problems and senior FAANG interviews. It is the go-to technique for optimal subset selection where order matters and n <= 20. Problems like 'find the minimum cost to assign n tasks to n workers' (assignment problem) use bitmask DP. The module notes specifically call out FAANG hard rounds as a context where this appears.",
+      "mini_challenge": "Implement tsp and verify it returns 80 for the 4-city distance matrix. Trace the dp table for the first few mask values (mask=1,3,5,9) and verify the transitions are correct. Then solve Minimum Cost to Connect Sticks (but with assignments): given n workers and n tasks with cost[i][j], minimise total assignment cost. This is the assignment problem, solvable with bitmask DP in O(2^n * n) or Hungarian algorithm in O(n³).",
+      "flashcards": [
+        {
+          "front": "Bitmask DP: what problem structure enables it?",
+          "back": "A set of n elements (n ≤ 20 typically) where the STATE is which SUBSET has been processed. Represent each subset as an n-bit integer. Total states = 2^n. Transition: from state mask, add one element not yet in mask."
+        },
+        {
+          "front": "Bitmask DP: state representation and complexity?",
+          "back": "State: (mask, last) or just (mask). mask is an integer where bit i=1 means element i is included. O(2^n × n) states, O(n) transition per state → O(2^n × n²) total. For n=20: ~400M operations — at the edge. Practical for n≤15-18."
+        },
+        {
+          "front": "Bitmask: check if bit i is set, set bit i, clear bit i?",
+          "back": "Check: (mask >> i) & 1 or mask & (1<<i). Set: mask | (1<<i). Clear: mask & ~(1<<i). Toggle: mask ^ (1<<i). Count bits: popcount(mask) or iterative. These are O(1) operations."
+        },
+        {
+          "front": "Travelling Salesman Problem (TSP) with DP+bitmask: recurrence?",
+          "back": "dp[mask][i] = minimum cost to visit exactly the set of cities in mask, ending at city i. Transition: dp[mask|(1<<j)][j] = min(dp[mask|(1<<j)][j], dp[mask][i] + cost[i][j]) for all j not in mask. Answer: min over i of dp[(1<<n)-1][i] + cost[i][start]."
+        },
+        {
+          "front": "Partition into k Equal Sum Subsets (#698): bitmask DP?",
+          "back": "dp[mask] = the 'progress' of the current bucket being filled when cities in mask are already placed. For each mask, try adding the next unplaced element to the current bucket. When bucket fills (sum == target), advance to the next bucket. O(2^n × n)."
+        },
+        {
+          "front": "Minimum Cost to Connect Sticks (#1167) vs bitmask DP: when NOT to use bitmask?",
+          "back": "When n is large (n > 20), bitmask DP is infeasible (2^20 ≈ 1M states but 2^30 ≈ 1B). Instead: greedy/heap (#1167), standard DP, or divide-and-conquer. Bitmask DP is specifically for small-n complete enumeration of subsets."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "n=3 elements. mask=5 (binary 101). Which elements are included?",
+          "options": [
+            "Elements 0 and 2 (bits 0 and 2 set)",
+            "Elements 1 and 2",
+            "Elements 0 and 1",
+            "All elements"
+          ],
+          "answer": 0,
+          "explanation": "5 = 101₂. Bit 0 is set (element 0 included), bit 1 is clear (element 1 not included), bit 2 is set (element 2 included). Elements {0, 2}."
+        },
+        {
+          "question": "TSP with 4 cities: how many dp states (mask, last)?",
+          "options": [
+            "16",
+            "64",
+            "32",
+            "4×16=64"
+          ],
+          "answer": 1,
+          "explanation": "2^4 = 16 masks × 4 cities (last city) = 64 states. But only valid states where bit 'last' is set in mask. Still O(2^n × n) = 16×4 = 64 upper bound."
+        },
+        {
+          "question": "mask=6 (110₂). How to get the mask representing adding element 0 to this set?",
+          "options": [
+            "mask | (1<<0) = 6 | 1 = 7 (111₂)",
+            "mask + 1 = 7",
+            "mask ^ 1 = 7",
+            "All correct, but A is the idiomatic bitmask way"
+          ],
+          "answer": 3,
+          "explanation": "All three give 7 (111₂) in this specific case. But only A (mask | (1<<0)) is the idiomatic and generally correct bitmask operation — + and ^ can give wrong results when element 0 is already in the mask (mask already has bit 0 set)."
+        },
+        {
+          "question": "Assignment Problem (n workers, n tasks): bitmask DP complexity for n=15?",
+          "options": [
+            "O(n²) = 225",
+            "O(2^n × n²) = 2^15 × 225 ≈ 7.4M",
+            "O(n!) = 1.3 trillion",
+            "O(2^n) = 32768"
+          ],
+          "answer": 1,
+          "explanation": "O(2^n × n²) = 32768 × 225 ≈ 7.4M — feasible. Compare to brute force O(n!) = 1.3×10^12 — infeasible. Bitmask DP is the standard optimal solution for assignment problems with n≤18."
+        }
+      ],
+      "visual_aid": {
+        "type": "bitmask_dp",
+        "description": "TSP bitmask DP state space visualised for n=3",
+        "diagram": "TSP with n=3 cities (0,1,2), start at 0:\n\nSTATES (mask, last_city):\n  mask=001₂(1): visited {0} only. dp[1][0]=0 (start)\n  mask=011₂(3): visited {0,1}. dp[3][1]=dist(0,1)\n  mask=101₂(5): visited {0,2}. dp[5][2]=dist(0,2)\n  mask=111₂(7): visited {0,1,2}.\n    dp[7][1] = min(dp[5][2]+dist(2,1), dp[3][1]? no need to revisit)\n             = dp[5][2]+dist(2,1) or dp[3][1]... \n    dp[7][2] = dp[3][1]+dist(1,2)\n\nANSWER: min(dp[7][1]+dist(1,0), dp[7][2]+dist(2,0))\n\nTRANSITION: dp[mask|(1<<j)][j] = min(dp[mask|(1<<j)][j],\n                                      dp[mask][i] + cost[i][j])\n  where bit j NOT set in mask, i IS set in mask (= last city)\n\nCOMPLEXITY: O(2^n × n) states × O(n) transitions = O(2^n × n²)"
+      },
+      "complexity_summary": {
+        "bitmask_dp_time": "O(2^n × n²)",
+        "bitmask_dp_space": "O(2^n × n)",
+        "practical_n_limit": "n ≤ 18-20 (2^20 ≈ 1M states)",
+        "bit_operations": "All O(1): check, set, clear, toggle via &, |, ^, ~"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-847",
+          "title": "Shortest Path Visiting All Nodes",
+          "difficulty": "Hard",
+          "pattern": "BFS + bitmask state (node, visited_mask)"
+        },
+        {
+          "id": "lc-698",
+          "title": "Partition to K Equal Sum Subsets",
+          "difficulty": "Medium",
+          "pattern": "Bitmask DP — bucket progress tracking"
+        },
+        {
+          "id": "lc-1125",
+          "title": "Smallest Sufficient Team",
+          "difficulty": "Hard",
+          "pattern": "Bitmask DP — skill coverage tracking"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M1-L3-TH-1",
+            "question": "In TSP bitmask DP, the state is `dp[mask][i]` where mask is a bitmask of visited cities and i is the current city. Why must we also track i (current city), not just mask?",
+            "options": [
+              "Tracking i is optional; mask alone determines the minimum cost",
+              "The TRANSITION COST depends on the LAST CITY VISITED: to extend the tour by going to city j, we need dist[i][j] — the cost from the CURRENT city i to j; two tours visiting the same set of cities (same mask) but ending at different cities have different continuation costs; mask alone cannot distinguish these scenarios; tracking i gives the full state: 'having visited exactly the cities in mask, currently AT city i, what is the minimum cost to reach this state?'",
+              "i is tracked to detect revisited cities without checking the mask",
+              "The mask alone would require O(2^n * n!) space"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's state definition: 'dp[mask][i] = best cost to have visited exactly the subset mask, ending at node i' — the transition is dp[mask|(1<<j)][j] = min(dp[mask|(1<<j)][j], dp[mask][i] + dist[i][j]); this requires knowing i (current city) to look up dist[i][j]; mask alone gives the visited set but not the departure city for the next leg."
+          },
+          {
+            "id": "L3M1-L3-TH-2",
+            "question": "For the 4-city TSP with the given distance matrix, the answer is 80. Verify the optimal tour 0→1→3→2→0.",
+            "options": [
+              "0→1→3→2→0: dist[0][1]+dist[1][3]+dist[3][2]+dist[2][0] = 10+25+30+15 = 80 ✓",
+              "0→1→2→3→0: 10+35+30+20 = 95",
+              "0→2→1→3→0: 15+35+25+20 = 95",
+              "0→3→1→2→0: 20+25+35+15 = 95"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution and arithmetic: dist[0][1]=10, dist[1][3]=25, dist[3][2]=30, dist[2][0]=15; sum=10+25+30+15=80; alternative tours like 0→1→2→3→0 = 10+35+30+20=95 are more expensive; the bitmask DP correctly finds the minimum-cost tour of 80."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M1-L3-LG-1",
+            "question": "In the TSP loop, the condition `if (!(mask & (1 << i))) continue` skips states where city i is not in the mask. Why is this check necessary?",
+            "options": [
+              "The check is optional; it's only an optimisation",
+              "The state dp[mask][i] represents 'currently at city i after visiting cities in mask'; this is only VALID when city i IS actually in mask (you can't be at city i if you haven't visited it); without this check, the algorithm would process invalid states where i is not in mask, computing incorrect transitions from a city that hasn't been reached; the check enforces the invariant that the current city must be part of the visited set",
+              "The check prevents visiting the start city (city 0) in the middle of the tour",
+              "mask & (1<<i) checks if city i has been fully explored, not just visited"
+            ],
+            "answer": 1,
+            "explanation": "The invariant for dp[mask][i] requires city i to be in mask: you must have visited city i to currently be there; initialising dp with Infinity (default) means dp[mask][i] is Infinity whenever city i is not in mask (never reached a valid state there); the continue ensures these invalid/unreachable states are skipped without attempting to extend them."
+          },
+          {
+            "id": "L3M1-L3-LG-2",
+            "question": "The `iterateSubmasks(6)` function returns `[6, 4, 2, 0]` for mask=6 (binary 110). What submasks of 6 are these in binary?",
+            "options": [
+              "6=110, 4=100, 2=010, 0=000 — these are all subsets of bits {bit1, bit2}: 11, 10, 01, 00 ✓",
+              "6=110, 4=100, 2=010, 0=000 — but 2=010 is NOT a submask of 6=110",
+              "Submasks of 6 are {6, 2} only; 4 is not a submask",
+              "The iteration returns [6,5,4,3,2,1,0] for mask=6"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: submasks of 6 (110) are: 110=6 (both bits set), 100=4 (only bit2), 010=2 (only bit1), 000=0 (no bits); the formula `sub = (sub-1) & mask` generates all submasks by decrementing and ANDing with mask; 010=2 IS a submask of 110=6 because bit1 is set in both; the four submasks {6,4,2,0} represent all subsets of the set {bit1, bit2}."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M1-L3-SY-1",
+            "question": "In the TSP, the outer loop `for (let mask = 1; mask <= FULL; mask++)` iterates all masks from 1 to 2^n-1. Why start at 1 (not 0)?",
+            "options": [
+              "Starting at 0 would cause division by zero errors",
+              "mask=0 represents NO CITIES VISITED, which has no valid 'current city' i to be at; dp[0][i] = Infinity for all i (can't be at city i if no cities are visited); the only valid initial state is dp[1][0] = 0 (visited city 0 only, currently at city 0); starting the loop at mask=1 correctly skips the empty subset which has no valid transitions to make; all transitions start from at least one city (the starting city 0 in mask=1)",
+              "mask=0 is reserved for the return-to-start computation",
+              "Starting at 1 gives O(2^n) iterations instead of O(2^n + 1)"
+            ],
+            "answer": 1,
+            "explanation": "mask=0 (no cities visited) is the before-start state; the only valid initial state is dp[1][0]=0 (started at city 0); all meaningful DP transitions originate from masks with at least one city; the loop starting at mask=1 naturally processes all states in increasing mask order, ensuring dp[mask][i] is fully computed before trying to extend it."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M1-L3-CC-1",
+            "title": "TSP Bitmask DP and Submask Enumeration",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement TSP and submask enumeration from this lesson.",
+            "requirements": [
+              "Implement `tspImpl(dist)` matching the lesson's bitmask DP approach",
+              "Implement `iterateSubmasksImpl(mask)` returning all submasks including 0"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function tspImpl(dist) {\n  // TODO: dp[mask][i]; start dp[1][0]=0; extend to unvisited cities; return min tour\n}\n\nfunction iterateSubmasksImpl(mask) {\n  // TODO: for(sub=mask; sub>0; sub=(sub-1)&mask) collect sub; add 0\n}"
+            },
+            "test_cases": [
+              {
+                "input": "tspImpl([[0,10,15,20],[10,0,35,25],[15,35,0,30],[20,25,30,0]])",
+                "expected": 80,
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(iterateSubmasksImpl(6))",
+                "expected": "[6,4,2,0]",
+                "type": "visible"
+              },
+              {
+                "input": "tspImpl([[0,1],[1,0]])",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "iterateSubmasksImpl(0).length",
+                "expected": 1,
+                "type": "hidden"
+              },
+              {
+                "input": "iterateSubmasksImpl(7).length",
+                "expected": 8,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function tspImpl(dist) {\n  const n=dist.length,FULL=(1<<n)-1,INF=Infinity;\n  const dp=Array.from({length:1<<n},()=>new Array(n).fill(INF));\n  dp[1][0]=0;\n  for(let mask=1;mask<=FULL;mask++)for(let i=0;i<n;i++){\n    if(dp[mask][i]===INF||!(mask&(1<<i)))continue;\n    for(let j=0;j<n;j++){if(mask&(1<<j))continue;const nm=mask|(1<<j);dp[nm][j]=Math.min(dp[nm][j],dp[mask][i]+dist[i][j]);}\n  }\n  let min=INF;\n  for(let i=1;i<n;i++)if(dp[FULL][i]!==INF)min=Math.min(min,dp[FULL][i]+dist[i][0]);\n  return min;\n}\n\nfunction iterateSubmasksImpl(mask) {\n  const s=[];\n  for(let sub=mask;sub>0;sub=(sub-1)&mask)s.push(sub);\n  s.push(0);\n  return s;\n}"
+            },
+            "complexity_analysis": "tspImpl: O(2^n * n²) time, O(2^n * n) space. iterateSubmasksImpl: O(2^popcount(mask)).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "TSP: dp[1][0]=0 (start at city 0); only process dp[mask][i] when city i is in mask (mask&(1<<i))."
+              },
+              {
+                "level": 2,
+                "text": "TSP completion: after all masks processed, min over i of dp[FULL][i]+dist[i][0]."
+              },
+              {
+                "level": 3,
+                "text": "Submasks: for(sub=mask;sub>0;sub=(sub-1)&mask) correctly generates all non-empty submasks; add 0 for empty subset."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 4,
+      "title": "Digit DP",
+      "tag": "ADDED",
+      "objective": "Solve digit DP problems that count integers in a range [0, n] satisfying a property, using digit-by-digit construction with a 'tight' flag.",
+      "concepts": [
+        "Digit DP: count integers in [0, N] with some digit property",
+        "Digits of N as an array: d[0] = most significant digit",
+        "State: (position, tight, any_other_state)",
+        "Tight flag: current number is still bounded by N's prefix",
+        "If tight: digit at position can be 0..d[pos]; if not tight: 0..9",
+        "When tight becomes false: any smaller digit breaks the bound",
+        "O(digits * states) time: typically O(log N * state_size)",
+        "Applications: count numbers with sum of digits = S, no two consecutive 1s, etc."
+      ],
+      "explanation": "Digit DP counts integers in [1, N] satisfying a property by building numbers digit by digit from the most significant digit. The key insight: at each position, we either place a digit smaller than N's digit (freeing us from the upper bound: tight=false) or the same digit (remaining tight). State: dp[position][tight][other_properties]. The 'tight' flag tracks whether the number built so far is equal to N's prefix. When tight: digits from 0 to d[pos] are valid. When not tight: all digits 0-9 are valid. This allows counting all valid completions at each position. For a range [L, R]: compute f(R) - f(L-1) where f(x) counts valid numbers in [0, x]. The implementation uses memoisation (top-down DP) where the cache key is (position, tight, other_state). Without memoisation, the recursion is exponential; with it, O(log N * state_size).",
+      "analogy": "Digit DP is like filling out a number one digit at a time while following a rule. You have a target ceiling (N). As long as you place digits equal to N's digits, you are 'tight' against the ceiling. The moment you place a smaller digit, you are 'free' to place any digit in subsequent positions. The DP caches results by position and tightness to avoid recomputing identical free-digit ranges.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// DIGIT DP TEMPLATE: count numbers in [0, N] with digit sum <= limit\nfunction countWithDigitSum(N, limit) {\n    const digits = String(N).split('').map(Number);\n    const memo = new Map();\n\n    function dp(pos, tight, currentSum) {\n        // Base case: processed all digits\n        if (pos === digits.length) return currentSum <= limit ? 1 : 0;\n\n        const key = `${pos},${tight},${currentSum}`;\n        if (memo.has(key)) return memo.get(key);\n\n        const maxDigit = tight ? digits[pos] : 9;\n        let count = 0;\n\n        for (let d = 0; d <= maxDigit; d++) {\n            const nextTight = tight && (d === maxDigit);\n            count += dp(pos+1, nextTight, currentSum + d);\n        }\n\n        memo.set(key, count);\n        return count;\n    }\n    return dp(0, true, 0); // start tight, sum = 0\n}\n\nconsole.log(countWithDigitSum(100, 5)); // count numbers in [0,100] with digit sum <= 5\n// 0..100: single digits (all <=5), two digits, three digits with sum <=5\n\n// COUNT NUMBERS WITH NO TWO CONSECUTIVE 1s (binary representation)\nfunction countNoConsecutiveOnes(N) {\n    const bits = N.toString(2).split('').map(Number);\n    const memo = new Map();\n\n    function dp(pos, tight, prevBit) {\n        if (pos === bits.length) return 1;\n        const key = `${pos},${tight},${prevBit}`;\n        if (memo.has(key)) return memo.get(key);\n\n        const maxBit = tight ? bits[pos] : 1;\n        let count = 0;\n        for (let bit = 0; bit <= maxBit; bit++) {\n            if (prevBit === 1 && bit === 1) continue; // skip consecutive 1s\n            count += dp(pos+1, tight && bit === maxBit, bit);\n        }\n        memo.set(key, count);\n        return count;\n    }\n    return dp(0, true, 0);\n}\n\n// LeetCode #600: non-negative integers <= N with no consecutive 1s in binary\nconsole.log(countNoConsecutiveOnes(5));  // 5 (0,1,2,4,5)\nconsole.log(countNoConsecutiveOnes(1));  // 2 (0,1)\nconsole.log(countNoConsecutiveOnes(6));  // 5 (6=110 has consecutive 1s, excluded)",
+        "explanation": "The tight flag propagates as: nextTight = tight && (d === maxDigit). If currently tight and we place the maximum allowed digit, we remain tight. If we place any smaller digit (even by 1), nextTight = false and all future digits are free. This is the core invariant of digit DP."
+      },
+      "common_mistakes": [
+        "Not initialising the tight flag correctly as true at the top level — the initial call must be dp(0, true, initial_state); tight=false at the top would count all numbers without the upper bound constraint",
+        "Using the same key for tight=true and tight=false states — tight must be part of the cache key; the count differs fundamentally between tight and free positions",
+        "Forgetting to include all digits including 0 in the loop — numbers like 100 have leading zeros in higher positions; always loop from 0 to maxDigit, not from 1"
+      ],
+      "interview_relevance": "Digit DP appears in competitive programming and FAANG hard rounds as stated in the module notes. LeetCode #600 (Non-negative Integers without Consecutive Ones) and LeetCode #357 (Count Numbers with Unique Digits) are canonical examples. The tight-flag pattern is the entry point to digit DP and is required knowledge for competitive programming.",
+      "mini_challenge": "Implement countNoConsecutiveOnes and verify it returns 5 for N=5 (valid: 0,1,2,4,5) and 5 for N=6 (6=110 excluded). Trace the recursion tree for N=5 (binary 101) showing which states are tight and which are free. Then implement Count Numbers with Unique Digits (LeetCode #357): count numbers in [0, 10^n) where every digit is unique. Use digit DP or a combinatorial formula (C(10,d) * d! arrangements for d-digit numbers).",
+      "flashcards": [
+        {
+          "front": "Digit DP: what problem class does it solve?",
+          "back": "Count integers in range [0, N] (or [L, R]) satisfying a digit-based property. Examples: count numbers with digit sum S, numbers without repeating digits, numbers divisible by k, non-decreasing digit sequences. Key: state = (position, constraint_variables, is_tight, has_started)."
+        },
+        {
+          "front": "Digit DP: the 'tight' flag — what does it mean?",
+          "back": "tight=true: the digits chosen so far match the upper bound N exactly. The current digit can be at most N[pos]. tight=false: the digits chosen so far are strictly less than N's prefix. The current digit can be 0-9 freely."
+        },
+        {
+          "front": "Digit DP: the 'started' flag — what does it control?",
+          "back": "started=false: we haven't placed a non-zero digit yet (leading zeros). Some constraints don't apply to leading zeros (e.g., a number '005' should be treated as '5'). started=true after the first non-zero digit is placed."
+        },
+        {
+          "front": "Digit DP: memoisation key?",
+          "back": "(pos, tight, started, constraint_state). constraint_state varies by problem: running sum for 'count with digit sum S', previous digit for 'non-decreasing', remaining for 'divisible by k'. Cache this tuple → memoize."
+        },
+        {
+          "front": "Digit DP: how to compute range [L, R]?",
+          "back": "count(R) - count(L-1). Define count(N) = number of valid integers in [0, N]. Subtract to get [L, R] = count(R) - count(L-1). This is simpler than building DP for arbitrary lower bounds."
+        },
+        {
+          "front": "Numbers At Most N Given Digit Set (#902): digit DP approach?",
+          "back": "At each position: (a) try digits from the given set that are ≤ N[pos]. If digit < N[pos]: remaining positions can be any combination of given digits (not tight). If digit == N[pos]: continue tight. Count all combinations. O(log N × |digit_set|) with memoization."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Digit DP for 'count numbers ≤ 521 with digit sum ≤ 7': at position 0 with tight=true, which digits are allowed?",
+          "options": [
+            "0-9 (tight only applies later)",
+            "0-5 (≤ N[0]=5, since tight=true)",
+            "0-4 (strictly less than N[0])",
+            "5 only (must match N[0])"
+          ],
+          "answer": 1,
+          "explanation": "tight=true at position 0: current digit can be 0 to N[0]=5. Choosing digit < 5 → next position has tight=false. Choosing digit = 5 → next position has tight=true. Digits > 5 are forbidden (would exceed N)."
+        },
+        {
+          "question": "Digit DP for counting numbers ≤ N: what is the total number of states if N has d digits and constraint_state has k possible values?",
+          "options": [
+            "d × k",
+            "2 × d × k (tight flag)",
+            "4 × d × k (tight + started)",
+            "d × k × 10"
+          ],
+          "answer": 2,
+          "explanation": "State = (position: d values) × (tight: 2 values) × (started: 2 values) × (constraint: k values) = 4dk. Total states = O(d × k). For most digit DP problems d ≤ 10 (up to 10^9) and k is small → efficient."
+        },
+        {
+          "question": "Counting non-decreasing numbers ≤ N: what is the 'constraint_state'?",
+          "options": [
+            "Running sum of digits",
+            "Last digit placed (prev_digit)",
+            "Count of zeros",
+            "Position modulo 3"
+          ],
+          "answer": 1,
+          "explanation": "Non-decreasing: current digit must be ≥ previous digit. So constraint_state = prev_digit (0-9). At each position, only place digit ≥ prev_digit. State: (pos, tight, started, prev_digit). O(d × 2 × 2 × 10) = O(40d) total states."
+        },
+        {
+          "question": "count(321) - count(99): what does this compute?",
+          "options": [
+            "Count of valid integers in [100, 321]",
+            "Count of valid integers in [99, 321]",
+            "count(100, 321) including both endpoints",
+            "Count of valid integers in [100, 320]"
+          ],
+          "answer": 0,
+          "explanation": "count(R) - count(L-1) = count(321) - count(99) gives valid integers in [0, 321] minus valid integers in [0, 99] = valid integers in [100, 321]. Both endpoints included since count(N) includes N itself."
+        }
+      ],
+      "visual_aid": {
+        "type": "digit_dp_states",
+        "description": "Digit DP state machine for counting digit-sum ≤ k numbers",
+        "diagram": "DIGIT DP — count integers ≤ 'N' with digit sum ≤ k:\n\nSTATE: (pos, tight, started, remaining_sum)\n  pos: current digit position (0 to len(N)-1)\n  tight: bool — are we still bounded by N?\n  started: bool — have we placed a non-zero digit?\n  remaining_sum: how much of k's budget is left\n\nTRANSITION at position pos:\n  max_digit = N[pos] if tight else 9\n  for d in 0..max_digit:\n    new_tight = tight AND (d == max_digit)\n    new_started = started OR (d > 0)\n    new_remaining = remaining_sum - d  (if started or d>0)\n    if new_remaining < 0: skip (sum exceeded)\n    count += solve(pos+1, new_tight, new_started, new_remaining)\n\nBASE CASE (pos == len(N)):\n  return 1 if started else 0  (started=False = 'number 0')\n\nMEMO KEY: (pos, tight, started, remaining_sum)\nCOMPLEXITY: O(d × 2 × 2 × k × 10) per digit"
+      },
+      "complexity_summary": {
+        "digit_dp_states": "O(d × tight_states × started_states × constraint_states)",
+        "digit_dp_transitions": "O(10) per state — try each digit",
+        "typical_total": "O(d × 4 × k × 10) where d=digits, k=constraint size",
+        "range_query": "count(R) - count(L-1)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-902",
+          "title": "Numbers At Most N Given Digit Set",
+          "difficulty": "Hard",
+          "pattern": "Digit DP — tight flag with restricted digit set"
+        },
+        {
+          "id": "lc-2376",
+          "title": "Count Special Integers",
+          "difficulty": "Hard",
+          "pattern": "Digit DP — no repeated digits, used_mask state"
+        },
+        {
+          "id": "lc-233",
+          "title": "Number of Digit One",
+          "difficulty": "Hard",
+          "pattern": "Digit DP — count occurrences of digit 1 across all positions"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M1-L4-TH-1",
+            "question": "In digit DP, the TIGHT FLAG tracks whether the current prefix equals N's prefix. When does tight become FALSE, and what does this enable?",
+            "options": [
+              "tight becomes false when the digit chosen equals the maximum allowed digit",
+              "tight becomes FALSE when a digit STRICTLY LESS THAN d[pos] (the maximum) is chosen; once tight is false, all subsequent digit positions can range from 0 to 9 freely (not bounded by N's digits); this enables MEMOISATION: `dp(pos, false, otherState)` computes the same subproblem regardless of what N's remaining digits are; without the tight flag, each position would depend on N's remaining digits, preventing shared subproblems; the tight flag reduces the state space from O(log N * 10^log N) to O(log N * 2 * state_size)",
+              "tight becomes false after the first zero digit",
+              "tight is always false for positions beyond the leading digits"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'When tight becomes false: any smaller digit breaks the bound' and 'nextTight = tight && (d === maxDigit)' — choosing a digit strictly less than the maximum immediately frees all future positions; the free (non-tight) states are the heavily memoised portion of digit DP, as they represent the same subproblem for any upper bound N with the same digit pattern."
+          },
+          {
+            "id": "L3M1-L4-TH-2",
+            "question": "For `countNoConsecutiveOnes(6)`, the result is 5. 6=110 in binary has consecutive 1s and is excluded. Which numbers 0-5 are counted?",
+            "options": [
+              "0(000), 1(001), 2(010), 4(100), 5(101) — all valid; 3(011) has consecutive 1s — excluded; 6(110) excluded ✓",
+              "0,1,2,3,4 are counted; 5(101) has consecutive 1s",
+              "Only 0,1,2,4 are valid; 5(101) and 3(011) both excluded",
+              "0,1,2,3,4,5,6 — all 7 are valid; result is 7"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: countNoConsecutiveOnes(6)=5; checking: 0=0(no consecutive 1s✓), 1=1(✓), 2=10(✓), 3=11(consecutive 1s✗), 4=100(✓), 5=101(✓), 6=110(consecutive 1s✗); valid set = {0,1,2,4,5} = 5 elements; 3(011) and 6(110) are excluded."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M1-L4-LG-1",
+            "question": "In the digit DP template, the KEY parameter `memo.set(key, count)` uses `${pos},${tight},${currentSum}` as the key. What would go wrong if `tight` were OMITTED from the key?",
+            "options": [
+              "Nothing — tight is only needed for correctness at the boundaries",
+              "INCORRECT MEMOISATION: without tight in the key, `dp(pos, true, sum)` and `dp(pos, false, sum)` would be stored under the same key; the tight=true state restricts the maximum digit at position pos (can't exceed d[pos]), while tight=false allows 0..9; if a tight=false result is returned for a tight=true call (or vice versa), the count would be wrong — either over-counting (tight case returns non-tight's larger count) or under-counting (non-tight returns tight's smaller count)",
+              "Omitting tight from the key would make the algorithm O(1) instead of O(n)",
+              "tight is always false when pos > 0, so it's irrelevant after the first position"
+            ],
+            "answer": 1,
+            "explanation": "The tight flag is part of the memoisation key because its value changes the set of valid digit choices at each position; for the same (pos, currentSum), a tight=true call has maxDigit=d[pos] (at most N's digit), while tight=false has maxDigit=9 (any digit); these two states compute different counts and must be stored separately; omitting tight from the key would conflate two different subproblems."
+          },
+          {
+            "id": "L3M1-L4-LG-2",
+            "question": "For `countNoConsecutiveOnes(5)` (5=101 in binary), trace the dp calls and confirm the result is 5.",
+            "options": [
+              "Digit DP on bits of 5=101: processes 3 bit positions; tight starts true; counts all 3-bit binary numbers <= 101 with no consecutive 1s; valid: 000,001,010,100,101 → 5; result=5 ✓",
+              "5 has 3 bits so the answer is 2^3-3=5 by formula",
+              "Only numbers with exactly the same bit length as 5 are counted; result=2",
+              "The function always returns N for single-bit inputs"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: countNoConsecutiveOnes(5)=5; numbers 0-5 with no consecutive 1s: 0=000(✓), 1=001(✓), 2=010(✓), 3=011(✗ consecutive 1s), 4=100(✓), 5=101(✓); valid={0,1,2,4,5}=5 elements; the digit DP correctly counts all binary representations <= 101 with no two adjacent 1-bits."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M1-L4-SY-1",
+            "question": "In the digit DP, `const key = \\`${pos},${tight},${currentSum}\\`` uses a TEMPLATE LITERAL as the memo key. What is the time cost of this string concatenation for each memo access?",
+            "options": [
+              "String keys are O(1) — JavaScript engines optimise string hashing",
+              "Template literal concatenation creates a new STRING each time: O(log N + 1 + log limit) characters for the key; Map lookup on string keys requires string hashing which is O(key.length); for deep recursion (many memo accesses), this O(string_length) per lookup adds up; an alternative is encoding the state as a single integer: `key = pos * 2 * (limit+1) + tight * (limit+1) + currentSum` enabling O(1) integer key lookup; the string approach is readable for interviews; the integer encoding is faster for production",
+              "Map.get with string keys is O(n) where n is the number of stored entries",
+              "Template literals are evaluated lazily, so string creation only happens on cache miss"
+            ],
+            "answer": 1,
+            "explanation": "String keys in JavaScript Maps: the Map uses SameValueZero comparison which for strings requires full string comparison if hashes collide; hashing a string is O(length); for digit DP with short keys (3-4 characters), this is acceptable in practice; for performance-critical applications, encoding the state as a single integer (O(1) hash) is preferred; the lesson's string approach is pedagogically clear."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M1-L4-CC-1",
+            "title": "Digit DP: Count Numbers with No Consecutive Ones",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement digit DP for counting numbers with no consecutive 1s in binary.",
+            "requirements": [
+              "Implement `countNoConsecutiveOnesImpl(N)` matching the lesson's tight-flag digit DP on binary digits"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function countNoConsecutiveOnesImpl(N) {\n  // TODO: bits=N.toString(2).split('').map(Number);\n  //       dp(pos, tight, prevBit): skip if prevBit===1&&bit===1\n}"
+            },
+            "test_cases": [
+              {
+                "input": "countNoConsecutiveOnesImpl(5)",
+                "expected": 5,
+                "type": "visible"
+              },
+              {
+                "input": "countNoConsecutiveOnesImpl(1)",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "countNoConsecutiveOnesImpl(6)",
+                "expected": 5,
+                "type": "visible"
+              },
+              {
+                "input": "countNoConsecutiveOnesImpl(0)",
+                "expected": 1,
+                "type": "hidden"
+              },
+              {
+                "input": "countNoConsecutiveOnesImpl(10)",
+                "expected": 8,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function countNoConsecutiveOnesImpl(N) {\n  const bits=N.toString(2).split('').map(Number);\n  const memo=new Map();\n  function dp(pos,tight,prevBit){\n    if(pos===bits.length)return 1;\n    const key=`${pos},${tight},${prevBit}`;\n    if(memo.has(key))return memo.get(key);\n    const maxBit=tight?bits[pos]:1;\n    let count=0;\n    for(let bit=0;bit<=maxBit;bit++){\n      if(prevBit===1&&bit===1)continue;\n      count+=dp(pos+1,tight&&bit===maxBit,bit);\n    }\n    memo.set(key,count);\n    return count;\n  }\n  return dp(0,true,0);\n}"
+            },
+            "complexity_analysis": "O(log N * 2 * 2) = O(log N) unique states; each O(2) to compute; O(log N) total time.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Convert N to binary bits array; dp(pos, tight, prevBit)."
+              },
+              {
+                "level": 2,
+                "text": "maxBit=tight?bits[pos]:1; skip if prevBit===1&&bit===1 (consecutive 1s); nextTight=tight&&bit===maxBit."
+              },
+              {
+                "level": 3,
+                "text": "Base case: pos===bits.length→return 1 (valid number found); memoize with tight and prevBit in key."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 5,
+      "title": "Probability And Expected Value DP",
+      "tag": "ADDED",
+      "objective": "Solve probability and expected value DP problems by defining states that represent probabilities or expected values and applying the law of total expectation.",
+      "concepts": [
+        "Expected value: E[X] = sum over outcomes of (outcome * probability)",
+        "Law of total expectation: E[X] = sum over states s of P(s) * E[X | state s]",
+        "DP state: probability or expected value at each game state",
+        "Transition: E[state] = (1/choices) * sum over next_states of E[next_state] + cost",
+        "Knight Probability in Chessboard: dp[k][r][c] = probability of being on (r,c) after k moves",
+        "New 21 Game: expected moves to reach >= N starting from 0",
+        "Soup Servings: probability that soup A runs out before B",
+        "O(k * n^2) for k moves on n x n board"
+      ],
+      "explanation": "Probability DP computes the probability of being in each state after some number of transitions. Expected value DP computes the expected value of some quantity (steps, score, etc.) across all possible transition sequences. Knight Probability in Chessboard (#688): dp[k][r][c] = probability the knight is on square (r,c) after exactly k moves. Transition: dp[k][r][c] = (1/8) * sum over all valid previous squares (r2,c2) that can reach (r,c) of dp[k-1][r2][c2]. The probability that the knight stays on the board after k moves is the sum of dp[k][r][c] over all valid (r,c). New 21 Game (#837): a player draws cards (1 to maxPts) until their total >= n. What is the probability of having exactly score <= maxPts + n - 1? Uses a sliding window sum to compute transitions in O(1) per state. The key principle for both: define the state clearly (what does dp[i][j] represent?), write the probability/expectation transition, and verify boundary conditions.",
+      "analogy": "Probability DP is like tracking a cloud of possibilities instead of a single path. Instead of asking 'what is the knight's position after k moves?', ask 'what fraction of all possible k-move paths end at each position?' This cloud of fractions is the DP table. The transition spreads each fraction equally among all valid next positions.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// KNIGHT PROBABILITY IN CHESSBOARD (#688)\n// dp[r][c] = probability of being at (r,c) after k moves\n// O(k * n^2) time, O(n^2) space (two rolling grids)\nfunction knightProbability(n, k, row, column) {\n    const MOVES = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];\n\n    // Use two n x n grids: curr and next\n    let curr = Array.from({length:n}, () => new Array(n).fill(0));\n    curr[row][column] = 1.0; // start with probability 1 at initial position\n\n    for (let move = 0; move < k; move++) {\n        const next = Array.from({length:n}, () => new Array(n).fill(0));\n        for (let r = 0; r < n; r++) {\n            for (let c = 0; c < n; c++) {\n                if (curr[r][c] === 0) continue;\n                for (const [dr, dc] of MOVES) {\n                    const nr = r+dr, nc = c+dc;\n                    if (nr >= 0 && nr < n && nc >= 0 && nc < n) {\n                        next[nr][nc] += curr[r][c] / 8.0; // 1/8 probability each move\n                    }\n                    // else: moved off board, probability lost\n                }\n            }\n        }\n        curr = next;\n    }\n    // Sum all remaining probabilities\n    return curr.reduce((sum, row) => sum + row.reduce((s,v) => s+v, 0), 0);\n}\n\nconsole.log(knightProbability(3, 2, 0, 0)); // ~0.0625\nconsole.log(knightProbability(1, 0, 0, 0)); // 1.0 (0 moves, still on board)\n\n// NEW 21 GAME (#837) — probability DP with sliding window\n// Player starts at 0, draws cards 1..maxPts each round until score >= n\n// P(final score <= n + maxPts - 1)\nfunction new21Game(n, k, maxPts) {\n    if (k === 0 || n >= k + maxPts) return 1.0; // trivially all valid\n\n    const dp = new Array(n + maxPts + 1).fill(0);\n    dp[0] = 1.0;\n    let windowSum = 1.0; // sliding window sum of dp[i-maxPts..i-1]\n    let result = 0;\n\n    for (let i = 1; i <= n + maxPts; i++) {\n        dp[i] = windowSum / maxPts;\n        if (i < k)  windowSum += dp[i];      // still drawing: add to window\n        if (i >= k) result    += dp[i];       // stopped drawing: count towards answer\n        if (i >= maxPts) windowSum -= dp[i - maxPts]; // remove expired from window\n    }\n    return result;\n}\nconsole.log(new21Game(10, 1, 10)); // 1.0 (draw one card 1-10, all <= 10+10-1=19)\nconsole.log(new21Game(6, 1, 10));  // 0.6 (draw one card 1-10, 6 outcomes <= 6)",
+        "explanation": "The sliding window in New 21 Game avoids O(maxPts) work per dp[i]. dp[i] = (dp[i-1] + dp[i-2] + ... + dp[i-maxPts]) / maxPts. Maintaining a running window sum and updating it in O(1) per step gives O(n + maxPts) total. This is the same sliding window sum optimisation used in many 1D DP problems."
+      },
+      "common_mistakes": [
+        "Dividing by 8 (total moves) instead of counting only valid moves — in Knight Probability, a knight on the edge has fewer than 8 valid moves; the probability is (1/8) per attempted move regardless, because moves off the board simply lose probability",
+        "Not initialising windowSum correctly in New 21 Game — windowSum starts as dp[0] = 1.0 (the probability of being at score 0, which is the starting state); initialising as 0 would give dp[1]=0",
+        "Confusing dp[i] as probability of reaching score i versus probability of stopping at score i — define the state clearly: dp[i] = probability of reaching exactly score i (regardless of whether drawing stops there)"
+      ],
+      "interview_relevance": "Probability DP appears at senior interviews at Google and Jane Street. Knight Probability in Chessboard (#688) is NeetCode 150. The key skill tested is state definition: most candidates attempt to track multiple probabilities in a single number; the clean solution separates 'probability of being at each state' into an explicit DP table.",
+      "mini_challenge": "Implement knightProbability and verify it returns approximately 0.0625 for (3,2,0,0). Trace the probability grid after each of the 2 moves. Implement new21Game and verify it returns 0.6 for (6,1,10). Then solve Soup Servings (LeetCode #808): two soups A and B, each serving can be (100,0), (75,25), (50,50), or (25,75) mL. Find the probability that A runs out first (or simultaneously). This is a 2D probability DP.",
+      "flashcards": [
+        {
+          "front": "Expected value DP: when does it appear?",
+          "back": "When the problem involves random events and asks for EXPECTED number of steps/moves/operations. Example: expected number of rolls to collect all coupons, expected number of shuffles, expected number of coin flips. State = current progress; transition = probability × (1 + expected_from_next_state)."
+        },
+        {
+          "front": "Dice Roll Simulation (#1223): what makes it a DP problem?",
+          "back": "Constraint: rollMax[i] limits consecutive occurrences of face i. State: (position, last_face, consecutive_count). dp[pos][face][count] = number of valid sequences of length pos ending with 'count' consecutive 'face' values. O(n × 6 × max_k) states."
+        },
+        {
+          "front": "Expected value of Geometric distribution: formula?",
+          "back": "If each trial succeeds with probability p independently: E[trials to first success] = 1/p. Example: expected dice rolls to get a 6 = 6. Expected coin flips to get heads = 2. This closes-form result is used to simplify many expected value DP problems."
+        },
+        {
+          "front": "Soup Servings (#808): probability DP approach?",
+          "back": "dp[a][b] = probability that soup A runs out first (or simultaneously with B) when starting with volumes a,b. Base cases: dp[0][b]=1 (A empty first), dp[a][0]=0.5 (simultaneous for a>0), dp[0][0]=0.75. Four transitions with probability 0.25 each. Converges to 1 as N grows → shortcut for large N."
+        },
+        {
+          "front": "Knight Probability in Chessboard (#688): DP formulation?",
+          "back": "dp[k][r][c] = probability that the knight is at (r,c) after exactly k moves. Base: dp[0][row][col]=1. Transition: dp[k+1][r'][c'] += dp[k][r][c] / 8 for all 8 knight moves (r,c)→(r',c'). After K steps: sum dp[K][r][c] over all valid (r,c) = probability of staying on board."
+        },
+        {
+          "front": "New 21 Game (#837): key sliding window DP insight?",
+          "back": "dp[i] = probability of EXACTLY reaching score i. dp[0]=1. For i from 1 to n+k: dp[i] = (sum of dp[i-w] for w=1..k) / k = windowSum / k. Maintain windowSum as a sliding window (add dp[i-1] to sum, remove dp[i-1-k] when i-1-k >= 0). O(n+k) time."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Expected number of dice rolls (6-sided fair die) to get all 6 different faces: formula?",
+          "options": [
+            "6 × (1/6 + 1/5 + 1/4 + 1/3 + 1/2 + 1/1) = 6 × H_6 ≈ 14.7",
+            "6 (one roll per face)",
+            "21 (sum of 1..6)",
+            "6² = 36"
+          ],
+          "answer": 0,
+          "explanation": "Coupon collector problem: E = 6/6 + 6/5 + 6/4 + 6/3 + 6/2 + 6/1 = 6×H_6 where H_6 = 1+1/2+1/3+1/4+1/5+1/6 ≈ 2.45. Total ≈ 14.7 rolls expected."
+        },
+        {
+          "question": "Knight Probability: after 0 moves at position (row,col), probability of being at (row,col)?",
+          "options": [
+            "0",
+            "0.5",
+            "1.0",
+            "1/8"
+          ],
+          "answer": 2,
+          "explanation": "dp[0][row][col] = 1.0. After 0 moves, the knight is definitely at its starting position. Probability = 1.0."
+        },
+        {
+          "question": "New 21 Game: dp[i] = windowSum/k. Why is windowSum a SLIDING window (not recomputed)?",
+          "options": [
+            "For O(1) computation of each dp[i] instead of O(k)",
+            "To avoid negative probabilities",
+            "Because k can be 0",
+            "The window is not sliding — it's recomputed each time"
+          ],
+          "answer": 0,
+          "explanation": "windowSum = sum(dp[i-k], dp[i-k+1], ..., dp[i-1]). Moving from i to i+1: add dp[i] and remove dp[i-k]. O(1) per step instead of O(k) per step → O(n+k) total instead of O((n+k)×k)."
+        },
+        {
+          "question": "Soup Servings: why can you shortcut to return 1.0 for large N?",
+          "options": [
+            "Large soups always run out simultaneously",
+            "As N→∞, probability(A runs out first OR simultaneously) → 1.0 due to asymmetric serving sizes",
+            "The DP table exceeds memory for large N",
+            "Floating point precision requires it"
+          ],
+          "answer": 1,
+          "explanation": "Soup A can be served in 75,50,25,0 ml chunks (average 37.5) while B in 25ml chunks (average 25). A depletes faster on average. As N grows, P(A runs out first or simultaneously) → 1.0. The problem guarantees this converges for large enough N (typically N > 4800)."
+        }
+      ],
+      "visual_aid": {
+        "type": "probability_dp",
+        "description": "Knight Probability DP transitions",
+        "diagram": "KNIGHT PROBABILITY (#688): n=3, k=2, row=0, col=0\n\nInitial: dp[0][0][0] = 1.0\n\n8 knight moves from (r,c):\n  (+2,+1),(+2,-1),(-2,+1),(-2,-1)\n  (+1,+2),(+1,-2),(-1,+2),(-1,-2)\n\nStep k=0→1: from (0,0):\n  Valid moves from (0,0) in 3×3 grid:\n  (2,1): valid → dp[1][2][1] += 1.0/8 = 0.125\n  (1,2): valid → dp[1][1][2] += 0.125\n  Others: OOB → knight falls off (lost)\n\n  Sum in dp[1]: 0.125 + 0.125 = 0.25\n  (Only 2 of 8 moves stay on 3×3 board)\n\nStep k=1→2: from each position in dp[1]:\n  from (2,1) and (1,2) → sum all valid moves × their probabilities\n\nFinal: sum(dp[2][r][c]) for all valid r,c = probability on board after 2 moves\n\nKEY: Probabilities distribute across positions at each step.\n     Positions that fall off the board contribute to (1 - on_board_prob)"
+      },
+      "complexity_summary": {
+        "dice_roll_simulation": "O(n × 6 × max_consecutive) time and space",
+        "knight_probability": "O(K × n²) time, O(n²) space (two rolling grids)",
+        "new_21_game": "O(n + k) time with sliding window, O(n + k) space",
+        "soup_servings": "O(n²) or O(1) for large N via shortcut"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-688",
+          "title": "Knight Probability in Chessboard",
+          "difficulty": "Medium",
+          "pattern": "Probability DP — distribute probability at each step"
+        },
+        {
+          "id": "lc-837",
+          "title": "New 21 Game",
+          "difficulty": "Medium",
+          "pattern": "Probability DP + sliding window sum O(n+k)"
+        },
+        {
+          "id": "lc-808",
+          "title": "Soup Servings",
+          "difficulty": "Medium",
+          "pattern": "Probability DP + large-N shortcut"
+        },
+        {
+          "id": "lc-1223",
+          "title": "Dice Roll Simulation",
+          "difficulty": "Hard",
+          "pattern": "DP with consecutive constraint state"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M1-L5-TH-1",
+            "question": "In Knight Probability, the DP spreads probability FORWARD (from current position to next positions). How does this differ from backward DP?",
+            "options": [
+              "Forward and backward DP always produce identical results",
+              "FORWARD DP: at each step, distribute the current cell's probability across all valid destinations (dp[next] += dp[curr] / 8); after k steps, sum all remaining probabilities on the board; BACKWARD DP: define P(r,c,steps) = probability of being on (r,c) after steps more moves FROM the target; this requires knowing the end state; FORWARD DP is natural for probability spreading because we START from the known initial state (prob=1 at start) and observe where probability flows; backward DP is natural for expected value (expected steps until some event)",
+              "Forward DP uses less memory than backward DP",
+              "Backward DP is always preferred for probability problems"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Forward DP spreading probability, or backward DP computing EV' — the Knight Probability problem naturally uses forward DP because the initial state (100% probability at the starting square) is known; each move distributes probability across 8 destinations, and after k moves the total remaining on-board probability is the answer; backward DP would define 'expected future moves' from a position backward in time."
+          },
+          {
+            "id": "L3M1-L5-TH-2",
+            "question": "In the Knight Probability rolling array approach, why is O(n²) space sufficient despite k moves?",
+            "options": [
+              "Each move requires O(n²) space and there are k moves, so it's actually O(k*n²)",
+              "The DP only needs TWO grids (curr and next): at each of the k steps, the 'next' grid is computed from 'curr', then curr is replaced by next; previous states (moves 0 through k-2) are NOT needed once the next state is computed; this rolling-window pattern reduces O(k*n²) to O(n²) — the same optimisation used in Fibonacci (only the last two values needed) applied to 2D grids; the trade-off is that individual move states cannot be recovered after the fact",
+              "O(n²) space is used because k is always small (< 25) for this problem",
+              "Memoisation eliminates the need to store previous moves' grids"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: 'Use two n x n grids: curr and next; O(n^2) space (two rolling grids)' — the rolling array optimisation: since move k+1 only depends on move k's probabilities (not k-1, k-2, etc.), keeping only two grids is sufficient; this reduces O(k*n²) to O(2*n²) = O(n²); the pattern is identical to computing Fibonacci with only two variables instead of an array."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M1-L5-LG-1",
+            "question": "For `knightProbability(3, 2, 0, 0)` = 0.0625. How many of the 8 first-move destinations from (0,0) are on the 3x3 board?",
+            "options": [
+              "From (0,0) on a 3x3 board: valid moves are (1,2) and (2,1) — only 2 of 8 knight moves land on the board; after first move: prob(1,2)=0.125, prob(2,1)=0.125; from each of these, 2 of 8 second moves return to the board; total = 2*(2/8)/8 = 2*(0.125/8)*(2) = 0.0625 ✓",
+              "All 8 first moves land on the board; probability = 8/64 = 0.125",
+              "3 moves land on the board from (0,0); 3/8 * 3/8 = 9/64",
+              "Only 1 move is valid from corner (0,0); probability = 1/8 * 1/8 = 0.015625"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: knightProbability(3,2,0,0)=0.0625; from (0,0) on 3x3 board, valid first moves: (-2,-1),(-2,1),(-1,-2),(-1,2),(1,-2),(2,-1) are off-board; only (1,2) and (2,1) are on-board; each gets prob=1/8; from (1,2): valid second moves back to 3x3: (0,0) and (2,0) → 2 valid; from (2,1): (0,0) and (0,2) → 2 valid; total prob = 2*(1/8)*(2/8) = 4/64 = 0.0625."
+          },
+          {
+            "id": "L3M1-L5-LG-2",
+            "question": "For `new21Game(6, 1, 10)`, the answer is 0.6. Explain why: stop when score >= k=1 (one draw of 1..10), probability final score <= n=6.",
+            "options": [
+              "Drawing one card uniformly from 1..10: P(card <= 6) = 6/10 = 0.6 ✓",
+              "P(score <= 6 | k=1, maxPts=10) = 6/10 = 0.6 because one card is drawn from {1..10} uniformly",
+              "Both A and B describe the same calculation; both are correct",
+              "P = 6/maxPts = 6/10 = 0.6 but this formula only works for k=1"
+            ],
+            "answer": 2,
+            "explanation": "Confirmed by direct execution: new21Game(6,1,10)=0.6; when k=1 (stop after first draw) and maxPts=10 (draw uniformly from 1..10), the final score is the drawn card; P(score <= n=6) = P(card in {1,2,3,4,5,6}) = 6/10 = 0.6; options A and B both correctly describe this, option C correctly identifies them as equivalent."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M1-L5-SY-1",
+            "question": "In `knightProbability`, the inner check `if (curr[r][c] === 0) continue` skips zero-probability cells. What performance benefit does this provide?",
+            "options": [
+              "Zero-probability cells would cause division by zero without this check",
+              "EARLY TERMINATION for unreachable cells: if curr[r][c]=0, the knight has zero probability of being at (r,c); spreading 0 probability contributes nothing to any destination (next[nr][nc] += 0/8 = 0); skipping these cells avoids 8 inner-loop iterations and 8 array writes per zero-probability cell; for sparse probability distributions (many cells are 0, especially near boundaries), this significantly reduces computation; it's the same early-exit pattern used in sparse matrix multiplication",
+              "The check prevents negative probability values from propagating",
+              "Zero check is required because JavaScript's floating-point addition of 0 is not O(1)"
+            ],
+            "answer": 1,
+            "explanation": "The `if (curr[r][c] === 0) continue` short-circuits 8 distance checks and 8 array updates for every zero-probability cell; for a k=10 knight on a small board, many cells may have zero probability (unreachable); the optimisation has no effect on correctness but reduces constant factors for sparse probability distributions; similar to sparse matrix operations skipping zero entries."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M1-L5-CC-1",
+            "title": "Knight Probability and New 21 Game",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement probability DP from this lesson.",
+            "requirements": [
+              "Implement `knightProbabilityImpl(n, k, row, col)` matching the lesson's rolling-grid forward DP",
+              "Implement `new21GameImpl(n, k, maxPts)` — using the CORRECTED version that counts scores in [k, n] only"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function knightProbabilityImpl(n, k, row, col) {\n  // TODO: rolling curr/next grids; spread prob/8 for each valid move\n}\n\nfunction new21GameImpl(n, k, maxPts) {\n  // TODO: dp[0]=1; sliding window sum; count dp[i] for k<=i<=n only\n}"
+            },
+            "test_cases": [
+              {
+                "input": "knightProbabilityImpl(3, 2, 0, 0)",
+                "expected": 0.0625,
+                "type": "visible"
+              },
+              {
+                "input": "knightProbabilityImpl(1, 0, 0, 0)",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "new21GameImpl(6, 1, 10)",
+                "expected": 0.6,
+                "type": "visible"
+              },
+              {
+                "input": "Math.round(new21GameImpl(10, 1, 10) * 1e9) / 1e9",
+                "expected": 1,
+                "type": "hidden"
+              },
+              {
+                "input": "new21GameImpl(0, 0, 1)",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function knightProbabilityImpl(n,k,row,col){\n  const MOVES=[[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];\n  let curr=Array.from({length:n},()=>new Array(n).fill(0));\n  curr[row][col]=1.0;\n  for(let move=0;move<k;move++){\n    const next=Array.from({length:n},()=>new Array(n).fill(0));\n    for(let r=0;r<n;r++)for(let c=0;c<n;c++){\n      if(curr[r][c]===0)continue;\n      for(const[dr,dc]of MOVES){const nr=r+dr,nc=c+dc;if(nr>=0&&nr<n&&nc>=0&&nc<n)next[nr][nc]+=curr[r][c]/8.0;}\n    }\n    curr=next;\n  }\n  return curr.reduce((s,row)=>s+row.reduce((t,v)=>t+v,0),0);\n}\n\nfunction new21GameImpl(n, k, maxPts) {\n  if (k === 0 || n >= k + maxPts) return 1.0;\n  const dp = new Array(n + maxPts + 1).fill(0);\n  dp[0] = 1.0;\n  let windowSum = 1.0, result = 0;\n  for (let i = 1; i <= n + maxPts; i++) {\n    dp[i] = windowSum / maxPts;\n    if (i < k) windowSum += dp[i];\n    if (i >= k && i <= n) result += dp[i];\n    if (i >= maxPts) windowSum -= dp[i - maxPts];\n  }\n  return result;\n}"
+            },
+            "complexity_analysis": "knightProbabilityImpl: O(k*n²) time, O(n²) space (two rolling grids). new21GameImpl: O(n+maxPts) time, O(n+maxPts) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "knightProbabilityImpl: curr[row][col]=1.0; each step spread curr[r][c]/8 to valid knight destinations."
+              },
+              {
+                "level": 2,
+                "text": "new21GameImpl CRITICAL: only add dp[i] to result when k <= i <= n (not for all i >= k — that's the lesson's bug)."
+              },
+              {
+                "level": 3,
+                "text": "new21GameImpl: windowSum tracks dp[i-maxPts..i-1] for i<k; for i>=k add dp[i] to result if i<=n; always subtract dp[i-maxPts] when i>=maxPts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 6,
+      "title": "Hard DP Problem Thinking",
+      "tag": null,
+      "objective": "Given any hard DP problem, identify the applicable advanced DP technique within 2 minutes using signal words and state structure analysis.",
+      "concepts": [
+        "Advanced DP taxonomy: string palindrome, tree DP, bitmask, digit, probability",
+        "String DP signals: 'palindrome cuts', 'palindrome partition', 'edit on substrings'",
+        "Tree DP signals: 'optimal subtree selection', 'nodes cannot be adjacent', 'cameras'",
+        "Bitmask DP signals: n <= 20, 'visit all nodes', 'subset assignment', 'permutation cost'",
+        "Digit DP signals: 'count numbers in range with property', 'digit constraints'",
+        "Probability DP signals: 'probability of outcome', 'expected value', 'random process'",
+        "Module 1 NeetCode 150 problems mapped",
+        "State design principle: the state must encode exactly what determines future choices"
+      ],
+      "explanation": "Hard DP problems share a common structure: the challenge is state design, not algorithm application. Once the state is correctly defined, the transition follows naturally. The five advanced DP types in this module have distinct recognition signals. String palindrome DP: the state involves substrings [i,j]; signal words are 'palindrome', 'minimum partition', 'palindromic subsequence'. Tree DP: state propagates bottom-up through a tree; signal words are 'tree', 'subtree selection', 'no adjacent nodes'. Bitmask DP: state includes which elements from a small set (n<=20) have been used; signal words are 'all cities visited', 'assignment', 'subset of workers'. Digit DP: state includes digit position and tight flag; signal words are 'count numbers in [1,N] satisfying property'. Probability DP: state represents probability or expected value at each configuration; signal words are 'probability', 'expected value', 'random', 'stochastic'. The design principle for all: the state must encode exactly the information needed to determine all future choices without knowledge of the past.",
+      "analogy": "Hard DP state design is like defining the minimum information a chess player needs to make an optimal move. The board position (which pieces are where) is the state — it encodes everything relevant. Move history is irrelevant. If your DP state requires tracking history, you are missing a condensed state variable. The art of DP is finding the minimal sufficient state.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// HARD DP RECOGNITION GUIDE\n\nconst hardDpTaxonomy = [\n    {\n        type: 'String Palindrome DP',\n        signals: ['palindrome partition', 'minimum cuts', 'palindromic substrings count'],\n        state: 'dp[i][j] = property of s[i..j]',\n        transition: 'Based on s[i]==s[j] and dp[i+1][j-1]',\n        problems: ['Palindrome Partitioning II #132', 'Longest Palindromic Subsequence #516'],\n        approach: 'Build 2D table by increasing length, then 1D cut DP'\n    },\n    {\n        type: 'Tree DP',\n        signals: ['tree', 'no adjacent nodes robbed', 'cameras', 'subtree selection'],\n        state: 'dfs(node) returns state vector [choice1, choice2, ...]',\n        transition: 'Combine children state vectors at each node',\n        problems: ['House Robber III #337', 'Binary Tree Cameras #968', 'Sum of Distances #834'],\n        approach: 'Postorder DFS returning multiple values'\n    },\n    {\n        type: 'Bitmask DP',\n        signals: ['n <= 20', 'visit all', 'assign workers to tasks', 'subset assignment'],\n        state: 'dp[mask][last] = cost having used subset mask, last used = last',\n        transition: 'Try all elements not in mask',\n        problems: ['TSP', 'Minimum Cost to Connect Sticks', 'Assign Work to Workers'],\n        approach: 'dp[1<<n][n] filled by increasing mask popcount'\n    },\n    {\n        type: 'Digit DP',\n        signals: ['count numbers in [1,N]', 'digit property', 'no two consecutive same'],\n        state: 'dp[pos][tight][other_state]',\n        transition: 'Try each valid digit, propagate tight flag',\n        problems: ['Non-negative Integers No Consecutive Ones #600', 'Count Unique Digits #357'],\n        approach: 'Top-down memo with tight flag'\n    },\n    {\n        type: 'Probability / Expected Value DP',\n        signals: ['probability', 'expected value', 'random process', 'knight moves'],\n        state: 'dp[step][pos] = probability/EV of being in pos after step steps',\n        transition: 'Spread probability by (1/choices) to each valid next state',\n        problems: ['Knight Probability #688', 'New 21 Game #837', 'Soup Servings #808'],\n        approach: 'Forward DP spreading probability, or backward DP computing EV'\n    },\n];\n\n// MODULE 1 NEETCODE 150 PROBLEMS:\nconst module1_nc150 = [\n    { id: 132, title: 'Palindrome Partitioning II',    type: 'String Palindrome DP', nc150: true },\n    { id: 337, title: 'House Robber III',              type: 'Tree DP',              nc150: true },\n    { id: 968, title: 'Binary Tree Cameras',           type: 'Tree DP',              nc150: true },\n    { id: 688, title: 'Knight Probability in Chessboard', type: 'Probability DP',   nc150: true },\n    { id: 837, title: 'New 21 Game',                   type: 'Probability DP',      nc150: true },\n];\nconsole.log('Module 1 NeetCode 150:', module1_nc150.length); // 5",
+        "explanation": "The state design principle — 'the state must encode exactly what determines future choices' — is the hardest skill to teach but the most important for hard DP. Test your state definition by asking: 'Given only the state, can I determine all valid transitions?' If the answer is no, something is missing from the state. For digit DP: given (position, tight, accumulated_sum), can you determine all valid completions? Yes. For bitmask TSP: given (mask, last_city), can you determine all valid next steps? Yes."
+      },
+      "common_mistakes": [
+        "Attempting bitmask DP for n > 20 — 2^20 = 1M states is manageable; 2^25 = 33M; 2^30 = 1B which is too slow; only apply bitmask DP when n is explicitly small",
+        "Not using memoisation in digit DP — without memo, the tight-flagged recursion is exponential; the cache key (pos, tight, other_state) is essential",
+        "Skipping state design analysis and jumping directly to coding — hard DP problems where the state is wrong will fail on edge cases; always spend 3-5 minutes explicitly stating 'dp[i] means...' before writing a single line"
+      ],
+      "interview_relevance": "Hard DP recognition within 2 minutes is the Level 3 target. At senior interviews (L5/E5+), interviewers present hard DP problems expecting candidates to identify the type and state design quickly. A candidate who says 'This is a tree DP problem; dfs(node) should return [rob_this, skip_this] because the decision at each node depends only on whether its children are included' within 90 seconds is performing at senior level.",
+      "mini_challenge": "For each of these problems, state the DP type and the dp state definition in one sentence without looking at solutions: (1) Count palindromic subsequences of length 5 in a string. (2) Find the minimum cost tour of n cities (n=12). (3) Count integers in [1, 10^9] whose digits form a non-decreasing sequence. (4) Find the probability of winning a dice game after exactly 3 rolls. (5) Find the minimum cameras to monitor all nodes in a tree. Time: can you answer all 5 in under 3 minutes?",
+      "flashcards": [
+        {
+          "front": "Hard DP recognition: 5 key signals?",
+          "back": "1) INTERVAL DP: 'optimal way to split/merge a sequence' — fill by increasing length. 2) BITMASK DP: 'assign n ≤ 20 items to roles' — 2^n states. 3) DIGIT DP: 'count integers in [L,R] with property' — tight+started flags. 4) TREE DP: 'optimal selection on a tree' — postorder DFS returning values. 5) PROBABILITY DP: 'expected value or probability after k steps' — distribute probability."
+        },
+        {
+          "front": "Interval DP vs 1D DP: structural difference?",
+          "back": "1D DP: dp[i] depends on dp[j] for j<i (linear order). Interval DP: dp[i][j] depends on dp[i][k] and dp[k+1][j] for i≤k<j (splitting into two sub-intervals). Fill order: increasing LENGTH of interval, not increasing endpoint."
+        },
+        {
+          "front": "Hard DP: Stone Game variants — general pattern?",
+          "back": "Stone Game I (#877): pick from ends, minimax → dp[i][j]=max value first player can win from arr[i..j]. Stone Game II/III/IV/V: all variations of interval/sequence DP where state encodes position or player. Common pattern: dp[i][j] = current player's advantage over the other."
+        },
+        {
+          "front": "Regex Matching (#10) and Wildcard Matching (#44): 2D DP differences?",
+          "back": "Wildcard (#44): '*' matches any sequence of any character. Regex (#10): '*' means zero or more of the PRECEDING character. Different state transitions. Both O(m×n). Wildcard is simpler: '*' in t can extend the previous match or skip in s. Regex '*' pairs with its preceding char."
+        },
+        {
+          "front": "Module 1 Level 3: what separates L3 DP from L2 DP?",
+          "back": "L2: templates are well-defined (1D DP, 2D string DP, knapsack). L3: no template — must identify the RIGHT DP type from scratch. Key skill: 'what is my state?' requires original thinking, not pattern matching. Hard DP problems are distinguished by the state design, not the recurrence."
+        },
+        {
+          "front": "DP optimisation techniques for Hard DP?",
+          "back": "1) DIVIDE AND CONQUER optimisation: when optimal split point is monotone → O(n log n) from O(n²). 2) CONVEX HULL TRICK: when recurrence is linear → O(n) from O(n²). 3) KNUTH'S OPTIMISATION: for interval DP with quadrangle inequality → O(n²) from O(n³). These reduce constants but don't change the problem-type identification."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Problem: 'Minimum cost to multiply a chain of matrices.' Which DP type?",
+          "options": [
+            "1D DP — depends on previous optimal",
+            "Interval DP — split chain at each position k, recurse on two sub-chains",
+            "Bitmask DP — choose which matrices to multiply",
+            "Tree DP — matrix chain is a tree"
+          ],
+          "answer": 1,
+          "explanation": "Matrix Chain Multiplication: dp[i][j] = min cost to multiply matrices i..j. Split at k: cost = dp[i][k] + dp[k+1][j] + dims[i-1]×dims[k]×dims[j]. Classic O(n³) interval DP. Fill by increasing chain length."
+        },
+        {
+          "question": "Problem: 'Count integers in [1, N] where the digit product ≡ k (mod m).' Which DP type?",
+          "options": [
+            "Bitmask DP — track which digits are used",
+            "Interval DP — split at each digit",
+            "Digit DP — tight flag, state = (pos, tight, current_product_mod_m)",
+            "Tree DP — digit tree structure"
+          ],
+          "answer": 2,
+          "explanation": "Classic digit DP. State: (position, tight, running_product_mod_m). Transition: try each digit d (0 to max_at_position), update product mod m. Count valid completions when pos==digits. O(d × 2 × m × 10) total states."
+        },
+        {
+          "question": "Hard DP: what is the most common source of incorrect state design?",
+          "options": [
+            "Using too many state variables",
+            "State doesn't capture all information needed for the transition — subproblems aren't independent",
+            "Using int instead of long for dp values",
+            "Wrong base case"
+          ],
+          "answer": 1,
+          "explanation": "The most common error in hard DP: the state variables don't fully describe the subproblem. When computing dp[state], if you need information NOT captured in 'state', the subproblems are NOT independent and DP doesn't apply cleanly. Design state so that the transition only needs the state variables, nothing from the original context."
+        },
+        {
+          "question": "Regex Matching (#10): dp[i][j] where p[j-1]='*'. What two transitions apply?",
+          "options": [
+            "'*' matches zero chars: dp[i][j] = dp[i][j-2] (skip the '*' and preceding char)",
+            "'*' matches one+ chars of preceding: dp[i][j] = dp[i-1][j] if s[i-1] matches p[j-2]",
+            "Both — '*' can match zero occurrences OR match the current char and stay",
+            "Neither — '*' is invalid in regex DP"
+          ],
+          "answer": 2,
+          "explanation": "Two cases: (1) '*' matches zero: dp[i][j] |= dp[i][j-2]. (2) '*' matches one more: if s[i-1] matches p[j-2] (or p[j-2]=='.'): dp[i][j] |= dp[i-1][j]. Both can fire simultaneously — use OR (|=) since either case makes a valid match."
+        }
+      ],
+      "visual_aid": {
+        "type": "hard_dp_decision_map",
+        "description": "Hard DP problem type identification framework",
+        "diagram": "HARD DP IDENTIFICATION FRAMEWORK:\n\nREAD THE PROBLEM CAREFULLY:\n\n'Optimal way to split/merge a linear sequence'\n  → INTERVAL DP (fill by increasing length)\n  → Examples: Matrix chain, Burst Balloons, Palindrome cuts\n\n'Assign n (≤20) items, optimal subset'\n  → BITMASK DP (2^n states)\n  → Examples: TSP, Assignment problem, Team coverage\n\n'Count/find integers in [L,R] with digit property'\n  → DIGIT DP (tight + started flags)\n  → Examples: Count with digit sum, no repeating digits\n\n'Optimal value/selection on a tree'\n  → TREE DP (postorder DFS, pair return or global)\n  → Examples: House Robber III, Max Path Sum\n\n'Expected value or probability after k steps'\n  → PROBABILITY DP (distribute prob at each step)\n  → Examples: Knight Probability, Soup Servings\n\n'Palindrome property on substrings'\n  → PALINDROME DP (2D table, fill by length)\n  → Examples: LPS, Min cuts, Strange Printer\n\nSTATE DESIGN CHECKLIST:\n  □ Does the state uniquely determine the subproblem?\n  □ Can the transition be computed using ONLY state variables?\n  □ Are base cases correctly handled?\n  □ Does the table fill in dependency order?"
+      },
+      "complexity_summary": {
+        "interval_dp": "O(n³) — n² states × O(n) split points",
+        "bitmask_dp": "O(2^n × n²) — 2^n × n states × O(n) transitions",
+        "digit_dp": "O(d × k × 10) — d digits, k constraint states, 10 digit choices",
+        "tree_dp": "O(n) — each node visited once in postorder DFS",
+        "probability_dp": "Varies — often O(K × board_size) or O(n+k)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-10",
+          "title": "Regular Expression Matching",
+          "difficulty": "Hard",
+          "pattern": "2D DP — '*' matches zero or more of preceding char",
+          "blind75": true
+        },
+        {
+          "id": "lc-312",
+          "title": "Burst Balloons — interval DP capstone",
+          "difficulty": "Hard",
+          "pattern": "Interval DP — last-burst framing"
+        },
+        {
+          "id": "lc-1000",
+          "title": "Minimum Cost to Merge Stones",
+          "difficulty": "Hard",
+          "pattern": "Interval DP + feasibility check (n-1) % (k-1) == 0"
+        },
+        {
+          "id": "lc-514",
+          "title": "Freedom Trail",
+          "difficulty": "Hard",
+          "pattern": "DP on ring — state = (key_index, ring_position)"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M1-L6-TH-1",
+            "question": "The lesson states: 'The state must encode exactly what determines future choices'. What happens if the state OVER-ENCODES (includes unnecessary information)?",
+            "options": [
+              "Over-encoding never causes problems; more information is always better",
+              "OVER-ENCODING creates UNNECESSARILY LARGE STATE SPACE: if the state includes information that doesn't affect future transitions, different states that should be identical are treated as distinct; this wastes both time and space and prevents memoisation from being effective; example in digit DP: if we included the exact running sum modulo 7 when we only needed whether it equals 0, the state space would be 7x smaller with correct encoding; over-encoding is a common DP design error that leads to MLE (memory limit exceeded) or TLE (time limit exceeded)",
+              "Over-encoding makes the DP always correct but slower by a constant factor",
+              "Over-encoding only matters for bitmask DP where state space is explicitly bounded"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's principle: 'the state must encode exactly what determines future choices' — over-encoding inflates the state space without benefit; for example, including the full path history in TSP (instead of just the visited set and last city) would exponentially increase states; the minimum sufficient state is the one that captures exactly the information needed to compute future transitions correctly."
+          },
+          {
+            "id": "L3M1-L6-TH-2",
+            "question": "For bitmask DP, the signal 'n <= 20' is the critical recognition cue. Why is n=20 specifically the practical boundary?",
+            "options": [
+              "n=20 is a programming contest convention with no algorithmic basis",
+              "2^20 = 1,048,576 ≈ 1 million states; with an additional O(n) = 20 factor for the current-city dimension: 2^20 * 20 ≈ 20 million entries; with 4 bytes per entry ≈ 80 MB — within typical memory limits; for n=25: 2^25 * 25 ≈ 800 million entries ≈ 3.2 GB — infeasible; for n=20 with O(n²) transitions: 2^20 * 20² ≈ 400 million operations — borderline feasible in 2-3 seconds; n=20 is the practical sweet spot where 2^n states fit in memory and time within competitive programming limits",
+              "n=20 is the maximum for which TSP has polynomial-time solutions",
+              "n<=20 is only for graph problems; string bitmask DP can handle n<=40"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'O(2^n * n^2) time and O(2^n * n) space: feasible for n <= 20' — 2^20 ≈ 10^6 makes the state space manageable; 2^25 ≈ 33 million (borderline), 2^30 ≈ 1 billion (infeasible); n=20 is the standard competitive programming boundary where bitmask DP solutions are expected."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M1-L6-LG-1",
+            "question": "Given a problem: 'Count binary strings of length n with no two consecutive 0s'. Which advanced DP type applies and what is the state?",
+            "options": [
+              "Bitmask DP — state is dp[mask] where mask represents the pattern",
+              "Digit DP — state is dp[pos][tight][prevBit] where prevBit tracks whether the previous bit was 0; the tight flag tracks the upper bound; the skip condition is: if prevBit===0 && bit===0, continue (no consecutive 0s); without an upper bound N, tight is always false and simplifies to dp[pos][prevBit]",
+              "Tree DP — the string forms a decision tree",
+              "Probability DP — each bit is chosen randomly"
+            ],
+            "answer": 1,
+            "explanation": "The signal 'count binary strings with property on consecutive digits' matches Digit DP; the state (pos, prevBit) tracks position and the previous digit to enforce the no-consecutive-0s constraint; the transition skips (pos+1) if prevBit=0 and current bit=0; without a specific upper bound N, tight is omitted and the problem becomes a simple DP with state (pos, prevBit), computable in O(n) time."
+          },
+          {
+            "id": "L3M1-L6-LG-2",
+            "question": "Module 1's NC150 problems total 5. What distinguishes these 5 from the broader Level 2 DP problems (M01-M03)?",
+            "options": [
+              "All 5 use bitmask DP which Level 2 did not cover",
+              "The 5 Module 1 NC150 problems (#132, #337, #968, #688, #837) represent ADVANCED DP VARIANTS not covered in Level 2: palindrome cut DP (#132), tree DP with state vectors (#337, #968), and probability/expected-value DP (#688, #837); Level 2 covered 1D DP, 2D DP, and knapsack — all on arrays/sequences; Level 3 Module 1 extends to trees (different structure), digit counting (different domain), and probabilistic processes (different objective function)",
+              "The 5 problems are all from the Hard difficulty tier on LeetCode",
+              "All 5 use the same algorithmic pattern (palindrome DP)"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's module1_nc150 array: #132 (String Palindrome DP), #337 and #968 (Tree DP), #688 and #837 (Probability DP) — the three types represent genuinely new DP domains: applying DP to TREE STRUCTURE (vs arrays), COUNTING over a digit-number range (vs optimising over sequences), and computing PROBABILITY DISTRIBUTIONS (vs deterministic optimal costs)."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M1-L6-SY-1",
+            "question": "In `hardDpTaxonomy`, each type stores a `state` string describing the DP state as a template. How does this template help during interview problem-solving?",
+            "options": [
+              "The state template is purely for documentation; it has no problem-solving utility",
+              "The STATE TEMPLATE serves as a BLUEPRINT for defining the DP array: given a recognised type, the template immediately specifies the array dimensions and semantics; for 'Tree DP: dfs(node) returns state vector [choice1, choice2]', this tells you to write a DFS returning a list (not a single value); for 'Bitmask DP: dp[mask][last]', this specifies a 2D array of size 2^n × n; having the template memorised enables IMMEDIATE DP DESIGN at the board — translating problem recognition to implementation without derivation from first principles",
+              "State templates are only useful for memoisation; iterative DP doesn't need them",
+              "Templates are specific to the problems listed and don't generalise"
+            ],
+            "answer": 1,
+            "explanation": "The taxonomy's state templates encode the standard DP array structure for each type: recognising the problem type immediately suggests the state shape; 'dp[pos][tight][other]' for digit DP tells you to write a top-down memoised function with three parameters; 'dp[mask][i]' for bitmask tells you to allocate a 2D array; these templates are the bridge between PATTERN RECOGNITION and IMPLEMENTATION."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M1-L6-CC-1",
+            "title": "Hard DP Classifier and Pattern Matcher",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+            "problem_statement": "Build a hard DP pattern classifier for Module 1 problems.",
+            "requirements": [
+              "Implement `classifyHardDP(signal)` returning the DP type based on a signal string",
+              "Implement `module1Summary()` returning {total, nc150, types} for the module's problems"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "const MODULE1_NC150 = [\n  {id:132, type:'String Palindrome DP', nc150:true},\n  {id:337, type:'Tree DP', nc150:true},\n  {id:968, type:'Tree DP', nc150:true},\n  {id:688, type:'Probability DP', nc150:true},\n  {id:837, type:'Probability DP', nc150:true},\n];\n\nfunction classifyHardDP(signal) {\n  // signals: 'palindrome cuts', 'no adjacent nodes', 'n<=20', 'count in range', 'probability'\n  // TODO: return type string\n}\n\nfunction module1Summary() {\n  // TODO: total, nc150, types (unique type strings)\n}"
+            },
+            "test_cases": [
+              {
+                "input": "classifyHardDP('palindrome cuts')",
+                "expected": "String Palindrome DP",
+                "type": "visible"
+              },
+              {
+                "input": "classifyHardDP('no adjacent nodes')",
+                "expected": "Tree DP",
+                "type": "visible"
+              },
+              {
+                "input": "classifyHardDP('probability')",
+                "expected": "Probability DP",
+                "type": "visible"
+              },
+              {
+                "input": "module1Summary().nc150",
+                "expected": 5,
+                "type": "hidden"
+              },
+              {
+                "input": "classifyHardDP('n<=20')",
+                "expected": "Bitmask DP",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "const MODULE1_NC150 = [\n  {id:132, type:'String Palindrome DP', nc150:true},\n  {id:337, type:'Tree DP', nc150:true},\n  {id:968, type:'Tree DP', nc150:true},\n  {id:688, type:'Probability DP', nc150:true},\n  {id:837, type:'Probability DP', nc150:true},\n];\n\nfunction classifyHardDP(signal) {\n  if(signal.includes('palindrome')||signal.includes('cuts'))return'String Palindrome DP';\n  if(signal.includes('adjacent')||signal.includes('cameras')||signal.includes('tree'))return'Tree DP';\n  if(signal.includes('n<=20')||signal.includes('subset')||signal.includes('visit all'))return'Bitmask DP';\n  if(signal.includes('count in range')||signal.includes('digit'))return'Digit DP';\n  if(signal.includes('probability')||signal.includes('expected'))return'Probability DP';\n  return'Unknown';\n}\n\nfunction module1Summary() {\n  return{\n    total:MODULE1_NC150.length,\n    nc150:MODULE1_NC150.filter(p=>p.nc150).length,\n    types:[...new Set(MODULE1_NC150.map(p=>p.type))]\n  };\n}"
+            },
+            "complexity_analysis": "classifyHardDP: O(|signal|). module1Summary: O(n).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "classifyHardDP: check signal keywords in order from most specific to least."
+              },
+              {
+                "level": 2,
+                "text": "module1Summary: total=length, nc150=filter, types=unique Set of type strings."
+              },
+              {
+                "level": 3,
+                "text": "Signal priority: palindrome/cuts → String Palindrome; adjacent/tree → Tree; n<=20/subset → Bitmask; digit/count in range → Digit; probability/expected → Probability."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "module_summary": {
+    "total_lessons": 6,
+    "level": "L3",
+    "difficulty": "Hard — all problems require original state design, not template application",
+    "core_patterns": [
+      "Palindrome DP: 2D table fill by INCREASING LENGTH; substr match=inner, mismatch=false; subseq match=2+inner, mismatch=max(skip L, skip R)",
+      "Tree DP: postorder DFS returning pair [include,exclude] or single value; O(n) no repeated work",
+      "Bitmask DP: mask = subset of n≤20 items; O(2^n × n²); use (mask, last) state for TSP-type",
+      "Digit DP: state=(pos, tight, started, constraint); try all digits ≤ max_at_pos; count(R)-count(L-1) for range",
+      "Probability DP: distribute probability at each step; sliding window for sums; shortcut for convergent limits",
+      "Interval DP fill order: ALWAYS by increasing interval LENGTH — never by row or column",
+      "Hard DP state design principle: state must uniquely determine the subproblem with no external context needed",
+      "Bitmask operations: check=(mask>>i)&1, set=mask|(1<<i), clear=mask&~(1<<i) — all O(1)",
+      "Digit DP tight flag: tight→digit ≤ N[pos]; loose→digit 0-9 freely",
+      "Regex/Wildcard DP: '*' transitions — zero occurrences (skip 2) OR extend match (stay j)"
+    ],
+    "prerequisite_modules": [
+      "L2-M01",
+      "L2-M02",
+      "L2-M03",
+      "L2-M12 (bit manipulation)"
+    ],
+    "unlocks_modules": [
+      "L3-M02 (Advanced Graphs — Strongly Connected Components)",
+      "L3-M03 (Competitive Programming Patterns)"
+    ],
+    "recommended_problem_order": [
+      "lc-516",
+      "lc-132",
+      "lc-337",
+      "lc-124",
+      "lc-847",
+      "lc-698",
+      "lc-688",
+      "lc-837",
+      "lc-10"
+    ],
+    "spaced_review_target": "Re-solve 3 problems from L2-M03 (Burst Balloons, Edit Distance, LIS) before attempting L3-M02",
+    "module_difficulty_breakdown": {
+      "L1_palindrome_dp": "Medium-Hard — state design is straightforward, fill order is the key skill",
+      "L2_tree_dp": "Medium — patterns from L1/L2 apply; hardest part is the pair-return for House Robber III",
+      "L3_bitmask_dp": "Hard — requires comfort with bit operations and exponential state spaces",
+      "L4_digit_dp": "Hard — tight+started flag implementation is subtle; most students need 2-3 attempts",
+      "L5_probability_dp": "Hard — expected value reasoning requires probabilistic intuition beyond DP mechanics",
+      "L6_framework": "Hard — synthesising all five DP types under time pressure"
+    },
+    "honest_time_estimate": "16-20 hours. Palindrome/Tree DP (L1-L2): 4 hrs. Bitmask DP (L3): 4 hrs. Digit DP (L4): 4 hrs. Probability DP (L5): 4 hrs. Framework review (L6): 2 hrs.",
+    "key_l3_principle": "Level 3 DP problems are distinguished by STATE DESIGN, not recurrence complexity. The most common failure is choosing a state that doesn't fully characterise the subproblem — leading to incorrect transitions. Before writing any recurrence, verify: 'does dp[state] have a unique, well-defined answer independent of how we got here?'"
+  },
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "hard": "Lessons 1-5 (palindrome cut DP two-phase, tree DP state vectors, TSP bitmask O(2^n n²), digit DP tight flag, probability rolling-grid forward DP)",
+      "capstone": "Lesson 6 (5-type hard DP taxonomy, signal recognition, module1 NC150 classifier)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

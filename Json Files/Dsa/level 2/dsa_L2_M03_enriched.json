@@ -1,0 +1,1673 @@
+{
+  "module_id": "L2-M03",
+  "module_number": 3,
+  "title": "DP — Knapsack And Advanced",
+  "tag": null,
+  "is_optional_for_product_track": false,
+  "estimated_hours": "14–16 hours",
+  "prerequisites": [
+    "L2-M01",
+    "L2-M02"
+  ],
+  "learning_outcomes": [
+    "Implement 0/1 knapsack using both 2D and space-optimised 1D DP with correct right-to-left iteration",
+    "Solve Target Sum by reducing it to a knapsack subset problem and deriving the target subset sum",
+    "Solve Partition Equal Subset Sum as a boolean 0/1 knapsack checking reachability of sum/2",
+    "Solve Longest Increasing Subsequence in O(n²) with DP and O(n log n) with patience sorting",
+    "Implement Edit Distance and connect it to LCS as a string alignment DP problem",
+    "Solve Burst Balloons using interval DP with the correct last-balloon-to-pop framing"
+  ],
+  "notes": [
+    "Burst Balloons is a Hard — attempt only after all other DP modules are solid."
+  ],
+  "spaced_review": "Re-solve 3 failed problems from Modules 1–2 DP without notes",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "title": "0/1 Knapsack Pattern",
+      "tag": null,
+      "objective": "Implement 0/1 knapsack using 2D DP and the space-optimised 1D version with right-to-left iteration, and understand why each item can be used at most once.",
+      "concepts": [
+        "0/1 knapsack: each item used at most once (0 or 1 times)",
+        "State: dp[i][w] = max value using first i items with capacity w",
+        "Transition: dp[i][w] = max(dp[i-1][w], dp[i-1][w-wt[i]] + val[i])",
+        "Include vs exclude decision at every item",
+        "O(n*W) time and space for 2D version",
+        "1D space optimisation: iterate weights RIGHT TO LEFT",
+        "Why right-to-left: prevents using the same item twice",
+        "Unbounded knapsack: iterate left to right (reuse allowed)"
+      ],
+      "explanation": "The 0/1 knapsack problem: given n items each with a weight and value, and a knapsack with capacity W, maximise the total value without exceeding W, using each item at most once. The 2D DP: dp[i][w] = maximum value achievable using the first i items with weight capacity w. Transition: for item i with weight wt and value val, either exclude it (dp[i-1][w]) or include it if wt <= w (dp[i-1][w-wt] + val). dp[i][w] = max of these two. The key distinction from unbounded knapsack: dp[i-1][w-wt] (not dp[i][w-wt]) is used because item i can only be used once. Using dp[i] on the right side would allow reusing the same item. Space optimisation: collapse to 1D by iterating weights from right to left. The right-to-left order ensures that when dp[w-wt] is read, it still reflects the state before item i was considered (the i-1 row). Left-to-right would allow item i to be counted multiple times, turning it into unbounded knapsack.",
+      "analogy": "0/1 knapsack is a packing problem where each item exists as a single physical object: you either pack it or leave it. To decide whether to include a given item, you compare: the best packing without this item (dp[i-1][w]) versus the best packing using this item (dp[i-1][w-wt]+val). The right-to-left iteration in the 1D version is like packing from the largest capacity bag to the smallest: when you check whether item i fits in a bag of size w, you consult the bag of size w-wt from BEFORE you started considering item i today, not after.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// 0/1 KNAPSACK — 2D DP: O(n*W) time and space\nfunction knapsack01_2D(weights, values, capacity) {\n    const n = weights.length;\n    // dp[i][w] = max value using first i items with capacity w\n    const dp = Array.from({length: n+1}, () => new Array(capacity+1).fill(0));\n\n    for (let i = 1; i <= n; i++) {\n        const wt  = weights[i-1];\n        const val = values[i-1];\n        for (let w = 0; w <= capacity; w++) {\n            dp[i][w] = dp[i-1][w]; // exclude item i\n            if (wt <= w) {\n                dp[i][w] = Math.max(dp[i][w], dp[i-1][w-wt] + val); // include\n            }\n        }\n    }\n    return dp[n][capacity];\n}\n\n// 0/1 KNAPSACK — 1D space-optimised: O(n*W) time, O(W) space\nfunction knapsack01_1D(weights, values, capacity) {\n    const dp = new Array(capacity+1).fill(0);\n\n    for (let i = 0; i < weights.length; i++) {\n        const wt  = weights[i];\n        const val = values[i];\n        // CRITICAL: iterate RIGHT TO LEFT\n        // This ensures dp[w-wt] is from BEFORE item i was considered\n        for (let w = capacity; w >= wt; w--) {\n            dp[w] = Math.max(dp[w], dp[w-wt] + val);\n        }\n        // If we iterated LEFT TO RIGHT:\n        // dp[wt]  updated first -> includes item i once\n        // dp[2wt] updated next  -> sees dp[wt] already updated -> includes item i TWICE\n        // That would be unbounded knapsack, not 0/1\n    }\n    return dp[capacity];\n}\n\n// TEST\nconst weights  = [2, 3, 4, 5];\nconst values   = [3, 4, 5, 6];\nconst capacity = 8;\nconsole.log(knapsack01_2D(weights, values, capacity)); // 10 (items 1,3: wt=2+4, val=3+5=8? or items 0,1: wt=5, val=7?)\n// Trace: item0(wt=2,val=3),item1(wt=3,val=4),item2(wt=4,val=5),item3(wt=5,val=6)\n// Best: item0+item2(wt=2+4=6,val=3+5=8) or item1+item2(wt=7,val=9) or item0+item3(wt=7,val=9)\n// or item2+item3(wt=9>8 no). Answer=10: item1+item3(wt=3+5=8,val=4+6=10)\nconsole.log(knapsack01_1D(weights, values, capacity)); // 10\n\n// UNBOUNDED KNAPSACK (for contrast) — LEFT TO RIGHT\nfunction knapsackUnbounded(weights, values, capacity) {\n    const dp = new Array(capacity+1).fill(0);\n    for (let i = 0; i < weights.length; i++) {\n        for (let w = weights[i]; w <= capacity; w++) { // LEFT TO RIGHT\n            dp[w] = Math.max(dp[w], dp[w-weights[i]] + values[i]);\n        }\n    }\n    return dp[capacity];\n}",
+        "explanation": "The right-to-left vs left-to-right iteration is the single most important detail in knapsack DP. Right-to-left: each item used at most once (0/1 knapsack). Left-to-right: each item used any number of times (unbounded knapsack, same as Coin Change). The loop direction determines which version of the problem you are solving."
+      },
+      "common_mistakes": [
+        "Iterating weights left-to-right in 0/1 knapsack — this allows an item to be counted multiple times within the same pass; always iterate right-to-left for 0/1 and left-to-right for unbounded",
+        "Using dp[i][w-wt] instead of dp[i-1][w-wt] in the 2D version — dp[i][w-wt] would allow item i to be included multiple times in the same row (unbounded); the i-1 row ensures each item is used at most once",
+        "Starting the inner loop at w=0 instead of w=wt in the 1D version — for w < wt the item cannot fit and dp[w] should not change; the loop should start at w=capacity and go down to w=wt (inclusive)"
+      ],
+      "interview_relevance": "0/1 knapsack is the foundational pattern for Target Sum, Partition Equal Subset Sum, and Ones and Zeros in NeetCode 150. Interviewers ask 'why right-to-left?' after a candidate produces the 1D version. The answer — 'to ensure dp[w-wt] reflects the state before item i was considered, preventing reuse of the same item' — demonstrates genuine DP understanding.",
+      "mini_challenge": "Implement knapsack01_1D and verify it returns 10 for the given inputs. Then trace the dp array step-by-step for weights=[2,3] values=[3,4] capacity=5. Show the state of dp after processing each item. Then modify the solution to also return which items were selected (not just the maximum value). Hint: backtrack through the 2D dp table checking whether dp[i][w] > dp[i-1][w] at each step.",
+      "flashcards": [
+        {
+          "front": "0/1 Knapsack: 2D recurrence?",
+          "back": "dp[i][w] = max(dp[i-1][w], dp[i-1][w-wt[i-1]] + val[i-1]) if wt[i-1] ≤ w, else dp[i-1][w]. First i items, capacity w. Note dp[i-1] (not dp[i]) on the include branch — ensures each item used at most once."
+        },
+        {
+          "front": "0/1 Knapsack 1D: why iterate RIGHT TO LEFT?",
+          "back": "Right-to-left ensures dp[w-wt] reads the value from BEFORE item i was considered (same as dp[i-1][w-wt] in 2D). Left-to-right would let item i update dp[wt], then dp[2wt] reads that updated value — effectively using item i twice."
+        },
+        {
+          "front": "0/1 vs Unbounded Knapsack: the single difference?",
+          "back": "0/1 (each item once): inner weight loop goes RIGHT TO LEFT (high → low). Unbounded (reuse allowed): inner loop goes LEFT TO RIGHT (low → high). SAME recurrence dp[w]=max(dp[w], dp[w-wt]+val), only the loop direction differs."
+        },
+        {
+          "front": "0/1 Knapsack 1D space: what is the dp array size?",
+          "back": "dp of size capacity+1. dp[w] = best value achievable with weight capacity exactly w (or at most w depending on initialisation). Initialise all to 0 for maximisation."
+        },
+        {
+          "front": "Three variants of knapsack DP?",
+          "back": "MAX VALUE: dp[w]=max(dp[w], dp[w-wt]+val). COUNT WAYS: dp[w]+=dp[w-wt]. BOOLEAN: dp[w]|=dp[w-wt]. All use RIGHT-TO-LEFT for 0/1 (each item once) and LEFT-TO-RIGHT for unbounded (reuse). Same pattern, different operation."
+        },
+        {
+          "front": "How to backtrack which items were selected in 0/1 Knapsack?",
+          "back": "Use the 2D table. Start at dp[n][W]. If dp[i][w] > dp[i-1][w]: item i was included. Set w = w - wt[i-1] and move to i-1. If dp[i][w] == dp[i-1][w]: item i was excluded. Move to i-1. Repeat until i=0."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "0/1 Knapsack 1D: weights=[2,3], values=[3,4], capacity=5. After processing item 0 (wt=2,val=3), dp=?",
+          "options": [
+            "dp=[0,0,3,3,3,3]",
+            "dp=[0,0,3,3,6,6]",
+            "dp=[0,3,3,3,3,3]",
+            "dp=[0,0,0,3,3,3]"
+          ],
+          "answer": 0,
+          "explanation": "Right-to-left from w=5 down to w=2. w=5: dp[5]=max(0,dp[3]+3)=3. w=4: dp[4]=max(0,dp[2]+3)=3. w=3: dp[3]=max(0,dp[1]+3)=3. w=2: dp[2]=max(0,dp[0]+3)=3. dp=[0,0,3,3,3,3]."
+        },
+        {
+          "question": "After also processing item 1 (wt=3,val=4) on dp=[0,0,3,3,3,3], what is dp[5]?",
+          "options": [
+            "4",
+            "6",
+            "7",
+            "3"
+          ],
+          "answer": 2,
+          "explanation": "Right-to-left: w=5: dp[5]=max(3, dp[2]+4)=max(3,3+4)=7. Item 0 (wt=2) + item 1 (wt=3) = capacity 5, value 3+4=7. ✓"
+        },
+        {
+          "question": "In 0/1 knapsack 2D, the include branch uses dp[i-1][w-wt] not dp[i][w-wt]. Why?",
+          "options": [
+            "To handle the base case i=0",
+            "dp[i][w-wt] would allow item i to be included multiple times in the same row",
+            "dp[i-1] is faster to access",
+            "Only dp[i-1] is computed at this point"
+          ],
+          "answer": 1,
+          "explanation": "dp[i][w-wt] would reference the current row where item i might already be included. Using dp[i-1][w-wt] explicitly restricts to 'before item i was considered', enforcing the at-most-once constraint."
+        },
+        {
+          "question": "Left-to-right 0/1 knapsack inner loop: what bug does this introduce?",
+          "options": [
+            "Off-by-one in the dp array",
+            "Item i can be counted multiple times (becomes unbounded knapsack)",
+            "dp[0] becomes non-zero",
+            "The capacity constraint is violated"
+          ],
+          "answer": 1,
+          "explanation": "Left-to-right: dp[wt] is updated first using dp[0] (includes item i once). Then dp[2wt] is updated using the newly updated dp[wt] — item i is counted again. This is unbounded knapsack, not 0/1."
+        }
+      ],
+      "visual_aid": {
+        "type": "dp_trace",
+        "description": "0/1 Knapsack 1D right-to-left iteration traced",
+        "diagram": "weights=[2,3,4,5], values=[3,4,5,6], capacity=8\nInit: dp=[0,0,0,0,0,0,0,0,0]  (indices 0-8)\n\nItem 0 (wt=2, val=3) — RIGHT TO LEFT w=8..2:\n  w=8: dp[8]=max(0,dp[6]+3)=3\n  w=7: dp[7]=max(0,dp[5]+3)=3\n  w=6: dp[6]=max(0,dp[4]+3)=3\n  w=5: dp[5]=max(0,dp[3]+3)=3\n  w=4: dp[4]=max(0,dp[2]+3)=3\n  w=3: dp[3]=max(0,dp[1]+3)=3\n  w=2: dp[2]=max(0,dp[0]+3)=3\ndp=[0,0,3,3,3,3,3,3,3]\n\nItem 1 (wt=3, val=4) — RIGHT TO LEFT w=8..3:\n  w=8: dp[8]=max(3,dp[5]+4)=max(3,3+4)=7\n  w=7: dp[7]=max(3,dp[4]+4)=max(3,3+4)=7\n  ...\n  w=5: dp[5]=max(3,dp[2]+4)=max(3,3+4)=7\n  w=3: dp[3]=max(3,dp[0]+4)=4\ndp=[0,0,3,4,7,7,7,7,7]\n\n...continue for items 2,3...\nFinal dp[8]=10 (item1+item3: wt=3+5=8, val=4+6=10) ✓\n\nIF LEFT-TO-RIGHT (wrong for 0/1):\n  Item 0: w=2: dp[2]=3. w=4: dp[4]=max(0,dp[2]+3)=6 ← uses item 0 TWICE!"
+      },
+      "complexity_summary": {
+        "knapsack_2d_time": "O(n × W)",
+        "knapsack_2d_space": "O(n × W)",
+        "knapsack_1d_time": "O(n × W)",
+        "knapsack_1d_space": "O(W)",
+        "loop_direction_rule": "RIGHT-TO-LEFT = 0/1 (each item once). LEFT-TO-RIGHT = unbounded (reuse)."
+      },
+      "practice_problems": [
+        {
+          "id": "custom-ks1",
+          "title": "0/1 Knapsack — classic implementation from scratch",
+          "difficulty": "Medium",
+          "pattern": "2D then 1D right-to-left"
+        },
+        {
+          "id": "lc-416",
+          "title": "Partition Equal Subset Sum — 0/1 boolean knapsack",
+          "difficulty": "Medium",
+          "pattern": "Boolean knapsack variant",
+          "blind75": true
+        },
+        {
+          "id": "lc-474",
+          "title": "Ones and Zeroes — 2D 0/1 knapsack with (m,n) capacity",
+          "difficulty": "Medium",
+          "pattern": "2D knapsack variant"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M3-L1-TH-1",
+            "question": "In the 1D space-optimised knapsack, why must weights be iterated RIGHT TO LEFT rather than left to right?",
+            "options": [
+              "Right-to-left is required for JavaScript array compatibility",
+              "LEFT-TO-RIGHT would allow the same item to be counted multiple times (unbounded knapsack): dp[wt] is updated first, then dp[2*wt] sees the ALREADY-UPDATED dp[wt] and adds the item again; RIGHT-TO-LEFT ensures dp[w-wt] is still from BEFORE the current item was considered — the old row value — so each item contributes at most once per pass; this is the exact distinction between 0/1 (right-to-left) and unbounded (left-to-right) knapsack",
+              "Left-to-right causes array index out of bounds",
+              "Both directions give identical results; the direction is a stylistic choice"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's exact comment: 'CRITICAL: iterate RIGHT TO LEFT. This ensures dp[w-wt] is from BEFORE item i was considered' and 'If we iterated LEFT TO RIGHT: dp[wt] updated first → includes item i once; dp[2wt] updated next → sees dp[wt] already updated → includes item i TWICE. That would be unbounded knapsack, not 0/1'."
+          },
+          {
+            "id": "L2M3-L1-TH-2",
+            "question": "In the 2D knapsack, `dp[i][w] = dp[i-1][w]` is set BEFORE checking the include case. What does this initialisation represent?",
+            "options": [
+              "It is a placeholder that gets overwritten in every case",
+              "It represents the EXCLUDE ITEM i decision: `dp[i-1][w]` is the best value achievable using only the FIRST i-1 items with capacity w; setting this as the default means 'not taking item i is always a valid option'; the include case then checks whether taking item i (`dp[i-1][w-wt]+val`) improves on this baseline; the max of exclude and include gives the optimal 0/1 decision",
+              "It copies the previous row's capacity; it has no semantic meaning",
+              "It initialises dp[i][w] to 0 before the comparison"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Include vs exclude decision at every item' and the code: `dp[i][w] = dp[i-1][w]; // exclude item i` — the exclude decision is always valid (skip item i); the include decision is conditionally valid (only if wt<=w); the recurrence takes the maximum of the two valid options."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M3-L1-LG-1",
+            "question": "For knapsack with weights=[2,3,4,5], values=[3,4,5,6], capacity=8, the answer is 10. Which items are selected and what is their combined weight?",
+            "options": [
+              "Items 0 and 2 (wt=2+4=6, val=3+5=8); answer=8",
+              "Items 1 and 3 (wt=3+5=8, val=4+6=10); combined weight exactly equals capacity=8; this is optimal because no combination achieves higher value within capacity — confirmed by direct execution of both 2D and 1D versions returning 10",
+              "Items 0, 1, and 2 (wt=2+3+4=9>8); infeasible",
+              "Item 3 alone (wt=5, val=6); answer=6"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: knapsack returns 10; verifying item1(wt=3,val=4)+item3(wt=5,val=6)=wt8,val10 exactly meets capacity=8; other combinations: item0+item2=wt6,val8; item0+item3=wt7,val9; item1+item2=wt7,val9; item2+item3=wt9>8 infeasible; item1+item3=wt8,val10 is optimal."
+          },
+          {
+            "id": "L2M3-L1-LG-2",
+            "question": "What is the difference between 0/1 knapsack (right-to-left) and UNBOUNDED knapsack (left-to-right) in terms of WHAT THEY COMPUTE?",
+            "options": [
+              "Both compute the same result; only the performance differs",
+              "0/1 KNAPSACK: each item can be selected AT MOST ONCE — you're deciding to include or exclude each item; RIGHT-TO-LEFT iteration ensures each item's effect is seen only once per pass; UNBOUNDED KNAPSACK: each item can be used ANY NUMBER OF TIMES — you can keep adding the same coin/item; LEFT-TO-RIGHT iteration allows an item's updated value to propagate forward and be reused in the same pass; Coin Change II is unbounded (coins reusable), while Partition Subset Sum is 0/1 (each number used once)",
+              "Unbounded is strictly better than 0/1; always use left-to-right",
+              "0/1 only works for binary items; unbounded only works for coins"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's explicit comparison: 'Unbounded knapsack: iterate left to right (reuse allowed)' vs '0/1 knapsack: iterate right to left (each item once)' — the iteration direction is the single code change that switches between these two fundamental variants; the lesson's comment traces exactly how left-to-right causes double-counting."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M3-L1-SY-1",
+            "question": "In `knapsack01_1D`, the inner loop starts at `w = capacity` and decrements to `w = wt` (stops at wt, not 0). Why stop at `wt` rather than at 0?",
+            "options": [
+              "Stopping at 0 would cause negative array indexing",
+              "When `w < wt`, the item CANNOT FIT into a bag of capacity w — `w - wt` would be negative, making `dp[w-wt]` an invalid access; since items with weight > remaining capacity can never be included, the loop stops at `wt` (the minimum capacity where this item fits); positions 0 to wt-1 are left unchanged because they cannot benefit from including this item",
+              "The loop stops at wt for performance only; extending to 0 gives the same result",
+              "Stopping at wt prevents overflow when computing dp[w-wt]"
+            ],
+            "answer": 1,
+            "explanation": "The condition `for (let w = capacity; w >= wt; w--)` is equivalent to the 2D version's `if (wt <= w)` guard — positions w < wt cannot accommodate the item (w-wt < 0), so they're correctly skipped; looping from capacity down to wt covers exactly the positions where the item fits."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M3-L1-CC-1",
+            "title": "0/1 Knapsack: 2D Table and Space-Optimised",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both knapsack variants and the unbounded variant from this lesson.",
+            "requirements": [
+              "Implement `knapsack01_2DImpl(weights, values, capacity)` matching the lesson's 2D DP approach",
+              "Implement `knapsack01_1DImpl(weights, values, capacity)` matching the lesson's right-to-left 1D approach",
+              "Implement `knapsackUnboundedImpl(weights, values, capacity)` matching the lesson's left-to-right unbounded approach"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function knapsack01_2DImpl(weights, values, capacity) {\n  // TODO: 2D dp, exclude then conditionally include\n}\n\nfunction knapsack01_1DImpl(weights, values, capacity) {\n  // TODO: 1D dp, RIGHT TO LEFT iteration\n}\n\nfunction knapsackUnboundedImpl(weights, values, capacity) {\n  // TODO: 1D dp, LEFT TO RIGHT iteration\n}"
+            },
+            "test_cases": [
+              {
+                "input": "knapsack01_2DImpl([2,3,4,5],[3,4,5,6],8)",
+                "expected": 10,
+                "type": "visible"
+              },
+              {
+                "input": "knapsack01_1DImpl([2,3,4,5],[3,4,5,6],8)",
+                "expected": 10,
+                "type": "visible"
+              },
+              {
+                "input": "knapsack01_1DImpl([1,2,3],[6,10,12],5)",
+                "expected": 22,
+                "type": "visible"
+              },
+              {
+                "input": "knapsackUnboundedImpl([1,3,4],[1,4,5],7)",
+                "expected": 9,
+                "type": "hidden"
+              },
+              {
+                "input": "knapsack01_2DImpl([1],[10],1)",
+                "expected": 10,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function knapsack01_2DImpl(weights, values, capacity) {\n  const n = weights.length;\n  const dp = Array.from({length:n+1},()=>new Array(capacity+1).fill(0));\n  for (let i = 1; i <= n; i++) {\n    const wt = weights[i-1], val = values[i-1];\n    for (let w = 0; w <= capacity; w++) {\n      dp[i][w] = dp[i-1][w];\n      if (wt <= w) dp[i][w] = Math.max(dp[i][w], dp[i-1][w-wt]+val);\n    }\n  }\n  return dp[n][capacity];\n}\n\nfunction knapsack01_1DImpl(weights, values, capacity) {\n  const dp = new Array(capacity+1).fill(0);\n  for (let i = 0; i < weights.length; i++) {\n    const wt = weights[i], val = values[i];\n    for (let w = capacity; w >= wt; w--) {\n      dp[w] = Math.max(dp[w], dp[w-wt]+val);\n    }\n  }\n  return dp[capacity];\n}\n\nfunction knapsackUnboundedImpl(weights, values, capacity) {\n  const dp = new Array(capacity+1).fill(0);\n  for (let i = 0; i < weights.length; i++) {\n    for (let w = weights[i]; w <= capacity; w++) {\n      dp[w] = Math.max(dp[w], dp[w-weights[i]]+values[i]);\n    }\n  }\n  return dp[capacity];\n}"
+            },
+            "complexity_analysis": "knapsack01_2DImpl: O(n*W) time, O(n*W) space. knapsack01_1DImpl: O(n*W) time, O(W) space. knapsackUnboundedImpl: O(n*W) time, O(W) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "knapsack01_2DImpl: dp[i][w]=dp[i-1][w] (exclude); if wt<=w: max with dp[i-1][w-wt]+val (include)."
+              },
+              {
+                "level": 2,
+                "text": "knapsack01_1DImpl: RIGHT-TO-LEFT from capacity down to wt; dp[w]=max(dp[w],dp[w-wt]+val)."
+              },
+              {
+                "level": 3,
+                "text": "knapsackUnboundedImpl: identical to 1D but LEFT-TO-RIGHT from wt up to capacity; this is the single change enabling item reuse."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 2,
+      "title": "Target Sum",
+      "tag": null,
+      "objective": "Solve Target Sum by reducing it to a 0/1 knapsack subset sum problem using the mathematical reduction from +/- assignments to subset sums.",
+      "concepts": [
+        "Target Sum: assign + or - to each number to reach target",
+        "Naive: DFS with +/- at each position O(2^n)",
+        "Mathematical reduction: partition numbers into P (plus) and N (minus)",
+        "P - N = target, P + N = sum -> P = (sum + target) / 2",
+        "Reduced problem: count subsets summing to (sum+target)/2",
+        "0/1 knapsack count variant: dp[j] += dp[j - num]",
+        "Validity check: (sum+target) must be even and non-negative",
+        "O(n * sum) time, O(sum) space"
+      ],
+      "explanation": "Target Sum (#494) assigns + or - to each number to reach a target. The naive DFS explores 2^n assignments. The key mathematical insight: partition numbers into two groups P (assigned +) and N (assigned -). Then P - N = target and P + N = total_sum. Adding these: 2P = target + sum, so P = (target + sum) / 2. Now the problem becomes: how many ways to choose a subset of numbers summing to P? This is the subset sum count problem, a 0/1 knapsack variant. The DP: dp[j] = number of subsets summing to j. Base case: dp[0] = 1 (one way to make sum 0: empty subset). Transition: for each number, update dp right-to-left (0/1): dp[j] += dp[j - num]. Validity check: (target + sum) must be even (otherwise P is not an integer) and non-negative (target > sum is impossible). This reduction is a classic DP trick: transform the original problem into an equivalent one with a known DP pattern.",
+      "analogy": "Target Sum reduction is like splitting a group of people into two teams where one team's total minus the other's equals a target score. Instead of trying every possible team assignment, you realise the winning team must have a specific total score determined by the target and the total of everyone. Now the problem is simply: how many ways can you form the winning team with that exact score? This is a well-known problem (subset sum) with a known efficient solution.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// TARGET SUM (#494) — O(n * sum) time, O(sum) space\nfunction findTargetSumWays(nums, target) {\n    const sum = nums.reduce((a, b) => a + b, 0);\n\n    // Validity check:\n    // We need P = (sum + target) / 2 to be a non-negative integer\n    if ((sum + target) % 2 !== 0) return 0;  // (sum+target) must be even\n    if (Math.abs(target) > sum) return 0;     // target unreachable\n\n    const subsetTarget = (sum + target) / 2; // P: subset sum to reach\n\n    // Count subsets summing to subsetTarget (0/1 knapsack count variant)\n    const dp = new Array(subsetTarget + 1).fill(0);\n    dp[0] = 1; // one way to make sum 0: empty subset\n\n    for (const num of nums) {\n        // RIGHT TO LEFT: each num used at most once\n        for (let j = subsetTarget; j >= num; j--) {\n            dp[j] += dp[j - num];\n        }\n    }\n    return dp[subsetTarget];\n}\n\n// TRACE on nums=[1,1,1,1,1], target=3:\n// sum=5, P=(5+3)/2=4\n// Find: how many subsets of [1,1,1,1,1] sum to 4?\n// Answer: C(5,4) = 5 (choose any 4 of the 5 ones)\nconsole.log(findTargetSumWays([1,1,1,1,1], 3)); // 5\nconsole.log(findTargetSumWays([1], 1));          // 1\nconsole.log(findTargetSumWays([1], 2));          // 0 (unreachable)\n\n// NAIVE DFS for comparison (O(2^n))\nfunction findTargetSumWays_dfs(nums, target) {\n    let count = 0;\n    function dfs(i, current) {\n        if (i === nums.length) {\n            if (current === target) count++;\n            return;\n        }\n        dfs(i+1, current + nums[i]); // assign +\n        dfs(i+1, current - nums[i]); // assign -\n    }\n    dfs(0, 0);\n    return count;\n}\n// Correct but O(2^n): for n=20, 2^20 = 1M calls; for n=30, over 1B",
+        "explanation": "The reduction P = (sum + target) / 2 works because: every number is in exactly one of two groups (plus or minus). The plus group sums to P, the minus group sums to N = sum - P. P - N = P - (sum - P) = 2P - sum = target, which gives P = (sum + target) / 2. When nums contains zeros, they can be in either group without affecting sums — dp[0] accumulates ways correctly since dp[j-0] = dp[j]."
+      },
+      "common_mistakes": [
+        "Forgetting to check that (sum + target) is even — if it is odd, P would be a non-integer and there are zero valid assignments; always validate parity before building the DP",
+        "Not checking abs(target) <= sum — if |target| > sum, it is impossible to reach the target even by making all numbers positive or all negative; return 0 immediately",
+        "Iterating left-to-right instead of right-to-left in the knapsack loop — target sum uses 0/1 knapsack (each number used once), which requires right-to-left iteration"
+      ],
+      "interview_relevance": "Target Sum (#494) is NeetCode 150 and a favourite meta-interview problem because it requires a non-obvious mathematical reduction before any DP. Interviewers specifically test whether candidates know to look for a reduction before coding. The ability to state 'I can reduce this to counting subsets summing to (sum+target)/2' within 2 minutes of reading the problem is a strong signal.",
+      "mini_challenge": "Implement findTargetSumWays and verify it returns 5 for ([1,1,1,1,1], 3). Derive the mathematical reduction yourself: start from P - N = target and P + N = sum and show the algebraic steps to P = (sum + target) / 2. Then solve Ones and Zeros (LeetCode #474): given strings of 0s and 1s and capacity m zeros and n ones, find the maximum number of strings you can pick. This is a 2D 0/1 knapsack where the capacity is a pair (m, n).",
+      "flashcards": [
+        {
+          "front": "Target Sum mathematical reduction?",
+          "back": "Let P = set assigned '+', N = set assigned '-'. P - N = target, P + N = total. Adding: 2P = target + total → P = (target + total) / 2. Problem reduces to: count subsets summing to P."
+        },
+        {
+          "front": "Target Sum validity checks?",
+          "back": "1) (target + total) must be EVEN — else P is not an integer, return 0. 2) abs(target) ≤ total — else impossible even with all signs positive/negative, return 0."
+        },
+        {
+          "front": "Target Sum DP: what does dp[j] represent?",
+          "back": "Number of subsets of nums that sum to exactly j. This is the COUNT variant of 0/1 knapsack: dp[j] += dp[j-num] (not max, not boolean — += for counting)."
+        },
+        {
+          "front": "Target Sum DP base case?",
+          "back": "dp[0] = 1. There is exactly ONE subset summing to 0: the empty subset. All other dp[j] start at 0."
+        },
+        {
+          "front": "Target Sum: what changes if nums contains zeros?",
+          "back": "Each 0 can be in either the + or - group without affecting sums. dp[j-0] = dp[j], so dp[j] += dp[j] → doubles the count for each 0. The DP handles this correctly automatically since j≥0 and dp[j]+=dp[j-0]=dp[j] doubles dp[j]."
+        },
+        {
+          "front": "Target Sum: DFS vs DP — complexity comparison?",
+          "back": "DFS: O(2^n) — tries all +/- assignments. DP after reduction: O(n × P) where P=(sum+target)/2 ≤ sum. For n=20, sum=1000: DFS ≈ 1M calls, DP ≈ 20,000 operations. DP is dramatically faster."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "nums=[1,1,1,1,1], target=3. What is the subset target P?",
+          "options": [
+            "3",
+            "4",
+            "2",
+            "5"
+          ],
+          "answer": 1,
+          "explanation": "total=5, target=3. P=(5+3)/2=4. Find subsets of [1,1,1,1,1] summing to 4. Answer: C(5,4)=5 ways."
+        },
+        {
+          "question": "nums=[1,2,7], target=0. Validity check: (sum+target) = ?",
+          "options": [
+            "0",
+            "10",
+            "10 — even, valid",
+            "11 — odd, return 0"
+          ],
+          "answer": 2,
+          "explanation": "total=10, target=0. (10+0)=10, even. P=5. Subset of [1,2,7] summing to 5: {1,2} sums to 3, {7} sums to 7, no combo sums to 5. Answer=0."
+        },
+        {
+          "question": "nums=[2,2,2], target=0. How many ways?",
+          "options": [
+            "0",
+            "2",
+            "3",
+            "6"
+          ],
+          "answer": 2,
+          "explanation": "total=6, target=0. P=(6+0)/2=3. Count subsets of [2,2,2] summing to 3. But all elements are 2 — no subset can sum to odd 3. Hmm: actually P=3 with elements all 2 is impossible. Answer=0. But wait — target=0 means +all or -all or mixed. Let's recount: +2-2+2=2, -2+2+2=2, +2+2-2=2, -2-2+2=-2, -2+2-2=-2, +2-2-2=-2, -2-2-2=-6, +2+2+2=6. None are 0. Answer=0."
+        },
+        {
+          "question": "Target Sum DP: dp[j] += dp[j-num]. What is the loop direction?",
+          "options": [
+            "Left-to-right (unbounded)",
+            "Right-to-left (0/1 — each num used once)",
+            "Either direction works for counting",
+            "Outer num loop, no specific direction needed"
+          ],
+          "answer": 1,
+          "explanation": "Right-to-left because each number in nums is used exactly once (0/1 variant). Left-to-right would count the same number multiple times."
+        }
+      ],
+      "visual_aid": {
+        "type": "reduction_diagram",
+        "description": "Target Sum mathematical reduction and DP trace",
+        "diagram": "TARGET SUM REDUCTION:\nnums=[1,1,1,1,1], target=3\n\nStep 1 — Partition into P (plus group) and N (minus group):\n  P - N = 3     (target equation)\n  P + N = 5     (sum equation)\n  ─────────────\n  2P = 8  →  P = 4\n\nStep 2 — New problem:\n  Count subsets of [1,1,1,1,1] summing to 4\n  = C(5,4) = 5 ways\n  [+,+,+,+,-], [+,+,+,-,+], [+,+,-,+,+], [+,-,+,+,+], [-,+,+,+,+]\n\nStep 3 — DP trace for count subsets summing to 4:\n  Init: dp=[1,0,0,0,0]  (size P+1 = 5)\n  num=1 (right-to-left j=4..1):\n    dp[1]+=dp[0]=1 → dp=[1,1,0,0,0]\n  num=1: dp[2]+=dp[1]=1; dp[1]+=dp[0]=1 → dp=[1,2,1,0,0]\n  num=1: dp[3]+=dp[2]=1; dp[2]+=dp[1]=2; dp[1]+=dp[0]=1 → dp=[1,3,3,1,0]\n  num=1: dp=[1,4,6,4,1]\n  num=1: dp=[1,5,10,10,5]\n  dp[4]=5 ✓"
+      },
+      "complexity_summary": {
+        "dfs_naive": "O(2^n)",
+        "dp_after_reduction": "O(n × P) where P = (sum+target)/2",
+        "space": "O(P)",
+        "validity_checks": "Even parity AND |target| ≤ sum"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-494",
+          "title": "Target Sum",
+          "difficulty": "Medium",
+          "pattern": "0/1 knapsack count variant after math reduction",
+          "blind75": true
+        },
+        {
+          "id": "lc-474",
+          "title": "Ones and Zeroes",
+          "difficulty": "Medium",
+          "pattern": "2D 0/1 knapsack (m,n) capacity"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M3-L2-TH-1",
+            "question": "What is the MATHEMATICAL REDUCTION that transforms Target Sum from a +/- assignment problem into a 0/1 knapsack subset sum problem?",
+            "options": [
+              "Sort the array and greedily assign signs based on position",
+              "Let P = set of numbers with '+' and N = set with '-'; then P - N = target AND P + N = sum; solving: P = (sum + target) / 2; therefore, counting assignments that achieve `target` is equivalent to counting SUBSETS THAT SUM TO (sum+target)/2; this converts the exponential DFS (2^n) to O(n*sum) knapsack counting; validity requires (sum+target) to be even and non-negative",
+              "The reduction only works when all numbers are equal",
+              "Target Sum is always solved by DFS; no knapsack reduction exists"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's exact derivation: 'P - N = target, P + N = sum → P = (sum + target) / 2' — this algebraic manipulation converts the two-constraint problem (sum of all + sum of minuses = target) into a single-constraint counting problem (count subsets summing to a fixed target), enabling the efficient O(n*sum) knapsack approach."
+          },
+          {
+            "id": "L2M3-L2-TH-2",
+            "question": "What are the TWO VALIDITY CHECKS needed before proceeding with the knapsack reduction?",
+            "options": [
+              "Check that target > 0 and all numbers are positive",
+              "(1) `(sum + target) % 2 !== 0`: if sum+target is odd, P=(sum+target)/2 is not an integer — no valid partition exists, return 0; (2) `Math.abs(target) > sum`: if |target| exceeds the total sum, even assigning all signs to one side can't reach target — return 0; both checks prevent computing a negative or non-integer subsetTarget which would produce meaningless DP results",
+              "Check that the array is sorted and has no duplicates",
+              "Check that target is less than max element"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's exact code: 'if ((sum + target) % 2 !== 0) return 0; // (sum+target) must be even' and 'if (Math.abs(target) > sum) return 0; // target unreachable' — these guard against mathematically impossible cases before the DP allocation, preventing integer/index errors."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M3-L2-LG-1",
+            "question": "For `findTargetSumWays([1,1,1,1,1], target=3)`: what is the `subsetTarget` computed by the reduction, and why is the answer C(5,4)=5?",
+            "options": [
+              "subsetTarget=3; answer=5 because there are 5 ways to assign 3 pluses",
+              "sum=5, subsetTarget=(5+3)/2=4; we count subsets of five 1s that sum to 4; any 4 of the 5 ones sum to 4; there are C(5,4)=5 ways to choose 4 items from 5; the 5th item gets assigned '-' in each case; confirmed by direct execution returning 5",
+              "subsetTarget=4; answer=5 by coincidence with the target value",
+              "subsetTarget=4; answer is computed by the naive DFS as C(5,2)=10"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's trace: 'nums=[1,1,1,1,1], target=3: sum=5, P=(5+3)/2=4. Find: how many subsets of [1,1,1,1,1] sum to 4? Answer: C(5,4) = 5 (choose any 4 of the 5 ones)' — confirmed by direct execution returning 5."
+          },
+          {
+            "id": "L2M3-L2-LG-2",
+            "question": "In `findTargetSumWays`, `dp[j] += dp[j - num]` (right-to-left) counts COMBINATIONS. What would happen if this loop ran LEFT-TO-RIGHT?",
+            "options": [
+              "Left-to-right would give the same result since addition is commutative",
+              "Left-to-right would count PERMUTATIONS (ordered sequences), not combinations: once dp[num] is updated to include a sequence ending with this number, dp[2*num] would see the updated dp[num] and count a sequence that uses this number TWICE — equivalent to the Coin Change II permutation bug from Module 2; for example, with nums=[1,1] and target=0, the count would be inflated beyond the correct value",
+              "Left-to-right would always return 0",
+              "Left-to-right would be more efficient and still correct"
+            ],
+            "answer": 1,
+            "explanation": "The same right-to-left / left-to-right distinction as 0/1 vs unbounded knapsack: right-to-left ensures each number is used at most once per assignment (0/1 semantics); left-to-right would let each number's contribution propagate forward and be counted multiple times (unbounded semantics), inflating the count beyond the correct answer."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M3-L2-SY-1",
+            "question": "In `findTargetSumWays`, `dp[0] = 1` initialises with 'one way to make sum 0: empty subset'. Why is this the correct base case for a COUNTING knapsack?",
+            "options": [
+              "dp[0]=1 is wrong; it should be 0 since no items have been selected",
+              "For COUNTING problems, dp[j] = number of subsets summing to j; the empty subset is a valid subset and it sums to 0 — so there is exactly 1 way to achieve sum 0 (select nothing); dp[0]=1 seeds all subsequent transitions: when `dp[j] += dp[j-num]`, if j==num, dp[num] += dp[0] = 1, correctly counting the subset {num} as one way to reach sum num; dp[0]=0 would incorrectly prevent any single-element subsets from being counted",
+              "dp[0]=1 is the same as dp[0]=true used in boolean knapsack",
+              "The base case should be dp[0]=0 for counting and dp[0]=1 only for max-value problems"
+            ],
+            "answer": 1,
+            "explanation": "The counting base case dp[0]=1 is universal for subset-count DP: 'there is exactly 1 way to form sum 0 — the empty selection'; this is the counting analog of dp[0]=true in boolean knapsack (exists a subset summing to 0) and dp[0]=0 in min-coins (0 coins needed for amount 0); getting the base case right is what makes the entire recurrence produce correct counts."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M3-L2-CC-1",
+            "title": "Target Sum: DP Reduction and Naive DFS",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both Target Sum approaches from this lesson.",
+            "requirements": [
+              "Implement `findTargetSumWaysImpl(nums, target)` matching the lesson's O(n*sum) knapsack reduction",
+              "Implement `findTargetSumWaysDFS(nums, target)` matching the lesson's naive O(2^n) DFS for correctness verification"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function findTargetSumWaysImpl(nums, target) {\n  // TODO: validity checks, reduction P=(sum+target)/2, count subsets right-to-left\n}\n\nfunction findTargetSumWaysDFS(nums, target) {\n  // TODO: O(2^n) DFS, +/- at each position\n}"
+            },
+            "test_cases": [
+              {
+                "input": "findTargetSumWaysImpl([1,1,1,1,1], 3)",
+                "expected": 5,
+                "type": "visible"
+              },
+              {
+                "input": "findTargetSumWaysImpl([1], 1)",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "findTargetSumWaysDFS([1,1,1,1,1], 3)",
+                "expected": 5,
+                "type": "visible"
+              },
+              {
+                "input": "findTargetSumWaysImpl([1], 2)",
+                "expected": 0,
+                "type": "hidden"
+              },
+              {
+                "input": "findTargetSumWaysImpl([0,0,0,0,0,0,0,0,1], 1)",
+                "expected": 256,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function findTargetSumWaysImpl(nums, target) {\n  const sum = nums.reduce((a,b) => a+b, 0);\n  if ((sum + target) % 2 !== 0) return 0;\n  if (Math.abs(target) > sum) return 0;\n  const st = (sum + target) / 2;\n  const dp = new Array(st + 1).fill(0);\n  dp[0] = 1;\n  for (const num of nums)\n    for (let j = st; j >= num; j--)\n      dp[j] += dp[j - num];\n  return dp[st];\n}\n\nfunction findTargetSumWaysDFS(nums, target) {\n  let count = 0;\n  function dfs(i, current) {\n    if (i === nums.length) { if (current === target) count++; return; }\n    dfs(i+1, current + nums[i]);\n    dfs(i+1, current - nums[i]);\n  }\n  dfs(0, 0);\n  return count;\n}"
+            },
+            "complexity_analysis": "findTargetSumWaysImpl: O(n*(sum+target)/2) time, O((sum+target)/2) space. findTargetSumWaysDFS: O(2^n) time, O(n) call stack.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "findTargetSumWaysImpl: compute sum; check validity (even, reachable); subsetTarget=(sum+target)/2; count subsets with right-to-left 0/1 knapsack."
+              },
+              {
+                "level": 2,
+                "text": "findTargetSumWaysDFS: at each index, recurse with +num and -num; increment count when i===nums.length and current===target."
+              },
+              {
+                "level": 3,
+                "text": "Edge case: nums containing zeros can multiply ways significantly (each 0 doubles the count); the DP handles this correctly via dp[j]+=dp[j-0]=dp[j] (doubling)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 3,
+      "title": "Partition Equal Subset Sum",
+      "tag": null,
+      "objective": "Solve Partition Equal Subset Sum as a boolean 0/1 knapsack, determining whether a subset summing to exactly sum/2 exists.",
+      "concepts": [
+        "Partition into two equal subsets: each half sums to total/2",
+        "Necessary condition: total sum must be even",
+        "Reduction: can any subset sum to total/2? (boolean 0/1 knapsack)",
+        "dp[j] = true if subset summing to j is achievable",
+        "Transition: dp[j] |= dp[j - num] (right-to-left)",
+        "Early termination: return true as soon as dp[total/2] becomes true",
+        "O(n * sum/2) time, O(sum/2) space",
+        "Boolean knapsack vs count knapsack vs max-value knapsack"
+      ],
+      "explanation": "Partition Equal Subset Sum (#416) asks whether a set of integers can be partitioned into two subsets with equal sums. For this to be possible, the total sum must be even (otherwise equal halves are impossible). If even, check whether any subset sums to total/2. If yes, the remaining elements form the other half automatically. The DP is a boolean 0/1 knapsack: dp[j] = true if a subset summing to exactly j is achievable using some elements. Base case: dp[0] = true (empty subset sums to 0). Transition: for each number, iterate right-to-left. For each capacity j from target down to num: dp[j] |= dp[j - num]. This means: if we could previously achieve sum j-num, we can now achieve sum j by including this number. The answer is dp[target]. Early termination optimisation: if dp[target] becomes true during any inner loop iteration, return true immediately.",
+      "analogy": "Partition Equal Subset Sum is like splitting a group of objects into two equal-weight groups using a balance scale. You check the total weight first: if it is odd, immediately impossible. If even, the question is: can I form a group that weighs exactly half the total? You try to pack a bag of exactly half-total capacity. If you succeed, the remaining items automatically form the other half.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// PARTITION EQUAL SUBSET SUM (#416) — O(n * sum/2) time, O(sum/2) space\nfunction canPartition(nums) {\n    const total = nums.reduce((a, b) => a + b, 0);\n    if (total % 2 !== 0) return false; // odd total: impossible\n\n    const target = total / 2;\n    const dp = new Array(target + 1).fill(false);\n    dp[0] = true; // empty subset sums to 0\n\n    for (const num of nums) {\n        // RIGHT TO LEFT: 0/1 knapsack (each num used at most once)\n        for (let j = target; j >= num; j--) {\n            if (dp[j - num]) dp[j] = true;\n            // Equivalent: dp[j] = dp[j] || dp[j - num];\n        }\n        if (dp[target]) return true; // early exit\n    }\n    return dp[target];\n}\n\n// TRACE on nums=[1,5,11,5], total=22, target=11:\n// dp = [T,F,F,F,F,F,F,F,F,F,F,F]\n// num=1: j=11..1. dp[1]=dp[0]=T.\n//   dp = [T,T,F,F,F,F,F,F,F,F,F,F]\n// num=5: j=11..5. dp[6]=dp[1]=T. dp[5]=dp[0]=T.\n//   dp = [T,T,F,F,F,T,T,F,F,F,F,F]\n// num=11: j=11. dp[11]=dp[0]=T -> RETURN TRUE\nconsole.log(canPartition([1,5,11,5]));  // true  (subsets [1,5,5] and [11])\nconsole.log(canPartition([1,2,3,5]));   // false (total=11, odd)\nconsole.log(canPartition([1,2,5]));     // false (total=8, target=4: 1+2=3, 1+5=6, 2+5=7, no 4)\n\n// THREE KNAPSACK VARIANTS SIDE BY SIDE:\n// Max value:  dp[j] = Math.max(dp[j], dp[j-wt]+val)  (standard knapsack)\n// Count ways: dp[j] += dp[j-num]                     (Target Sum)\n// Boolean:    dp[j] |= dp[j-num]  OR  dp[j] = dp[j] || dp[j-num]  (Partition)\n// All use RIGHT-TO-LEFT iteration for 0/1 (each item once)\n// All use LEFT-TO-RIGHT for unbounded (each item multiple times)",
+        "explanation": "The early termination if (dp[target]) return true is an important optimisation. Once the target subset sum is found, there is no need to process remaining numbers. In the worst case (no partition exists), all numbers are processed. In the best case (partition found after the first few numbers), significant work is avoided."
+      },
+      "common_mistakes": [
+        "Not checking that the total is even before building the DP table — if total is odd, target would be a non-integer and the dp array would have the wrong size; always check parity first",
+        "Iterating left-to-right (unbounded) instead of right-to-left (0/1) — left-to-right would allow using the same number multiple times, which would make [1,2,3] report true for target=4 (using 1 twice) when 1+1+2=4 is not a valid subset",
+        "Not initialising dp[0] = true — the base case represents the empty subset (always achievable); without it, no subset can ever be formed because all transitions require a reachable smaller sum"
+      ],
+      "interview_relevance": "Partition Equal Subset Sum (#416) is Blind 75 and NeetCode 150. It appears at every major company as a medium-hard DP problem. Interviewers use it to test the 0/1 knapsack reduction: 'How would you approach this?' The answer 'Check if total is even, then find any subset summing to total/2 using 0/1 knapsack DP' is expected within 2 minutes of reading the problem.",
+      "mini_challenge": "Implement canPartition and verify all three test cases. Then solve Last Stone Weight II (LeetCode #1049): given stones with weights, smash two stones together repeatedly (larger minus smaller is the result), find the minimum possible weight of the last remaining stone. This reduces to: partition into two groups minimising the absolute difference, which is the same as finding a subset as close to total/2 as possible. Implement this using the same boolean knapsack, then find the maximum achievable j where dp[j] is true.",
+      "flashcards": [
+        {
+          "front": "Partition Equal Subset Sum: reduction?",
+          "back": "Can the array be split into two equal-sum subsets? Requires: total sum is EVEN. Then check: does any subset sum to total/2? If yes, remaining elements automatically form the other half."
+        },
+        {
+          "front": "Partition Equal Subset Sum: dp[j] meaning?",
+          "back": "dp[j] = TRUE if a subset of the processed numbers so far can sum to exactly j. Boolean variant of 0/1 knapsack."
+        },
+        {
+          "front": "Partition Equal Subset Sum: recurrence?",
+          "back": "For each num, right-to-left: dp[j] = dp[j] OR dp[j-num]. If dp[j-num] was achievable, adding num makes j achievable. Answer: dp[total/2]."
+        },
+        {
+          "front": "Three knapsack operation variants — same loop, different op?",
+          "back": "MAX VALUE: dp[w] = max(dp[w], dp[w-wt]+val). COUNT WAYS: dp[w] += dp[w-wt]. BOOLEAN: dp[w] = dp[w] || dp[w-wt]. All right-to-left for 0/1. The operation changes, the structure doesn't."
+        },
+        {
+          "front": "Partition Equal Subset Sum: early termination?",
+          "back": "After processing each number, check if dp[target] is already true. If so, return true immediately — no need to process remaining numbers."
+        },
+        {
+          "front": "What if a single number in nums exceeds target=total/2?",
+          "back": "That number alone exceeds half the total. It cannot be in the smaller subset. If ANY single number > total/2, return false immediately (the array can't be partitioned). This is an O(1) early check."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "canPartition([1,5,11,5]): total=22, target=11. After num=1, dp[1]=?",
+          "options": [
+            "false",
+            "true",
+            "0",
+            "1"
+          ],
+          "answer": 1,
+          "explanation": "dp[1]: right-to-left, j=11..1. j=1: dp[1]=dp[1]||dp[1-1]=false||dp[0]=false||true=true. So dp[1]=true."
+        },
+        {
+          "question": "canPartition([1,2,3,5]): total=11. What is returned immediately?",
+          "options": [
+            "false — because 5 > total/2",
+            "false — because total=11 is odd",
+            "true — subset [1,2,3] exists",
+            "false — after full DP"
+          ],
+          "answer": 1,
+          "explanation": "total=11 is ODD → cannot split into two equal integer halves. Return false immediately before building any DP table."
+        },
+        {
+          "question": "canPartition([1,2,5]): total=8, target=4. dp after num=1: dp[1]=T. After num=2: dp[3]=? dp[2]=?",
+          "options": [
+            "dp[3]=T, dp[2]=T",
+            "dp[3]=T, dp[2]=F",
+            "dp[3]=F, dp[2]=T",
+            "dp[3]=F, dp[2]=F"
+          ],
+          "answer": 0,
+          "explanation": "Right-to-left with num=2: j=4: dp[4]=dp[4]||dp[2]=F||F=F. j=3: dp[3]=F||dp[1]=F||T=T. j=2: dp[2]=F||dp[0]=F||T=T. So dp[3]=T, dp[2]=T."
+        },
+        {
+          "question": "canPartition([14,9,8,4,3,2]): total=40, target=20. Any subset summing to 20?",
+          "options": [
+            "No",
+            "Yes — e.g. [14,3,2,1]? No. [9,8,3]? Yes! 9+8+3=20",
+            "Yes — [14,4,2]=20",
+            "Cannot determine without tracing full DP"
+          ],
+          "answer": 2,
+          "explanation": "14+4+2=20 ✓ OR 9+8+3=20 ✓. Either subset + the rest = 40-20=20. canPartition returns true."
+        }
+      ],
+      "visual_aid": {
+        "type": "boolean_knapsack",
+        "description": "Partition Equal Subset Sum boolean DP trace",
+        "diagram": "canPartition([1,5,11,5]) — total=22, target=11\n\nInit: dp=[T,F,F,F,F,F,F,F,F,F,F,F]  (indices 0-11)\n\nnum=1 (right-to-left j=11..1):\n  j=1: dp[1]=F||dp[0]=T → T\n  dp=[T,T,F,F,F,F,F,F,F,F,F,F]\n\nnum=5 (right-to-left j=11..5):\n  j=6: dp[6]=F||dp[1]=T → T\n  j=5: dp[5]=F||dp[0]=T → T\n  dp=[T,T,F,F,F,T,T,F,F,F,F,F]\n\nnum=11 (right-to-left j=11..11):\n  j=11: dp[11]=F||dp[0]=T → TRUE → RETURN TRUE IMMEDIATELY ✓\n\nSubsets summing to 11: {11} itself\nOther half: {1,5,5} = 11 ✓"
+      },
+      "complexity_summary": {
+        "time": "O(n × total/2)",
+        "space": "O(total/2)",
+        "early_exits": "1) total is odd → false. 2) any num > total/2 → false. 3) dp[target]=true during loop → true.",
+        "variant": "Boolean 0/1 knapsack — same loop direction as count and max variants"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-416",
+          "title": "Partition Equal Subset Sum",
+          "difficulty": "Medium",
+          "pattern": "Boolean 0/1 knapsack",
+          "blind75": true
+        },
+        {
+          "id": "lc-1049",
+          "title": "Last Stone Weight II",
+          "difficulty": "Medium",
+          "pattern": "Same boolean knapsack — find max j ≤ total/2 where dp[j]=true"
+        },
+        {
+          "id": "lc-698",
+          "title": "Partition to K Equal Sum Subsets",
+          "difficulty": "Medium",
+          "pattern": "Backtracking with bitmask — harder variant"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M3-L3-TH-1",
+            "question": "What are the THREE VARIANTS of the 1D knapsack and how does each use `dp[j]`?",
+            "options": [
+              "All three use dp[j] = dp[j] + dp[j-num]; only the initialization differs",
+              "MAX VALUE: `dp[j] = Math.max(dp[j], dp[j-wt]+val)` — tracks optimal value; COUNT WAYS: `dp[j] += dp[j-num]` — accumulates number of valid selections; BOOLEAN: `dp[j] |= dp[j-num]` or `dp[j] = dp[j] || dp[j-num]` — tracks existence; all three use RIGHT-TO-LEFT for 0/1 (each item once) and LEFT-TO-RIGHT for unbounded (item reusable); the variant is chosen based on what question is being answered",
+              "Max-value uses a 2D table; count and boolean can only be 1D",
+              "Boolean knapsack uses left-to-right; the other two use right-to-left"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's explicit side-by-side: 'Max value: dp[j]=Math.max(dp[j],dp[j-wt]+val); Count ways: dp[j]+=dp[j-num]; Boolean: dp[j]|=dp[j-num]' — this classification is the core conceptual framework for all knapsack-family problems; recognizing which variant to use is the key skill."
+          },
+          {
+            "id": "L2M3-L3-TH-2",
+            "question": "Why can we use EARLY TERMINATION (`if (dp[target]) return true`) inside the outer loop of `canPartition`?",
+            "options": [
+              "Early termination is a bug; we must always process all numbers",
+              "Once `dp[target]` becomes true, we have CONFIRMED that a valid subset exists summing to target — the partitioning is possible; processing remaining numbers cannot change a true back to false (boolean OR operation is monotonic: once true, stays true); returning immediately saves unnecessary computation for the remaining numbers; this is a correctness-preserving optimization identical to early termination in string search algorithms",
+              "Early termination only works when the array is sorted",
+              "dp[target]=true means the algorithm is done; processing more would corrupt the table"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code comment: 'early exit' — the boolean OR knapsack is monotonically increasing: values transition from false to true but never back; once dp[target]=true, the answer is confirmed regardless of remaining elements; this optimization reduces practical runtime significantly for inputs that quickly find a valid partition."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M3-L3-LG-1",
+            "question": "Trace `canPartition([1,5,11,5])`. After processing num=5 (second element), what does dp look like, and which positions are now reachable?",
+            "options": [
+              "After num=5: dp=[T,T,F,F,F,F,T,F,F,F,F,F]; positions 0,1,6 reachable",
+              "total=22, target=11; after num=1: dp[1]=T → dp=[T,T,F,...F]; after num=5 (right-to-left, j=11..5): dp[6]=dp[6-5=1]=T→T; dp[5]=dp[5-5=0]=T→T; result: dp=[T,T,F,F,F,T,T,F,F,F,F,F]; positions 0,1,5,6 are now reachable — matching the lesson's trace exactly",
+              "After num=5: dp=[T,T,F,F,F,T,F,F,F,F,F,F]; only 5 is newly reachable",
+              "After num=5: dp=[T,F,F,F,F,T,F,F,F,F,F,F]; 1 was overwritten"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's exact trace: 'num=5: j=11..5. dp[6]=dp[1]=T. dp[5]=dp[0]=T. dp=[T,T,F,F,F,T,T,F,F,F,F,F]' — right-to-left iteration preserves dp[1] and dp[0] when computing dp[6] and dp[5], correctly reflecting that both {1,5} (sum=6) and {5} (sum=5) are now achievable subsets."
+          },
+          {
+            "id": "L2M3-L3-LG-2",
+            "question": "Why does `canPartition([1,2,5])` return false despite total=8 and target=4 being integers?",
+            "options": [
+              "It returns true; {1,3} sums to 4 but 3 is not in the array",
+              "No subset of {1,2,5} sums to 4: {1}=1, {2}=2, {5}=5>4, {1,2}=3, {1,5}=6>4, {2,5}=7>4, {1,2,5}=8>4; none equals 4; the DP confirms this by finding dp[4]=false after all elements are processed — confirmed by direct execution returning false",
+              "The algorithm incorrectly rejects this because 8 is even",
+              "canPartition would return true with right-to-left iteration"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: canPartition([1,2,5])=false; checking all 7 non-empty subsets of {1,2,5}: none sums to 4; the DP correctly reflects this — dp[4] remains false because no combination of the available numbers can form exactly 4."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M3-L3-SY-1",
+            "question": "In `canPartition`, `if (dp[j - num]) dp[j] = true` can be written as `dp[j] = dp[j] || dp[j - num]`. Which form is SAFER and why?",
+            "options": [
+              "Both are identical; there is no safety difference",
+              "The `dp[j] = dp[j] || dp[j-num]` form is SAFER because: (1) it handles the case where dp[j] is ALREADY true (keeps it true without the conditional branch); (2) the `||` short-circuits — if dp[j] is already true, dp[j-num] is not even evaluated; (3) it explicitly represents the boolean OR semantics of the knapsack; the `if (dp[j-num]) dp[j]=true` form is also correct but requires reading dp[j]'s current value implicitly",
+              "The if-form is safer; the ||= form can corrupt the dp array",
+              "dp[j]=true is correct; the || form would sometimes set dp[j] to false"
+            ],
+            "answer": 1,
+            "explanation": "Both forms are semantically equivalent for this problem; `dp[j] = dp[j] || dp[j-num]` is more explicit about the boolean OR semantics and short-circuits when dp[j] is already true (minor optimization); the if-form `if (dp[j-num]) dp[j]=true` never sets dp[j] to false once it's been set, making both forms monotonically correct for the boolean knapsack."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M3-L3-CC-1",
+            "title": "Partition Equal Subset Sum",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement canPartition from this lesson.",
+            "requirements": [
+              "Implement `canPartitionImpl(nums)` matching the lesson's boolean 0/1 knapsack with early termination",
+              "Implement `findPartition(nums)` returning the actual subset (or null if not possible) by backtracking through a saved dp table"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function canPartitionImpl(nums) {\n  // TODO: odd-sum guard, boolean dp right-to-left, early exit\n}\n\nfunction findPartition(nums) {\n  // TODO: build full dp table, backtrack to find one valid subset\n  // Return array of elements in subset summing to total/2, or null\n}"
+            },
+            "test_cases": [
+              {
+                "input": "canPartitionImpl([1,5,11,5])",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "canPartitionImpl([1,2,3,5])",
+                "expected": false,
+                "type": "visible"
+              },
+              {
+                "input": "canPartitionImpl([1,2,5])",
+                "expected": false,
+                "type": "visible"
+              },
+              {
+                "input": "findPartition([1,5,11,5]) !== null",
+                "expected": true,
+                "type": "hidden"
+              },
+              {
+                "input": "canPartitionImpl([3,3,3,4,5])",
+                "expected": true,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function canPartitionImpl(nums) {\n  const total = nums.reduce((a,b)=>a+b, 0);\n  if (total % 2 !== 0) return false;\n  const target = total / 2;\n  const dp = new Array(target + 1).fill(false);\n  dp[0] = true;\n  for (const num of nums) {\n    for (let j = target; j >= num; j--)\n      if (dp[j - num]) dp[j] = true;\n    if (dp[target]) return true;\n  }\n  return dp[target];\n}\n\nfunction findPartition(nums) {\n  const total = nums.reduce((a,b)=>a+b, 0);\n  if (total % 2 !== 0) return null;\n  const target = total / 2;\n  const n = nums.length;\n  const dp = Array.from({length:n+1},()=>new Array(target+1).fill(false));\n  for (let i = 0; i <= n; i++) dp[i][0] = true;\n  for (let i = 1; i <= n; i++) {\n    for (let j = 0; j <= target; j++) {\n      dp[i][j] = dp[i-1][j];\n      if (nums[i-1] <= j) dp[i][j] = dp[i][j] || dp[i-1][j-nums[i-1]];\n    }\n  }\n  if (!dp[n][target]) return null;\n  const result = [];\n  let j = target;\n  for (let i = n; i > 0; i--) {\n    if (!dp[i-1][j]) { result.push(nums[i-1]); j -= nums[i-1]; }\n  }\n  return result;\n}"
+            },
+            "complexity_analysis": "canPartitionImpl: O(n*sum/2) time, O(sum/2) space. findPartition: O(n*sum/2) time, O(n*sum/2) space for full 2D table needed for backtracking.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "canPartitionImpl: check total%2!==0 return false; target=total/2; boolean dp right-to-left; early exit when dp[target]=true."
+              },
+              {
+                "level": 2,
+                "text": "findPartition: use 2D dp table (to enable backtracking); after filling, trace back from (n,target): if dp[i-1][j] is false, item i was included."
+              },
+              {
+                "level": 3,
+                "text": "Backtrack condition: if dp[i-1][j] is false, current item must have been included (dp[i][j] was set via dp[i-1][j-nums[i-1]]); add nums[i-1] to result and reduce j."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 4,
+      "title": "Longest Increasing Subsequence",
+      "tag": null,
+      "objective": "Solve LIS in O(n²) with standard DP and O(n log n) with patience sorting, and understand the binary search invariant that enables the optimal solution.",
+      "concepts": [
+        "LIS: longest subsequence where each element is strictly greater than the previous",
+        "dp[i] = length of LIS ending at index i",
+        "O(n^2) transition: for all j<i where nums[j]<nums[i]: dp[i]=max(dp[i],dp[j]+1)",
+        "O(n^2) answer: max over all dp[i]",
+        "O(n log n) patience sorting: maintain 'piles' with smallest top",
+        "tails array invariant: tails[k] = smallest tail of all increasing subsequences of length k+1",
+        "Binary search: find leftmost position in tails where tails[pos] >= current element",
+        "Replace tails[pos] or extend: length of tails is the LIS length"
+      ],
+      "explanation": "Longest Increasing Subsequence (#300) finds the length of the longest strictly increasing subsequence. The O(n²) DP: dp[i] = length of the LIS ending exactly at index i. For each i, look back at all j < i where nums[j] < nums[i] and take the maximum dp[j] + 1. Base case: dp[i] = 1 (every element is a LIS of length 1 by itself). Answer: max over all dp[i]. The O(n log n) approach uses a 'tails' array maintaining a critical invariant: tails[k] is the smallest tail element of all increasing subsequences of length k+1. Process each element: binary search for the leftmost position in tails where tails[pos] >= current element. Replace tails[pos] with the current element (or extend tails if not found). The length of tails at the end is the LIS length. The binary search makes each step O(log n) instead of O(n).",
+      "analogy": "O(n log n) LIS is like a card game called Patience. You deal cards one at a time. Each card goes onto the leftmost pile whose top card is >= the current card. If no such pile exists, start a new pile. The goal is to minimise the number of piles. By the mathematical structure of the game, the minimum number of piles always equals the LIS length. Binary search finds the correct pile in O(log n) instead of scanning all piles.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// LIS O(n^2) DP\nfunction lengthOfLIS_n2(nums) {\n    const n = nums.length;\n    const dp = new Array(n).fill(1); // each element is LIS of length 1\n\n    for (let i = 1; i < n; i++) {\n        for (let j = 0; j < i; j++) {\n            if (nums[j] < nums[i]) {\n                dp[i] = Math.max(dp[i], dp[j] + 1);\n            }\n        }\n    }\n    return Math.max(...dp);\n}\n// [10,9,2,5,3,7,101,18]: dp=[1,1,1,2,2,3,4,4] -> max=4 (2,3,7,101 or 2,5,7,101)\n\n// LIS O(n log n) patience sorting\nfunction lengthOfLIS(nums) {\n    const tails = []; // tails[k] = smallest tail of IS of length k+1\n\n    for (const num of nums) {\n        // Binary search: find leftmost position where tails[pos] >= num\n        let lo = 0, hi = tails.length;\n        while (lo < hi) {\n            const mid = (lo + hi) >> 1;\n            if (tails[mid] < num) lo = mid + 1;\n            else hi = mid;\n        }\n        // lo is the position to update\n        tails[lo] = num; // replace or extend\n        // If lo === tails.length: num extends the longest IS seen so far\n        // If lo < tails.length: num replaces tails[lo] (num is smaller, better future options)\n    }\n    return tails.length;\n}\n\nconsole.log(lengthOfLIS([10,9,2,5,3,7,101,18])); // 4\nconsole.log(lengthOfLIS([0,1,0,3,2,3]));          // 4\nconsole.log(lengthOfLIS([7,7,7,7,7]));             // 1 (strictly increasing)\n\n// TRACE on [10,9,2,5,3,7,101,18]:\n// 10: tails=[], lo=0, extend -> tails=[10]\n// 9:  tails=[10], 10>=9, lo=0, replace -> tails=[9]\n// 2:  tails=[9], 9>=2, lo=0, replace -> tails=[2]\n// 5:  tails=[2], 2<5, lo=1, extend -> tails=[2,5]\n// 3:  tails=[2,5], 5>=3 at pos1, 2<3 at pos0, lo=1, replace -> tails=[2,3]\n// 7:  tails=[2,3], 3<7, lo=2, extend -> tails=[2,3,7]\n// 101:tails=[2,3,7], 7<101, lo=3, extend -> tails=[2,3,7,101]\n// 18: tails=[2,3,7,101], 101>=18 at pos3, 7<18, lo=3, replace -> tails=[2,3,7,18]\n// tails.length = 4 ✓",
+        "explanation": "tails never stores an actual LIS — it is a structural device. After processing [10,9,2,5,3,7,101,18], tails = [2,3,7,18] which is NOT the actual LIS [2,5,7,101] or [2,3,7,101]. The invariant guarantees only that tails.length equals the LIS length. This is a common point of confusion: the tails array tracks the optimal tail values, not the actual subsequence."
+      },
+      "common_mistakes": [
+        "Using <= instead of < in the O(n²) transition condition — LIS requires strictly increasing (nums[j] < nums[i]); using <= would count equal elements as increasing, giving wrong answers for arrays with duplicates",
+        "Thinking the tails array is an actual LIS — tails is a structural optimisation tool that only guarantees its length equals the LIS length; reconstructing the actual LIS requires a separate parent array in the O(n²) version",
+        "Using the wrong binary search variant in O(n log n) — we need the leftmost position where tails[pos] >= num (lower bound); using upper bound (tails[pos] > num) would allow equal elements and count them as increasing"
+      ],
+      "interview_relevance": "LIS (#300) is Blind 75 and NeetCode 150. Both the O(n²) and O(n log n) solutions are expected knowledge. Interviewers ask 'can you do better than O(n²)?' after the DP solution. The O(n log n) answer with the patience sorting explanation is a senior-level differentiator. Russian Doll Envelopes (#354, NeetCode 150) directly uses LIS on a sorted 2D input and tests whether candidates can apply the pattern to a less obvious context.",
+      "mini_challenge": "Implement both lengthOfLIS_n2 and lengthOfLIS. Verify both return 4 for [10,9,2,5,3,7,101,18]. Trace the tails array step by step for [0,1,0,3,2,3] and verify tails.length = 4. Then solve Russian Doll Envelopes (LeetCode #354): sort envelopes by width ascending and height descending for equal widths, then find LIS on heights. Explain why sorting heights descending for equal widths prevents counting multiple envelopes with the same width.",
+      "flashcards": [
+        {
+          "front": "LIS O(n²): what does dp[i] represent?",
+          "back": "Length of the Longest Increasing Subsequence ending EXACTLY at index i. dp[i]=1 initially (each element alone). Transition: for each j < i where nums[j] < nums[i]: dp[i] = max(dp[i], dp[j]+1). Answer: max(dp)."
+        },
+        {
+          "front": "LIS O(n log n): what does the tails array represent?",
+          "back": "tails[k] = the SMALLEST tail element among all increasing subsequences of length k+1. Invariant: tails is always sorted ascending. Length of tails at the end = LIS length."
+        },
+        {
+          "front": "LIS O(n log n): binary search operation?",
+          "back": "For each new element x: find the LEFTMOST position pos where tails[pos] ≥ x. Replace tails[pos] = x (or extend if pos == tails.length). This is a lower_bound search — finds where x would be inserted to keep tails sorted."
+        },
+        {
+          "front": "LIS: why does tails NOT store the actual LIS?",
+          "back": "Replacements in tails discard previous tail values. After [3,5,6,2], tails=[2,5,6] — but the actual LIS is [3,5,6]. tails ONLY guarantees its length equals the LIS length. To reconstruct the actual LIS, use a parent array with the O(n²) approach."
+        },
+        {
+          "front": "LIS: strictly increasing vs non-decreasing?",
+          "back": "Strictly increasing: dp[j] < dp[i] uses STRICT <. Binary search for leftmost ≥ x (replaces equal elements). Non-decreasing (longest non-decreasing subsequence): use ≤ in O(n²); binary search for leftmost > x (replaces strictly greater) in O(n log n)."
+        },
+        {
+          "front": "Russian Doll Envelopes (#354): how does it use LIS?",
+          "back": "Sort by width ascending, then by height DESCENDING for equal widths. Then find LIS on heights only. Descending heights for equal widths prevents counting multiple envelopes with the same width as fitting inside each other."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "LIS O(n²) on [2,1,5,3,6,4,8,9,7]: dp[2]=? (nums[2]=5)",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "answer": 1,
+          "explanation": "dp[2] for nums[2]=5: look back at j=0,1. j=0: nums[0]=2<5 → dp[2]=max(1,dp[0]+1)=2. j=1: nums[1]=1<5 → dp[2]=max(2,dp[1]+1)=2. dp[2]=2."
+        },
+        {
+          "question": "LIS tails trace on [10,9,2,5,3]: after processing all 5 elements, tails=?",
+          "options": [
+            "[2,3,5]",
+            "[2,3]",
+            "[2,5,3]",
+            "[3,5,10]"
+          ],
+          "answer": 1,
+          "explanation": "10→tails=[10]. 9<10, replace→[9]. 2<9, replace→[2]. 5>2, extend→[2,5]. 3<5, replace pos=1→[2,3]. tails=[2,3], length=2. LIS=[2,3] or [2,5]."
+        },
+        {
+          "question": "LIS tails: nums=[7,7,7,7]. Answer?",
+          "options": [
+            "4",
+            "1",
+            "2",
+            "7"
+          ],
+          "answer": 1,
+          "explanation": "7→tails=[7]. 7: leftmost pos where tails[pos]≥7 is pos=0. Replace tails[0]=7 (same). Repeat. tails stays [7]. Length=1. Strictly increasing subsequence of all equal elements has length 1."
+        },
+        {
+          "question": "Russian Doll Envelopes: why sort equal-width envelopes by HEIGHT DESCENDING?",
+          "options": [
+            "To put largest envelopes first",
+            "Descending heights prevent two same-width envelopes both appearing in the LIS (since their heights don't strictly increase)",
+            "To handle the edge case of empty envelopes",
+            "Ascending order would also work"
+          ],
+          "answer": 1,
+          "explanation": "If equal-width envelopes had ascending heights, e.g. (3,4),(3,6), the LIS on heights [4,6] would count both — but you can't fit (3,4) inside (3,6) since widths are equal (need strictly greater). Descending heights for equal widths ensures the LIS can include at most one per width."
+        }
+      ],
+      "visual_aid": {
+        "type": "lis_trace",
+        "description": "LIS O(n²) and O(n log n) traced on same input",
+        "diagram": "nums=[10,9,2,5,3,7,101,18]\n\nO(n²) DP:\n  dp: [1, 1, 1, 2, 2,  3,  4,  4]\n  idx: 0  1  2  3  4   5   6   7\n  dp[5]=3: 2<7(dp[2]+1=2), 5<7(dp[3]+1=3), 3<7(dp[4]+1=3)\n  Answer: max(dp) = 4\n\nO(n log n) PATIENCE SORT:\n  10 → tails=[10]\n   9 → pos=0 (10≥9), replace → tails=[9]\n   2 → pos=0 (9≥2),  replace → tails=[2]\n   5 → pos=1 (no tails≥5 at pos<1), extend → tails=[2,5]\n   3 → pos=1 (5≥3, 2<3), replace → tails=[2,3]\n   7 → pos=2 (no entry≥7), extend → tails=[2,3,7]\n 101 → pos=3 (no entry≥101), extend → tails=[2,3,7,101]\n  18 → pos=3 (101≥18, 7<18), replace → tails=[2,3,7,18]\n\ntails.length = 4 ✓  (tails ≠ actual LIS!)"
+      },
+      "complexity_summary": {
+        "lis_n2_time": "O(n²)",
+        "lis_n2_space": "O(n)",
+        "lis_nlogn_time": "O(n log n)",
+        "lis_nlogn_space": "O(n)",
+        "note": "tails array does NOT store the actual LIS — only its length. Use parent array in O(n²) to reconstruct."
+      },
+      "practice_problems": [
+        {
+          "id": "lc-300",
+          "title": "Longest Increasing Subsequence",
+          "difficulty": "Medium",
+          "pattern": "O(n²) DP then O(n log n) patience sort",
+          "blind75": true
+        },
+        {
+          "id": "lc-354",
+          "title": "Russian Doll Envelopes",
+          "difficulty": "Hard",
+          "pattern": "Sort + LIS on second dimension",
+          "blind75": true
+        },
+        {
+          "id": "lc-673",
+          "title": "Number of Longest Increasing Subsequences",
+          "difficulty": "Medium",
+          "pattern": "LIS O(n²) + count array"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M3-L4-TH-1",
+            "question": "In the O(n log n) LIS algorithm, what is the INVARIANT of the `tails` array?",
+            "options": [
+              "tails stores the actual LIS elements in order",
+              "`tails[k]` = the SMALLEST POSSIBLE TAIL VALUE of any increasing subsequence of length k+1 seen so far; this invariant ensures that tails is always sorted in strictly increasing order, enabling binary search; the invariant is maintained by replacing tails[pos] with a smaller value whenever a better (smaller) tail for that length is found, creating better future extension opportunities",
+              "tails stores indices into the original array",
+              "tails[k] = the largest element in any increasing subsequence of length k+1"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'tails array invariant: tails[k] = smallest tail of all increasing subsequences of length k+1' — this invariant is what makes the algorithm optimal: by maintaining the SMALLEST possible tail for each length, we maximize the chances of extending that subsequence with future elements; the invariant preserves sorted order in tails, enabling binary search."
+          },
+          {
+            "id": "L2M3-L4-TH-2",
+            "question": "In the O(n^2) DP, why does `dp[i]` start at 1 (not 0), and what does it represent?",
+            "options": [
+              "dp[i]=1 means element i is in a valid position; dp[i]=0 would be invalid",
+              "`dp[i]` = length of the LONGEST INCREASING SUBSEQUENCE ENDING AT INDEX i; every element alone forms an increasing subsequence of length 1 (itself); initializing all to 1 sets this correct base case; the recurrence extends: for all j<i where nums[j]<nums[i], dp[i]=max(dp[i], dp[j]+1) — extending the LIS ending at j with element i",
+              "dp[i]=1 is the loop counter; it gets overwritten immediately",
+              "dp[i]=1 means the LIS has length 1 regardless of the element's value"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'dp[i] = length of LIS ending at index i' and 'each element is LIS of length 1' — the initialization dp[i]=1 reflects that every element, considered alone, is a valid increasing subsequence of length 1; the final answer is max over all dp[i], not dp[n-1]."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M3-L4-LG-1",
+            "question": "Trace the tails array for LIS of [10,9,2,5,3,7,101,18] step by step. What is tails after processing element 3?",
+            "options": [
+              "After 3: tails=[2,3,7]; three elements",
+              "After 10: [10]; after 9: [9]; after 2: [2]; after 5: [2,5]; after 3: binary search finds 5>=3 at pos1, 2<3 at pos0, so lo=1, replace tails[1]=3 → tails=[2,3]; the 5 is replaced by 3 (smaller, better future tail for length-2 subsequences) — matching the lesson's exact trace",
+              "After 3: tails=[2,3,5]; three elements",
+              "After 3: tails=[2,3]; but because 3 extends rather than replaces"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's step-by-step trace: '3: tails=[2,5], 5>=3 at pos1, 2<3 at pos0, lo=1, replace → tails=[2,3]' — 3 is smaller than 5, which was the previous tail for length-2 subsequences; replacing 5 with 3 maintains the invariant (smallest tail) and opens better future extension opportunities without changing the LIS LENGTH (tails.length remains 2)."
+          },
+          {
+            "id": "L2M3-L4-LG-2",
+            "question": "For `lengthOfLIS_n2([10,9,2,5,3,7,101,18])`, the lesson claims dp=[1,1,1,2,2,3,4,4]. Verify dp[5]=3 (element 7).",
+            "options": [
+              "dp[5]=2; 7 only extends the subsequence [2,5]",
+              "For element 7 at index 5: j=0: nums[0]=10>7, skip; j=1: nums[1]=9>7, skip; j=2: nums[2]=2<7 → dp[5]=max(1,dp[2]+1)=2; j=3: nums[3]=5<7 → dp[5]=max(2,dp[3]+1)=max(2,3)=3; j=4: nums[4]=3<7 → dp[5]=max(3,dp[4]+1)=max(3,3)=3; dp[5]=3 representing LIS [2,5,7] or [2,3,7] of length 3 — confirmed by direct execution",
+              "dp[5]=4; 7 can extend [2,3,5,7]",
+              "dp[5]=1; 7 can't extend any previous subsequence"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: dp=[1,1,1,2,2,3,4,4]; at i=5 (value 7): j=2 gives dp[2]+1=2; j=3 gives dp[3]+1=3; j=4 gives dp[4]+1=3; dp[5]=3 corresponding to LIS [2,3,7] or [2,5,7] (both length 3); the inner loop correctly finds the longest predecessor."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M3-L4-SY-1",
+            "question": "In `lengthOfLIS`, the binary search finds `lo` such that `tails[lo] >= num`. Why use `>=` (leftmost position where tails[lo]>=num) rather than `>` (strict)?",
+            "options": [
+              ">=  and > produce identical results for LIS",
+              "Using `>=` implements a LEFTMOST binary search for elements >= num, which correctly handles DUPLICATES: if num already exists in tails (equal element), its position is found and replaced with itself (no change) — this maintains the STRICTLY INCREASING property of the LIS; using `>` would find the position after all equal elements, treating equal elements as extensions, which would incorrectly count equal values as 'increasing' (the LIS must be STRICTLY increasing: nums[j] < nums[i])",
+              "The condition must be > because LIS requires strict ordering",
+              "Both conditions work; the choice is based on whether tails can contain duplicates"
+            ],
+            "answer": 1,
+            "explanation": "The `>=` comparison in the binary search finds the leftmost position where tails[pos] >= num; when num equals tails[pos], we replace tails[pos] with num (effectively a no-op for that position); this correctly prevents equal elements from extending an 'increasing' subsequence (LIS requires nums[j] < nums[i], not <=); for [7,7,7,7,7], every element finds tails[0]>=7, replaces tails[0]=7, and tails.length stays 1."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M3-L4-CC-1",
+            "title": "LIS: O(n²) DP and O(n log n) Patience Sorting",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both LIS algorithms from this lesson.",
+            "requirements": [
+              "Implement `lisN2Impl(nums)` matching the lesson's O(n²) DP approach",
+              "Implement `lisOptimalImpl(nums)` matching the lesson's O(n log n) patience sorting with binary search"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function lisN2Impl(nums) {\n  // TODO: dp[i]=LIS ending at i, start at 1, compare all j<i\n}\n\nfunction lisOptimalImpl(nums) {\n  // TODO: tails array with binary search, leftmost >= target\n}"
+            },
+            "test_cases": [
+              {
+                "input": "lisN2Impl([10,9,2,5,3,7,101,18])",
+                "expected": 4,
+                "type": "visible"
+              },
+              {
+                "input": "lisOptimalImpl([10,9,2,5,3,7,101,18])",
+                "expected": 4,
+                "type": "visible"
+              },
+              {
+                "input": "lisOptimalImpl([7,7,7,7,7])",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "lisN2Impl([0,1,0,3,2,3])",
+                "expected": 4,
+                "type": "hidden"
+              },
+              {
+                "input": "lisOptimalImpl([1])",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function lisN2Impl(nums) {\n  const n = nums.length;\n  const dp = new Array(n).fill(1);\n  for (let i = 1; i < n; i++)\n    for (let j = 0; j < i; j++)\n      if (nums[j] < nums[i]) dp[i] = Math.max(dp[i], dp[j]+1);\n  return Math.max(...dp);\n}\n\nfunction lisOptimalImpl(nums) {\n  const tails = [];\n  for (const num of nums) {\n    let lo = 0, hi = tails.length;\n    while (lo < hi) {\n      const mid = (lo + hi) >> 1;\n      if (tails[mid] < num) lo = mid + 1;\n      else hi = mid;\n    }\n    tails[lo] = num;\n  }\n  return tails.length;\n}"
+            },
+            "complexity_analysis": "lisN2Impl: O(n²) time, O(n) space. lisOptimalImpl: O(n log n) time, O(n) space for tails array.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "lisN2Impl: dp[i]=1 for all i; for each i, scan j<i: if nums[j]<nums[i] update dp[i]=max(dp[i],dp[j]+1); return max(...dp)."
+              },
+              {
+                "level": 2,
+                "text": "lisOptimalImpl: for each num, binary search tails for leftmost position where tails[pos]>=num; replace tails[pos]=num (or extend if pos===tails.length)."
+              },
+              {
+                "level": 3,
+                "text": "Binary search invariant: tails[mid]<num → lo=mid+1; else hi=mid; at end lo is the insertion position; tails.length is the LIS length."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 5,
+      "title": "Edit Distance",
+      "tag": null,
+      "objective": "Implement Edit Distance using 2D DP with three operation types, apply the space-optimised single-row version, and connect it to LCS as the same string alignment framework.",
+      "concepts": [
+        "Edit Distance: minimum insertions, deletions, substitutions to transform word1 to word2",
+        "dp[i][j] = min edits to transform word1[0..i-1] to word2[0..j-1]",
+        "Match: word1[i-1]==word2[j-1] -> dp[i][j] = dp[i-1][j-1] (free)",
+        "Substitute: dp[i-1][j-1] + 1",
+        "Delete from word1: dp[i-1][j] + 1",
+        "Insert into word1 (= delete from word2): dp[i][j-1] + 1",
+        "Base cases: dp[i][0] = i, dp[0][j] = j",
+        "O(m*n) time, O(n) space with single-row optimisation"
+      ],
+      "explanation": "Edit Distance (#72) (Levenshtein distance) finds the minimum number of single-character edits (insert, delete, substitute) to transform word1 into word2. The 2D DP: dp[i][j] = minimum edits to transform word1[0..i-1] into word2[0..j-1]. Base cases: dp[0][j] = j (insert j characters into empty string) and dp[i][0] = i (delete all i characters). Transition: if word1[i-1] equals word2[j-1], no edit is needed: dp[i][j] = dp[i-1][j-1]. Otherwise, take the minimum of three operations: substitute (dp[i-1][j-1] + 1), delete from word1 (dp[i-1][j] + 1), or insert into word1 / delete from word2 (dp[i][j-1] + 1). Space optimisation: dp[i][j] depends only on the current row and the previous row, so two rows suffice. Further: with careful ordering, a single row with one extra variable can store the diagonal. Edit Distance and LCS are in the same family: LCS counts matches, Edit Distance counts the minimum mismatches (edits). Both use the same 2D table structure with the same match/mismatch case split.",
+      "analogy": "Edit Distance is like counting the minimum keystrokes to retype a word from memory when you realise you mistyped it. Each keystroke is either a substitution (press the right key instead of the wrong one), a deletion (backspace), or an insertion (add a missing character). The DP table computes this optimally for every prefix pair, building up to the full word transformation.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// EDIT DISTANCE (#72) — O(m*n) time, O(m*n) space\nfunction minDistance_2D(word1, word2) {\n    const m = word1.length, n = word2.length;\n    // dp[i][j] = min edits to transform word1[0..i-1] to word2[0..j-1]\n    const dp = Array.from({length: m+1}, (_, i) =>\n        Array.from({length: n+1}, (_, j) => (i === 0 ? j : j === 0 ? i : 0))\n    );\n    // Base: dp[0][j] = j, dp[i][0] = i\n\n    for (let i = 1; i <= m; i++) {\n        for (let j = 1; j <= n; j++) {\n            if (word1[i-1] === word2[j-1]) {\n                dp[i][j] = dp[i-1][j-1];               // match: free\n            } else {\n                dp[i][j] = 1 + Math.min(\n                    dp[i-1][j-1],  // substitute\n                    dp[i-1][j],    // delete from word1\n                    dp[i][j-1]     // insert into word1\n                );\n            }\n        }\n    }\n    return dp[m][n];\n}\n\n// SPACE OPTIMISED: O(n) space, two rows\nfunction minDistance(word1, word2) {\n    const m = word1.length, n = word2.length;\n    let prev = Array.from({length: n+1}, (_, j) => j); // dp[0][j] = j\n    let curr = new Array(n+1).fill(0);\n\n    for (let i = 1; i <= m; i++) {\n        curr[0] = i; // dp[i][0] = i\n        for (let j = 1; j <= n; j++) {\n            if (word1[i-1] === word2[j-1]) {\n                curr[j] = prev[j-1];                    // match: diagonal\n            } else {\n                curr[j] = 1 + Math.min(prev[j-1], prev[j], curr[j-1]);\n            }\n        }\n        [prev, curr] = [curr, prev];\n    }\n    return prev[n];\n}\n\nconsole.log(minDistance('horse', 'ros'));    // 3\nconsole.log(minDistance('intention', 'execution')); // 5\nconsole.log(minDistance('', 'abc'));         // 3\nconsole.log(minDistance('abc', ''));         // 3\n\n// DP TABLE for 'horse' -> 'ros':\n//     ''  r  o  s\n//  '' [0, 1, 2, 3]\n//  h  [1, 1, 2, 3]\n//  o  [2, 2, 1, 2]\n//  r  [3, 2, 2, 2]\n//  s  [4, 3, 3, 2]\n//  e  [5, 4, 4, 3]\n// Answer: dp[5][3] = 3",
+        "explanation": "The three operations in the transition correspond to three adjacent cells in the DP table. Substitute: dp[i-1][j-1] (diagonal) — change the current character. Delete from word1: dp[i-1][j] (above) — skip a character in word1. Insert into word1 (equivalently, delete from word2): dp[i][j-1] (left) — skip a character in word2. These three directions in the table directly correspond to the three edit operations."
+      },
+      "common_mistakes": [
+        "Forgetting the base cases dp[i][0] = i and dp[0][j] = j — these represent converting to/from an empty string (all deletions or all insertions); missing them leaves the first row and column uninitialised",
+        "Using the wrong operation for dp[i][j-1] — this operation is 'skip a character in word2', which corresponds to inserting that character into word1 (or deleting it from word2); the cost is always 1",
+        "Confusing Edit Distance with LCS — LCS adds 1 on a match and takes max on mismatch; Edit Distance adds 0 on a match and takes 1+min on mismatch; the table structures are the same but the operations differ"
+      ],
+      "interview_relevance": "Edit Distance (#72) is NeetCode 150 and one of the most prestigious DP problems. It appears at Google, Meta, and Stripe specifically because it tests whether a candidate can define a 2D DP state with multiple transition types. The connection to LCS (same structure, different semantics) demonstrates DP pattern recognition depth.",
+      "mini_challenge": "Implement minDistance and verify 'horse'->'ros'=3 and 'intention'->'execution'=5. Fill in the full 5x3 DP table for 'horse'->'ros' manually and verify every cell. Then implement One Edit Distance (LeetCode #161): return true if word1 and word2 are exactly one edit apart. This can be done without DP using two pointers in O(n) — implement this as well and compare the complexity.",
+      "flashcards": [
+        {
+          "front": "Edit Distance: dp[i][j] meaning and base cases?",
+          "back": "dp[i][j] = minimum edits to transform word1[0..i-1] into word2[0..j-1]. Base: dp[0][j]=j (insert j chars into empty string); dp[i][0]=i (delete all i chars). These represent transforming to/from an empty string."
+        },
+        {
+          "front": "Edit Distance: match and mismatch transitions?",
+          "back": "MATCH (word1[i-1]==word2[j-1]): dp[i][j]=dp[i-1][j-1] (free, no edit). MISMATCH: dp[i][j]=1+min(dp[i-1][j-1] substitute, dp[i-1][j] delete, dp[i][j-1] insert). Three operations, each costs 1."
+        },
+        {
+          "front": "Edit Distance: three operations mapped to table directions?",
+          "back": "SUBSTITUTE: dp[i-1][j-1] (diagonal — change current char). DELETE from word1: dp[i-1][j] (above — skip char in word1). INSERT into word1: dp[i][j-1] (left — skip char in word2). Each direction = one operation."
+        },
+        {
+          "front": "Edit Distance vs LCS: structural comparison?",
+          "back": "SAME: 2D table, 1-indexed chars, match/mismatch case split. DIFFERENT: LCS match=1+diagonal, mismatch=max(above,left). Edit Distance match=diagonal (free), mismatch=1+min(diagonal,above,left). Edit Distance has 3 directions in mismatch; LCS has 2."
+        },
+        {
+          "front": "Edit Distance O(n) space: what variable stores the diagonal?",
+          "back": "When transitioning from prev_row to curr_row, dp[i-1][j-1] is the OLD prev[j-1] BEFORE it was overwritten. Save it before updating: let diag=prev[j-1] before the j-loop step processes j. Then update prev[j-1] → becomes new curr[j-1]."
+        },
+        {
+          "front": "Edit Distance applications?",
+          "back": "Spell checking (closest dictionary word), DNA sequence alignment, version control diffs (diff tool), plagiarism detection, approximate string matching. The Levenshtein distance is the most common string metric in practice."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Edit Distance 'horse'→'ros': dp[2][2] (word1='ho', word2='ro')? word1[1]='o', word2[1]='o'.",
+          "options": [
+            "0",
+            "1",
+            "2",
+            "3"
+          ],
+          "answer": 1,
+          "explanation": "word1[i-1]=word1[1]='o', word2[j-1]=word2[1]='o'. MATCH → dp[2][2]=dp[1][1]. dp[1][1]: word1[0]='h'≠word2[0]='r' → mismatch: 1+min(dp[0][0],dp[0][1],dp[1][0])=1+min(0,1,1)=1. dp[2][2]=1."
+        },
+        {
+          "question": "Edit Distance base case dp[3][0] = ?",
+          "options": [
+            "0",
+            "1",
+            "3",
+            "depends on word1"
+          ],
+          "answer": 2,
+          "explanation": "dp[i][0]=i for all i. dp[3][0]=3: to transform word1[0..2] (3 chars) into empty string requires 3 deletions."
+        },
+        {
+          "question": "Edit Distance: the INSERT operation corresponds to which table cell?",
+          "options": [
+            "dp[i-1][j-1] diagonal",
+            "dp[i-1][j] above",
+            "dp[i][j-1] left",
+            "dp[i+1][j]"
+          ],
+          "answer": 2,
+          "explanation": "INSERT into word1 = skip a character in word2 (moving j left). dp[i][j-1] left. This makes word1 longer by one character, aligning it with one fewer character in word2."
+        },
+        {
+          "question": "Edit Distance 'abc'→'abc': answer?",
+          "options": [
+            "0",
+            "1",
+            "3",
+            "6"
+          ],
+          "answer": 0,
+          "explanation": "Identical strings: all characters match. Every dp[i][i] follows the diagonal from dp[0][0]=0. dp[3][3]=0. Zero edits needed."
+        }
+      ],
+      "visual_aid": {
+        "type": "2d_dp_table",
+        "description": "Full Edit Distance table for 'horse'→'ros'",
+        "diagram": "Edit Distance 'horse' → 'ros':\n\n       \"\" r  o  s\n  \"\"  [ 0, 1, 2, 3 ]\n  h   [ 1, 1, 2, 3 ]  h≠r: 1+min(dp[0][0],dp[0][1],dp[1][0])=1+min(0,1,1)=1\n  o   [ 2, 2, 1, 2 ]  o=o: dp[1][1]=1 → dp[2][2]=1\n  r   [ 3, 2, 2, 2 ]  r=r: dp[2][0]=2? No: r=r at (3,1): dp[2][0]=2 → dp[3][1]=2\n  s   [ 4, 3, 3, 2 ]  s=s: dp[3][2]=2 → dp[4][3]=2\n  e   [ 5, 4, 4, 3 ]  e≠s: 1+min(dp[4][2],dp[4][3],dp[5][2])=1+min(3,2,4)? wait\n\nActual computation dp[5][3]:\n  e≠s: 1+min(dp[4][2]=3, dp[4][3]=2, dp[5][2]=4) = 1+2 = 3\n  Answer: 3 ✓\n\nOPERATIONS (one path):\n  horse → rorse (substitute h→r)\n  rorse → rose  (delete r at pos 2)\n  rose  → ros   (delete e)"
+      },
+      "complexity_summary": {
+        "time": "O(m × n)",
+        "space_2d": "O(m × n)",
+        "space_2rows": "O(n) — two rolling rows",
+        "space_1row_careful": "O(n) — single row with saved diagonal variable",
+        "connection": "LCS and Edit Distance use same 2D structure; Edit Distance adds INSERT operation (3rd direction in mismatch)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-72",
+          "title": "Edit Distance",
+          "difficulty": "Hard",
+          "pattern": "2D DP — 3-way mismatch (sub/del/ins)",
+          "blind75": true
+        },
+        {
+          "id": "lc-1143",
+          "title": "Longest Common Subsequence — compare table structure",
+          "difficulty": "Medium",
+          "pattern": "2D DP — same structure, different semantics",
+          "blind75": true
+        },
+        {
+          "id": "lc-161",
+          "title": "One Edit Distance",
+          "difficulty": "Medium",
+          "pattern": "Two-pointer O(n) — no DP needed for exactly 1 edit"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M3-L5-TH-1",
+            "question": "Edit Distance has FOUR cases in its recurrence. What are they and what operation does each represent?",
+            "options": [
+              "Only two cases: match and mismatch",
+              "MATCH (word1[i-1]==word2[j-1]): dp[i][j]=dp[i-1][j-1] — characters are equal, no edit needed, take the diagonal; SUBSTITUTE: dp[i-1][j-1]+1 — replace word1[i-1] with word2[j-1]; DELETE from word1: dp[i-1][j]+1 — remove word1[i-1], align i-1 with j; INSERT into word1 (= delete from word2): dp[i][j-1]+1 — insert word2[j-1] into word1, align i with j-1; the mismatch case takes the minimum of the three edit operations",
+              "Match, insert, delete, and transpose (swap) are the four cases",
+              "The four cases are sorted by cost; only the cheapest is ever applied"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concepts: 'Match: dp[i-1][j-1] (free). Substitute: dp[i-1][j-1]+1. Delete from word1: dp[i-1][j]+1. Insert into word1 (=delete from word2): dp[i][j-1]+1' — the three edit operations (substitute, delete, insert) correspond to three adjacent table positions (diagonal, above, left); the match case is the diagonal without the +1 cost."
+          },
+          {
+            "id": "L2M3-L5-TH-2",
+            "question": "Why are the BASE CASES `dp[i][0] = i` and `dp[0][j] = j` in Edit Distance?",
+            "options": [
+              "dp[i][0]=i means there are i ways to edit word1's prefix to empty",
+              "dp[i][0] = i: transforming the prefix word1[0..i-1] (length i) to the EMPTY STRING word2 requires i deletions (one per character); dp[0][j] = j: transforming the EMPTY STRING word1 to word2[0..j-1] (length j) requires j insertions; these are the minimum-edit-count base cases for comparing against an empty string — each character added to the string representation requires one more operation",
+              "dp[i][0]=i and dp[0][j]=j are arbitrary starting values that get overwritten",
+              "These base cases only apply when one string is 'abc'"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Base cases: dp[i][0] = i, dp[0][j] = j' — converting a non-empty string to empty requires exactly as many deletions as characters; converting empty to a non-empty string requires exactly as many insertions as characters; these are the unique single-direction paths along the left column and top row of the DP table."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M3-L5-LG-1",
+            "question": "For `minDistance('horse', 'ros')`, the lesson gives a full 6×4 DP table. What is dp[2][2] (row 'o', column 'o'), and why?",
+            "options": [
+              "dp[2][2]=2; 'h','o' needs 2 edits to become 'r','o'",
+              "dp[2][2]: word1[1]='o', word2[1]='o' → MATCH → dp[2][2]=dp[1][1]=1; dp[1][1]=1 (transforming 'h' to 'r' requires 1 substitution); since 'o'=='o' is a match, no additional edit is needed — confirmed by reading the table: dp[2][2]=1 in row 'o', column 'o'",
+              "dp[2][2]=0; both characters are 'o' so no edits ever",
+              "dp[2][2]=3 because the table accumulates all prior edits"
+            ],
+            "answer": 1,
+            "explanation": "Reading the lesson's table: row 'o' (i=2), column 'o' (j=2): word1[1]='o' == word2[1]='o' → match → dp[2][2]=dp[1][1]=1; dp[1][1] is 1 (transforming 'h' to 'r': one substitution); the match at (2,2) uses the diagonal without any additional cost, correctly giving dp[2][2]=1."
+          },
+          {
+            "id": "L2M3-L5-LG-2",
+            "question": "Why does `minDistance('horse', 'ros') = 3` rather than 4? What are the three edits?",
+            "options": [
+              "Three edits: delete 'h', delete 'r', substitute 'e'→'s'",
+              "The optimal transformation in 3 edits: (1) substitute 'h'→'r' (horse→rorse); (2) delete 'r' (rorse→rose); (3) delete 'e' (rose→ros); OR equivalently: (1) delete 'h', (2) delete 'r', (3) delete 'e' from position — actually dp[5][3]=3 is confirmed by the table and execution; the exact path depends on which minimum was chosen at each step, but exactly 3 operations suffice",
+              "Four edits are required: delete 'h', delete 'r', delete 'e', and one more",
+              "Two edits suffice: substitute twice"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution returning 3; the DP table dp[5][3]=3 in the lesson's trace; one valid path: rhs→r (substitute h→r), rorse→rose (delete first r), rose→ros (delete e) = 3 ops; the table confirms this is minimal."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M3-L5-SY-1",
+            "question": "In the space-optimised `minDistance`, `[prev, curr] = [curr, prev]` swaps the rows using destructuring. Why does `curr` NOT need to be re-initialized to zeros after the swap (unlike in LCS)?",
+            "options": [
+              "curr must be re-initialized; the code is incorrect as written",
+              "In Edit Distance, EVERY cell dp[i][j] is always computed and ASSIGNED a concrete value in the inner loop — either from the match case or the min of three values; unlike LCS where some cells might retain leftover zeros from unprocessed positions, Edit Distance's inner loop always overwrites curr[j] for j=1..n (and curr[0]=i is set explicitly at the start of each outer iteration); no cell remains at its old value, making re-initialization unnecessary",
+              "curr is re-initialized by the destructuring swap itself",
+              "Zeros happen to be the correct initial values for Edit Distance anyway"
+            ],
+            "answer": 1,
+            "explanation": "The key difference from LCS: in Edit Distance, EVERY position curr[j] for j in 1..n is explicitly assigned in the inner loop (match or min of three); curr[0] is set to `i` at the start of each row; unlike LCS where skipped positions might retain stale values from a previous row, Edit Distance's unconditional assignment ensures all positions are fresh — making the reuse of the previous `curr` as the new `prev` safe without zeroing."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M3-L5-CC-1",
+            "title": "Edit Distance: 2D Table and Space-Optimised",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both Edit Distance variants from this lesson.",
+            "requirements": [
+              "Implement `minDistance2DImpl(word1, word2)` using the full 2D table matching the lesson",
+              "Implement `minDistanceImpl(word1, word2)` using the space-optimised two-row approach"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function minDistance2DImpl(word1, word2) {\n  // TODO: 2D table, base cases i on col-0 j on row-0, match/substitute/delete/insert\n}\n\nfunction minDistanceImpl(word1, word2) {\n  // TODO: two rolling rows, curr[0]=i each outer iteration\n}"
+            },
+            "test_cases": [
+              {
+                "input": "minDistance2DImpl('horse', 'ros')",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "minDistanceImpl('intention', 'execution')",
+                "expected": 5,
+                "type": "visible"
+              },
+              {
+                "input": "minDistanceImpl('', 'abc')",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "minDistance2DImpl('abc', '')",
+                "expected": 3,
+                "type": "hidden"
+              },
+              {
+                "input": "minDistanceImpl('abc', 'abc')",
+                "expected": 0,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function minDistance2DImpl(word1, word2) {\n  const m = word1.length, n = word2.length;\n  const dp = Array.from({length:m+1},(_,i)=>\n    Array.from({length:n+1},(_,j)=>(i===0?j:j===0?i:0)));\n  for (let i = 1; i <= m; i++)\n    for (let j = 1; j <= n; j++)\n      if (word1[i-1]===word2[j-1]) dp[i][j]=dp[i-1][j-1];\n      else dp[i][j]=1+Math.min(dp[i-1][j-1],dp[i-1][j],dp[i][j-1]);\n  return dp[m][n];\n}\n\nfunction minDistanceImpl(word1, word2) {\n  const m = word1.length, n = word2.length;\n  let prev = Array.from({length:n+1},(_,j)=>j);\n  let curr = new Array(n+1).fill(0);\n  for (let i = 1; i <= m; i++) {\n    curr[0] = i;\n    for (let j = 1; j <= n; j++)\n      if (word1[i-1]===word2[j-1]) curr[j]=prev[j-1];\n      else curr[j]=1+Math.min(prev[j-1],prev[j],curr[j-1]);\n    [prev,curr]=[curr,prev];\n  }\n  return prev[n];\n}"
+            },
+            "complexity_analysis": "minDistance2DImpl: O(m*n) time, O(m*n) space. minDistanceImpl: O(m*n) time, O(n) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "minDistance2DImpl: initialise dp[i][0]=i and dp[0][j]=j; inner loop: match→diagonal; mismatch→1+min(diagonal,above,left)."
+              },
+              {
+                "level": 2,
+                "text": "minDistanceImpl: prev=range(0..n); each outer iteration set curr[0]=i; match→prev[j-1]; mismatch→1+min(prev[j-1],prev[j],curr[j-1])."
+              },
+              {
+                "level": 3,
+                "text": "After each outer iteration, [prev,curr]=[curr,prev] swaps the rows; no re-initialisation needed since every curr[j] is always explicitly set."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 6,
+      "title": "Burst Balloons — Hard",
+      "tag": "ADDED",
+      "objective": "Solve Burst Balloons using interval DP by inverting the problem to consider the last balloon burst in each interval rather than the first.",
+      "concepts": [
+        "Burst Balloons: burst balloon i, earn nums[i-1]*nums[i]*nums[i+1]",
+        "Naive: try all permutations O(n!) or greedy fails",
+        "Key insight: think LAST balloon to burst, not first",
+        "Add sentinel 1s at both ends: nums = [1, ...nums, 1]",
+        "dp[i][j] = max coins from bursting all balloons strictly between i and j",
+        "Transition: for each k in (i,j), k is the LAST balloon burst in interval (i,j)",
+        "dp[i][j] = max over k of (nums[i]*nums[k]*nums[j] + dp[i][k] + dp[k][j])",
+        "Fill order: increasing interval length from 2 upward"
+      ],
+      "explanation": "Burst Balloons (#312) is a classic Hard DP problem. Bursting balloon i earns nums[i-1]*nums[i]*nums[i+1] coins, where left and right neighbors collapse when i is removed. This makes it hard to reason forward: bursting a balloon changes its neighbors. The key insight: think backward. Consider the LAST balloon to be burst in an interval (i,j) (where i and j are boundary sentinels). If k is the last balloon burst, then when k is burst, all other balloons between i and j are already gone, so k's neighbors are exactly nums[i] and nums[j]. This gives dp[i][j] = max over k of: nums[i]*nums[k]*nums[j] (coins from bursting k last) + dp[i][k] (coins from bursting everything in (i,k)) + dp[k][j] (coins from bursting everything in (k,j)). Extend nums with sentinel 1s at both ends. Fill the table by increasing interval length: small intervals before large ones. Final answer: dp[0][n+1] where n+1 is the right sentinel index.",
+      "analogy": "Burst Balloons with last-balloon thinking is like demolishing buildings in a row. Instead of thinking about the order of demolitions (which changes the neighborhood dynamically), ask: which building is the last one to be demolished in each city block? The last building in a block is demolished when all others are gone, so its neighbors are the buildings at the block's boundaries. This fixed-neighbor property makes the problem tractable.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// BURST BALLOONS (#312) — interval DP O(n^3) time, O(n^2) space\nfunction maxCoins(nums) {\n    // Add sentinel 1s at both ends\n    nums = [1, ...nums, 1];\n    const n = nums.length;\n\n    // dp[i][j] = max coins from bursting ALL balloons strictly between i and j\n    const dp = Array.from({length: n}, () => new Array(n).fill(0));\n\n    // Fill by increasing interval length (len = j - i)\n    for (let len = 2; len < n; len++) {         // minimum gap is 2 (one balloon between)\n        for (let i = 0; i < n - len; i++) {\n            const j = i + len;                   // right boundary\n            for (let k = i + 1; k < j; k++) {   // k is last balloon burst in (i,j)\n                const coins = nums[i] * nums[k] * nums[j]; // k burst last, neighbors are i and j\n                dp[i][j] = Math.max(dp[i][j], coins + dp[i][k] + dp[k][j]);\n            }\n        }\n    }\n    return dp[0][n-1]; // burst all balloons between sentinel indices 0 and n-1\n}\n\n// TRACE on nums=[3,1,5,8]:\n// Extended: [1,3,1,5,8,1], n=6\n// Indices:   0 1 2 3 4 5\n\n// len=2 (intervals with 1 balloon between):\n// (0,2): k=1: 1*3*1=3. dp[0][2]=3\n// (1,3): k=2: 3*1*5=15. dp[1][3]=15\n// (2,4): k=3: 1*5*8=40. dp[2][4]=40\n// (3,5): k=4: 5*8*1=40. dp[3][5]=40\n\n// len=3 (2 balloons):\n// (0,3): k=1: 1*3*5 + dp[0][1] + dp[1][3] = 15+0+15=30\n//        k=2: 1*1*5 + dp[0][2] + dp[2][3] = 5+3+0=8. dp[0][3]=30\n// (1,4): k=2: 3*1*8 + dp[1][2] + dp[2][4] = 24+0+40=64\n//        k=3: 3*5*8 + dp[1][3] + dp[3][4] = 120+15+0=135. dp[1][4]=135\n// (2,5): k=3: 1*5*1 + dp[2][3] + dp[3][5] = 5+0+40=45\n//        k=4: 1*8*1 + dp[2][4] + dp[4][5] = 8+40+0=48. dp[2][5]=48\n\n// len=4:\n// (0,4): k=1: 1*3*8+dp[0][1]+dp[1][4]=24+0+135=159\n//        k=2: 1*1*8+dp[0][2]+dp[2][4]=8+3+40=51\n//        k=3: 1*5*8+dp[0][3]+dp[3][4]=40+30+0=70. dp[0][4]=159\n// (1,5): k=2: 3*1*1+dp[1][2]+dp[2][5]=3+0+48=51\n//        k=3: 3*5*1+dp[1][3]+dp[3][5]=15+15+40=70\n//        k=4: 3*8*1+dp[1][4]+dp[4][5]=24+135+0=159. dp[1][5]=159\n\n// len=5:\n// (0,5): k=1: 1*3*1+dp[0][1]+dp[1][5]=3+0+159=162\n//        k=2: 1*1*1+dp[0][2]+dp[2][5]=1+3+48=52\n//        k=3: 1*5*1+dp[0][3]+dp[3][5]=5+30+40=75\n//        k=4: 1*8*1+dp[0][4]+dp[4][5]=8+159+0=167. dp[0][5]=167\n// Answer: 167 ✓\nconsole.log(maxCoins([3,1,5,8])); // 167",
+        "explanation": "The fill order (increasing len) is critical: dp[i][k] and dp[k][j] must be computed before dp[i][j]. Since k is strictly between i and j, both dp[i][k] and dp[k][j] have smaller intervals (shorter len). Filling shorter intervals first guarantees all dependencies are available."
+      },
+      "common_mistakes": [
+        "Thinking of k as the FIRST balloon to burst instead of the LAST — if k is first, its neighbors change as others burst; if k is last, its neighbors are fixed (the boundary sentinels i and j); only the last-balloon framing gives a tractable recurrence",
+        "Forgetting to add sentinel 1s at both ends — without sentinels, the outermost balloons have undefined neighbors; sentinels handle the edge computation uniformly",
+        "Filling the DP table by row instead of by interval length — dp[i][j] depends on dp[i][k] and dp[k][j] where k is between i and j; filling by increasing interval length ensures all required subproblems are solved first"
+      ],
+      "interview_relevance": "Burst Balloons (#312) is Blind 75 / NeetCode 150 and rated as one of the hardest DP problems. It appears at Google and Meta senior interviews. The last-balloon insight is non-obvious and is specifically what interviewers evaluate: can the candidate invert the problem statement to find a tractable DP structure? Only attempt this problem after all other DP modules are solid, as stated in the module notes.",
+      "mini_challenge": "Implement maxCoins and verify it returns 167 for [3,1,5,8]. Trace the entire DP table computation manually (as shown in the code comments) to internalise why the last-balloon framing works. Then solve Strange Printer (LeetCode #664): minimum number of turns for a printer to print a string (each turn prints a sequence of the same character). This is also interval DP — identify the state and transition and implement it.",
+      "flashcards": [
+        {
+          "front": "Burst Balloons: why is 'last balloon to burst' the key insight?",
+          "back": "If k is the LAST balloon burst in interval (i,j), all other balloons in (i,j) are already gone. So k's neighbors are FIXED as nums[i] and nums[j] — no dynamic neighbor changes. This makes the recurrence tractable."
+        },
+        {
+          "front": "Burst Balloons: dp[i][j] meaning?",
+          "back": "Maximum coins from bursting ALL balloons strictly between indices i and j (not including i and j themselves, which are boundary sentinels). dp[0][n+1] is the answer for the full array."
+        },
+        {
+          "front": "Burst Balloons: recurrence?",
+          "back": "dp[i][j] = max over all k in (i,j) of: nums[i]*nums[k]*nums[j] + dp[i][k] + dp[k][j]. k is the LAST balloon burst. nums[i]*nums[k]*nums[j] = coins for bursting k when its neighbors are i and j."
+        },
+        {
+          "front": "Burst Balloons: sentinel values?",
+          "back": "Add 1 at both ends: nums=[1, ...original, 1]. Now the outermost boundaries are always 1. The answer becomes dp[0][n+1] where n+1 is the index of the right sentinel."
+        },
+        {
+          "front": "Burst Balloons: fill order for the DP table?",
+          "back": "Fill by increasing interval LENGTH (len = j-i, from 2 to n-1). Longer intervals depend on shorter ones. dp[i][k] and dp[k][j] both have smaller interval lengths than dp[i][j], so they're already filled."
+        },
+        {
+          "front": "Interval DP: general pattern?",
+          "back": "dp[i][j] = optimal value for processing elements between i and j. Fill by increasing length. For each (i,j), try all k in (i,j) as the 'last operation' point. Applies to: Burst Balloons, Matrix Chain Multiplication, Strange Printer, Optimal BST."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Burst Balloons [3,1,5,8]: extended nums=[1,3,1,5,8,1]. dp[0][2] (one balloon between: nums[1]=3)?",
+          "options": [
+            "3",
+            "1",
+            "6",
+            "15"
+          ],
+          "answer": 0,
+          "explanation": "dp[0][2]: only k=1 (nums[1]=3). Coins = nums[0]*nums[1]*nums[2] = 1*3*1 = 3. dp[0][1]=0, dp[1][2]=0. dp[0][2]=3+0+0=3."
+        },
+        {
+          "question": "Why does 'first balloon to burst' framing fail for interval DP?",
+          "options": [
+            "It gives different answers",
+            "After bursting the first balloon, its neighbors merge — making neighbors dynamic and the subproblem boundary undefined",
+            "The transition formula becomes too long",
+            "First-to-burst requires O(n!) enumeration"
+          ],
+          "answer": 1,
+          "explanation": "If k is FIRST to burst, its left/right neighbors collapse together. The remaining subproblems on each side of k now have different boundaries because the collapsed neighbors affect both sides. The subproblems are no longer independent intervals — they share modified boundary elements."
+        },
+        {
+          "question": "Burst Balloons fill order: dp[i][j] where j-i=3 depends on?",
+          "options": [
+            "Other intervals where j-i=3",
+            "Intervals where j-i=1 and j-i=2 (smaller intervals within (i,j))",
+            "Intervals where j-i=4 (larger intervals)",
+            "No dependencies — computed independently"
+          ],
+          "answer": 1,
+          "explanation": "dp[i][j] (gap=3) needs dp[i][k] and dp[k][j] for k in (i,j). Both have gap < 3. Fill gap=2 before gap=3 ensures dependencies are ready."
+        },
+        {
+          "question": "nums=[3,1,5,8], extended=[1,3,1,5,8,1]. dp[1][4] (balloons 2,3 between indices 1 and 4)?",
+          "options": [
+            "15",
+            "40",
+            "135",
+            "159"
+          ],
+          "answer": 2,
+          "explanation": "dp[1][4]: k=2 (val=1): 3*1*8+dp[1][2]+dp[2][4]=24+0+40=64. k=3 (val=5): 3*5*8+dp[1][3]+dp[3][4]=120+15+0=135. max=135. (From the trace in the code: dp[1][4]=135 ✓)"
+        }
+      ],
+      "visual_aid": {
+        "type": "interval_dp",
+        "description": "Burst Balloons interval DP — fill order and key transitions",
+        "diagram": "nums=[3,1,5,8] → extended=[1,3,1,5,8,1]\nIndices:                0  1  2  3  4  5\n\nFILL ORDER (by gap size):\nGap=2 (single balloon between i and j):\n  dp[0][2]: k=1(val=3): 1*3*1=3             → dp[0][2]=3\n  dp[1][3]: k=2(val=1): 3*1*5=15            → dp[1][3]=15\n  dp[2][4]: k=3(val=5): 1*5*8=40            → dp[2][4]=40\n  dp[3][5]: k=4(val=8): 5*8*1=40            → dp[3][5]=40\n\nGap=3:\n  dp[0][3]: k=1: 1*3*5+0+15=30;\n            k=2: 1*1*5+3+0=8.    → dp[0][3]=30\n  dp[1][4]: k=2: 3*1*8+0+40=64;\n            k=3: 3*5*8+15+0=135. → dp[1][4]=135\n  dp[2][5]: k=3: 1*5*1+0+40=45;\n            k=4: 1*8*1+40+0=48.  → dp[2][5]=48\n\nGap=4 & 5 → dp[0][5]=167 (full trace in code) ✓\n\nKEY: k = LAST balloon in interval\n     nums[i]*nums[k]*nums[j] = coins when neighbors are fixed as i,j"
+      },
+      "complexity_summary": {
+        "time": "O(n³) — three nested loops: interval length, left boundary, k",
+        "space": "O(n²) — 2D DP table",
+        "interval_dp_pattern": "Fill by increasing gap. Each k is the 'last operation' in (i,j). Dependencies always have smaller gaps.",
+        "difficulty": "Hard — requires inverting intuition from 'first burst' to 'last burst'"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-312",
+          "title": "Burst Balloons",
+          "difficulty": "Hard",
+          "pattern": "Interval DP — last balloon framing",
+          "blind75": true
+        },
+        {
+          "id": "lc-1039",
+          "title": "Minimum Score Triangulation of Polygon",
+          "difficulty": "Medium",
+          "pattern": "Interval DP — last triangle chosen"
+        },
+        {
+          "id": "lc-664",
+          "title": "Strange Printer",
+          "difficulty": "Hard",
+          "pattern": "Interval DP — minimum print turns"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M3-L6-TH-1",
+            "question": "What is the KEY INSIGHT of the Burst Balloons interval DP, and why think about the LAST balloon burst rather than the first?",
+            "options": [
+              "Thinking about the first balloon is equivalent; the insight is just about order",
+              "When thinking about the FIRST balloon burst, its neighbors are unknown (they'll be burst later, changing who the 'adjacent' balloons are); when thinking about the LAST balloon burst in an interval (i,j), its neighbors are ALWAYS the sentinels i and j (the interval boundaries) because all other balloons in the interval have ALREADY been burst; this fixed-neighbor property makes the coins for the last burst deterministic: `nums[i]*nums[k]*nums[j]`",
+              "The first balloon earns the most coins, so it should be considered first",
+              "The last balloon always has value 1, simplifying the computation"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's key concept: 'Key insight: think LAST balloon to burst, not first' — when k is the LAST balloon burst in interval (i,j), all balloons between i and k AND between k and j are already gone; the only remaining neighbors when k is burst are the boundaries i and j themselves, giving a deterministic coin count of nums[i]*nums[k]*nums[j]."
+          },
+          {
+            "id": "L2M3-L6-TH-2",
+            "question": "Why does the Burst Balloons algorithm add SENTINEL 1s at both ends of the array?",
+            "options": [
+              "Sentinels prevent array index out of bounds errors",
+              "The sentinels allow the LAST BURST in the ENTIRE ARRAY to be modeled uniformly: when the last remaining real balloon k is burst, its neighbors in the extended array are always indices 0 and n-1 (the sentinels with value 1), giving coins = 1 * nums[k] * 1 = nums[k]; this avoids special-casing boundary conditions where the leftmost or rightmost balloon has no left or right neighbor; dp[0][n-1] represents the maximum coins from bursting ALL real balloons between the two sentinels",
+              "Sentinels are required because the DP table indices start at 1",
+              "Sentinels ensure the interval DP can compute all sub-intervals uniformly"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Add sentinel 1s at both ends: nums = [1, ...nums, 1]' and 'dp[0][n-1]: burst all balloons between sentinel indices 0 and n-1' — the sentinels with value 1 serve as permanent boundaries that never get burst, enabling the 'last balloon burst' insight to apply uniformly to all positions including the leftmost and rightmost real balloons."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M3-L6-LG-1",
+            "question": "For `maxCoins([3,1,5,8])`, the extended array is [1,3,1,5,8,1]. The lesson traces dp[1][4]=135 for len=3 via k=3. Verify: what is the computation for k=3 in interval (1,4)?",
+            "options": [
+              "k=3: nums[1]*nums[3]*nums[4] + dp[1][3]+dp[3][4] = 3*5*8+15+0=135",
+              "k=3 in interval (1,4): coins=nums[1]*nums[3]*nums[4]=3*5*8=120; dp[1][3]=15 (max from bursting balloons strictly between 1 and 3); dp[3][4]=0 (no balloons strictly between 3 and 4); total=120+15+0=135; dp[1][4] takes max(64 from k=2, 135 from k=3)=135 — confirmed by the lesson's trace and direct execution",
+              "k=3: 3*5*8=120 with no sub-intervals",
+              "k=3 gives 64; k=2 gives 135; dp[1][4]=135"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's exact trace: '(1,4): k=3: 3*5*8 + dp[1][3] + dp[3][4] = 120+15+0=135' — the formula is nums[left]*nums[k]*nums[right] + sub-interval costs; with left=1 (value 3), k=3 (value 5), right=4 (value 8): coins=3*5*8=120; plus dp[1][3]=15 (from the len=2 fill) and dp[3][4]=0 (adjacent, no balloon between); total=135."
+          },
+          {
+            "id": "L2M3-L6-LG-2",
+            "question": "The fill order processes intervals by INCREASING LENGTH (len from 2 to n-1). Why must shorter intervals be computed BEFORE longer ones?",
+            "options": [
+              "Longer intervals are independent of shorter ones; order doesn't matter",
+              "The transition `dp[i][j] = coins + dp[i][k] + dp[k][j]` depends on `dp[i][k]` (shorter sub-interval [i,k]) and `dp[k][j]` (shorter sub-interval [k,j]); for the recurrence to find valid cached values, both sub-intervals must already be computed; since every sub-interval (i,k) and (k,j) has length strictly less than (i,j), processing by increasing length guarantees all needed sub-results exist before they are needed",
+              "Shorter intervals are easier to compute; the order is for performance only",
+              "The len loop runs from large to small; shorter intervals are computed LAST"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Fill order: increasing interval length from 2 upward' — interval DP always fills by increasing size because the recurrence decomposes (i,j) into two strictly smaller intervals (i,k) and (k,j); bottom-up evaluation requires the smaller parts to be available before the larger part attempts to use them."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M3-L6-SY-1",
+            "question": "In `maxCoins`, the inner k-loop runs `for (let k = i+1; k < j; k++)`. Why is k STRICTLY BETWEEN i and j (k=i+1 to k<j), not including i or j?",
+            "options": [
+              "i and j are sentinel positions and would cause array out of bounds",
+              "`dp[i][j]` represents coins from bursting balloons STRICTLY BETWEEN positions i and j — the sentinels/boundaries i and j are never burst in this sub-problem; k must be a real balloon in the interior (strictly between i and j); if k=i or k=j were allowed, we'd be 'bursting' the boundary positions which are not real balloons in this interval's context; the strict interior constraint is what makes the 'last balloon burst' insight work correctly",
+              "The strict bounds prevent computing dp[i][i+1] which is 0",
+              "k=i and k=j would create duplicate computations in the sum"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'dp[i][j] = max coins from bursting all balloons STRICTLY between i and j' — the interval boundaries i and j are fixed (they are either sentinels or the results of previous sub-problem boundaries); k must be chosen from the balloons actually in the interior; if k were allowed to equal i or j, we'd be treating the boundary as a balloon to burst, violating the interval DP's semantics."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M3-L6-CC-1",
+            "title": "Burst Balloons — Interval DP",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the Burst Balloons interval DP from this lesson.",
+            "requirements": [
+              "Implement `maxCoinsImpl(nums)` matching the lesson's interval DP approach exactly, including sentinel 1s and the increasing-length fill order"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function maxCoinsImpl(nums) {\n  // TODO: add sentinels, fill dp by increasing interval length\n  // dp[i][j] = max coins bursting strictly between i and j\n}"
+            },
+            "test_cases": [
+              {
+                "input": "maxCoinsImpl([3,1,5,8])",
+                "expected": 167,
+                "type": "visible"
+              },
+              {
+                "input": "maxCoinsImpl([1,5])",
+                "expected": 10,
+                "type": "visible"
+              },
+              {
+                "input": "maxCoinsImpl([1])",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "maxCoinsImpl([7,9,8,0,7,1,3,5,5,2,3])",
+                "expected": 1654,
+                "type": "hidden"
+              },
+              {
+                "input": "maxCoinsImpl([0])",
+                "expected": 0,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function maxCoinsImpl(nums) {\n  nums = [1, ...nums, 1];\n  const n = nums.length;\n  const dp = Array.from({length:n},()=>new Array(n).fill(0));\n  for (let len = 2; len < n; len++) {\n    for (let i = 0; i < n - len; i++) {\n      const j = i + len;\n      for (let k = i+1; k < j; k++) {\n        const coins = nums[i] * nums[k] * nums[j];\n        dp[i][j] = Math.max(dp[i][j], coins + dp[i][k] + dp[k][j]);\n      }\n    }\n  }\n  return dp[0][n-1];\n}"
+            },
+            "complexity_analysis": "maxCoinsImpl: O(n³) time, O(n²) space — three nested loops over interval positions.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Add sentinels: nums=[1,...nums,1]; dp table is n×n where n=nums.length after extension."
+              },
+              {
+                "level": 2,
+                "text": "Outer loop: len from 2 to n-1 (interval length); middle loop: i from 0 to n-len-1; j=i+len."
+              },
+              {
+                "level": 3,
+                "text": "Inner loop: k from i+1 to j-1 (strictly interior); dp[i][j]=max(dp[i][j], nums[i]*nums[k]*nums[j]+dp[i][k]+dp[k][j])."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "module_summary": {
+    "total_lessons": 6,
+    "level": "L2",
+    "blind75_problems_unlocked": 7,
+    "neetcode150_additional": 5,
+    "core_patterns": [
+      "0/1 Knapsack 2D: dp[i][w]=max(dp[i-1][w], dp[i-1][w-wt]+val); use dp[i-1] not dp[i] on include branch",
+      "0/1 Knapsack 1D: same recurrence, RIGHT-TO-LEFT inner loop — prevents item reuse",
+      "Unbounded vs 0/1: only the loop direction differs (left-to-right vs right-to-left)",
+      "Three knapsack variants: MAX (max), COUNT (+=), BOOLEAN (||=) — same loop structure",
+      "Target Sum reduction: P=(sum+target)/2; count subsets summing to P (count variant knapsack)",
+      "Partition Equal Subset Sum: total even? then boolean knapsack to target=total/2",
+      "LIS O(n²): dp[i]=max LIS ending at i; answer=max(dp). Use strict < for strictly increasing.",
+      "LIS O(n log n): patience sort tails array; binary search leftmost ≥ x; length=LIS length",
+      "Edit Distance: match=diagonal (free), mismatch=1+min(diagonal,above,left); base dp[i][0]=i dp[0][j]=j",
+      "Interval DP (Burst Balloons): last-operation framing; fill by increasing gap length; O(n³)"
+    ],
+    "prerequisite_modules": [
+      "L2-M01",
+      "L2-M02"
+    ],
+    "unlocks_modules": [
+      "L2-M04 (Backtracking + advanced DP)",
+      "L2-M05 (Stock/State-machine DP)"
+    ],
+    "recommended_problem_order": [
+      "lc-416",
+      "lc-494",
+      "lc-1049",
+      "lc-300",
+      "lc-354",
+      "lc-72",
+      "lc-312"
+    ],
+    "spaced_review_target": "Re-solve 3 failed problems from Modules 1–2 DP without notes before Module 4",
+    "module_difficulty": "Hard — heaviest module in the DP sequence. 0/1 knapsack (L1-L3) is foundational; LIS (L4) introduces binary search DP; Edit Distance (L5) solidifies 2D string DP; Burst Balloons (L6) is the hardest problem in Level 2.",
+    "honest_time_estimate": "14-16 hours. Knapsack pattern (L1-L3): ~5 hrs. LIS both approaches (L4): ~3 hrs. Edit Distance (L5): ~3 hrs. Burst Balloons (L6): ~4 hrs (attempt only after L1-L5 are solid).",
+    "critical_rule": "RIGHT-TO-LEFT inner loop = 0/1 knapsack (each item once). LEFT-TO-RIGHT = unbounded. This single rule governs Target Sum, Partition, Coin Change II, and all knapsack variants."
+  },
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "intermediate": "Lessons 1-3 (0/1 knapsack right-to-left, Target Sum algebraic reduction, Partition boolean knapsack)",
+      "advanced": "Lessons 4-5 (LIS O(n²) and O(n log n) patience sorting, Edit Distance 4-case 2D DP)",
+      "hard": "Lesson 6 (Burst Balloons interval DP — O(n³), last-balloon-burst insight, increasing-length fill)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges, with hidden test cases used for final validation"
+  }
+}

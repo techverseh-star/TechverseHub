@@ -5,6 +5,23 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 const isConfigured = supabaseUrl && supabaseAnonKey;
 
+// One-time cleanup: earlier versions of hybridStorage's setItem defaulted an
+// unset "remember me" flag to *remembered*, so sessions could end up stuck in
+// localStorage (surviving full browser restarts) even for users who never
+// opted in. Runs once, before the client reads any stored session, so a
+// stray token from that bug doesn't silently log someone back in.
+if (typeof window !== 'undefined') {
+  const rememberMe = window.localStorage.getItem('techverse_remember_me') === 'true';
+  if (!rememberMe) {
+    for (let i = window.localStorage.length - 1; i >= 0; i--) {
+      const key = window.localStorage.key(i);
+      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        window.localStorage.removeItem(key);
+      }
+    }
+  }
+}
+
 // Custom storage adapter to handle "Remember Me" functionality
 const hybridStorage = {
   getItem: (key: string) => {
@@ -13,8 +30,12 @@ const hybridStorage = {
   },
   setItem: (key: string, value: string) => {
     if (typeof window === 'undefined') return;
-    // Check preference
-    const rememberMe = window.localStorage.getItem('techverse_remember_me') !== 'false';
+    // Check preference - default to session-only (NOT remembered) unless the
+    // user explicitly opted in via the "Remember me" checkbox. The previous
+    // `!== 'false'` check defaulted to "remembered" for any path that writes
+    // a session before this flag is ever set (e.g. a stray write ordering
+    // issue), silently persisting logins the user never asked to keep.
+    const rememberMe = window.localStorage.getItem('techverse_remember_me') === 'true';
     const storage = rememberMe ? window.localStorage : window.sessionStorage;
     storage.setItem(key, value);
 
@@ -57,6 +78,15 @@ export interface Lesson {
   language: string;
   level?: 'beginner' | 'intermediate' | 'advanced';
   order?: number;
+  is_premium?: boolean;
+  price?: number;
+}
+
+export interface UserPurchase {
+  id: string;
+  user_id: string;
+  lesson_id: string;
+  created_at: string;
 }
 
 export interface PracticeProblem {

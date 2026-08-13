@@ -1,0 +1,826 @@
+{
+  "levelId": "level-2",
+  "moduleId": "module-14",
+  "title": "Advanced React Architecture",
+  "shortTitle": "Advanced React Architecture",
+  "difficulty": "intermediate",
+  "estimatedDuration": "16-20 hours",
+  "xpReward": 1600,
+  "description": "Go beyond Module 6's React fundamentals into the architectural patterns real production codebases rely on: composition-based component design, custom hooks for reusable logic, advanced Context patterns, performance optimization, code splitting, and the production checklist that separates a working React app from a genuinely scalable one.",
+  "moduleGoal": {
+    "primary": "Master composition-based component architecture and custom hooks as the primary tools for organizing and reusing logic in a growing React codebase.",
+    "secondary": "Diagnose and fix real React performance problems using memoization and code splitting, and develop the architectural judgment that distinguishes a React app that merely works from one genuinely ready for production scale.",
+    "outcomeStatement": "By the end of this module, you will be able to architect a React codebase the way experienced React engineers do: composing rather than configuring, extracting reusable logic into custom hooks, and diagnosing performance problems with precision rather than guesswork."
+  },
+  "prerequisites": [
+    "module-1", "module-2", "module-3", "module-4", "module-5",
+    "module-6", "module-7", "module-8", "module-9", "module-10",
+    "module-11", "module-12", "module-13"
+  ],
+  "skillsUnlocked": [
+    "Component Architecture Patterns",
+    "Custom Hooks",
+    "Advanced Context API Patterns",
+    "React Performance Optimization",
+    "Code Splitting And Lazy Loading",
+    "React Production Readiness"
+  ],
+  "lessons": [
+    {
+      "lessonId": "lesson-1",
+      "order": 1,
+      "title": "Component Architecture Patterns",
+      "shortTitle": "Component Architecture Patterns",
+      "estimatedDuration": "75-95 minutes",
+      "xpReward": 130,
+      "nextLessonId": "lesson-2",
+      "prevLessonId": null,
+      "prerequisites": [],
+      "lessonGoal": "Move beyond Module 6's basic component boundaries into deliberate composition patterns: the children prop, compound components, and the render-prop-like 'children as a function' pattern.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "Composition As React's Primary Extension Mechanism",
+          "content": "Module 6, lesson 3 briefly mentioned the children prop as a way for a component to render whatever JSX is passed between its opening and closing tags. This lesson treats composition \u2014 building complex UI by combining smaller, flexible components together, rather than building large, configurable components with many specific props \u2014 as React's primary, idiomatic mechanism for reuse and flexibility, directly extending Module 6, lesson 10's component-boundary thinking into the deliberate, architectural patterns experienced React engineers reach for by default. Where a beginner instinct (and Module 6's own simpler examples) might add more and more specific props to a component to handle more cases, composition instead asks: could this component simply accept arbitrary children, or a small number of specifically-shaped child components, and let the caller compose the actual structure themselves?"
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Picture Frame Versus A Custom-Built Display Case For Every Possible Item",
+          "content": "A component with many specific configuration props, trying to handle every possible use case through props alone, is like commissioning an entirely custom-built display case for every single item you might ever want to display \u2014 technically possible, but each new item type requires a new custom case, and the case-maker (the component's author) must anticipate every future need in advance. A composable component is like a simple, well-made picture frame: it doesn't know or care what's inside it, it simply provides consistent framing, spacing, and presentation, and accepts literally anything placed inside \u2014 a photo, a certificate, a child's drawing \u2014 without ever needing to be redesigned for each new kind of content. Most real UI components benefit far more from being a flexible 'frame' (accepting children) than from being an ever-more-elaborate 'custom display case' (accepting dozens of specific configuration props for every conceivable variation)."
+        },
+        {
+          "type": "structure",
+          "title": "Core Composition Patterns",
+          "content": "The children prop, directly extending Module 6's brief mention into a deliberate pattern:\n\ninterface CardProps {\n  children: React.ReactNode;\n}\n\nfunction Card({ children }: CardProps) {\n  return <div className=\"rounded-lg shadow p-6\">{children}</div>;\n}\n\n// Used flexibly - Card has no idea what's inside, and doesn't need to\n<Card><h2>Title</h2><p>Any content at all</p></Card>\n\nCompound components \u2014 a parent component and a set of specifically-related child components that work together, sharing implicit state via Context (lesson 3 covers this mechanism fully):\n\n<Tabs>\n  <Tabs.List>\n    <Tabs.Tab id=\"profile\">Profile</Tabs.Tab>\n    <Tabs.Tab id=\"settings\">Settings</Tabs.Tab>\n  </Tabs.List>\n  <Tabs.Panel id=\"profile\">Profile content</Tabs.Panel>\n  <Tabs.Panel id=\"settings\">Settings content</Tabs.Panel>\n</Tabs>\n\nChildren as a function \u2014 passing a function as children, letting the parent component share data with whatever the caller chooses to render:\n\n<DataProvider>\n  {(data) => <p>{data.name}</p>}\n</DataProvider>"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why Compound Components Need Context, And How The Pieces Actually Connect",
+          "content": "A compound component like Tabs works specifically because its sub-components (Tabs.Tab, Tabs.Panel) need to share state \u2014 which tab is currently active \u2014 without that state being threaded down as an explicit prop on every single sub-component usage, exactly the prop-drilling problem Module 10, lesson 3 introduced Context to solve generally. The parent Tabs component creates a Context provider internally, holding the active tab state; each Tabs.Tab and Tabs.Panel calls useContext internally to read and (for Tabs.Tab specifically) update that shared state, without the actual JSX usage ever needing to manually pass activeTab or setActiveTab as visible props anywhere. This is precisely why Tabs.List, Tabs.Tab, and Tabs.Panel are typically defined as properties attached to the Tabs function itself (Tabs.Tab = TabComponent) \u2014 a deliberate convention signaling 'these components are designed to be used together, inside a parent Tabs, and rely on that specific context being present'."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Complete Compound Tabs Component, Built From Scratch",
+          "content": "This builds a genuinely working compound component, directly extending Module 6's Context patterns and Module 10, lesson 3's AuthContext structure into a reusable UI pattern:",
+          "code": "import { createContext, useContext, useState, ReactNode } from 'react';\n\ninterface TabsContextValue {\n  activeTab: string;\n  setActiveTab: (id: string) => void;\n}\n\nconst TabsContext = createContext<TabsContextValue | null>(null);\n\nfunction useTabsContext() {\n  const context = useContext(TabsContext);\n  if (!context) throw new Error('Tabs.Tab/Panel must be used inside <Tabs>');\n  return context;\n}\n\nfunction Tabs({ defaultTab, children }: { defaultTab: string; children: ReactNode }) {\n  const [activeTab, setActiveTab] = useState(defaultTab);\n  return (\n    <TabsContext.Provider value={{ activeTab, setActiveTab }}>\n      {children}\n    </TabsContext.Provider>\n  );\n}\n\nfunction TabsList({ children }: { children: ReactNode }) {\n  return <div className=\"flex gap-2\">{children}</div>;\n}\n\nfunction Tab({ id, children }: { id: string; children: ReactNode }) {\n  const { activeTab, setActiveTab } = useTabsContext();\n  return (\n    <button\n      onClick={() => setActiveTab(id)}\n      className={activeTab === id ? 'font-bold border-b-2' : ''}\n    >\n      {children}\n    </button>\n  );\n}\n\nfunction Panel({ id, children }: { id: string; children: ReactNode }) {\n  const { activeTab } = useTabsContext();\n  if (activeTab !== id) return null;\n  return <div>{children}</div>;\n}\n\nTabs.List = TabsList;\nTabs.Tab = Tab;\nTabs.Panel = Panel;\n\nexport default Tabs;",
+          "explanation": "useTabsContext deliberately throws an error if called outside a Tabs provider, directly extending Module 7, lesson 9's error-handling discipline into a component-design safeguard \u2014 a clear, immediate error ('must be used inside Tabs') is far more useful to a future developer than a confusing null-reference failure somewhere deep inside Tab or Panel. Panel's conditional rendering (if (activeTab !== id) return null;) directly reuses Module 6, lesson 7's early-return conditional pattern, just applied here based on shared Context state rather than a prop. The Tabs.List = TabsList; assignments at the bottom are what let callers write <Tabs.Tab> instead of needing to separately import and use a differently-named TabComponent, completing the compound component's intended, cohesive API."
+        },
+        {
+          "type": "realUsage",
+          "title": "Where Composition Patterns Dominate Real Component Libraries",
+          "content": "Nearly every major, widely-used React component library relies heavily on exactly these composition patterns \u2014 compound components for things like tabs, accordions, dropdown menus, and modals, specifically because these UI patterns inherently involve multiple coordinated pieces that benefit from sharing implicit state without forcing every consumer to manually wire that coordination themselves. Real component library authors specifically favor composition over an ever-growing list of configuration props because composition scales better as new use cases emerge: a new way of arranging Tabs.Tab and Tabs.Panel rarely requires changing Tabs's own implementation at all, where a props-heavy approach would likely require adding yet another specific configuration prop for every new arrangement anyone wants to support."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common Composition Mistakes",
+          "content": "1. Continuing to add more and more specific configuration props to a component to handle every new variation, rather than recognizing when composition (accepting children, or specific compound sub-components) would scale far better as genuine variety grows.\n\n2. Building a compound component's sub-components as entirely separate, independently-exported functions rather than attaching them to the parent (Tabs.Tab = Tab), losing the clear, cohesive API signal that these pieces are specifically meant to be used together.\n\n3. Forgetting to guard against a sub-component being used outside its required parent context, leading to a confusing null-reference error rather than this lesson's clear, immediate 'must be used inside X' error.\n\n4. Over-applying compound component patterns to genuinely simple components that don't actually need shared implicit state, adding unnecessary architectural complexity where a simple, ordinary component with regular props would have been clearer and easier to use.\n\n5. Forgetting that children is itself just a regular prop (typed as React.ReactNode in TypeScript, Module 12's typing applied here directly) \u2014 it isn't special syntax, just a conventionally-named, automatically-populated prop representing whatever JSX appears between a component's opening and closing tags."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "Composition Over Configuration, Applied To Component Design Specifically",
+          "content": "This lesson's central argument is a direct, component-design-specific application of the exact same 'convention over configuration' principle Module 13, lesson 2 introduced for Next.js's file-based routing: rather than requiring every possible variation to be explicitly configured through props (configuration), composition lets the CALLER assemble exactly the structure they need from smaller, flexible pieces, with the underlying component simply providing consistent behavior and shared state where genuinely needed. This same instinct \u2014 recognizing when a growing list of specific configuration options signals a deeper need for a more flexible, composable structure instead \u2014 is one of the most valuable, transferable architectural judgments a React engineer develops with experience, and it applies well beyond components specifically, to API design, function design, and system design generally."
+        },
+        {
+          "type": "debugging",
+          "title": "Diagnosing Compound Component Context Errors",
+          "content": "If a compound component's sub-component throws the 'must be used inside X' error this lesson's codeLesson deliberately added, the fix is almost always confirming that sub-component is genuinely rendered as a descendant of its required parent provider somewhere in the actual JSX tree \u2014 exactly the same diagnostic Module 10, lesson 3 taught for any Context consumer rendered outside its Provider's boundaries. If a compound component's shared state doesn't seem to update correctly across its sub-components, confirming the Context value object passed to the Provider is actually being recreated correctly on each render (rather than accidentally creating a new, disconnected context value somewhere) is the next thing to check."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp1-1",
+          "type": "multiple_choice",
+          "question": "What is the main architectural advantage of composition (accepting children or compound sub-components) over an ever-growing list of specific configuration props?",
+          "options": [
+            "Composition always results in less code overall regardless of the situation",
+            "Composition lets the caller assemble exactly the structure they need from flexible pieces, scaling better as new use cases emerge than continually adding new configuration props",
+            "Configuration props are never a valid approach in React",
+            "Composition eliminates the need for any props at all"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Composition lets callers flexibly assemble structure from smaller pieces, which tends to scale better as new variations emerge than an ever-growing list of specific configuration props on one component."
+        },
+        {
+          "id": "cp1-2",
+          "type": "scenario",
+          "question": "A compound component's Tab sub-component is accidentally rendered outside of its required parent Tabs provider, and the component throws a clear error stating 'Tab must be used inside Tabs'. Why is this preferable to a confusing null-reference error?",
+          "options": [
+            "There is no real difference between the two kinds of errors",
+            "A clear, immediate, descriptive error directly tells a future developer exactly what went wrong and how to fix it, rather than requiring them to trace a confusing failure back to its actual root cause themselves",
+            "Null-reference errors are always more helpful than custom errors",
+            "This kind of error checking is unnecessary in well-written code"
+          ],
+          "correctAnswer": 1,
+          "explanation": "A deliberate, descriptive error message immediately communicates the actual problem and its fix, saving a future developer from needing to trace a more generic, confusing failure back to its root cause."
+        },
+        {
+          "id": "cp1-3",
+          "type": "multiple_choice",
+          "question": "Why are a compound component's sub-components (like Tabs.Tab) typically attached directly to the parent component function rather than exported as entirely separate, independently-named functions?",
+          "options": [
+            "React requires this exact syntax for all components",
+            "It creates a clear, cohesive API signal that these specific pieces are designed to be used together, inside the parent component, rather than appearing as unrelated, independent exports",
+            "This has no real benefit and is purely a stylistic preference",
+            "Separate exports are always faster at runtime"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Attaching sub-components to the parent (Tabs.Tab) signals their intended relationship clearly, communicating that they're meant to be used together as part of one cohesive compound component."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch1-build-a-compound-accordion",
+        "title": "Build A Compound Accordion Component",
+        "description": "Build a compound Accordion component (Accordion, Accordion.Item, Accordion.Header, Accordion.Content) where exactly one item can be expanded at a time, using Context internally to share the currently-expanded item's id, with a clear error if a sub-component is used outside Accordion.",
+        "starterCode": "import { createContext, useContext, useState, ReactNode } from 'react';\n\n// TODO: define AccordionContext with expandedId and a setter\n\n// TODO: write useAccordionContext() throwing a clear error if used\n// outside an Accordion provider\n\n// TODO: build Accordion, Accordion.Item (just a wrapper), Accordion.Header\n// (toggles expansion on click), and Accordion.Content (renders only if\n// its id matches the currently expanded item)\n\n// TODO: attach Header and Content to Accordion as Accordion.Header etc.",
+        "solutionExample": "import { createContext, useContext, useState, ReactNode } from 'react';\n\ninterface AccordionContextValue {\n  expandedId: string | null;\n  setExpandedId: (id: string | null) => void;\n}\n\nconst AccordionContext = createContext<AccordionContextValue | null>(null);\n\nfunction useAccordionContext() {\n  const context = useContext(AccordionContext);\n  if (!context) throw new Error('Accordion sub-components must be used inside <Accordion>');\n  return context;\n}\n\nfunction Accordion({ children }: { children: ReactNode }) {\n  const [expandedId, setExpandedId] = useState<string | null>(null);\n  return (\n    <AccordionContext.Provider value={{ expandedId, setExpandedId }}>\n      {children}\n    </AccordionContext.Provider>\n  );\n}\n\nfunction Item({ children }: { children: ReactNode }) {\n  return <div>{children}</div>;\n}\n\nfunction Header({ id, children }: { id: string; children: ReactNode }) {\n  const { expandedId, setExpandedId } = useAccordionContext();\n  return (\n    <button onClick={() => setExpandedId(expandedId === id ? null : id)}>\n      {children}\n    </button>\n  );\n}\n\nfunction Content({ id, children }: { id: string; children: ReactNode }) {\n  const { expandedId } = useAccordionContext();\n  if (expandedId !== id) return null;\n  return <div>{children}</div>;\n}\n\nAccordion.Item = Item;\nAccordion.Header = Header;\nAccordion.Content = Content;\n\nexport default Accordion;",
+        "validationRules": [
+          "Must use Context internally to share expandedId across sub-components",
+          "useAccordionContext must throw a clear, descriptive error if called outside the provider",
+          "Header must toggle expandedId, collapsing if the same id is clicked again",
+          "Content must conditionally render only when its id matches expandedId",
+          "Header and Content must be attached to Accordion (Accordion.Header, Accordion.Content)"
+        ],
+        "hints": [
+          "Only one item should ever be expanded at once, since expandedId is a single value, not an array or set",
+          "Clicking the currently expanded item's header again should collapse it (set expandedId back to null)",
+          "Reuse this lesson's exact Tabs pattern structurally, just renamed for an accordion's specific behavior"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-2",
+      "order": 2,
+      "title": "Custom Hooks",
+      "shortTitle": "Custom Hooks",
+      "estimatedDuration": "80-100 minutes",
+      "xpReward": 140,
+      "nextLessonId": "lesson-3",
+      "prevLessonId": "lesson-1",
+      "prerequisites": ["lesson-1"],
+      "lessonGoal": "Extract reusable stateful logic into custom hooks, understanding the Rules of Hooks deeply enough to build your own, and recognizing exactly when logic genuinely warrants extraction.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "Custom Hooks As Reusable Stateful Logic, Not Reusable UI",
+          "content": "Module 6, lesson 5 used useState and useEffect together repeatedly for data fetching, and Module 10, lesson 2 noted that custom hooks (briefly mentioned there) bundle related state and effect logic together. This lesson builds that concept fully: a custom hook is simply a regular JavaScript function, conventionally named starting with 'use', that itself calls other hooks (useState, useEffect, or other custom hooks) internally \u2014 letting you extract and reuse STATEFUL LOGIC across multiple components, distinct from lesson 1's composition patterns, which reuse UI STRUCTURE. Where a compound component shares rendered JSX and structure, a custom hook shares the underlying logic (loading states, event listeners, calculations) while leaving each component free to render that logic's results however it specifically needs to."
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Reusable Recipe, Not A Reusable Finished Dish",
+          "content": "Lesson 1's composition patterns are like a reusable, pre-plated dish (a Card component) \u2014 you get both the food and its specific presentation together, as one unit. A custom hook is more like a reusable RECIPE: the actual cooking process (the logic \u2014 how to fetch data, how to track a timer, how to detect a click outside an element) is written once and reused, but each 'chef' (each component using the hook) is free to plate and present the resulting dish however they specifically need to for their own particular situation. Two completely different-looking components could both use the exact same useFetch custom hook internally, sharing 100% of the actual data-fetching logic while rendering the loading, error, and success states in entirely different, component-specific ways."
+        },
+        {
+          "type": "structure",
+          "title": "Building And Using A Custom Hook",
+          "content": "Extracting Module 6, lesson 5's repeated loading/error/data fetching pattern into a reusable custom hook:\n\nfunction useFetch<T>(url: string) {\n  const [data, setData] = useState<T | null>(null);\n  const [loading, setLoading] = useState<boolean>(true);\n  const [error, setError] = useState<string | null>(null);\n\n  useEffect(() => {\n    setLoading(true);\n    setError(null);\n\n    async function load() {\n      try {\n        const response = await fetch(url);\n        if (!response.ok) throw new Error(`Request failed with status ${response.status}`);\n        const json: T = await response.json();\n        setData(json);\n      } catch (err) {\n        setError(err instanceof Error ? err.message : 'Unknown error');\n      } finally {\n        setLoading(false);\n      }\n    }\n\n    load();\n  }, [url]);\n\n  return { data, loading, error };\n}\n\n// Used in ANY component needing this exact pattern, with zero duplication:\nfunction UserProfile({ userId }: { userId: number }) {\n  const { data: user, loading, error } = useFetch<User>(`/api/users/${userId}`);\n\n  if (loading) return <p>Loading...</p>;\n  if (error) return <p>Error: {error}</p>;\n  return <h2>{user?.name}</h2>;\n}"
+        },
+        {
+          "type": "internalWorking",
+          "title": "The Rules Of Hooks, And Why Custom Hooks Must Follow Them Too",
+          "content": "Module 6, lesson 5 briefly mentioned the Rules of Hooks (always call hooks at the top level, never conditionally or inside loops). Custom hooks don't get any exemption from these rules \u2014 since a custom hook is, underneath its own name, just calling React's actual built-in hooks internally, every one of those internal calls (useState, useEffect) must still follow the exact same rules as if they were called directly inside a component. This is precisely why useFetch's internal useState and useEffect calls appear unconditionally, at the top level of the function, exactly as they would inside a regular component \u2014 a custom hook is, in this very specific sense, indistinguishable from a component's own body as far as React's hook-calling rules are concerned, it simply isn't returning JSX. This also explains why a custom hook must itself be called only from another hook or from a component's own top level, never from inside a regular helper function or conditionally \u2014 the same rule, just one level removed."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Second, Genuinely Different Custom Hook: useLocalStorage",
+          "content": "This builds a different custom hook entirely, directly extending Module 5's To-Do App project's localStorage pattern into a genuinely reusable, generic hook:",
+          "code": "function useLocalStorage<T>(key: string, initialValue: T) {\n  const [value, setValue] = useState<T>(() => {\n    try {\n      const stored = localStorage.getItem(key);\n      return stored ? JSON.parse(stored) : initialValue;\n    } catch {\n      return initialValue;\n    }\n  });\n\n  useEffect(() => {\n    localStorage.setItem(key, JSON.stringify(value));\n  }, [key, value]);\n\n  return [value, setValue] as const;\n}\n\n// Used exactly like useState, but automatically persisted -\n// directly replacing Module 5's manual localStorage read/write calls\nfunction TodoApp() {\n  const [tasks, setTasks] = useLocalStorage<Task[]>('tasks', []);\n\n  function addTask(title: string) {\n    setTasks([...tasks, { id: Date.now(), title, completed: false }]);\n    // no manual localStorage.setItem call needed anywhere here -\n    // the hook's own useEffect handles persistence automatically\n  }\n\n  return (/* ... render tasks ... */ null);\n}",
+          "explanation": "useLocalStorage's initial useState call uses a lazy initializer function (() => { ... }) specifically so the relatively expensive localStorage read only happens once, on the component's first render, rather than on every single re-render \u2014 a small but genuine performance detail lesson 4 will revisit in more depth. Returning [value, setValue] as const (TypeScript's const assertion, ensuring the returned tuple's exact order and types are preserved correctly) lets this hook be used with the EXACT same destructuring syntax as React's own useState, making it feel like a natural, drop-in extension of a pattern developers already know intuitively. Notice TodoApp's addTask function contains zero manual localStorage code at all \u2014 every bit of that logic, including the actual persistence, lives once, inside the hook, completely hidden from and unnecessary for any component using it to think about."
+        },
+        {
+          "type": "realUsage",
+          "title": "Common, Real Custom Hooks Across Production Codebases",
+          "content": "Real production React codebases accumulate a library of custom hooks addressing extremely common, recurring needs: useFetch or similar data-fetching hooks (often replaced by dedicated data-fetching libraries as a codebase matures, but conceptually identical), useLocalStorage, useDebounce (delaying a value's update until a user has stopped typing for a moment, useful for search inputs), and useMediaQuery (tracking whether the current viewport matches a specific responsive breakpoint, directly connecting to Module 3's responsive design concepts). Many real teams maintain a dedicated hooks/ folder (directly extending Module 10, lesson 9's project structure principles) specifically for these reusable, shared pieces of logic, treating well-designed custom hooks as genuinely valuable, reusable infrastructure rather than one-off conveniences."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common Custom Hook Mistakes",
+          "content": "1. Calling a custom hook (or any hook) conditionally, inside an if statement or a loop, violating the Rules of Hooks exactly as this lesson's internalWorking section described, since the custom hook's own internal hook calls inherit this same strict requirement.\n\n2. Extracting logic into a custom hook prematurely, when that logic is only ever actually used in one single component \u2014 not every piece of stateful logic needs its own hook; extraction genuinely pays off specifically when logic is reused across multiple components, or when extraction itself meaningfully clarifies one large component's own internal organization.\n\n3. Forgetting the lazy initializer function for an expensive initial useState computation (like useLocalStorage's localStorage.getItem call), causing that expensive computation to run on every single render rather than only once.\n\n4. Naming a function that doesn't actually call any other hooks internally with a 'use' prefix anyway, misleadingly suggesting it's a hook (and subject to the Rules of Hooks) when it's actually just a regular helper function with no such constraints.\n\n5. Building an overly generic, all-purpose custom hook trying to handle too many different specific use cases at once, rather than several smaller, more focused hooks that compose together cleanly \u2014 echoing lesson 1's same composition-over-configuration argument, now applied to hooks instead of components."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "Recognizing Genuine Extraction Opportunities, Not Extracting By Default",
+          "content": "This lesson's central judgment, directly echoing Module 4, lesson 3's DRY principle but now applied specifically to React's hook model, is recognizing WHEN logic genuinely warrants extraction into its own custom hook, rather than extracting prematurely or reflexively. The signal worth watching for is genuine duplication: if you notice the same useState/useEffect pattern (or a meaningfully similar variant of it) appearing in two or more components, that's the concrete signal lesson 2's extraction pays off, exactly the same 'duplication is the signal, not an aesthetic preference' instinct Module 4 taught for ordinary functions. Extracting a single component's own internal logic into a hook purely for its own sake, with no actual reuse occurring anywhere, often adds an extra layer of indirection without delivering composition's genuine benefit \u2014 the same caution this lesson's failureCases section raised explicitly."
+        },
+        {
+          "type": "debugging",
+          "title": "Diagnosing Custom Hook Bugs",
+          "content": "If a component using a custom hook misbehaves, the most reliable diagnostic step is testing the custom hook's logic directly, isolated from any specific component's rendering \u2014 since a custom hook is just a regular function (that happens to call other hooks), reasoning about its actual logic independent of any particular component's JSX is usually the fastest way to isolate whether a bug lives in the hook's own internal logic or in how a specific component is using that hook's returned values. If you suspect a Rules of Hooks violation (an inconsistent number of hook calls between renders, a common symptom being a confusing 'hooks called in a different order' warning), checking for any conditional or loop-wrapped hook calls \u2014 inside the custom hook itself, not just the component using it \u2014 is the first thing to check, exactly per this lesson's internalWorking section."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp2-1",
+          "type": "multiple_choice",
+          "question": "What is the key difference between lesson 1's composition patterns and this lesson's custom hooks, in terms of what each one reuses?",
+          "options": [
+            "They are functionally identical, with no real difference",
+            "Composition patterns (like compound components) reuse rendered UI structure; custom hooks reuse underlying stateful LOGIC, leaving each component free to render the results however it needs",
+            "Custom hooks can only be used for styling, never for logic",
+            "Composition patterns can never include any logic at all"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Composition patterns share UI structure and rendering, while custom hooks specifically share reusable stateful logic, independent of how each component using that hook chooses to render its results."
+        },
+        {
+          "id": "cp2-2",
+          "type": "scenario",
+          "question": "A custom hook's internal useState call is placed inside an if statement, only running under certain conditions. What problem does this create?",
+          "options": [
+            "No problem; custom hooks are exempt from the Rules of Hooks",
+            "This violates the Rules of Hooks, since a custom hook's internal hook calls must follow the exact same unconditional, top-level-only requirement as hooks called directly inside a component",
+            "This only matters if the custom hook is used in more than one component",
+            "Conditional hook calls are required for custom hooks specifically"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Custom hooks receive no exemption from the Rules of Hooks; their internal hook calls must remain unconditional and at the top level, exactly like hooks called directly inside any component."
+        },
+        {
+          "id": "cp2-3",
+          "type": "multiple_choice",
+          "question": "According to this lesson, when does extracting logic into a custom hook genuinely pay off?",
+          "options": [
+            "Every single piece of stateful logic should always be extracted into its own custom hook by default",
+            "When the same or a meaningfully similar useState/useEffect pattern appears in two or more components, signaling genuine duplication worth extracting",
+            "Custom hooks should never actually be used in real projects",
+            "Only when a component has no other logic at all"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Genuine duplication across multiple components is the concrete signal that extraction into a custom hook is worthwhile, rather than extracting reflexively or by default for every piece of logic."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch2-build-a-custom-hook",
+        "title": "Build A useDebounce Custom Hook",
+        "description": "Build a generic useDebounce<T> custom hook that returns a debounced version of a value, only updating after a specified delay has passed without the input value changing again, and use it in a search component to avoid firing a search on every single keystroke.",
+        "starterCode": "import { useState, useEffect } from 'react';\n\n// TODO: write useDebounce<T>(value: T, delayMs: number): T\n// It should return a debounced value that only updates after delayMs\n// has passed without the input value changing again\n\n// TODO: use it in a SearchBox component, logging the debounced value\n// in a useEffect whenever it actually changes",
+        "solutionExample": "import { useState, useEffect } from 'react';\n\nfunction useDebounce<T>(value: T, delayMs: number): T {\n  const [debouncedValue, setDebouncedValue] = useState<T>(value);\n\n  useEffect(() => {\n    const timeoutId = setTimeout(() => {\n      setDebouncedValue(value);\n    }, delayMs);\n\n    return () => clearTimeout(timeoutId); // cleanup: cancel if value changes again before delay\n  }, [value, delayMs]);\n\n  return debouncedValue;\n}\n\nfunction SearchBox() {\n  const [term, setTerm] = useState('');\n  const debouncedTerm = useDebounce(term, 500);\n\n  useEffect(() => {\n    if (debouncedTerm) {\n      console.log('Searching for:', debouncedTerm);\n    }\n  }, [debouncedTerm]);\n\n  return <input value={term} onChange={(e) => setTerm(e.target.value)} />;\n}",
+        "validationRules": [
+          "useDebounce must be generic (<T>), not restricted to a single specific type",
+          "Must use a cleanup function (returned from useEffect) that clears the previous timeout when the value changes again before the delay elapses",
+          "SearchBox must use the debounced value (not the raw input value) for the actual search-triggering useEffect",
+          "Must correctly include both value and delayMs in the dependency array"
+        ],
+        "hints": [
+          "The cleanup function returned from useEffect runs before the next effect execution, which is exactly what cancels a pending, now-outdated timeout",
+          "Without this cleanup, every keystroke would still eventually trigger a search, just delayed - the cleanup is what actually prevents intermediate values from ever firing",
+          "Test mentally: typing 'cat' quickly should only log one search for 'cat', not one for 'c', 'ca', and 'cat' each"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-3",
+      "order": 3,
+      "title": "Context API Deep Dive",
+      "shortTitle": "Context API Deep Dive",
+      "estimatedDuration": "80-100 minutes",
+      "xpReward": 140,
+      "nextLessonId": "lesson-4",
+      "prevLessonId": "lesson-2",
+      "prerequisites": ["lesson-2"],
+      "lessonGoal": "Understand Context's real performance characteristics, the multiple-small-contexts pattern, and how to combine Context with a custom hook for a clean, reusable API.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "Beyond 'How To Use Context' Into 'How Context Actually Behaves'",
+          "content": "Module 10, lesson 3 taught Context's basic mechanics: createContext, a Provider, and useContext for consuming it, using AuthContext as the running example. This lesson goes deeper into Context's actual runtime behavior \u2014 specifically, exactly which components re-render when a context value changes, and the deliberate architectural patterns (splitting one large context into several smaller ones, pairing Context with a custom hook from lesson 2) experienced React engineers use to manage Context at scale, directly building on both lesson 1's composition patterns and lesson 2's custom hooks into one combined, production-grade pattern."
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Building-Wide Intercom Versus Several Separate, Targeted Intercoms",
+          "content": "Module 10, lesson 3 compared Context to a building-wide announcement system. This lesson refines that metaphor with a detail worth understanding precisely: a single, building-wide intercom broadcasting EVERY announcement (user info, theme preference, shopping cart contents, all bundled into one combined context value) means every single room with a receiver hears every single announcement, even ones genuinely irrelevant to that specific room \u2014 a room only caring about the building's temperature still has to process every unrelated announcement about packages being delivered. Several separate, targeted intercom channels \u2014 one for temperature, one for deliveries, one for emergency alerts \u2014 let each room's receiver tune in only to the channels actually relevant to it, processing far less irrelevant noise. This is precisely the architectural argument for splitting Context into several smaller, focused contexts rather than one large, combined one."
+        },
+        {
+          "type": "structure",
+          "title": "Splitting Context, And Pairing It With A Custom Hook",
+          "content": "Instead of one large AppContext combining everything:\n\n// AVOID: one large, combined context\ninterface AppContextValue {\n  user: User | null;\n  theme: 'light' | 'dark';\n  cartItems: CartItem[];\n  // any change to ANY of these re-renders every consumer of AppContext\n}\n\nSplit into focused, separately-scoped contexts:\n\n// AuthContext.tsx\nconst AuthContext = createContext<AuthContextValue | null>(null);\n\nexport function AuthProvider({ children }: { children: ReactNode }) {\n  const [user, setUser] = useState<User | null>(null);\n  // ... login/logout functions ...\n  return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;\n}\n\n// Pairing the context with a custom hook (lesson 2), directly extending\n// Module 10, lesson 3's useAuth into a more deliberate, reusable pattern\nexport function useAuth() {\n  const context = useContext(AuthContext);\n  if (!context) throw new Error('useAuth must be used inside AuthProvider');\n  return context;\n}\n\n// ThemeContext.tsx - completely separate, independently-updating context\nconst ThemeContext = createContext<ThemeContextValue | null>(null);\nexport function useTheme() {\n  const context = useContext(ThemeContext);\n  if (!context) throw new Error('useTheme must be used inside ThemeProvider');\n  return context;\n}"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why Every Consumer Of A Context Re-Renders When That Context's Value Changes",
+          "content": "This is the single most important performance fact about Context to understand precisely: when a Context Provider's value changes, EVERY component calling useContext for that specific context re-renders, regardless of whether that specific component actually uses the particular piece of the value that changed. If AppContextValue bundles user, theme, and cartItems together into one single object, and theme changes, every single component consuming AppContext re-renders \u2014 including components that only ever read user and never reference theme at all \u2014 simply because the Provider's overall value object is a new object reference each time any piece of it changes. This directly explains this lesson's mental model: splitting into separate AuthContext and ThemeContext means a theme change only re-renders components actually consuming ThemeContext, leaving every AuthContext-only consumer completely unaffected, exactly the targeted-intercom-channel behavior the mental model described."
+        },
+        {
+          "type": "codeLesson",
+          "title": "Demonstrating The Re-Render Difference Directly",
+          "content": "This shows the actual, observable consequence of combined versus split contexts, directly extending Module 6's React Developer Tools debugging habit:",
+          "code": "// COMBINED CONTEXT - changing theme re-renders EVERY consumer,\n// including ones that only care about user\nfunction UserGreeting() {\n  const { user } = useContext(AppContext)!; // re-renders even when\n                                               // only theme changed,\n                                               // despite never using theme\n  return <p>Hello, {user?.name}</p>;\n}\n\n// SPLIT CONTEXTS - UserGreeting only re-renders when AuthContext\n// itself actually changes, completely unaffected by theme changes\nfunction UserGreeting() {\n  const { user } = useAuth(); // only depends on AuthContext specifically\n  return <p>Hello, {user?.name}</p>;\n}\n\nfunction ThemeToggle() {\n  const { theme, setTheme } = useTheme(); // only depends on ThemeContext\n  return (\n    <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>\n      Toggle theme\n    </button>\n  );\n}\n\n// Clicking ThemeToggle's button now ONLY re-renders components\n// consuming ThemeContext - UserGreeting is completely unaffected,\n// since it never calls useTheme or useContext(ThemeContext) at all",
+          "explanation": "In the combined-context version, UserGreeting calls useContext(AppContext) directly, meaning it's subscribed to the ENTIRE AppContext value \u2014 any change to any piece of that bundled object triggers a re-render here, even though this component only ever reads user. In the split-context version, UserGreeting calls useAuth() (lesson 2's custom hook pattern, wrapping useContext(AuthContext) specifically), meaning it's only ever subscribed to AuthContext \u2014 a completely separate ThemeToggle component changing theme via its own, separate ThemeContext has zero effect on UserGreeting's render count at all. This is the concrete, measurable performance payoff this lesson's splitting pattern provides, directly previewing lesson 4's broader performance optimization theme."
+        },
+        {
+          "type": "realUsage",
+          "title": "How Real, Larger React Applications Organize Context",
+          "content": "Real production React applications with substantial shared state commonly maintain several small, focused contexts (an AuthContext, a ThemeContext, sometimes a NotificationContext or a FeatureFlagContext), each paired with its own custom hook following exactly this lesson's useAuth/useTheme pattern, rather than one combined context attempting to hold everything. Many real teams specifically audit their context usage as an application grows, watching for exactly the kind of unnecessary re-render this lesson's codeLesson demonstrated, using React Developer Tools' Profiler (an extension of the Components panel introduced in Module 6) to directly observe which components re-render in response to which specific state changes, and splitting contexts further whenever an unexpectedly broad set of components turns out to be re-rendering for unrelated reasons."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common Advanced Context Mistakes",
+          "content": "1. Bundling many unrelated pieces of state into one single, large context purely for convenience, then being confused by widespread, seemingly unrelated performance problems once the application has many consumers of that one combined context.\n\n2. Calling useContext directly inside many components instead of pairing each context with its own custom hook (this lesson's useAuth/useTheme pattern), losing both the clear, descriptive error-throwing behavior and the consistent, easy-to-refactor API a paired custom hook provides.\n\n3. Assuming splitting contexts is always necessary even for genuinely small, simple applications where this specific performance concern never actually manifests in practice \u2014 this is a deliberate optimization for genuine scale, not a rule to apply reflexively to every project regardless of actual size or need.\n\n4. Forgetting that even with split contexts, a context whose value object is recreated unnecessarily on every single render (rather than only when its actual underlying data changes) still causes unnecessary re-renders \u2014 splitting context is one optimization, but not the only one relevant to Context performance.\n\n5. Over-engineering an application with many separate contexts from the very start, before any genuine performance problem or even genuine logical separation has emerged, adding architectural complexity disproportionate to the project's actual current needs."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "Performance-Aware Architecture, Decided Deliberately Rather Than By Default",
+          "content": "This lesson's central argument directly extends Module 3, lesson 7's animation-performance lesson into React's own component re-render model: two architecturally similar approaches (one combined context, several split contexts) can produce dramatically different real-world performance characteristics, and recognizing which approach fits a SPECIFIC application's actual scale and update patterns is a deliberate architectural judgment, not a reflexive default in either direction. Splitting contexts prematurely, before any genuine need exists, adds real complexity without a corresponding benefit; never splitting them, even as an application's shared state and consumer count genuinely grows, risks exactly the kind of broad, hard-to-diagnose performance problem this lesson's codeLesson demonstrated concretely. This same 'match the architecture's complexity to the application's actual, current scale' judgment recurs throughout this entire module's remaining lessons."
+        },
+        {
+          "type": "debugging",
+          "title": "Diagnosing Unnecessary Re-Renders Caused By Context",
+          "content": "React Developer Tools' Profiler tab (an extension of the Components panel) can directly record and display exactly which components re-rendered during a specific interaction, and why \u2014 using this to record a single state change (like ThemeToggle's click) and observing whether components that shouldn't logically be affected (like UserGreeting, in this lesson's example) are nonetheless re-rendering is the most direct, evidence-based way to confirm whether an overly broad, combined context is genuinely the cause, rather than guessing based on the code's structure alone. If this kind of unrelated re-rendering is confirmed and is genuinely causing a measurable performance problem (not just a theoretical one), splitting the offending combined context into more focused pieces, exactly per this lesson's structure section, is the direct, standard fix."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp3-1",
+          "type": "multiple_choice",
+          "question": "When a Context Provider's value changes, which components re-render?",
+          "options": [
+            "Only the specific components that use the exact piece of the value that changed",
+            "Every component calling useContext for that specific context re-renders, regardless of whether that component actually uses the particular piece of the value that changed",
+            "No components re-render automatically; manual re-rendering must be triggered",
+            "Only the Provider component itself re-renders"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Every consumer of a given context re-renders whenever that context's value changes, regardless of which specific piece of the bundled value a given component actually uses."
+        },
+        {
+          "id": "cp3-2",
+          "type": "scenario",
+          "question": "An application combines user, theme, and cartItems into one single AppContext. A user toggles the theme, and a component that only ever displays the user's name also re-renders as a result. Why does this happen?",
+          "options": [
+            "This is a React bug that should never occur",
+            "Since all three pieces of state are bundled into one single context value, any change to any piece (including theme) causes every consumer of that combined context to re-render, even ones only using an unrelated piece like user",
+            "The user's name component has a bug unrelated to context",
+            "This only happens if the application has more than 100 components"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Bundling unrelated state into one combined context means any change to any piece causes every consumer to re-render, even those that only use a different, unaffected piece of that bundled value."
+        },
+        {
+          "id": "cp3-3",
+          "type": "multiple_choice",
+          "question": "According to this lesson, when does splitting a large context into several smaller ones genuinely pay off?",
+          "options": [
+            "Always, for every application regardless of size or actual need",
+            "When an application has genuine scale and a measurable re-render performance problem traceable to an overly broad, combined context - not as a reflexive default for every small project",
+            "Never; splitting context provides no real benefit in any situation",
+            "Only when an application has exactly two pieces of shared state"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Splitting context is a deliberate optimization that genuinely pays off at real scale with measurable re-render problems, not a rule to apply reflexively to every project regardless of actual size or need."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch3-split-a-combined-context",
+        "title": "Split A Combined Context Into Two Focused Contexts",
+        "description": "Given a combined NotificationsAndSettingsContext bundling unread notification count and a user's display-density setting, split it into two separate, focused contexts (NotificationsContext and SettingsContext), each paired with its own custom hook with proper error throwing.",
+        "starterCode": "// BEFORE - one combined context to split apart:\ninterface CombinedContextValue {\n  unreadCount: number;\n  incrementUnread: () => void;\n  density: 'compact' | 'comfortable';\n  setDensity: (d: 'compact' | 'comfortable') => void;\n}\n\n// TODO: split this into NotificationsContext (unreadCount, incrementUnread)\n// and SettingsContext (density, setDensity), each with its own Provider\n// component and paired custom hook (useNotifications, useSettings)",
+        "solutionExample": "import { createContext, useContext, useState, ReactNode } from 'react';\n\ninterface NotificationsContextValue {\n  unreadCount: number;\n  incrementUnread: () => void;\n}\n\nconst NotificationsContext = createContext<NotificationsContextValue | null>(null);\n\nexport function NotificationsProvider({ children }: { children: ReactNode }) {\n  const [unreadCount, setUnreadCount] = useState(0);\n  const incrementUnread = () => setUnreadCount((c) => c + 1);\n  return (\n    <NotificationsContext.Provider value={{ unreadCount, incrementUnread }}>\n      {children}\n    </NotificationsContext.Provider>\n  );\n}\n\nexport function useNotifications() {\n  const context = useContext(NotificationsContext);\n  if (!context) throw new Error('useNotifications must be used inside NotificationsProvider');\n  return context;\n}\n\ninterface SettingsContextValue {\n  density: 'compact' | 'comfortable';\n  setDensity: (d: 'compact' | 'comfortable') => void;\n}\n\nconst SettingsContext = createContext<SettingsContextValue | null>(null);\n\nexport function SettingsProvider({ children }: { children: ReactNode }) {\n  const [density, setDensity] = useState<'compact' | 'comfortable'>('comfortable');\n  return (\n    <SettingsContext.Provider value={{ density, setDensity }}>\n      {children}\n    </SettingsContext.Provider>\n  );\n}\n\nexport function useSettings() {\n  const context = useContext(SettingsContext);\n  if (!context) throw new Error('useSettings must be used inside SettingsProvider');\n  return context;\n}",
+        "validationRules": [
+          "Must create two genuinely separate contexts, not one combined context with two consumers",
+          "Each context must have its own Provider component managing only its own relevant state",
+          "Each context must be paired with its own custom hook (useNotifications, useSettings)",
+          "Each custom hook must throw a clear, descriptive error if called outside its corresponding Provider",
+          "Changing density must have no effect on anything related to unreadCount, and vice versa"
+        ],
+        "hints": [
+          "Each Provider should only manage the state genuinely relevant to its own specific context, not anything from the other one",
+          "Reuse lesson 1 and lesson 2's exact error-throwing pattern for each custom hook",
+          "The key test: could a component using only useNotifications ever re-render due to a density change? It should not be able to."
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-4",
+      "order": 4,
+      "title": "Performance Optimisation",
+      "shortTitle": "Performance Optimisation",
+      "estimatedDuration": "85-110 minutes",
+      "xpReward": 150,
+      "nextLessonId": "lesson-5",
+      "prevLessonId": "lesson-3",
+      "prerequisites": ["lesson-3"],
+      "lessonGoal": "Diagnose React performance problems precisely using the Profiler, and apply React.memo, useMemo, and useCallback correctly and only where genuinely justified by measured evidence.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "Measuring Before Optimizing",
+          "content": "Lesson 3 demonstrated one specific cause of unnecessary re-renders (overly broad Context). This lesson covers React's three primary memoization tools \u2014 React.memo (skip re-rendering a component if its props haven't changed), useMemo (skip recalculating an expensive value if its dependencies haven't changed), and useCallback (skip recreating a function if its dependencies haven't changed) \u2014 but frames every one of them explicitly around this lesson's central, non-negotiable rule: measure first, using React Developer Tools' Profiler, before reaching for any of these tools, since each one carries its own real cost (additional comparison overhead, additional code complexity) that can easily exceed whatever performance problem it was meant to solve, if applied without genuine evidence that a real problem exists."
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Doctor Diagnosing Before Prescribing, Not Prescribing By Habit",
+          "content": "Module 7, lesson 1's opening lesson compared engineering judgment generally to a doctor's diagnostic reasoning. This lesson applies that exact comparison specifically and concretely: a careless doctor might prescribe a specific medication reflexively, by habit, regardless of a patient's actual symptoms; a careful doctor diagnoses first \u2014 runs tests, gathers actual evidence \u2014 before prescribing anything at all, since the wrong medication, prescribed without genuine justification, can itself cause real harm with no corresponding benefit. React.memo, useMemo, and useCallback are this lesson's 'medications': each one has a genuine, real use case, but reaching for them reflexively, without first 'running the tests' (profiling, measuring actual re-render behavior), risks adding real complexity and overhead to address a problem that may not have actually existed in the first place."
+        },
+        {
+          "type": "structure",
+          "title": "The Three Core Memoization Tools",
+          "content": "React.memo \u2014 wraps a component, skipping its re-render if its props are shallowly equal to the previous render's props:\n\nconst ProjectCard = React.memo(function ProjectCard({ title, description }: ProjectCardProps) {\n  return <div><h3>{title}</h3><p>{description}</p></div>;\n});\n\nuseMemo \u2014 skips recalculating an expensive value unless its dependencies change:\n\nconst sortedProjects = useMemo(() => {\n  return [...projects].sort((a, b) => a.name.localeCompare(b.name));\n}, [projects]);\n\nuseCallback \u2014 skips recreating a function unless its dependencies change, most useful when that function is passed as a prop to a React.memo-wrapped child:\n\nconst handleDelete = useCallback((id: string) => {\n  setProjects((prev) => prev.filter((p) => p.id !== id));\n}, []); // empty dependency array - this function never actually needs to change"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why useCallback Is Almost Always Paired With React.memo, And Useless Without It",
+          "content": "This is the single most common, costly misunderstanding about these three tools: useCallback, on its own, provides essentially no benefit unless the function it returns is actually passed as a prop to a React.memo-wrapped component. Without React.memo on the receiving component, that component re-renders whenever its parent re-renders regardless of whether the function prop is a stable, memoized reference or a brand new one each time \u2014 meaning useCallback's entire purpose (providing a stable reference a memoized child can correctly compare against) goes completely unused. This directly extends lesson 1's React.memo and this lesson's useCallback into one combined, correctly-paired pattern: applying useCallback to a function passed to a non-memoized child component is a genuinely common, real-world mistake that adds useCallback's own overhead (the dependency comparison itself) while providing zero actual benefit, since the child re-renders unconditionally regardless."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Correctly Diagnosed And Correctly Applied Optimization, Start To Finish",
+          "content": "This walks through this lesson's actual recommended process \u2014 measure, diagnose, then apply the correctly-paired fix \u2014 rather than jumping straight to code:",
+          "code": "// STEP 1 - MEASURE: Using React DevTools Profiler, recording a parent\n// re-render (e.g. typing in an unrelated search box) reveals that EVERY\n// ProjectCard child re-renders too, even though their own props never\n// actually changed. This is the genuine, evidence-based signal to act on.\n\n// THE PROBLEM, before any fix:\nfunction ProjectList({ projects }: { projects: Project[] }) {\n  const [searchTerm, setSearchTerm] = useState('');\n\n  function handleDelete(id: string) {\n    // ... delete logic ...\n  }\n\n  return (\n    <div>\n      <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />\n      {projects.map((project) => (\n        <ProjectCard key={project.id} project={project} onDelete={handleDelete} />\n        // handleDelete is a NEW function reference every single render,\n        // since typing in the search box re-renders ProjectList itself\n      ))}\n    </div>\n  );\n}\n\n// STEP 2 - THE CORRECTLY PAIRED FIX:\nconst ProjectCard = React.memo(function ProjectCard({ project, onDelete }: ProjectCardProps) {\n  return (\n    <div>\n      <h3>{project.name}</h3>\n      <button onClick={() => onDelete(project.id)}>Delete</button>\n    </div>\n  );\n});\n\nfunction ProjectList({ projects }: { projects: Project[] }) {\n  const [searchTerm, setSearchTerm] = useState('');\n\n  const handleDelete = useCallback((id: string) => {\n    // ... delete logic ...\n  }, []); // stable reference - now genuinely useful, since ProjectCard is memoized\n\n  return (\n    <div>\n      <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />\n      {projects.map((project) => (\n        <ProjectCard key={project.id} project={project} onDelete={handleDelete} />\n      ))}\n    </div>\n  );\n}",
+          "explanation": "Without React.memo on ProjectCard, useCallback on handleDelete would be genuinely pointless, exactly per this lesson's internalWorking section \u2014 ProjectCard would still re-render on every keystroke regardless of whether onDelete's reference was stable, since an unmemoized component always re-renders when its parent does. With BOTH pieces correctly paired \u2014 React.memo on the child AND useCallback on the function passed to it \u2014 typing in the search box no longer causes any ProjectCard to re-render at all, since their props (including the now-stable handleDelete reference) genuinely haven't changed between renders, which is precisely what React.memo's shallow comparison can now correctly detect."
+        },
+        {
+          "type": "realUsage",
+          "title": "Where Real Teams Actually Apply These Tools, And Where They Deliberately Don't",
+          "content": "Real, experienced React teams apply React.memo, useMemo, and useCallback selectively and deliberately, specifically in response to genuine, Profiler-measured performance problems \u2014 a long list (where re-rendering many items unnecessarily is genuinely expensive), an expensive calculation (sorting or filtering a large dataset) recalculated needlessly, or exactly this lesson's codeLesson's memoized-child-with-unstable-function-prop pattern. Real teams specifically avoid wrapping every single component in React.memo by default, or memoizing every value and function reflexively, precisely because Module 4's broader 'premature optimization' caution applies directly here: these tools have genuine costs, and applying them without measured justification is a recognizable, common sign of a developer optimizing based on assumption rather than evidence."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common Performance Optimization Mistakes",
+          "content": "1. Applying useCallback to a function passed to a component that isn't wrapped in React.memo, gaining zero actual benefit while still paying useCallback's own overhead \u2014 directly this lesson's single most important, most common mistake.\n\n2. Wrapping every component in React.memo by default, 'just in case', without any Profiler evidence of an actual re-render problem, adding real comparison overhead to components that never needed it.\n\n3. Forgetting that React.memo's comparison is shallow \u2014 if a prop is an object or array recreated fresh on every render (even containing identical-looking data), React.memo's shallow comparison will still consider it 'different' and re-render anyway, unless that object/array itself is also memoized with useMemo.\n\n4. Using useMemo for a genuinely cheap calculation that wasn't actually causing any measurable performance problem, adding the comparison and memory overhead of memoization without any real corresponding benefit.\n\n5. Trusting intuition about which components are 'probably' re-rendering too often, rather than actually using the Profiler to confirm or rule this out with real evidence, exactly the mistake this lesson's entire framing exists to prevent."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "Evidence-Based Optimization As A Direct Extension Of This Curriculum's Debugging Discipline",
+          "content": "This lesson's central, repeated insistence on measuring before optimizing is a direct, specific application of the exact same evidence-based diagnostic discipline Module 10, lesson 7 taught for full stack debugging generally: gather concrete evidence (the Network tab, direct API testing, and now the Profiler) before forming a hypothesis about where a problem actually lives, rather than guessing based on intuition or a component's surface-level complexity. Premature, unmeasured optimization is, in an important sense, exactly the same mistake as unmeasured debugging \u2014 acting confidently on an assumption rather than genuine evidence \u2014 just applied to a performance concern rather than a correctness bug. Developing the discipline to always ask 'what does the Profiler actually show' before reaching for React.memo, useMemo, or useCallback is precisely the professional habit this lesson exists to build."
+        },
+        {
+          "type": "debugging",
+          "title": "Using The Profiler To Confirm An Optimization Actually Worked",
+          "content": "After applying a memoization fix (exactly this lesson's codeLesson's React.memo + useCallback pairing), re-recording the same interaction in the Profiler and confirming the previously-unnecessary re-renders genuinely stopped occurring is just as important as the initial diagnostic measurement \u2014 a memoization fix applied incorrectly (mismatched dependencies, a missing React.memo wrapper, a still-unstable object reference) can silently fail to actually solve the original problem while still adding its own overhead, and only directly re-measuring confirms whether the fix genuinely worked as intended, rather than merely appearing, by code inspection alone, like it should have."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp4-1",
+          "type": "multiple_choice",
+          "question": "What is this lesson's single most important rule regarding React.memo, useMemo, and useCallback?",
+          "options": [
+            "Apply all three to every component and value by default, for maximum performance",
+            "Measure actual re-render behavior using the Profiler first, and apply these tools only in response to genuine, evidence-based performance problems, since each carries its own real overhead",
+            "These tools should never actually be used in any real application",
+            "Only useMemo is ever genuinely useful; React.memo and useCallback have no real value"
+          ],
+          "correctAnswer": 1,
+          "explanation": "This lesson's central rule is measuring first with the Profiler before applying any memoization tool, since each carries genuine overhead that can exceed the problem it's meant to solve if applied without real evidence."
+        },
+        {
+          "id": "cp4-2",
+          "type": "scenario",
+          "question": "A developer applies useCallback to a function passed as a prop to a child component, but that child component is not wrapped in React.memo. What is the actual effect of this useCallback usage?",
+          "options": [
+            "It provides significant performance benefits regardless of the child's memoization status",
+            "It provides essentially no benefit, since the unmemoized child re-renders whenever its parent re-renders regardless of whether the function prop's reference is stable",
+            "It causes the application to crash",
+            "It automatically wraps the child in React.memo as a side effect"
+          ],
+          "correctAnswer": 1,
+          "explanation": "useCallback's value depends entirely on the receiving component being wrapped in React.memo; without that pairing, the child re-renders unconditionally regardless of the function prop's stability, making useCallback alone ineffective."
+        },
+        {
+          "id": "cp4-3",
+          "type": "multiple_choice",
+          "question": "Why does React.memo's shallow comparison sometimes fail to prevent a re-render even when the underlying data 'looks' identical?",
+          "options": [
+            "React.memo never actually works correctly",
+            "If a prop is an object or array recreated fresh on every render, the shallow comparison considers it a different reference even if its contents look the same, unless that value is also memoized with useMemo",
+            "Shallow comparison only works for string and number props, never objects",
+            "This only happens if the component has more than 10 props"
+          ],
+          "correctAnswer": 1,
+          "explanation": "React.memo's shallow comparison checks reference equality; a freshly recreated object or array, even with identical-looking contents, is a different reference and will be treated as changed unless explicitly memoized with useMemo."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch4-diagnose-and-fix-rerenders",
+        "title": "Diagnose And Correctly Fix An Unnecessary Re-Render Pattern",
+        "description": "Given a ProductList component where every ProductCard re-renders whenever an unrelated counter updates, apply the correctly-paired React.memo and useCallback fix, and write a comment explaining what the Profiler would show before and after the fix.",
+        "starterCode": "// BEFORE - every ProductCard re-renders when count changes, even\n// though no ProductCard's own props actually changed\nfunction ProductCard({ product, onAddToCart }: { product: Product; onAddToCart: (id: string) => void }) {\n  return (\n    <div>\n      <h3>{product.name}</h3>\n      <button onClick={() => onAddToCart(product.id)}>Add to Cart</button>\n    </div>\n  );\n}\n\nfunction ProductList({ products }: { products: Product[] }) {\n  const [count, setCount] = useState(0);\n\n  function handleAddToCart(id: string) {\n    console.log('Added:', id);\n  }\n\n  return (\n    <div>\n      <button onClick={() => setCount(count + 1)}>Unrelated counter: {count}</button>\n      {products.map((product) => (\n        <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />\n      ))}\n    </div>\n  );\n}\n\n// TODO: apply the correctly-paired fix (React.memo + useCallback)\n// TODO: add a comment explaining what the Profiler would show before and after",
+        "solutionExample": "import React, { useState, useCallback } from 'react';\n\nconst ProductCard = React.memo(function ProductCard({\n  product,\n  onAddToCart\n}: { product: Product; onAddToCart: (id: string) => void }) {\n  return (\n    <div>\n      <h3>{product.name}</h3>\n      <button onClick={() => onAddToCart(product.id)}>Add to Cart</button>\n    </div>\n  );\n});\n\nfunction ProductList({ products }: { products: Product[] }) {\n  const [count, setCount] = useState(0);\n\n  const handleAddToCart = useCallback((id: string) => {\n    console.log('Added:', id);\n  }, []);\n\n  return (\n    <div>\n      <button onClick={() => setCount(count + 1)}>Unrelated counter: {count}</button>\n      {products.map((product) => (\n        <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />\n      ))}\n    </div>\n  );\n}\n\n// BEFORE: the Profiler would show every ProductCard re-rendering every\n// single time the counter button is clicked, even though no ProductCard's\n// own props (product, onAddToCart) actually changed in any meaningful way.\n// AFTER: the Profiler would show ZERO ProductCard re-renders when the\n// counter changes, since React.memo's shallow comparison now correctly\n// detects that product and the now-stable handleAddToCart reference are\n// both unchanged between renders.",
+        "validationRules": [
+          "ProductCard must be wrapped in React.memo",
+          "handleAddToCart must use useCallback with an empty dependency array",
+          "Both pieces must be correctly paired together - memo alone or useCallback alone would not be sufficient",
+          "Must include a comment explaining the specific before/after Profiler difference"
+        ],
+        "hints": [
+          "React.memo and useCallback must both be applied together to actually solve this specific problem - neither one alone is sufficient",
+          "handleAddToCart has no dependencies on anything that changes, so an empty dependency array is correct",
+          "The key insight to articulate: before the fix, EVERY ProductCard re-renders on every counter click; after, NONE do"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-5",
+      "order": 5,
+      "title": "Code Splitting And Lazy Loading",
+      "shortTitle": "Code Splitting And Lazy Loading",
+      "estimatedDuration": "75-95 minutes",
+      "xpReward": 140,
+      "nextLessonId": "lesson-6",
+      "prevLessonId": "lesson-4",
+      "prerequisites": ["lesson-4"],
+      "lessonGoal": "Understand code splitting as a bundle-size optimization distinct from lesson 4's re-render optimizations, and apply React.lazy and Suspense to defer loading genuinely large or rarely-needed code.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "A Genuinely Different Kind Of Performance Problem",
+          "content": "Lesson 4's optimizations all addressed re-render performance: how often and how expensively components recompute their output once the application's JavaScript is already downloaded and running. Code splitting addresses a completely different, earlier-stage performance concern: how much JavaScript a user's browser must download and parse before the application can run AT ALL, directly extending Module 3's general performance-awareness theme to an application's overall bundle size. A large React application with many features, many pages, and many dependencies can accumulate a genuinely large total JavaScript bundle \u2014 code splitting breaks that one large bundle into smaller pieces, loaded only when actually needed, rather than forcing every single user to download the application's entire codebase just to view its first page."
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Library That Hands You One Book At A Time, Not The Entire Collection Upfront",
+          "content": "Imagine a library that, before letting you read even the first page of any single book, required you to first carry home its ENTIRE collection \u2014 every book in the building \u2014 regardless of whether you intended to read more than one. This is exactly what a single, unsplit JavaScript bundle does: a user visiting only your application's home page still downloads the code for every other page and feature, whether or not they'll ever visit them. Code splitting is the library instead handing you only the specific book you actually asked for, with the option to request additional books later, exactly when and if you actually need them \u2014 dramatically reducing what you need to carry home (download) just to start reading (use the application) at all."
+        },
+        {
+          "type": "structure",
+          "title": "React.lazy And Suspense",
+          "content": "Without code splitting \u2014 every component's code is included in the initial bundle, regardless of whether it's needed immediately:\n\nimport AdminDashboard from './AdminDashboard'; // loaded for EVERY user,\n  // even ones who will never visit the admin dashboard at all\n\nWith code splitting, using React.lazy and Suspense:\n\nimport { lazy, Suspense } from 'react';\n\nconst AdminDashboard = lazy(() => import('./AdminDashboard'));\n// AdminDashboard's code is now in its own separate bundle, downloaded\n// ONLY when this component actually needs to render\n\nfunction App() {\n  return (\n    <Suspense fallback={<p>Loading...</p>}>\n      <AdminDashboard />\n    </Suspense>\n  );\n}\n\nSuspense's fallback prop directly extends Module 6, lesson 5's loading-state pattern \u2014 it's shown automatically while the lazily-loaded component's separate bundle is still being downloaded, with no manual loading state management required."
+        },
+        {
+          "type": "internalWorking",
+          "title": "How import() Creates A Genuinely Separate Bundle, And Why That Matters",
+          "content": "A regular, static import (import AdminDashboard from './AdminDashboard') tells the build tool (the same bundler Module 10, lesson 5 used for production builds) to include that component's code directly in the main bundle, bundled together with everything else, evaluated and ready immediately. The dynamic import() function call inside React.lazy's argument is fundamentally different: it returns a Promise, and the build tool recognizes this specific pattern as a signal to split that component's code into its OWN separate file, only fetched over the network when that import() call actually executes at runtime \u2014 exactly the moment AdminDashboard genuinely needs to render for the first time. This is precisely why code splitting specifically targets genuinely large, conditionally-needed pieces of an application (an admin dashboard most users never visit, a complex chart library only needed on one specific page) rather than small, universally-needed pieces, where the overhead of a separate network request would outweigh any genuine bundle-size benefit."
+        },
+        {
+          "type": "codeLesson",
+          "title": "Code Splitting A Genuinely Large, Conditionally-Rendered Feature",
+          "content": "This applies lazy loading specifically to a route-level component, directly extending Module 13, lesson 2's file-based routing with a deliberate bundle-size optimization:",
+          "code": "import { lazy, Suspense } from 'react';\nimport { useAuth } from './AuthContext'; // Module 10 lesson 3's pattern\n\n// Most users never see this - it's only rendered for users with an\n// admin role, so it's a strong candidate for code splitting\nconst AdminDashboard = lazy(() => import('./AdminDashboard'));\nconst UserDashboard = lazy(() => import('./UserDashboard'));\n\nfunction DashboardPage() {\n  const { user } = useAuth();\n\n  if (!user) return <p>Please log in.</p>;\n\n  return (\n    <Suspense fallback={<p>Loading dashboard...</p>}>\n      {user.role === 'admin' ? <AdminDashboard /> : <UserDashboard />}\n    </Suspense>\n  );\n}",
+          "explanation": "A regular user, who will only ever render UserDashboard, never downloads AdminDashboard's code at all \u2014 it remains in its own separate bundle, simply never fetched, since that specific import() call never executes for that user. This is a direct, practical payoff for an application with genuinely distinct user roles (Module 9's authorization concept, applied here to bundle-size optimization specifically): the actual amount of code any given user downloads scales with what THEY genuinely use, rather than with the application's total combined feature set, regardless of relevance to that specific user."
+        },
+        {
+          "type": "realUsage",
+          "title": "Where Real Applications Apply Code Splitting Deliberately",
+          "content": "Real, large production React applications commonly apply code splitting at route boundaries (each distinct page or major section becomes its own separate bundle, loaded only when a user actually navigates there \u2014 many React routing solutions and meta-frameworks like Module 13's Next.js handle a meaningful amount of this automatically, route by route) and for genuinely large, conditionally-used libraries (a complex charting library only needed on one analytics page, a rich text editor only needed on one content-creation page). Real teams typically measure bundle size directly (using bundle analysis tools that visualize exactly what's contributing to an application's total JavaScript size) before deciding where code splitting would genuinely help, directly extending lesson 4's 'measure before optimizing' discipline to this entirely different category of performance concern."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common Code Splitting Mistakes",
+          "content": "1. Applying React.lazy to small, universally-needed components, where the overhead of an additional network request for that small piece outweighs any genuine bundle-size savings \u2014 code splitting pays off specifically for genuinely large or conditionally-needed code, not indiscriminately for everything.\n\n2. Forgetting to wrap a lazily-loaded component in Suspense at all, resulting in a confusing error rather than the intended, graceful loading fallback while that component's separate bundle downloads.\n\n3. Confusing lesson 4's re-render optimizations (React.memo, useMemo, useCallback) with this lesson's bundle-size optimization (React.lazy, code splitting) as if they solve the same problem \u2014 they address genuinely different performance concerns (recomputation cost versus initial download size) and neither substitutes for the other.\n\n4. Code splitting so aggressively, at too fine a granularity, that an application ends up making an excessive number of small, separate network requests, potentially harming performance more than the unsplit bundle would have, rather than choosing genuinely large, meaningful split points.\n\n5. Forgetting that a lazily-loaded component's Suspense fallback is shown EVERY time that specific code needs to be fetched for the first time in a user's session, and designing an unnecessarily jarring or unpolished loading state for what should be a brief, occasional moment."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "Two Genuinely Different Performance Concerns, Requiring Two Genuinely Different Tools",
+          "content": "This lesson's explicit distinction from lesson 4 \u2014 re-render cost versus initial bundle size \u2014 is a valuable, general engineering lesson in its own right: 'performance' is not one single, undifferentiated concern with one single fix; it's a category containing genuinely distinct sub-problems (how much code must be downloaded, how often does that code need to recompute its output, how efficiently does a database query execute, and others this curriculum has covered in Module 8) each requiring its own specific diagnostic approach and its own specific tool. Recognizing which SPECIFIC performance concern you're actually facing \u2014 and reaching for the tool genuinely suited to that specific concern, rather than treating 'performance optimization' as one undifferentiated activity \u2014 is precisely the kind of precise, deliberate engineering judgment this entire module has built toward."
+        },
+        {
+          "type": "debugging",
+          "title": "Diagnosing Bundle Size Problems Specifically",
+          "content": "If an application's initial page load feels slow specifically due to a large amount of JavaScript needing to download and parse before anything renders (a genuinely different symptom from lesson 4's re-render sluggishness, observable directly in DevTools' Network tab by checking the actual size and load time of JavaScript files), a bundle analyzer tool is the right diagnostic instrument \u2014 it visualizes exactly which dependencies and components contribute the most to an application's total bundle size, directly revealing the best, most impactful candidates for this lesson's code splitting technique, rather than guessing which components are 'probably' large based on their apparent complexity in source code alone."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp5-1",
+          "type": "multiple_choice",
+          "question": "What specific performance concern does code splitting address, distinct from lesson 4's React.memo/useMemo/useCallback?",
+          "options": [
+            "Exactly the same concern as lesson 4's tools, just expressed differently",
+            "How much JavaScript a user's browser must download and parse before the application can run at all, distinct from how often already-loaded components recompute their output",
+            "Database query performance specifically",
+            "Code splitting only affects CSS, never JavaScript"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Code splitting addresses initial bundle/download size, a genuinely different performance concern from lesson 4's re-render and recomputation optimizations."
+        },
+        {
+          "id": "cp5-2",
+          "type": "scenario",
+          "question": "An application uses React.lazy to code-split an AdminDashboard component, only rendered for users with an admin role. What happens for a regular, non-admin user?",
+          "options": [
+            "They still download AdminDashboard's code, just don't see it rendered",
+            "They never download AdminDashboard's code at all, since the import() call for it never executes for a user whose role never triggers that component's rendering",
+            "The entire application fails to load for non-admin users",
+            "Code splitting has no effect on which code is actually downloaded"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Since the dynamic import() only executes when the lazy component actually needs to render, a user who never renders that component never triggers the network request to download its separate bundle at all."
+        },
+        {
+          "id": "cp5-3",
+          "type": "multiple_choice",
+          "question": "What kind of component is genuinely well-suited to code splitting, according to this lesson?",
+          "options": [
+            "Every single component in an application, regardless of size or how often it's needed",
+            "Genuinely large or conditionally-needed code, such as an admin-only feature or a large library only needed on one specific page, where the bundle-size savings outweigh the overhead of an additional network request",
+            "Only components with no props at all",
+            "Code splitting should never actually be applied to any component"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Code splitting pays off specifically for genuinely large or conditionally-needed code, where the bundle-size benefit outweighs the overhead of fetching it as a separate request, not for small or universally-needed pieces."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch5-code-split-a-feature",
+        "title": "Code Split A Role-Conditional Feature",
+        "description": "Given a settings page that conditionally renders either a BasicSettings or an AdvancedSettings component (the latter significantly larger and only used by a small fraction of users), apply React.lazy and Suspense correctly to ensure AdvancedSettings is never downloaded unless genuinely needed.",
+        "starterCode": "import BasicSettings from './BasicSettings';\nimport AdvancedSettings from './AdvancedSettings';\n\nfunction SettingsPage({ showAdvanced }: { showAdvanced: boolean }) {\n  return showAdvanced ? <AdvancedSettings /> : <BasicSettings />;\n}\n\n// TODO: convert AdvancedSettings to a lazy-loaded component\n// TODO: wrap the conditional rendering in Suspense with an appropriate fallback",
+        "solutionExample": "import { lazy, Suspense } from 'react';\nimport BasicSettings from './BasicSettings';\n\nconst AdvancedSettings = lazy(() => import('./AdvancedSettings'));\n\nfunction SettingsPage({ showAdvanced }: { showAdvanced: boolean }) {\n  return (\n    <Suspense fallback={<p>Loading advanced settings...</p>}>\n      {showAdvanced ? <AdvancedSettings /> : <BasicSettings />}\n    </Suspense>\n  );\n}",
+        "validationRules": [
+          "AdvancedSettings must use React.lazy with a dynamic import(), not a static import",
+          "BasicSettings must remain a regular, statically-imported component, since it doesn't need code splitting",
+          "The conditional rendering must be wrapped in a Suspense component with a fallback prop",
+          "A user who never sets showAdvanced to true should never trigger AdvancedSettings' code to be downloaded"
+        ],
+        "hints": [
+          "Only AdvancedSettings needs lazy() - BasicSettings can remain a normal static import, since it doesn't need this specific optimization",
+          "Suspense must wrap the JSX that conditionally renders the lazy component, not just the lazy component declaration itself",
+          "The fallback should be a brief, reasonable loading state, shown only while AdvancedSettings' separate bundle is being fetched"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-6",
+      "order": 6,
+      "title": "React In Production",
+      "shortTitle": "React In Production",
+      "estimatedDuration": "75-95 minutes",
+      "xpReward": 170,
+      "nextLessonId": null,
+      "prevLessonId": "lesson-5",
+      "prerequisites": ["lesson-5"],
+      "lessonGoal": "Synthesize composition, custom hooks, Context architecture, and performance optimization into a repeatable architectural review checklist for any growing React codebase, and develop the judgment for when added architectural complexity is genuinely justified.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "Closing The Loop: From Individual Techniques To Architectural Judgment",
+          "content": "Every prior lesson in this module taught one specific technique in isolation: composition patterns (lesson 1), custom hooks (lesson 2), Context architecture (lesson 3), re-render optimization (lesson 4), and bundle-size optimization (lesson 5). This closing lesson does what every module's final lesson in this curriculum has done since Module 1: synthesize these individually-correct techniques into one coherent, repeatable architectural review process, and \u2014 just as importantly \u2014 develop the judgment for recognizing when EACH technique's added complexity is genuinely justified by a real, current need, versus when it would be premature, unjustified architectural overhead for a project's actual current scale."
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Building Inspector's Checklist, Now Specifically For React Architecture",
+          "content": "Module 7, lesson 10 introduced the building-inspector's checklist metaphor for backend code generally. This lesson is that exact same inspector, now walking through a React codebase specifically, checking: are components composed sensibly, or is one component trying to do everything through an ever-growing list of configuration props (lesson 1)? Is stateful logic appropriately extracted into custom hooks, or copy-pasted across multiple components (lesson 2)? Are contexts appropriately scoped, or one giant combined context causing unnecessary re-renders everywhere (lesson 3)? Are memoization and code splitting applied where genuine, measured evidence justifies them \u2014 or, just as importantly, are they ABSENT where they're not actually needed, avoiding unjustified complexity (lessons 4-5)? A genuinely production-ready React codebase passes every one of these checks deliberately, not by accident or by reflexively applying every available technique regardless of fit."
+        },
+        {
+          "type": "structure",
+          "title": "The Five Recurring Architectural Checks From This Module",
+          "content": "1. Composition Over Configuration (lesson 1) \u2014 does a component's prop list keep growing to handle new variations, signaling a genuine need for composition instead, or is composition already used appropriately where flexibility is genuinely needed?\n\n2. Genuine Logic Extraction (lesson 2) \u2014 is the same useState/useEffect pattern duplicated across multiple components (a genuine signal for a custom hook), or has logic been extracted prematurely, before any real duplication existed?\n\n3. Appropriately-Scoped Context (lesson 3) \u2014 are contexts split sensibly based on what actually changes together and who actually needs each piece, with measured evidence (the Profiler) behind any splitting decision, rather than either one giant combined context or excessive, unjustified fragmentation?\n\n4. Evidence-Based Re-Render Optimization (lesson 4) \u2014 is every React.memo, useMemo, and useCallback usage backed by genuine Profiler evidence of a real problem, correctly paired (React.memo with useCallback specifically), rather than applied reflexively or incompletely?\n\n5. Deliberate Bundle-Size Management (lesson 5) \u2014 is code splitting applied at genuinely large, conditionally-needed boundaries (an admin section, a heavy library), based on real bundle-analysis evidence, rather than either ignored entirely at real scale or over-applied at too fine a granularity?"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Applying The Checklist As A Genuine, Honest Architectural Review",
+          "content": "These five checks combine into a practical review process for any growing React codebase: for composition, scan recently-added props across the codebase's most frequently-modified components \u2014 a prop list that's grown by several new options over the project's recent history is a concrete signal worth investigating for a composition-based alternative. For logic extraction, search for near-identical useState/useEffect blocks across multiple files \u2014 genuine duplication, not superficial similarity, is the signal lesson 2 specifically called for. For Context scope, use the Profiler (lesson 3, lesson 4) to record a real interaction and check whether components unrelated to that interaction are nonetheless re-rendering. For memoization, audit every existing React.memo/useMemo/useCallback usage and ask, honestly, whether genuine Profiler evidence ever justified each one, or whether some were added speculatively. For bundle size, run an actual bundle analysis and identify the largest, least-frequently-needed pieces as the most justified code-splitting candidates. Every single check in this list demands actual, concrete evidence \u2014 a re-read of the code, a Profiler recording, a bundle analysis \u2014 never assumption alone."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Complete Architectural Review Of A Realistic Growing Feature",
+          "content": "Applying all 5 checks to a hypothetical 'team dashboard' feature that's grown organically over several months, before approving it as genuinely production-ready:",
+          "code": "// REVIEW FINDINGS:\n\n// CHECK 1 - Composition: TeamMemberCard has grown to accept 9 different\n// boolean props (showEmail, showRole, showAvatar, compactMode, ...) to\n// handle different display contexts across the app.\n// FINDING: This is exactly the signal lesson 1 warned about - refactored\n// to accept children/composition instead, letting each usage compose\n// its own specific display needs rather than configuring through props.\n\n// CHECK 2 - Logic extraction: useState+useEffect for fetching team data\n// appears, nearly identically, in TeamPage, TeamSettingsPage, and\n// TeamReportsPage.\n// FINDING: Genuine duplication confirmed - extracted into a single\n// useTeamData(teamId) custom hook, used by all three pages.\n\n// CHECK 3 - Context scope: Profiler recording shows that toggling a\n// notification badge re-renders the entire team member list, despite\n// the list having nothing to do with notifications.\n// FINDING: Both pieces of state were bundled into one TeamContext.\n// Split into a separate NotificationsContext and TeamContext.\n\n// CHECK 4 - Memoization audit: TeamMemberCard was wrapped in React.memo\n// six months ago, but Profiler shows it still re-renders on every parent\n// render anyway, since its onClick prop is recreated fresh each time.\n// FINDING: React.memo alone was insufficient - added the missing\n// useCallback pairing on the parent's handler, exactly per lesson 4.\n\n// CHECK 5 - Bundle size: Bundle analysis shows TeamReportsPage's charting\n// library accounts for 40% of the application's total bundle size,\n// despite only 5% of users ever visiting that specific page.\n// FINDING: Strong, evidence-based code-splitting candidate - converted\n// to React.lazy + Suspense, exactly per lesson 5.\n\n// VERDICT: 5 genuine architectural issues found and fixed through this\n// systematic review, none of which would have been caught by simply\n// confirming the feature 'works' in casual testing.",
+          "explanation": "Every single finding in this review traces directly back to one of this module's five lessons, and \u2014 critically, echoing this lesson's repeated emphasis on genuine evidence \u2014 every finding is backed by something concrete: an actual prop count, actual duplicated code, an actual Profiler recording, an actual bundle analysis. This is precisely the kind of honest, evidence-based review this lesson exists to model: not assuming a feature that 'works' is therefore architecturally sound, but actually walking through each of these five checks with real evidence before calling a feature genuinely production-ready."
+        },
+        {
+          "type": "realUsage",
+          "title": "How This Architectural Review Mirrors Real Senior Engineering Practice",
+          "content": "Experienced React engineers conducting real code review or technical design discussions are, in practice, applying almost exactly this five-check process, often without consciously naming it this way \u2014 a reviewer noting 'this component's prop list is getting unwieldy, could this be composed differently' is applying check 1 directly; a reviewer asking 'did you actually profile this before adding memo here' is applying check 4 directly. Real engineering organizations increasingly value this kind of evidence-based architectural judgment specifically because React applications that grow without this kind of periodic, honest review tend to accumulate exactly the kinds of organically-grown problems this lesson's codeLesson example demonstrated \u2014 not because any single decision was unreasonable in isolation, but because no one stepped back to evaluate the accumulated whole against concrete evidence."
+        },
+        {
+          "type": "failureCases",
+          "title": "What Happens Without This Kind Of Periodic Architectural Review",
+          "content": "React codebases that grow without this kind of periodic, evidence-based review accumulate exactly the problems this lesson's checklist is designed to catch: components with unwieldy, ever-growing prop lists that should have been composed differently; genuinely duplicated logic scattered across many files instead of consolidated into custom hooks; overly broad contexts causing widespread, hard-to-diagnose re-render problems; memoization applied speculatively without ever actually solving anything, or applied incompletely (missing its required pairing); and large, rarely-used code shipped to every single user regardless of need. These issues are all still fixable after the fact, but \u2014 echoing this curriculum's repeated argument about the cost of deferred quality work \u2014 cost considerably more to untangle once a codebase has grown substantially around these unreviewed, organically-accumulated decisions, compared to the relatively modest cost of this lesson's periodic, evidence-based review."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "Fundamentals Are Still The Real Curriculum, Now Applied To React's Own Internals",
+          "content": "This module's closing lesson continues this curriculum's most consistently recurring theme, now applied specifically to React's own architectural patterns rather than a new framework or language: composition over configuration, genuine-duplication-as-the-signal-for-extraction, evidence over assumption, and deliberate complexity matched to actual current need are not React-specific ideas at all \u2014 they are the exact same engineering judgment this curriculum has built since Module 4's DRY principle, Module 7's trust boundaries, and Module 10's production-thinking, now demonstrated concretely within React's own component and hook model specifically. A developer who's internalized this module's underlying judgment, rather than only memorized React.memo's syntax or useCallback's signature, can apply this same architectural discipline to any future framework's own specific patterns, recognizing the same underlying decisions wearing whatever new syntax that future framework happens to use."
+        },
+        {
+          "type": "debugging",
+          "title": "Auditing Your Own Module 14 Coding Challenges Against This Checklist",
+          "content": "The most direct way to internalize this lesson is to revisit every coding challenge built throughout this module \u2014 the compound Accordion, the useDebounce hook, the split Notifications/Settings contexts, the memoized ProductCard, the lazy-loaded AdvancedSettings \u2014 and walk each one through this lesson's five checks honestly: was each technique applied because genuine evidence justified it, or because the challenge simply asked for it? Would you, reviewing this same code without already knowing which lesson it came from, independently conclude each technique was genuinely warranted? Running this honest, retrospective audit on your own recent work is precisely what converts this lesson's five-check framework from an abstract list into a genuine, applied habit you'll carry into every future React codebase you build or review."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp6-1",
+          "type": "multiple_choice",
+          "question": "According to this lesson's framework, what is the common thread connecting all five architectural checks?",
+          "options": [
+            "Every technique from this module should always be applied to every component, by default",
+            "Each technique's application should be backed by genuine, concrete evidence (actual duplication, actual Profiler data, actual bundle analysis), not assumption or reflexive habit",
+            "Only composition and custom hooks matter; the other three checks are unnecessary",
+            "Architectural review is unnecessary once a feature passes its initial tests"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Every one of this lesson's five checks demands genuine, concrete evidence behind each architectural decision, rather than assumption, habit, or reflexive application of any specific technique."
+        },
+        {
+          "id": "cp6-2",
+          "type": "scenario",
+          "question": "A component was wrapped in React.memo six months ago, but a current Profiler recording shows it still re-renders on every parent render due to an unstable function prop. What does this lesson's review process reveal about this situation?",
+          "options": [
+            "React.memo is broken and should be removed entirely",
+            "The memoization was applied incompletely - missing its required useCallback pairing (lesson 4) - and the review process catches this gap that casual code reading alone would likely miss",
+            "This is expected, normal behavior with no actual problem",
+            "Profiler evidence is unreliable and should not be trusted"
+          ],
+          "correctAnswer": 1,
+          "explanation": "This scenario demonstrates exactly the kind of gap this lesson's evidence-based review process is designed to catch - a memoization technique applied incompletely, only revealed through actual Profiler verification rather than assumed correctness from code inspection alone."
+        },
+        {
+          "id": "cp6-3",
+          "type": "multiple_choice",
+          "question": "What is this lesson's central argument about why React codebases benefit from periodic, evidence-based architectural review?",
+          "options": [
+            "Reviews are purely a formality with no genuine diagnostic value",
+            "Codebases that grow without this kind of review tend to accumulate organically-grown problems (unwieldy props, duplicated logic, overly broad contexts, incomplete optimizations) that are individually reasonable but costly to untangle once accumulated, making periodic review considerably cheaper than deferred correction",
+            "Architectural review is only necessary for codebases with more than 1000 components",
+            "Once a codebase passes its initial tests, no further architectural review is ever needed"
+          ],
+          "correctAnswer": 1,
+          "explanation": "The lesson argues that periodic, evidence-based review catches organically-accumulated architectural problems early and cheaply, compared to the higher cost of untangling them after a codebase has grown substantially around unreviewed decisions."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch6-five-check-architectural-audit",
+        "title": "Conduct A Complete Architectural Review",
+        "description": "Using this lesson's 5-point checklist, conduct a genuine architectural review of either your own Module 14 coding challenges or a hypothetical growing feature, with at least one specific, evidence-based finding per check, and document what you would change as a result of at least 2 findings.",
+        "starterCode": "## Architectural Review\n\n### 1. Composition check:\n\n\n### 2. Logic extraction check:\n\n\n### 3. Context scope check:\n\n\n### 4. Memoization audit:\n\n\n### 5. Bundle size check:\n\n\n## Changes I would make based on these findings:\n1.\n2.",
+        "solutionExample": "## Architectural Review\n\n### 1. Composition check:\nReviewed my Accordion component - it correctly uses composition\n(Accordion.Item, Accordion.Header, Accordion.Content) rather than a\ngrowing list of configuration props. No issue found here.\n\n### 2. Logic extraction check:\nFound that my useFetch and useLocalStorage hooks both duplicate the\nsame try/catch error-message-extraction logic. This is genuine\nduplication worth extracting into a shared helper function.\n\n### 3. Context scope check:\nMy split NotificationsContext and SettingsContext are correctly\nseparated - confirmed via the Profiler that changing density never\nre-renders any component consuming only NotificationsContext.\n\n### 4. Memoization audit:\nMy ProductCard's React.memo and useCallback pairing was verified\ncorrect via the Profiler - zero re-renders occur on unrelated counter\nchanges, confirming the optimization genuinely works as intended.\n\n### 5. Bundle size check:\nMy AdvancedSettings lazy-loading was applied without ever actually\nrunning a bundle analysis first - I should verify it's genuinely a\nlarge enough component to justify the added complexity.\n\n## Changes I would make based on these findings:\n1. Extract the duplicated error-handling logic from useFetch and\n   useLocalStorage into a shared getErrorMessage(err) helper function.\n2. Run an actual bundle analysis on AdvancedSettings before considering\n   the lazy-loading decision genuinely justified by real evidence.",
+        "validationRules": [
+          "Must address all 5 checks from this lesson explicitly",
+          "Each finding must reference specific, concrete evidence (actual code review, actual Profiler behavior, actual bundle analysis), not vague impressions",
+          "Must include at least one genuine finding representing a real gap or improvement opportunity, not only confirmations that everything is already perfect",
+          "Must document a specific, concrete plan for at least 2 findings"
+        ],
+        "hints": [
+          "If conducting a genuine self-review of your own Module 14 challenges, be honest - the value comes from genuinely finding gaps, not confirming everything is already ideal",
+          "For checks 4 and 5 specifically, verify with actual evidence (Profiler, bundle analysis) rather than just re-reading the code and assuming correctness",
+          "Your 'changes I would make' section should be concrete enough that you could actually go implement each one"
+        ]
+      }
+    }
+
+
+
+
+
+  ],
+  "finalModuleProject": {
+    "projectId": "module-14-final-project",
+    "title": "Architect And Audit A Production-Grade React Feature",
+    "xpReward": 400,
+    "estimatedTime": "150-180 minutes",
+    "goal": "Synthesize everything from all 6 lessons \u2014 composition patterns, custom hooks, scoped Context, evidence-based memoization, and deliberate code splitting \u2014 by building one genuinely production-grade React feature, then conducting lesson 6's full architectural review against your own work with real, honest evidence.",
+    "description": "Build a small but complete 'team workspace' feature: a compound TabsOrAccordion-style navigation component (composition), at least one genuinely reusable custom hook used by 2+ components, a properly scoped pair of Contexts (e.g. separating user/auth state from UI preference state), at least one React.memo + useCallback pairing applied and verified via the Profiler, and one component genuinely code-split with React.lazy and Suspense, justified by an actual bundle-size rationale. Conclude with a full, honest 5-check architectural review of your own implementation, following lesson 6's exact process.",
+    "requirements": [
+      {
+        "id": "req-1",
+        "requirement": "A compound component (2+ coordinated sub-components sharing implicit state via Context) used to structure at least one part of the feature",
+        "required": true
+      },
+      {
+        "id": "req-2",
+        "requirement": "At least one custom hook genuinely reused by 2 or more components, extracted because of real, demonstrated duplication",
+        "required": true
+      },
+      {
+        "id": "req-3",
+        "requirement": "At least 2 separately-scoped Context/custom-hook pairs (not one combined context), each throwing a clear error when used outside its Provider",
+        "required": true
+      },
+      {
+        "id": "req-4",
+        "requirement": "At least one correctly-paired React.memo + useCallback optimization, with a written note describing what a Profiler recording showed before and after",
+        "required": true
+      },
+      {
+        "id": "req-5",
+        "requirement": "At least one component code-split with React.lazy and wrapped in Suspense, with a written justification for why that specific component was chosen",
+        "required": true
+      },
+      {
+        "id": "req-6",
+        "requirement": "A complete, honest written architectural review applying all 5 of lesson 6's checks to this project's own implementation, including at least one genuine finding and a corresponding fix",
+        "required": true
+      }
+    ],
+    "submissionType": "code",
+    "rubric": [
+      {
+        "criterion": "Compound component is correctly implemented with proper Context-based coordination and clear error handling",
+        "points": 20
+      },
+      {
+        "criterion": "Custom hook represents genuine, demonstrated reuse, not premature or unnecessary extraction",
+        "points": 15
+      },
+      {
+        "criterion": "Contexts are correctly scoped and separated, each independently verifiable as not causing unrelated re-renders",
+        "points": 20
+      },
+      {
+        "criterion": "Memoization is correctly paired (memo + useCallback together) and verified, not applied incompletely or without evidence",
+        "points": 15
+      },
+      {
+        "criterion": "Code splitting is applied to a genuinely justified component with a real bundle-size rationale",
+        "points": 15
+      },
+      {
+        "criterion": "The final architectural review is thorough, honest, and demonstrates genuine evidence-based findings rather than unconditional self-approval",
+        "points": 15
+      }
+    ],
+    "totalPoints": 100,
+    "certificateUnlockCondition": "Score 70 or above on the rubric and complete all 6 lesson coding challenges."
+  }
+}

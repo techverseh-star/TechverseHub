@@ -10,6 +10,8 @@ interface EditorTabsProps {
     onCloseTab: (id: string) => void;
     onRun: (clearInput?: boolean) => void;
     onDebug: () => void;
+    onToggleFiles?: () => void;
+    onToggleAI?: () => void;
 }
 
 export default function EditorTabs({
@@ -20,6 +22,8 @@ export default function EditorTabs({
     onCloseTab,
     onRun,
     onDebug,
+    onToggleFiles,
+    onToggleAI,
 }: EditorTabsProps) {
     return (
         <div
@@ -51,6 +55,28 @@ export default function EditorTabs({
                 }}
             >
                 ←
+            </button>
+
+            {/* MOBILE PANEL TOGGLES */}
+            <button
+                onClick={onToggleFiles}
+                title="Files"
+                className="md:hidden"
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 32,
+                    height: 32,
+                    borderRadius: 6,
+                    background: "#181818",
+                    border: `1px solid ${THEME.border}`,
+                    cursor: "pointer",
+                    color: THEME.fg,
+                    fontSize: 14,
+                }}
+            >
+                📁
             </button>
 
             {/* TABS CONTAINER */}
@@ -163,6 +189,26 @@ export default function EditorTabs({
                     }}
                 >
                     🐞
+                </button>
+
+                <button
+                    onClick={onToggleAI}
+                    title="AI Assistant"
+                    className="md:hidden"
+                    style={{
+                        width: 40,
+                        height: 32,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "#181818",
+                        border: `1px solid ${THEME.border}`,
+                        borderRadius: 6,
+                        color: THEME.fg,
+                        cursor: "pointer",
+                    }}
+                >
+                    🤖
                 </button>
             </div>
         </div>

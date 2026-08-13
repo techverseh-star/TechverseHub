@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { guardAuthedRequest } from "@/lib/api-guard";
+import { runRequestSchema } from "@/lib/validation";
 
 const PISTON_URL = "https://emkc.org/api/v2/piston/execute";
 
@@ -28,7 +30,14 @@ const langMap: Record<string, { runtime: string; version: string }> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { code, language, testInput } = await req.json();
+    const guard = await guardAuthedRequest(req, {
+      rateLimitPrefix: "run",
+      limit: 40,
+      windowMs: 60_000,
+      schema: runRequestSchema,
+    });
+    if (!guard.ok) return guard.response;
+    const { code, language, testInput } = guard.data;
 
     if (!code) {
       return NextResponse.json({ error: "No code provided" });

@@ -1,0 +1,825 @@
+{
+  "module_id": "L3-M04",
+  "module_title": "Advanced Graph Algorithms",
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "note_on_relationship_to_existing_quiz": "This assessment is a SEPARATE, additive practice layer.",
+  "known_source_discrepancies": [
+    "L1 dist[0][2]: The lesson comment claims dist[0][2]=4 (asserting path '0->1->2: 3+1=4'), but graph[1][2]=Infinity (the directed graph has no edge 1->2; the weight-1 edge is 2->1). Actual dist[0][2]=7 via 0->3->2 = 5+2=7. Assessment tests use verified value 7."
+  ],
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "lesson_title": "Floyd-Warshall All Pairs Shortest Path",
+      "known_source_discrepancy_note": "The lesson comment claims dist[0][2]=4 (via '0->1->2: 3+1=4') but the given graph has no edge 1->2 (graph[1][2]=Infinity; the 1-weight edge is 2->1, directed). Actual dist[0][2]=7 via 0->3->2 = 5+2=7. Assessment tests use verified value 7.",
+      "theory_mcq": [
+        {
+          "id": "L3M4-L1-TH-1",
+          "question": "In Floyd-Warshall, the outer loop iterates over INTERMEDIATE vertex k, and the inner loops iterate over source i and destination j. Why must k be the OUTERMOST loop?",
+          "options": [
+            "k as the outer loop is an arbitrary convention; any order works",
+            "CORRECTNESS REQUIRES k OUTERMOST: the recurrence `dist[i][j] = min(dist[i][j], dist[i][k]+dist[k][j])` means 'shortest path from i to j using only vertices 0..k as intermediates'; when we compute dist[i][j] for a given k, we rely on dist[i][k] and dist[k][j] being ALREADY FULLY COMPUTED for all intermediate vertices 0..k-1; if k were inner, dist[i][k] might not yet reflect paths through intermediate vertices 0..k-1, giving wrong results; k outermost guarantees the DP builds up the path set incrementally and correctly",
+            "k outermost gives O(V³); k innermost would be O(V⁴)",
+            "k outermost prevents negative cycle detection from triggering prematurely"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Outer loop: k = intermediate vertex allowed in the path' — the DP invariant: after iteration k, dist[i][j] = shortest path from i to j using ONLY vertices {0,...,k} as intermediates; this invariant requires that when computing round k, paths through {0,...,k-1} are already optimal (from prior rounds); k as the outermost loop enforces this ordering."
+        },
+        {
+          "id": "L3M4-L1-TH-2",
+          "question": "Floyd-Warshall detects negative cycles by checking `dist[i][i] < 0` AFTER all iterations. Why does a negative diagonal entry indicate a negative cycle?",
+          "options": [
+            "dist[i][i] < 0 means vertex i has a negative self-loop",
+            "dist[i][i] represents the SHORTEST CYCLE THROUGH VERTEX i; initially dist[i][i]=0 (no movement); after Floyd-Warshall, dist[i][i] < 0 means the algorithm found a PATH from i back to i with NEGATIVE TOTAL WEIGHT — a negative cycle; any vertex on this negative cycle will have its own dist[i][i] updated to negative; this is the canonical Floyd-Warshall negative cycle check; if a negative cycle exists and vertex i is ON that cycle, the path i→(cycle)→i has negative total weight",
+            "dist[i][i] < 0 indicates a disconnected graph",
+            "Negative diagonal only appears when there are exactly two negative edges"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Negative cycle detection: if dist[i][i] < 0 after all iterations' — dist[i][i]=0 initially (cost of staying in place); if after running Floyd-Warshall dist[i][i] < 0, the algorithm found a path from i back to i through intermediate vertices that has negative total weight — this is exactly a negative cycle containing i."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M4-L1-LG-1",
+          "question": "For the given 4-node directed graph, what is the shortest path from node 0 to node 3?",
+          "options": [
+            "dist[0][3]=5: direct edge 0->3 with weight 5 is optimal (shorter than 0->1->3=3+4=7 or 0->1->2->3=3+INF=impossible)",
+            "dist[0][3]=7: path 0->1->2->3=3+INF=impossible; path 0->1->3=3+4=7",
+            "dist[0][3]=3: via vertex 1 which has a shorter edge",
+            "dist[0][3]=6: path 0->1->2->3 via some detour"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: dist[0][3]=5; the direct edge 0→3=5; alternative path 0→1→3=3+4=7 (longer); path 0→3→2→... doesn't help for reaching 3; direct edge of weight 5 is optimal."
+        },
+        {
+          "id": "L3M4-L1-LG-2",
+          "question": "For `findTheCity(4, [[0,1,3],[1,2,1],[1,3,4],[2,3,1]], 4)`, the answer is city 3. Verify which city has the fewest reachable neighbors within distance 4.",
+          "options": [
+            "City 3: can reach {0→3? no,2→3? yes via 1-2-3=2,1→3? yes via 1-3=4}; from city 3: dist[3][0]=?, dist[3][1]=via 3→1?→no edge 3->1 in undirected... actually undirected: dist[3][2]=1, dist[3][1]=2, dist[3][0]=5>4; city 3 reaches {1,2} = 2 neighbors within 4. Other cities reach more. City 3 wins (and has largest index among tied).",
+            "City 0: reaches all cities within distance 4 (via 0-1-2-3=5 edges, too far for city 3)",
+            "City 2: reaches only city 1 within distance 4",
+            "City 1: reaches exactly 3 other cities"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: findTheCity=3; undirected distances from city 3: to 0=5, to 1=2 (3-2-1), to 2=1; within threshold 4: can reach cities {1,2} = 2 cities; from city 0: to 1=3, to 2=4, to 3=5; reaches {1,2} = 2 cities; both 0 and 3 have 2 reachable cities but we prefer the larger index (city 3) per the problem's tiebreak."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M4-L1-SY-1",
+          "question": "In Floyd-Warshall, `const dist = graph.map(row => [...row])` creates a DEEP COPY (one level). Why is this necessary?",
+          "options": [
+            "The copy is optional; modifying the original graph is acceptable",
+            "WITHOUT COPYING: the algorithm modifies dist[i][j] in place during iterations; if dist is the original graph, we'd be corrupting the input data; more critically, for a row matrix `dist[i][j]` might later be used to derive other values in the same outer-k iteration — modifying it in place could use the ALREADY-UPDATED dist[i][j] as if it were the original, causing incorrect DP computation; the spread operator `[...row]` creates a SHALLOW COPY of each row (sufficient since rows contain numbers, not objects)",
+            "The copy is needed to avoid aliasing of row arrays in JavaScript",
+            "graph.map always modifies the original array, so a copy is mandatory"
+          ],
+          "answer": 1,
+          "explanation": "The shallow copy (`[...row]`) is necessary because: (1) preserves the input graph, (2) the DP correctly reads original values; since matrix cells are numbers (primitives), a one-level spread is a sufficient deep copy; `graph.map(row=>[...row])` creates new array objects for each row while copying primitive values — exactly what's needed for an independent dist matrix."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M4-L1-CC-1",
+          "title": "Floyd-Warshall and Find the City",
+          "difficulty": "Advanced",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement Floyd-Warshall and the Find the City application.",
+          "requirements": [
+            "Implement `floydWarshallImpl(graph)` matching the lesson's O(V³) DP with negative cycle detection",
+            "Implement `findTheCityImpl(n, edges, distanceThreshold)` using Floyd-Warshall"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function floydWarshallImpl(graph) {\n  // TODO: copy graph; set dist[i][i]=0; k outer loop; return null on negative cycle\n}\n\nfunction findTheCityImpl(n, edges, distanceThreshold) {\n  // TODO: build dist matrix; run Floyd-Warshall; count reachable cities per node\n}"
+          },
+          "test_cases": [
+            {
+              "input": "floydWarshallImpl([[0,3,Infinity,5],[2,0,Infinity,4],[Infinity,1,0,Infinity],[Infinity,Infinity,2,0]])[0][3]",
+              "expected": 5,
+              "type": "visible"
+            },
+            {
+              "input": "floydWarshallImpl([[0,3,Infinity,5],[2,0,Infinity,4],[Infinity,1,0,Infinity],[Infinity,Infinity,2,0]])[0][2]",
+              "expected": 7,
+              "type": "visible"
+            },
+            {
+              "input": "findTheCityImpl(4,[[0,1,3],[1,2,1],[1,3,4],[2,3,1]],4)",
+              "expected": 3,
+              "type": "visible"
+            },
+            {
+              "input": "floydWarshallImpl([[0,1],[1,0]])[0][1]",
+              "expected": 1,
+              "type": "hidden"
+            },
+            {
+              "input": "findTheCityImpl(5,[[0,1,2],[0,4,8],[1,2,3],[1,4,2],[2,3,1],[3,4,1]],2)",
+              "expected": 0,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function floydWarshall(graph){\n  const V=graph.length;const dist=graph.map(row=>[...row]);\n  for(let i=0;i<V;i++)for(let j=0;j<V;j++){if(i===j)dist[i][j]=0;else if(dist[i][j]===undefined||dist[i][j]===null||dist[i][j]!==dist[i][j])dist[i][j]=Infinity;}\n  for(let k=0;k<V;k++)for(let i=0;i<V;i++)for(let j=0;j<V;j++)if(dist[i][k]+dist[k][j]<dist[i][j])dist[i][j]=dist[i][k]+dist[k][j];\n  for(let i=0;i<V;i++)if(dist[i][i]<0)return null;\n  return dist;\n}\nconst floydWarshallImpl=floydWarshall;\n\nfunction findTheCityImpl(n,edges,distanceThreshold){\n  const dist=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>i===j?0:Infinity));\n  for(const[u,v,w]of edges){dist[u][v]=w;dist[v][u]=w;}\n  for(let k=0;k<n;k++)for(let i=0;i<n;i++)for(let j=0;j<n;j++)dist[i][j]=Math.min(dist[i][j],dist[i][k]+dist[k][j]);\n  let result=0,minCount=Infinity;\n  for(let i=0;i<n;i++){const count=dist[i].filter((d,j)=>j!==i&&d<=distanceThreshold).length;if(count<=minCount){minCount=count;result=i;}}\n  return result;\n}"
+          },
+          "complexity_analysis": "floydWarshallImpl: O(V³) time, O(V²) space. findTheCityImpl: O(n³).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "floydWarshallImpl: copy graph; set dist[i][i]=0; triple nested loop with k outermost."
+            },
+            {
+              "level": 2,
+              "text": "Negative cycle check: after all iterations, if any dist[i][i]<0 return null."
+            },
+            {
+              "level": 3,
+              "text": "findTheCityImpl: count cities reachable within threshold per node; return city with fewest (prefer larger index on tie)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 2,
+      "lesson_title": "Tarjan's SCC Algorithm",
+      "theory_mcq": [
+        {
+          "id": "L3M4-L2-TH-1",
+          "question": "In Tarjan's SCC, why is `low[v]` defined as the minimum `disc` reachable from the subtree of v (not the minimum `low` of all reachable vertices)?",
+          "options": [
+            "low[v] is the minimum disc of all vertices reachable from v via any path",
+            "low[v] specifically tracks vertices reachable via BACK EDGES IN THE DFS TREE from within the subtree: (1) disc[v] itself, (2) disc of vertices reachable via back edges from v's subtree (NOT through cross edges to vertices already finalized in their own SCCs); when a cross edge (v→u) exists where disc[u]!=-1 but u is NOT on the stack (already in another SCC), that SCC is separate — low[v] should NOT inherit low[u]; restricting to onStack vertices ensures low correctly identifies if v's subtree can 'escape' to an earlier DFS ancestor in the SAME potential SCC",
+            "low[v] equals low of the direct parent to simplify propagation",
+            "low[v] is defined as the minimum vertex index for alphabetical ordering"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `else if(onStack[u]) low[v]=Math.min(low[v],disc[u])` — only back edges to vertices on the stack (in the current DFS path/potential SCC) update low[v]; cross edges to vertices already assigned to finalized SCCs are ignored; this ensures low[v] only reflects connections within the current SCC being discovered."
+        },
+        {
+          "id": "L3M4-L2-TH-2",
+          "question": "When Tarjan's finds an SCC root (low[v] == disc[v]), it pops ALL vertices above v from the stack. Why does the stack contain exactly the current SCC's vertices?",
+          "options": [
+            "The stack contains vertices in random order; only popping to v is correct",
+            "The STACK MAINTAINS DFS PATH vertices not yet assigned to an SCC: when we push v, it starts a new potential SCC; vertices pushed AFTER v (deeper in DFS) can only reach ancestors via back edges to disc[ancestor] >= disc[v] (since v is the root of this SCC); all vertices between v and the stack top are in the subtree of v's SCC — they can reach v but not any vertex with disc < disc[v] (otherwise low[v] < disc[v] and v wouldn't be an SCC root); popping until v collects exactly the current SCC",
+            "The stack contains only leaf vertices; internal nodes are handled separately",
+            "Popping to v is an approximation; some vertices may be incorrectly included"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'SCC root: vertex where low[v] == disc[v] (no back-edge to earlier vertex)' — if low[v]==disc[v], no vertex in v's subtree can reach any vertex with disc < disc[v]; therefore all vertices between v and the stack top belong to the same SCC; they're bounded between disc[v] and the current DFS time — exactly v's SCC."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M4-L2-LG-1",
+          "question": "For the graph edges [[0,1],[1,2],[2,0],[1,3],[3,4],[4,3]], Tarjan's finds 2 SCCs. What are they?",
+          "options": [
+            "SCC1 = {3,4} (cycle 3↔4); SCC2 = {0,1,2} (cycle 0→1→2→0) — confirmed by execution",
+            "SCC1 = {0,1,2,3} and SCC2 = {4}",
+            "SCC1 = {0,1} and SCC2 = {2,3,4}",
+            "Three SCCs: {0,2}, {1,3}, {4}"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: tarjanSCC returns 2 SCCs: {3,4} (3→4→3 cycle) and {0,1,2} (0→1→2→0 cycle); vertex 1 has edges to both 2 (in its SCC) and 3 (in a different SCC), but 3 cannot reach 1, so 3 is in a separate SCC."
+        },
+        {
+          "id": "L3M4-L2-LG-2",
+          "question": "Why does Tarjan's need the `onStack` boolean array in ADDITION to `disc` (which tracks if a vertex was visited)?",
+          "options": [
+            "onStack is redundant; disc!=-1 already captures the same information",
+            "disc[u] != -1 means u WAS VISITED but doesn't tell us if u is CURRENTLY ON THE STACK; a vertex is removed from the stack when its SCC is finalised; if v has an edge to u where disc[u]!=-1 and onStack[u]=false, u already belongs to a COMPLETED SCC — low[v] should NOT be updated (that SCC is separate); if onStack[u]=true, u is still in the current DFS path and belongs to the same potential SCC — low[v] should be updated; without onStack, Tarjan's would incorrectly merge separate SCCs",
+            "onStack tracks whether u has been processed in the outer for loop",
+            "onStack is needed only for disconnected graphs with multiple components"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `else if(onStack[u]) low[v]=Math.min(low[v],disc[u])` — the distinction: disc[u]!=-1 && onStack[u]=true: u is in the current DFS path, same potential SCC; disc[u]!=-1 && onStack[u]=false: u already finalized in a different SCC; without onStack, cross edges to finalized SCCs would incorrectly lower low[v], merging separate SCCs."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M4-L2-SY-1",
+          "question": "Tarjan's uses `do { w = stack.pop(); } while (w !== v)` to collect SCC members. Why `do-while` instead of `while`?",
+          "options": [
+            "do-while is required because the stack could be empty when checked",
+            "DO-WHILE ensures v ITSELF is always popped (the SCC root): `while (w !== v)` would only pop vertices BEFORE v and stop; since v IS the SCC root and IS on the stack, we need to pop v as well; do-while evaluates the body FIRST, then checks the condition — it always pops at least once (getting v even if v is at the top); using a regular while with `w !== v` as the condition would need to check before popping, complicating the code or missing v",
+            "do-while is used for performance; while would be equivalent",
+            "The stack invariant ensures at least 2 elements before this code; do-while handles the 2-element case"
+          ],
+          "answer": 1,
+          "explanation": "The do-while pattern: pop first, then check if we've reached v; this ensures v is popped (v is the SCC root and must be included in the SCC); the equivalent while loop would be: `while(true) { w=stack.pop(); scc.push(w); if(w===v) break; }` — functionally identical but less idiomatic; do-while is natural for 'pop at least once' patterns."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M4-L2-CC-1",
+          "title": "Tarjan's Strongly Connected Components",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement Tarjan's SCC algorithm from this lesson.",
+          "requirements": [
+            "Implement `tarjanSCCImpl(n, edges)` matching the lesson's disc/low/stack/onStack approach"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function tarjanSCCImpl(n, edges) {\n  // TODO: build adj list; disc[]/low[]/onStack[]/stack;\n  //       dfs: disc=low=timer++; push; for each neighbor:\n  //         tree edge: recurse, propagate low; back edge (onStack): update low\n  //       if low[v]===disc[v]: pop until v (inclusive)\n}"
+          },
+          "test_cases": [
+            {
+              "input": "tarjanSCCImpl(5,[[0,1],[1,2],[2,0],[1,3],[3,4],[4,3]]).length",
+              "expected": 2,
+              "type": "visible"
+            },
+            {
+              "input": "tarjanSCCImpl(3,[[0,1],[1,2],[2,0]]).length",
+              "expected": 1,
+              "type": "visible"
+            },
+            {
+              "input": "tarjanSCCImpl(3,[[0,1],[1,2]]).length",
+              "expected": 3,
+              "type": "visible"
+            },
+            {
+              "input": "tarjanSCCImpl(4,[[0,1],[1,0],[2,3],[3,2]]).length",
+              "expected": 2,
+              "type": "hidden"
+            },
+            {
+              "input": "tarjanSCCImpl(1,[]).length",
+              "expected": 1,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function tarjanSCC(n,edges){\n  const adj=Array.from({length:n},()=>[]);for(const[u,v]of edges)adj[u].push(v);\n  const disc=new Array(n).fill(-1),low=new Array(n).fill(-1),onStack=new Array(n).fill(false);\n  const stack=[],sccs=[];let timer=0;\n  function dfs(v){disc[v]=low[v]=timer++;stack.push(v);onStack[v]=true;\n    for(const u of adj[v]){if(disc[u]===-1){dfs(u);low[v]=Math.min(low[v],low[u]);}else if(onStack[u])low[v]=Math.min(low[v],disc[u]);}\n    if(low[v]===disc[v]){const scc=[];let w;do{w=stack.pop();onStack[w]=false;scc.push(w);}while(w!==v);sccs.push(scc);}\n  }\n  for(let v=0;v<n;v++)if(disc[v]===-1)dfs(v);return sccs;\n}\nconst tarjanSCCImpl=tarjanSCC;"
+          },
+          "complexity_analysis": "O(V+E) — each vertex and edge visited once in DFS.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "disc[v]=low[v]=timer++; push v; onStack[v]=true."
+            },
+            {
+              "level": 2,
+              "text": "Tree edge (disc[u]===-1): recurse; low[v]=min(low[v],low[u]). Back edge (onStack[u]): low[v]=min(low[v],disc[u]). Cross edge (disc[u]!=-1&&!onStack[u]): ignore."
+            },
+            {
+              "level": 3,
+              "text": "SCC root check: if(low[v]===disc[v]) pop until w===v (do-while); set onStack[w]=false for each popped."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 3,
+      "lesson_title": "Bridges And Articulation Points",
+      "theory_mcq": [
+        {
+          "id": "L3M4-L3-TH-1",
+          "question": "The BRIDGE condition is `low[u] > disc[v]` for tree edge v→u. Why STRICTLY GREATER THAN (not >=)?",
+          "options": [
+            "Strictly greater is used for efficiency; >= would also work",
+            "low[u] > disc[v] means: the deepest ancestor reachable from u's ENTIRE SUBTREE has a disc TIME STRICTLY LATER THAN v; i.e., no vertex in u's subtree can reach v OR any ancestor of v via a back edge; removing edge v-u would disconnect u's subtree; low[u] == disc[v] means u's subtree CAN REACH v (via some back edge), so removing v-u doesn't disconnect anything (there's another path to v); strictly greater than disc[v] is the correct bridge condition, >= would miss some bridges (treating edges that go exactly back to v as bridges when they're not)",
+            "Strictly greater prevents bridges from being double-counted",
+            ">= disc[v] is the correct condition; > is a simplification"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `if(low[u]>disc[v]) bridges.push([v,u])` — if low[u]==disc[v], u's subtree has a back edge reaching v, meaning there's an alternative cycle through v; removing edge v-u doesn't disconnect u's subtree from v (the back edge provides connectivity); only when low[u] > disc[v] (can't reach v or any earlier) does removing v-u disconnect the graph."
+        },
+        {
+          "id": "L3M4-L3-TH-2",
+          "question": "The ARTICULATION POINT condition uses `low[u] >= disc[v]` (not strictly greater like bridges). Why >= for APs but > for bridges?",
+          "options": [
+            "Both conditions should use the same operator; the difference is a bug",
+            "ARTICULATION POINT >= because: if low[u] == disc[v], u's subtree has a back edge only reaching v itself; removing vertex v would remove THIS back edge too (since v is deleted, not just the edge); u's subtree would be disconnected from v's ancestors; so v IS an articulation point even when low[u]==disc[v]; BRIDGE > because: removing just the EDGE v-u still leaves v in the graph; if u has a back edge to v (low[u]==disc[v]), u can still reach v through this back edge — NOT a bridge; the vertex/edge removal distinction creates this asymmetry",
+            ">= is used for AP because the root node requires special handling",
+            "The difference is only relevant for multigraphs with parallel edges"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concepts: 'Articulation point condition: low[v] >= disc[u]' vs 'Bridge condition: low[v] > disc[u]' — removing a VERTEX removes all its incident edges; if u can only reach v (low[u]==disc[v]), removing v severs that connection (AP condition); but removing just the EDGE v-u: if u can reach v via another back edge (low[u]==disc[v]), the graph stays connected (not a bridge); hence strictly greater for bridges."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M4-L3-LG-1",
+          "question": "For the graph edges [[0,1],[1,2],[2,3],[3,1],[3,4]], bridges are [[3,4],[0,1]] and artPoints are [1,3]. Verify why edge 0-1 is a bridge.",
+          "options": [
+            "Edge 0-1 is a bridge because node 0 has degree 1 (only connected to node 1); removing it disconnects {0} from the rest of the graph",
+            "Edge 0-1 is a bridge because low[1]>disc[0]: the DFS tree has 0 as root with child 1; 1's subtree (nodes 1,2,3,4) has no back edge reaching 0 (no vertex can reach back to 0 since 0 only has the edge to 1); therefore low[1]>disc[0] and removing 0-1 disconnects {0} from {1,2,3,4}",
+            "Edge 0-1 is a bridge because node 1 is an articulation point",
+            "Edge 0-1 is a bridge because both endpoints have different degrees"
+          ],
+          "answer": 1,
+          "explanation": "Confirmed by direct execution: bridges include [0,1]; node 0 has degree 1 (only connected to 1); in the DFS rooted at 0, node 1's subtree (which contains all other nodes) cannot reach node 0 except through the single edge 0-1; low[1] > disc[0] because no back edge from the subtree of 1 reaches back to 0."
+        },
+        {
+          "id": "L3M4-L3-LG-2",
+          "question": "For `criticalConnections(4, [[0,1],[1,2],[2,0],[1,3]])`, the answer is [[1,3]]. Why is the only critical connection the edge 1-3?",
+          "options": [
+            "[[1,3]] because edges 0-1, 1-2, 2-0 form a cycle, so none of them are bridges; only 1-3 (connecting node 3 which has no other connections) is a bridge",
+            "[[1,3]] because node 3 has the highest degree",
+            "[[1,3]] and [[0,1]] are both bridges; only one is returned",
+            "The entire graph minus edge 1-3 is still connected"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: criticalConnections=[[1,3]]; the three edges 0-1, 1-2, 2-0 form a cycle (triangle); removing any one of them still leaves nodes 0,1,2 connected via the other two; node 3 only connects through edge 1-3; removing 1-3 disconnects node 3 from the rest — it's the only bridge."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M4-L3-SY-1",
+          "question": "The DFS uses `if (u === parent) continue` to skip the parent edge. What problem would occur WITHOUT this check?",
+          "options": [
+            "Without the check, the DFS would revisit the parent correctly via back edge logic",
+            "WITHOUT the check: when processing node v's neighbors, the edge back to v's parent p would be seen as a BACK EDGE (since disc[p]!=-1 and p is on the stack); `low[v]=Math.min(low[v],disc[p])` would update low[v] to disc[p]; this means every vertex incorrectly thinks it can reach its parent via a 'back edge'; consequently low[u] == disc[v] for every tree edge v-u (since u sees the edge back to v and sets low[u]=disc[v]); this would mark NO bridges (bridge condition low[u]>disc[v] never satisfied) and wrong articulation points",
+            "Without the check, the DFS would revisit all vertices infinitely",
+            "The check is optional for directed graphs but required for undirected"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `if (u === parent) continue` — in undirected graphs, each edge appears in BOTH directions in the adjacency list; when DFS visits v from parent p, adj[v] contains p; without skipping, the parent edge would be treated as a back edge to p, artificially lowering low[v] to disc[p] and eliminating valid bridges; the parent skip is essential for correctness in undirected bridge/AP finding."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M4-L3-CC-1",
+          "title": "Critical Connections (Bridges) and Articulation Points",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement bridge finding and articulation point detection.",
+          "requirements": [
+            "Implement `criticalConnectionsImpl(n, connections)` returning all bridge edges",
+            "Implement `findArticulationPoints(n, edges)` returning all articulation point indices"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function criticalConnectionsImpl(n, connections) {\n  // TODO: disc/low arrays; DFS with parent skip;\n  //       bridge: low[u]>disc[v]; return all bridges\n}\n\nfunction findArticulationPoints(n, edges) {\n  // TODO: same DFS; AP: low[u]>=disc[v] for non-root; root with 2+ children\n}"
+          },
+          "test_cases": [
+            {
+              "input": "JSON.stringify(criticalConnectionsImpl(4,[[0,1],[1,2],[2,0],[1,3]]))",
+              "expected": "[[1,3]]",
+              "type": "visible"
+            },
+            {
+              "input": "JSON.stringify(criticalConnectionsImpl(5,[[0,1],[1,2],[2,3],[3,1],[3,4]]))",
+              "expected": "[[3,4],[0,1]]",
+              "type": "visible"
+            },
+            {
+              "input": "JSON.stringify(findArticulationPoints(5,[[0,1],[1,2],[2,3],[3,1],[3,4]]).sort((a,b)=>a-b))",
+              "expected": "[1,3]",
+              "type": "visible"
+            },
+            {
+              "input": "criticalConnectionsImpl(2,[[0,1]]).length",
+              "expected": 1,
+              "type": "hidden"
+            },
+            {
+              "input": "criticalConnectionsImpl(3,[[0,1],[1,2],[2,0]]).length",
+              "expected": 0,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function findBridgesAndArticulations(n,edges){\n  const adj=Array.from({length:n},()=>[]);for(const[u,v]of edges){adj[u].push(v);adj[v].push(u);}\n  const disc=new Array(n).fill(-1),low=new Array(n).fill(-1);\n  const bridges=[],artPoints=new Set();let timer=0;\n  function dfs(v,parent){\n    disc[v]=low[v]=timer++;let childCount=0;\n    for(const u of adj[v]){if(u===parent)continue;if(disc[u]===-1){childCount++;dfs(u,v);low[v]=Math.min(low[v],low[u]);if(low[u]>disc[v])bridges.push([v,u]);if(disc[v]!==0&&low[u]>=disc[v])artPoints.add(v);}else low[v]=Math.min(low[v],disc[u]);}\n    if(disc[v]===0&&childCount>=2)artPoints.add(v);\n  }\n  for(let v=0;v<n;v++)if(disc[v]===-1)dfs(v,-1);\n  return{bridges,artPoints:[...artPoints]};\n}\nfunction criticalConnectionsImpl(n,connections){return findBridgesAndArticulations(n,connections).bridges;}\nfunction findArticulationPoints(n,edges){return findBridgesAndArticulations(n,edges).artPoints;}"
+          },
+          "complexity_analysis": "O(V+E) — single DFS pass.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "Build undirected adjacency list; DFS with disc/low arrays and timer."
+            },
+            {
+              "level": 2,
+              "text": "Skip parent edge (u===parent). Tree edge: recurse; update low[v]=min(low[v],low[u]); check bridge(low[u]>disc[v]) and AP(low[u]>=disc[v])."
+            },
+            {
+              "level": 3,
+              "text": "Root AP: count DFS children; root is AP if children >= 2. Non-root AP: low[u]>=disc[v] for any tree child u."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 4,
+      "lesson_title": "Bipartite Graph Matching",
+      "theory_mcq": [
+        {
+          "id": "L3M4-L4-TH-1",
+          "question": "In bipartite matching, an AUGMENTING PATH is 'alternating unmatched/matched edges from free to free vertex'. Why can we always IMPROVE matching by reversing an augmenting path?",
+          "options": [
+            "Reversing an augmenting path maintains the same matching size",
+            "AN AUGMENTING PATH has these properties: starts at an UNMATCHED left vertex (free), ends at an UNMATCHED right vertex (free), alternates between unmatched→matched→unmatched edges; it has k+1 unmatched edges and k matched edges; REVERSING (swapping matched/unmatched along the path): the k+1 previously unmatched edges become matched, the k previously matched edges become unmatched; net change: +1 matched edge; every path vertex retains exactly one matched edge; augmenting paths always increase matching by exactly 1 — hence the name",
+            "Reversing an augmenting path only improves matching if all edges have equal weight",
+            "Augmenting paths can be reversed at most once per vertex"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Augmenting path: alternating unmatched/matched edges from free to free vertex' — an augmenting path has one more unmatched edge than matched; flipping matched/unmatched along the entire path increases matching by 1; the Berge's theorem: a matching is maximum iff no augmenting path exists; this is why we repeatedly search for augmenting paths until none exist."
+        },
+        {
+          "id": "L3M4-L4-TH-2",
+          "question": "In the bipartite matching DFS, `matchR[v] === -1 || dfs(matchR[v], visited)` gives v to u even if v is already matched. Why is the recursive DFS call for the ALREADY-MATCHED vertex valid?",
+          "options": [
+            "The recursion always returns false; it's a fallback path",
+            "ALTERNATING PATH SEARCH: if right vertex v is matched to left vertex m (matchR[v]=m), we try to RE-MATCH m to a DIFFERENT right vertex by calling dfs(m, visited); if m can find another right vertex, it moves there, freeing v for u; this is the 'augmenting path' search implemented recursively — v gives up its partner m, and m searches for a new partner; the `visited` array prevents exploring the same right vertex twice in one search, ensuring termination and correctness",
+            "The recursion is only entered when matchR[v] has unvisited neighbors",
+            "The recursive call finds a different left vertex to share with v"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `if(matchR[v]===-1||dfs(matchR[v],visited))` — the recursive `dfs(matchR[v],visited)` searches for an augmenting path starting from the current partner of v; if it finds one, the current partner re-matches, freeing v for u; this implements alternating path search and is the core of the augmenting path algorithm."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M4-L4-LG-1",
+          "question": "For 3 students and 3 jobs with edges [[0,0],[0,1],[1,1],[2,0],[2,2]], the maximum matching is 3. Trace the final matching.",
+          "options": [
+            "Student 0→Job 1, Student 1→Job 1 (conflict!), Student 2→Job 0 — invalid",
+            "Student 0→Job 0 or 1, Student 1→Job 1, Student 2→Job 2 or 0; one valid perfect matching: matchL=[0,1,2] meaning 0→0, 1→1, 2→2 — confirmed by direct execution returning matching=3",
+            "Only 2 students can be matched; student 1 has only 1 option",
+            "Maximum matching is 2; student 2 must share job 0 with student 0"
+          ],
+          "answer": 1,
+          "explanation": "Confirmed by direct execution: matching=3, matchL=[0,1,2]; the algorithm processes students 0,1,2 in order; student 0 takes job 0 (first available); student 1 takes job 1; student 2 tries job 0 (taken by 0), triggers re-matching: student 0 can also take job 1 — but that's taken by 1... student 0 takes job 1 then? Let me verify: matchL=[0,1,2] means 0→0,1→1,2→2 — student 2 directly gets job 2."
+        },
+        {
+          "id": "L3M4-L4-LG-2",
+          "question": "Bipartite matching can be REDUCED to max flow. In this reduction, what capacity ensures at most one match per vertex?",
+          "options": [
+            "Capacity 1 on all edges: source→left vertex (cap 1), bipartite edges (cap 1), right vertex→sink (cap 1); capacity 1 ensures each left vertex sends at most 1 unit of flow (one match) and each right vertex receives at most 1 unit (one match); max flow = max matching",
+            "Capacity = number of edges per vertex",
+            "Capacity ∞ on bipartite edges and 1 on source/sink edges",
+            "Capacity = degree of the vertex for adaptive matching"
+          ],
+          "answer": 0,
+          "explanation": "Matching the lesson's concept: 'Reduction to max flow: add source/sink, all capacities 1' — each source→left edge has capacity 1, limiting each left vertex to one matched right vertex; each right→sink edge has capacity 1, limiting each right vertex to one matched left vertex; bipartite edges have capacity 1, providing the actual matching choices; max flow through this network equals maximum bipartite matching."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M4-L4-SY-1",
+          "question": "The bipartite matching DFS creates a NEW `visited` array for EACH left vertex u. Why not reuse a single visited array?",
+          "options": [
+            "A single visited array would be faster and produce the same result",
+            "FRESH VISITED PER SEARCH: `visited[v]=true` marks right vertex v as 'already considered in the current augmenting path search'; this prevents infinite cycles when re-matching chains; if visited were shared across all left vertex searches, a right vertex marked visited during student 0's search would be skipped during student 1's search — missing valid augmenting paths; each new search for a left vertex starts from scratch, allowing it to explore all right vertices independently; the visited array is only for PREVENTING REVISITS WITHIN ONE DFS CALL, not across all calls",
+            "Creating a new array is mandatory because matchR is modified during DFS",
+            "The new array allows backtracking through previously visited vertices"
+          ],
+          "answer": 1,
+          "explanation": "Each augmenting path search from one left vertex is INDEPENDENT: visited prevents revisiting right vertices within the SAME search to avoid cycles; resetting visited for each left vertex allows a right vertex to be considered in multiple separate searches (for different left vertices); sharing visited across left vertex searches would incorrectly block valid paths that exist for later left vertices."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M4-L4-CC-1",
+          "title": "Maximum Bipartite Matching",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement maximum bipartite matching from this lesson.",
+          "requirements": [
+            "Implement `maxBipartiteMatchingImpl(leftCount, rightCount, edges)` matching the lesson's augmenting-path DFS"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function maxBipartiteMatchingImpl(leftCount, rightCount, edges) {\n  // TODO: adj list left->right; matchL[]/matchR[] arrays\n  //       for each u in left: fresh visited[], call DFS;\n  //       DFS: for each right v: if not visited, try to assign (v free or v's match can re-route)\n}"
+          },
+          "test_cases": [
+            {
+              "input": "maxBipartiteMatchingImpl(3,3,[[0,0],[0,1],[1,1],[2,0],[2,2]]).matching",
+              "expected": 3,
+              "type": "visible"
+            },
+            {
+              "input": "maxBipartiteMatchingImpl(2,2,[[0,0],[0,1],[1,1]]).matching",
+              "expected": 2,
+              "type": "visible"
+            },
+            {
+              "input": "maxBipartiteMatchingImpl(3,3,[[0,0],[1,1],[2,2]]).matching",
+              "expected": 3,
+              "type": "visible"
+            },
+            {
+              "input": "maxBipartiteMatchingImpl(2,1,[[0,0],[1,0]]).matching",
+              "expected": 1,
+              "type": "hidden"
+            },
+            {
+              "input": "maxBipartiteMatchingImpl(0,3,[]).matching",
+              "expected": 0,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function maxBipartiteMatching(leftCount,rightCount,edges){\n  const adj=Array.from({length:leftCount},()=>[]);for(const[l,r]of edges)adj[l].push(r);\n  const matchL=new Array(leftCount).fill(-1),matchR=new Array(rightCount).fill(-1);\n  function dfs(u,visited){for(const v of adj[u]){if(visited[v])continue;visited[v]=true;if(matchR[v]===-1||dfs(matchR[v],visited)){matchL[u]=v;matchR[v]=u;return true;}}return false;}\n  let matching=0;for(let u=0;u<leftCount;u++){const visited=new Array(rightCount).fill(false);if(dfs(u,visited))matching++;}\n  return{matching,matchL,matchR};\n}\nconst maxBipartiteMatchingImpl=maxBipartiteMatching;"
+          },
+          "complexity_analysis": "O(V*E) — V left vertices each doing O(E) DFS. O(V) space.",
+          "hints": [
+            {
+              "level": 1,
+              "text": "matchL[u]=-1 and matchR[v]=-1 initially (all unmatched)."
+            },
+            {
+              "level": 2,
+              "text": "For each left vertex u: create fresh visited[]; if dfs(u,visited) succeeds, matching++."
+            },
+            {
+              "level": 3,
+              "text": "dfs(u,visited): for each right neighbor v: if !visited[v]: mark visited; if v free OR dfs(matchR[v],visited): assign u↔v and return true. Return false if no path found."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 5,
+      "lesson_title": "Max Flow — Ford-Fulkerson",
+      "theory_mcq": [
+        {
+          "id": "L3M4-L5-TH-1",
+          "question": "In the max flow residual graph, why does adding a BACKWARD EDGE (reverse direction with 0 initial capacity) enable FLOW CANCELLATION?",
+          "options": [
+            "Backward edges are just bookkeeping with no algorithmic effect",
+            "FLOW CANCELLATION via backward edges: when we push f units of flow along edge (u,v): forward capacity cap[u][v] decreases by f (less room); backward capacity cap[v][u] increases by f (f units CAN BE CANCELLED by pushing 'flow' backward); if a later augmenting path uses the backward edge (v,u): it 'cancels' f units of previously committed flow on (u,v), effectively rerouting that flow; this enables the algorithm to fix suboptimal early routing decisions without restarting; backward edges simulate the ability to 'undo' flow assignments during BFS exploration",
+            "Backward edges represent actual reverse flow in the physical network",
+            "Backward edges prevent paths from being counted twice in BFS"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Residual graph: for each edge (u,v,cap), add reverse edge (v,u,0) for flow cancellation' and the code: `cap[v][parent[v]] += flow` — the backward edge's capacity increases as flow goes forward; using the backward edge in a later BFS path effectively 'pulls back' previously committed flow, rerouting it through a better path."
+        },
+        {
+          "id": "L3M4-L5-TH-2",
+          "question": "The MAX-FLOW MIN-CUT THEOREM states max flow = min cut capacity. What does this mean intuitively?",
+          "options": [
+            "The maximum flow equals the number of edges in the minimum spanning tree",
+            "A CUT partitions vertices into {source side S} and {sink side T}; cut CAPACITY = sum of capacities of edges crossing S→T; the min cut is the partition with smallest total forward capacity; MAX FLOW = MIN CUT means: the BOTTLENECK that limits flow is exactly the minimum bottleneck partition of the graph; no flow exceeds min cut (flow must cross the cut); a flow equalling min cut is achievable; when Ford-Fulkerson terminates (no augmenting path), the BFS-reachable vertices form S, and the unreachable vertices form T — this natural partition is the min cut",
+            "Min cut = minimum number of edges to remove to disconnect source from sink",
+            "Max flow equals min cut only for unit-capacity networks"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Max-flow min-cut theorem: max flow = min cut capacity' — when no augmenting path exists, BFS from source reaches a set S (source side); all edges from S to T (sink side) are saturated (no residual capacity); the total capacity of these edges = the min cut = the max flow achieved."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M4-L5-LG-1",
+          "question": "For the 6-node max flow example with edges [0→1(10), 0→2(10), 1→3(10), 2→4(10), 3→5(10), 4→5(10), 1→2(1)], the max flow is 20. Why?",
+          "options": [
+            "Max flow = 20 because two independent paths each carry 10: path 0→1→3→5 (bottleneck 10) and path 0→2→4→5 (bottleneck 10); both paths are fully saturated; adding the edge 1→2 doesn't help further since both paths already carry maximum capacity",
+            "Max flow = 20 because the source has capacity 20 (two edges each 10)",
+            "Max flow is 21: the edge 1→2 allows one extra unit to flow",
+            "Max flow = 10; only one path can carry flow at a time"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: maxFlow=20; two disjoint paths: 0→1→3→5 with bottleneck min(10,10,10)=10 and 0→2→4→5 with bottleneck min(10,10,10)=10; total=20; the 1→2 edge (capacity 1) doesn't improve flow because both paths are already saturated; the source can send at most 10+10=20 units and the sink can receive at most 10+10=20 units."
+        },
+        {
+          "id": "L3M4-L5-LG-2",
+          "question": "Edmonds-Karp uses BFS for augmenting paths. What advantage does BFS have over DFS for augmenting path selection?",
+          "options": [
+            "BFS is used only for implementation simplicity; DFS produces identical performance",
+            "BFS FINDS SHORTEST AUGMENTING PATHS (fewest edges): Edmonds-Karp's O(VE²) bound relies on the guarantee that BFS finds shortest paths; using shortest paths ensures the total number of augmenting path iterations is bounded by O(VE) (each flow augmentation either saturates an edge or uses a longer path); DFS (basic Ford-Fulkerson) has no such bound — for integer capacities it's O(maxFlow) iterations, which can be O(V*maxCapacity) = exponential in the graph description size; BFS gives a polynomial-time guarantee",
+            "BFS uses less memory than DFS for large graphs",
+            "BFS always finds paths with maximum bottleneck capacity"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Edmonds-Karp: use BFS for shortest augmenting path O(V*E^2)' — the shortest augmenting path guarantee is what converts Ford-Fulkerson from pseudo-polynomial O(maxFlow*E) to polynomial O(VE²); without BFS, adversarial graphs can make Ford-Fulkerson take an exponential number of iterations on irrational-capacity edges."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M4-L5-SY-1",
+          "question": "The max flow code uses `cap[u][v]` (adjacency MATRIX, not list). Why use a matrix for this implementation?",
+          "options": [
+            "Adjacency matrix is always better for flow networks",
+            "RESIDUAL CAPACITY O(1) LOOKUP: the key operation is checking `cap[v][u] > 0` for ALL possible neighbors u in BFS; with adjacency matrix, `cap[v][u]` is O(1) regardless of whether edge (v,u) exists; with adjacency list, you'd need to maintain separate forward and backward edge objects and link them; for the backward edge update `cap[v][parent[v]] += flow`, the matrix allows O(1) updates without finding the specific backward edge object; for dense graphs (V small, many edges), the V² matrix overhead is acceptable; the tradeoff: O(V²) space and O(V) per BFS vertex vs O(E) space and O(degree) per BFS vertex with lists",
+            "Adjacency matrix is required because backward edges don't exist in the adjacency list",
+            "Matrix prevents overflow when flow values are large"
+          ],
+          "answer": 1,
+          "explanation": "The adjacency matrix simplifies the residual graph implementation: both forward capacity cap[u][v] and backward capacity cap[v][u] are stored at their natural positions; adding flow updates both O(1); BFS checks all V possible neighbors in O(V) per vertex; for max flow problems where V is small (competitive programming: V<=100-500), this O(V²) overhead is acceptable and simpler to code than adjacency list with paired edge objects."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M4-L5-CC-1",
+          "title": "Max Flow — Edmonds-Karp",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement Edmonds-Karp max flow from this lesson.",
+          "requirements": [
+            "Implement `maxFlowImpl(n, edges, source, sink)` matching the lesson's BFS augmenting path approach"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function maxFlowImpl(n, edges, source, sink) {\n  // TODO: adjacency matrix cap[n][n]; initialize from edges\n  //       BFS loop: find augmenting path via parent[]; if no path break\n  //       Find bottleneck; update cap forward and backward; add to totalFlow\n}"
+          },
+          "test_cases": [
+            {
+              "input": "maxFlowImpl(6,[[0,1,10],[0,2,10],[1,3,10],[2,4,10],[3,5,10],[4,5,10],[1,2,1]],0,5)",
+              "expected": 20,
+              "type": "visible"
+            },
+            {
+              "input": "maxFlowImpl(2,[[0,1,5]],0,1)",
+              "expected": 5,
+              "type": "visible"
+            },
+            {
+              "input": "maxFlowImpl(4,[[0,1,3],[0,2,2],[1,3,3],[2,3,2]],0,3)",
+              "expected": 5,
+              "type": "visible"
+            },
+            {
+              "input": "maxFlowImpl(2,[[0,1,0]],0,1)",
+              "expected": 0,
+              "type": "hidden"
+            },
+            {
+              "input": "maxFlowImpl(4,[[0,1,4],[0,2,2],[1,2,1],[1,3,2],[2,3,4]],0,3)",
+              "expected": 5,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function maxFlow(n,edges,source,sink){\n  const cap=Array.from({length:n},()=>new Array(n).fill(0));for(const[u,v,c]of edges)cap[u][v]+=c;\n  let totalFlow=0;\n  while(true){\n    const parent=new Array(n).fill(-1);parent[source]=source;const queue=[source];\n    while(queue.length&&parent[sink]===-1){const v=queue.shift();for(let u=0;u<n;u++){if(parent[u]===-1&&cap[v][u]>0){parent[u]=v;queue.push(u);}}}\n    if(parent[sink]===-1)break;\n    let flow=Infinity;for(let v=sink;v!==source;v=parent[v])flow=Math.min(flow,cap[parent[v]][v]);\n    for(let v=sink;v!==source;v=parent[v]){cap[parent[v]][v]-=flow;cap[v][parent[v]]+=flow;}\n    totalFlow+=flow;\n  }\n  return totalFlow;\n}\nconst maxFlowImpl=maxFlow;"
+          },
+          "complexity_analysis": "O(V*E²) — O(VE) augmenting paths, each BFS O(V+E).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "cap matrix n×n; for each edge [u,v,c]: cap[u][v]+=c (forward only; backward starts at 0)."
+            },
+            {
+              "level": 2,
+              "text": "BFS: parent[source]=source; push source; explore all u where cap[v][u]>0; stop when sink reached or queue empty."
+            },
+            {
+              "level": 3,
+              "text": "Bottleneck: traverse parent[] from sink to source taking min cap; update: cap[parent[v]][v]-=flow; cap[v][parent[v]]+=flow."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 6,
+      "lesson_title": "Advanced Graph Thinking",
+      "theory_mcq": [
+        {
+          "id": "L3M4-L6-TH-1",
+          "question": "The lesson maps 4 algorithm types to signals. Which signal MOST CLEARLY distinguishes between Floyd-Warshall and single-source shortest path algorithms (Dijkstra/Bellman-Ford)?",
+          "options": [
+            "Floyd-Warshall is chosen when there are negative edges",
+            "ALL-PAIRS vs SINGLE-SOURCE: Floyd-Warshall is for problems requiring SHORTEST PATHS BETWEEN EVERY PAIR of vertices ('find the city with fewest neighbors', 'connectivity between all pairs'); single-source algorithms (Dijkstra, Bellman-Ford) compute paths from ONE source; if the problem asks about all-pairs properties, Floyd-Warshall's O(V³) is natural; if only paths from one vertex are needed, running Floyd-Warshall is wasteful (Dijkstra is O(E log V) per source vs O(V²) per source for Floyd-Warshall in dense graphs)",
+            "Floyd-Warshall is chosen when the graph has fewer than 100 nodes",
+            "Floyd-Warshall is for undirected graphs; Dijkstra for directed"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's taxonomy: 'APSP: Floyd-Warshall O(V³)' vs single-source — the primary signal is whether ALL PAIRS of shortest paths are needed; Floyd-Warshall computes all n² pairs in O(n³); running Dijkstra from each source is O(VE log V) for sparse graphs (better than V³) but O(V³) for dense graphs (same asymptotically); the choice depends on graph density and whether all pairs are actually needed."
+        },
+        {
+          "id": "L3M4-L6-TH-2",
+          "question": "Module 4 has 2 NC150 problems: #1334 (Find the City using Floyd-Warshall) and #1192 (Critical Connections using bridge finding). What is the COMMON PATTERN for recognising these?",
+          "options": [
+            "Both use the same algorithm (DFS with low values)",
+            "#1334 SIGNAL: 'find city with fewest reachable neighbors within distance threshold' → ALL-PAIRS DISTANCE → Floyd-Warshall; #1192 SIGNAL: 'critical connections in a network' = 'which edges, if removed, disconnect the network' → BRIDGE FINDING → DFS with low-link values; the recognition pattern: (1) all-pairs reachability/distance → APSP; (2) single point/edge of failure → bridges/articulation points; these are the two 'connectivity analysis' algorithms in the module",
+            "Both use BFS with level tracking",
+            "Both are reducible to max flow"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's module4_problems: #1334 maps to Floyd-Warshall (all-pairs distance needed to count reachable cities per node) and #1192 maps to Bridge finding DFS (critical connections = bridges); the signal recognition: 'find city with fewest' implies comparing ALL pairs → APSP; 'critical connections' implies single-edge vulnerabilities → bridge DFS."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M4-L6-LG-1",
+          "question": "Why is Bridges/Articulation Points restricted to UNDIRECTED graphs while Tarjan's SCC works on DIRECTED graphs?",
+          "options": [
+            "The algorithms can be used for either graph type with minor modifications",
+            "CONCEPTUAL MISMATCH: Bridges/APs are defined for undirected graphs where 'connectivity' is symmetric (if u reaches v, v reaches u); an 'articulation point' in a directed graph is not well-defined (removing a vertex might disconnect some pairs but not others depending on direction); SCCs are naturally a directed concept (u and v are in the same SCC iff u→v and v→u); the disc/low algorithm for bridges uses the undirected 'skip parent' logic and counts undirected components; Tarjan's SCC uses directed DFS and onStack for directed path analysis",
+            "Bridges only work for undirected because low values can't be computed for directed graphs",
+            "Tarjan's SCC only works for directed because it uses a stack"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's taxonomy: 'Bridges/Articulation: undirected graphs' vs 'Tarjan's SCC: directed graphs only' — bridges are defined on undirected graphs where an edge removal increases connected components; in directed graphs, 'connectivity' is asymmetric and SCCs capture the bidirectional reachability structure; the algorithms exploit the specific properties of their graph type."
+        },
+        {
+          "id": "L3M4-L6-LG-2",
+          "question": "A company wants to assign 50 workers to 50 projects maximising the number of assignments (each worker can do multiple projects but only ONE project at a time). Which algorithm applies?",
+          "options": [
+            "Maximum bipartite matching with leftCount=50 workers, rightCount=50 projects; edges represent worker-project compatibility; max matching = maximum number of simultaneous assignments",
+            "Floyd-Warshall to find the shortest assignment paths",
+            "Tarjan's SCC to find circular assignment dependencies",
+            "Max flow with unlimited capacity edges for each worker"
+          ],
+          "answer": 0,
+          "explanation": "The problem is a classical BIPARTITE MATCHING: workers = left vertices, projects = right vertices, edges = valid assignments; maximum bipartite matching finds the maximum number of simultaneous assignments (each worker assigned to at most 1 project, each project to at most 1 worker); for 50×50 with up to 2500 edges, O(VE)=O(50*2500)=125,000 operations — trivially fast."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M4-L6-SY-1",
+          "question": "The `advancedGraphAlgorithms` array stores `signals` as STRING ARRAYS per algorithm. How does this design enable programmatic algorithm selection?",
+          "options": [
+            "String arrays are required for display purposes only",
+            "PATTERN MATCHING LOOKUP: a function can check if a problem's description contains any signal keyword: `advancedGraphAlgorithms.find(a => a.signals.some(s => problemDesc.includes(s)))`; string arrays make each algorithm's trigger conditions explicit and testable; a single string per algorithm couldn't encode multiple independent signals ('all-pairs' OR 'most connected' OR 'dense graph' → Floyd-Warshall); array structure enables multi-keyword OR matching without complex parsing",
+            "Signal arrays are sorted alphabetically for binary search performance",
+            "String arrays prevent collisions between algorithm selection criteria"
+          ],
+          "answer": 1,
+          "explanation": "The signals array design enables: (1) multi-keyword trigger conditions per algorithm, (2) programmatic lookup via array methods like find/some, (3) extensibility (add new signals without changing the data structure); the alternative (a single description string) would require regex parsing; the array of strings is the natural representation for OR-conditions in a decision guide."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M4-L6-CC-1",
+          "title": "Advanced Graph Algorithm Selector",
+          "difficulty": "Intermediate",
+          "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+          "problem_statement": "Implement the graph algorithm decision guide and module summary.",
+          "requirements": [
+            "Implement `selectAdvancedGraph(signal)` returning the algorithm name for a given signal",
+            "Implement `module4Summary()` returning {total, nc150} counts"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "const MODULE4 = [\n  {id:1334, algorithm:'Floyd-Warshall', nc150:true},\n  {id:1192, algorithm:'Bridge finding DFS', nc150:true},\n  {id:1579, algorithm:'Dual Union-Find', nc150:false},\n];\n\nfunction selectAdvancedGraph(signal) {\n  // signals: 'all-pairs', 'strongly connected', 'critical connections', 'max assignment', 'max capacity'\n  // TODO: return algorithm name\n}\n\nfunction module4Summary() {\n  // TODO: total and nc150 count\n}"
+          },
+          "test_cases": [
+            {
+              "input": "selectAdvancedGraph('all-pairs')",
+              "expected": "Floyd-Warshall",
+              "type": "visible"
+            },
+            {
+              "input": "selectAdvancedGraph('strongly connected')",
+              "expected": "Tarjan's SCC",
+              "type": "visible"
+            },
+            {
+              "input": "selectAdvancedGraph('critical connections')",
+              "expected": "Bridge Finding DFS",
+              "type": "visible"
+            },
+            {
+              "input": "module4Summary().nc150",
+              "expected": 2,
+              "type": "hidden"
+            },
+            {
+              "input": "selectAdvancedGraph('max assignment')",
+              "expected": "Bipartite Matching",
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "const MODULE4=[{id:1334,algorithm:'Floyd-Warshall',nc150:true},{id:1192,algorithm:'Bridge finding DFS',nc150:true},{id:1579,algorithm:'Dual Union-Find',nc150:false}];\n\nfunction selectAdvancedGraph(signal){\n  if(signal.includes('all-pairs')||signal.includes('apsp'))return'Floyd-Warshall';\n  if(signal.includes('strongly connected')||signal.includes('scc'))return\"Tarjan's SCC\";\n  if(signal.includes('critical')||signal.includes('bridge'))return'Bridge Finding DFS';\n  if(signal.includes('assignment')||signal.includes('matching'))return'Bipartite Matching';\n  if(signal.includes('capacity')||signal.includes('flow'))return'Max Flow Edmonds-Karp';\n  return'Unknown';\n}\n\nfunction module4Summary(){\n  return{total:MODULE4.length,nc150:MODULE4.filter(p=>p.nc150).length};\n}"
+          },
+          "complexity_analysis": "selectAdvancedGraph: O(|signal|). module4Summary: O(n).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "Check signal keywords in order: all-pairs→Floyd-Warshall; strongly connected→Tarjan's SCC; critical/bridge→Bridge DFS."
+            },
+            {
+              "level": 2,
+              "text": "max assignment/matching→Bipartite Matching; max capacity/flow→Max Flow."
+            },
+            {
+              "level": 3,
+              "text": "module4Summary: MODULE4.filter(p=>p.nc150).length for nc150 count."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "advanced": "Lessons 1-2 (Floyd-Warshall k-outermost loop correctness, Tarjan's disc/low/onStack interplay, do-while SCC extraction)",
+      "hard": "Lessons 3-5 (bridge >  vs AP >= distinction, parent-skip correctness, augmenting path flow increase proof, residual backward edges, BFS vs DFS augmentation bound)",
+      "capstone": "Lesson 6 (4-algorithm signal classification, directed/undirected graph type restriction, all-pairs vs single-source distinction)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

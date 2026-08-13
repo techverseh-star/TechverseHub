@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -10,13 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { MessageSquare, Star, Send, Loader2, ArrowLeft } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function FeedbackPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
-    const [user, setUser] = useState<any>(null);
+    const { user } = useAuth();
     const [rating, setRating] = useState(0);
     const [hoverRating, setHoverRating] = useState(0);
     const [submitted, setSubmitted] = useState(false);
@@ -25,14 +25,6 @@ export default function FeedbackPage() {
         subject: "",
         message: "",
     });
-
-    useEffect(() => {
-        async function loadUser() {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
-        }
-        loadUser();
-    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -140,7 +132,7 @@ export default function FeedbackPage() {
                                         <button
                                             key={star}
                                             type="button"
-                                            className="p-1 hover:scale-110 transition-transform focus:outline-none"
+                                            className="p-1 rounded hover:scale-110 transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                             onMouseEnter={() => setHoverRating(star)}
                                             onMouseLeave={() => setHoverRating(0)}
                                             onClick={() => setRating(star)}

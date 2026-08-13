@@ -1,27 +1,40 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createSupabaseServiceClient } from "@/lib/supabase-server";
+import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
+import { requestResetSchema } from "@/lib/validation";
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
+    const ip = getClientIp(req);
+    const ipLimit = rateLimit(`request-reset-ip:${ip}`, 5, 15 * 60_000);
+    if (!ipLimit.ok) return rateLimitResponse(ipLimit.retryAfterSec);
 
-    if (!email)
-      return NextResponse.json({ error: "Email required" }, { status: 400 });
+    const parsed = requestResetSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Valid email required" }, { status: 400 });
+    }
+    const { email } = parsed.data;
+
+    const emailLimit = rateLimit(`request-reset-email:${email}`, 5, 15 * 60_000);
+    if (!emailLimit.ok) return rateLimitResponse(emailLimit.retryAfterSec);
+
+    const supabase = createSupabaseServiceClient();
+    if (!supabase) {
+      return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+    }
 
     // Find user
     const { data: userData } = await supabase.auth.admin.listUsers();
-    const user = userData?.users?.find(u => u.email === email);
+    const user = userData?.users?.find((u: { email?: string }) => u.email === email);
 
     if (!user) {
       return NextResponse.json({ ok: true });
     }
+
+    // Clear any outstanding tokens for this user before issuing a new one
+    await supabase.from("password_resets").delete().eq("user_id", user.id);
 
     // Generate token
     const token = crypto.randomBytes(32).toString("hex");
@@ -34,7 +47,6 @@ export async function POST(req: Request) {
       expires_at: expires,
     });
 
-    // ❗ FIXED — now BASE_URL is used
     const resetUrl = `${process.env.BASE_URL}/auth/reset?token=${token}`;
 
     // Send email

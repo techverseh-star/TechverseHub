@@ -9,35 +9,73 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Rocket, Code, Clock, Star, ChevronRight, Layers,
-  Terminal, Globe, Database, Cpu, Lock, Zap, Loader2, MessageCircle, BookOpen
+  Terminal, Globe, Database, Cpu, Lock, Zap, MessageCircle, BookOpen
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getProjects, Project as ApiProject } from "@/lib/api";
 
 import { LANGUAGES } from "@/lib/constants";
 import { AdUnit } from "@/components/AdUnit";
+import { useAuth } from "@/components/AuthProvider";
 
 interface Project extends ApiProject {
   icon: React.ReactNode;
 }
 
+function ProjectsSkeleton() {
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <main className="max-w-6xl mx-auto px-4 py-12">
+        <div className="text-center mb-12 space-y-4">
+          <Skeleton className="h-10 w-64 mx-auto" />
+          <Skeleton className="h-5 w-96 mx-auto" />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-12 w-12 rounded-xl shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}
+
 function ProjectsPageContent() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const { user, loading: authLoading } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadData() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/auth/login");
-        return;
-      }
-      setUser(user);
+    if (authLoading) return;
+    if (!user) {
+      router.push("/auth/login");
+      return;
+    }
 
+    async function loadData() {
       const fetchedProjects = await getProjects();
 
       const mappedProjects = fetchedProjects.map(p => {
@@ -60,7 +98,7 @@ function ProjectsPageContent() {
       setLoading(false);
     }
     loadData();
-  }, [router]);
+  }, [authLoading, user, router]);
 
   const filteredProjects = projects.filter(project => {
     const matchesLanguage = !selectedLanguage || project.language === selectedLanguage;
@@ -80,17 +118,7 @@ function ProjectsPageContent() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading projects...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <ProjectsSkeleton />;
   }
 
   if (!user) return null;
@@ -110,7 +138,7 @@ function ProjectsPageContent() {
           <div className="w-full px-4 py-8">
             <div className="text-center mb-12">
               <h1 className="text-4xl font-bold mb-4">
-                Build Real <span className="gradient-text">Projects</span>
+                Real-World <span className="gradient-text">Builds</span>
               </h1>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                 Apply your skills by building complete applications from scratch. Each project includes step-by-step guidance and real-world features.
@@ -292,17 +320,7 @@ function ProjectsPageContent() {
 
 export default function ProjectsPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading projects...</p>
-          </div>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<ProjectsSkeleton />}>
       <ProjectsPageContent />
     </Suspense>
   );

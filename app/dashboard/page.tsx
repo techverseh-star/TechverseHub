@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
-import { getProblems, PracticeProblem } from "@/lib/api";
+import { PracticeProblem } from "@/lib/api";
 import { DashboardHeader } from "./_components/DashboardHeader";
 import { StatsOverview } from "./_components/StatsOverview";
 import { DailyChallenges } from "./_components/DailyChallenges";
@@ -14,10 +15,11 @@ import { ContinueLearning } from "./_components/ContinueLearning";
 import { DashboardAI } from "./_components/DashboardAI";
 import { AdUnit } from "@/components/AdUnit";
 import { LANGUAGES } from "@/lib/constants";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     lessonsCompleted: 0,
@@ -29,36 +31,51 @@ export default function DashboardPage() {
   const [languageProgress, setLanguageProgress] = useState(
     LANGUAGES.filter(lang => ["python", "javascript", "typescript", "java", "c", "cpp"].includes(lang.id))
   );
-  const [dailyChallenges, setDailyChallenges] = useState<PracticeProblem[]>([]);
+  const [dailyChallenges, setDailyChallenges] = useState<Pick<PracticeProblem, "id" | "title" | "difficulty" | "language">[]>([]);
   const [completedChallenges, setCompletedChallenges] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function loadStats(currentUser: any) {
       setLoading(true);
 
+      // Narrow selects to just the columns actually used below - the previous
+      // "*" selects were pulling full submission code/timestamps and full
+      // problem descriptions/solutions/hints just to compute counts and pick
+      // 3 random titles, which is unnecessary payload on every dashboard load.
       const [lessonsResult, submissionsResult, problemsResult] = await Promise.all([
         supabase
           .from("lesson_progress")
-          .select("*")
+          .select("lesson_id")
           .eq("user_id", currentUser.id)
           .eq("completed", true),
         supabase
           .from("submissions")
-          .select("*")
+          .select("problem_id, status")
           .eq("user_id", currentUser.id),
-        getProblems()
+        supabase
+          .from("practice_problems")
+          .select("id, title, difficulty, language"),
       ]);
 
       const fetchedLessons = lessonsResult.data || [];
       const submissions = submissionsResult.data || [];
-      const allProblems = problemsResult || [];
+      const allProblems = problemsResult.data || [];
 
-      // Logic to pick "Daily" challenges - for now, just random 3 from all problems
-      // or rotating based on date
+      // Pick 3 "Daily" challenges, seeded by today's date so every user sees
+      // the same set on a given day and it rotates the next day - a plain
+      // Math.random() shuffle (the previous approach) picked a new random
+      // set on every single page load/reload, which isn't "daily" at all.
       const today = new Date();
-      const seed = today.getDate() + today.getMonth() * 31 + today.getFullYear() * 365;
+      let seed = today.getDate() + today.getMonth() * 31 + today.getFullYear() * 365;
+      const seededRandom = () => {
+        // mulberry32
+        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
 
-      const shuffled = [...allProblems].sort(() => 0.5 - Math.random()); // Simple shuffle
+      const shuffled = [...allProblems].sort(() => 0.5 - seededRandom());
       const challenges = shuffled.slice(0, 3);
       setDailyChallenges(challenges);
 
@@ -90,28 +107,77 @@ export default function DashboardPage() {
       setLoading(false);
     }
 
-    async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/auth/login");
-        return;
-      }
-      setUser(user);
-      loadStats(user);
+    if (authLoading) return;
+    if (!user) {
+      router.push("/auth/login");
+      return;
     }
-    init();
-  }, [router]);
+    loadStats(user);
+  }, [authLoading, user, router]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
         <Navbar />
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading dashboard...</p>
+        <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 py-8">
+          <div className="space-y-8">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-40" />
+              </div>
+              <Skeleton className="h-10 w-24 rounded-full" />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              <div className="lg:col-span-8 space-y-8">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Card key={i}>
+                      <CardContent className="p-4 space-y-2">
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-7 w-12" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <div className="space-y-4">
+                  <Skeleton className="h-5 w-40" />
+                  <Card>
+                    <CardContent className="p-6 grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <Skeleton key={i} className="h-24 rounded-lg" />
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="space-y-4">
+                  <Skeleton className="h-5 w-36" />
+                  <Card>
+                    <CardContent className="p-6 space-y-3">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-16 rounded-lg" />
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+              <div className="lg:col-span-4">
+                <Card className="h-[420px]">
+                  <CardHeader>
+                    <Skeleton className="h-5 w-32" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-full w-full rounded-lg" />
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }

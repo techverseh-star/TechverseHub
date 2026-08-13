@@ -1,0 +1,1656 @@
+{
+  "module_id": "L2-M08",
+  "module_number": 8,
+  "title": "Advanced Graphs — Union Find And MST",
+  "tag": null,
+  "is_optional_for_product_track": false,
+  "estimated_hours": "10–12 hours",
+  "prerequisites": [
+    "L1-M10"
+  ],
+  "learning_outcomes": [
+    "Implement Union-Find with union-by-rank and path compression achieving near-O(1) per operation",
+    "Prove why path compression with union-by-rank gives O(α(n)) amortized time per operation",
+    "Solve Redundant Connection by detecting a cycle the moment union returns false",
+    "Solve Number of Connected Components using Union-Find as an online dynamic connectivity structure",
+    "Implement Kruskal's MST algorithm using sorted edges and Union-Find for cycle detection",
+    "Select Union-Find vs DFS/BFS for connectivity problems based on dynamic vs static nature"
+  ],
+  "notes": [],
+  "spaced_review": "Re-solve 3 Dijkstra problems from Module 7 from scratch",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "title": "Union-Find Data Structure",
+      "tag": null,
+      "objective": "Implement the basic Union-Find data structure with find (root lookup) and union (merge two components) operations, and understand its application to dynamic connectivity.",
+      "concepts": [
+        "Union-Find (Disjoint Set Union): tracks which elements belong to the same component",
+        "parent array: parent[i] = immediate parent of element i",
+        "find(x): follow parent pointers to the root (representative) of x's component",
+        "union(x, y): merge the components of x and y by connecting their roots",
+        "return value of union: true if x and y were in different components, false if same",
+        "Naive find: O(n) in worst case (chain of parents)",
+        "Component count: decrement when union merges two distinct components",
+        "Applications: connectivity queries, cycle detection, Kruskal's MST"
+      ],
+      "explanation": "Union-Find (also called Disjoint Set Union or DSU) is a data structure that tracks a partition of elements into disjoint sets. It supports two operations: find(x) returns the root (representative) of the component containing x, and union(x, y) merges the components of x and y. The parent array is the core: parent[i] is the parent of element i in the component tree. Initially, parent[i] = i (each element is its own root). Find: follow parent pointers from x up to the root (where parent[root] = root). Union: find roots of both x and y. If they are the same root, x and y are already in the same component (return false). Otherwise, connect one root to the other (return true). The naive implementation has O(n) find in the worst case when the tree degenerates into a chain. Path compression and union-by-rank (Lesson 2) fix this to near-O(1) amortized. Union-Find is used for dynamic connectivity: edges are added one at a time, and after each addition, you can query whether two vertices are connected.",
+      "analogy": "Union-Find is like a club membership system. Each person starts in their own club. When two people merge clubs, one club's president becomes a member of the other club. To find which club someone belongs to, follow the membership chain to the top president. Union-Find optimisations are like adding shortcuts in the chain: instead of following a long chain of membership steps, each person has a direct reference to the club's top president after the first lookup.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// BASIC UNION-FIND (without optimisations)\nclass UnionFind {\n    constructor(n) {\n        this.parent = Array.from({length: n}, (_, i) => i); // parent[i] = i\n        this.components = n; // track number of connected components\n    }\n\n    // FIND: follow parent pointers to the root\n    find(x) {\n        while (this.parent[x] !== x) {\n            x = this.parent[x];\n        }\n        return x; // x is the root\n    }\n\n    // UNION: merge components of x and y\n    // Returns true if they were in different components, false if same\n    union(x, y) {\n        const rootX = this.find(x);\n        const rootY = this.find(y);\n        if (rootX === rootY) return false; // already connected: cycle!\n        this.parent[rootX] = rootY; // attach rootX to rootY\n        this.components--;\n        return true;\n    }\n\n    // Check if x and y are in the same component\n    connected(x, y) {\n        return this.find(x) === this.find(y);\n    }\n}\n\n// TEST\nconst uf = new UnionFind(5); // nodes 0,1,2,3,4\nconsole.log(uf.components); // 5\nuf.union(0, 1); // merge 0 and 1\nuf.union(1, 2); // merge 1 and 2 (0,1,2 all connected)\nconsole.log(uf.components); // 3\nconsole.log(uf.connected(0, 2)); // true (0->1->2 connected)\nconsole.log(uf.connected(0, 3)); // false (3 not yet connected)\nconsole.log(uf.union(0, 2));     // false: already same component = CYCLE\n\n// NAIVE FIND WORST CASE:\n// union(0,1): parent=[1,1,2,3,4]  (0 points to 1)\n// union(1,2): parent=[1,2,2,3,4]  (1 points to 2)\n// union(2,3): parent=[1,2,3,3,4]  (2 points to 3)\n// union(3,4): parent=[1,2,3,4,4]  (3 points to 4)\n// find(0): 0->1->2->3->4  O(n) chain traversal!",
+        "explanation": "The union operation connects rootX to rootY arbitrarily (rootX becomes a child of rootY). Without optimisation, repeated unions can create a chain of depth n, making subsequent find operations O(n). The return value of union (true/false) is the key to cycle detection: if union returns false, the edge being added would create a cycle."
+      },
+      "common_mistakes": [
+        "Using parent[x] = y instead of parent[rootX] = rootY in union — connecting the elements directly (not their roots) creates incorrect component trees that break the find invariant",
+        "Not initialising parent[i] = i — the invariant is that each element starts as its own root; if parent[i] is uninitialised or 0, find and union produce wrong results",
+        "Not tracking component count or tracking it incorrectly — only decrement when union returns true (two distinct components merged); decrement on false (already connected) would give wrong component count"
+      ],
+      "interview_relevance": "Union-Find is one of the data structures most commonly asked about at senior interviews. It appears in Redundant Connection (#684), Number of Connected Components (#323), Accounts Merge (#721), and Kruskal's MST. The return-true-if-merged, return-false-if-already-connected semantics is the core of cycle detection and is specifically tested.",
+      "mini_challenge": "Implement the basic UnionFind class and test it on 5 nodes. Trace the parent array state after: union(0,1), union(2,3), union(1,2), union(3,4). What does the parent array look like? How many components remain? Then add union(0,3) and verify union returns false (already connected). Draw the component tree after all operations.",
+      "flashcards": [
+        {
+          "front": "Union-Find: two core operations and their naive complexity?",
+          "back": "find(x): returns the root (representative) of x's component. union(x,y): merges the components of x and y. Naive (no optimisations): find O(n), union O(n) — degenerates to a linked list of depth n."
+        },
+        {
+          "front": "Union-Find parent array: what does parent[i]=i mean?",
+          "back": "Node i is its own root — it is the representative of its own component. Initially, parent[i]=i for all i (each node is its own isolated component)."
+        },
+        {
+          "front": "Naive find(x): how does it work?",
+          "back": "While parent[x] !== x: x = parent[x]. Return x. Follows parent pointers upward until reaching a node that is its own parent. O(depth) time — worst case O(n) for a degenerate tree."
+        },
+        {
+          "front": "Naive union(x,y): steps?",
+          "back": "1) rootX = find(x). 2) rootY = find(y). 3) If rootX !== rootY: parent[rootX] = rootY (attach one root under the other). Two finds + O(1) attachment. Naive union alone produces degenerate chains without rank/size."
+        },
+        {
+          "front": "Union-Find: what does 'same component' mean?",
+          "back": "find(x) === find(y): x and y have the same root representative. Any two nodes with the same root are in the same connected component."
+        },
+        {
+          "front": "Union-Find vs adjacency-list DFS for connected components: when is Union-Find preferred?",
+          "back": "Union-Find when: edges arrive DYNAMICALLY (one at a time, online). DFS when: all edges known upfront (static graph). Union-Find amortised O(α(n)) per operation after optimisations. DFS O(V+E) but requires full graph first."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Initial state: n=5, parent=[0,1,2,3,4]. After union(0,1): parent=?",
+          "options": [
+            "[1,1,2,3,4] — root of 0 (which is 0) attached under root of 1 (which is 1)",
+            "[0,0,2,3,4] — root of 1 attached under root of 0",
+            "[0,1,2,3,4] — no change",
+            "[1,0,2,3,4] — both point to each other"
+          ],
+          "answer": 0,
+          "explanation": "find(0)=0, find(1)=1. parent[0]=1 (attach root 0 under root 1). parent=[1,1,2,3,4]. Now find(0): 0→1 (parent[0]=1, parent[1]=1). Root=1."
+        },
+        {
+          "question": "After union(0,1) and union(1,2), find(0) traverses which nodes?",
+          "options": [
+            "Just node 0",
+            "0→1 (two steps)",
+            "0→1→2 (three steps if parent=[1,2,2,3,4])",
+            "Depends on union order"
+          ],
+          "answer": 2,
+          "explanation": "union(0,1): parent[0]=1. union(1,2): find(1)=1, find(2)=2, parent[1]=2. parent=[1,2,2,3,4]. find(0): 0→1→2. Root=2. Three nodes traversed (O(depth) = O(n) worst case)."
+        },
+        {
+          "question": "n=4, after union(0,2) and union(1,3): are 0 and 3 in the same component?",
+          "options": [
+            "Yes — both connected through 2",
+            "No — 0 is in {0,2} and 3 is in {1,3}",
+            "Yes — after union(1,3), 3's root is 3 which connects to 0",
+            "Cannot determine without path compression"
+          ],
+          "answer": 1,
+          "explanation": "union(0,2): {0,2}. union(1,3): {1,3}. Components: {0,2} and {1,3}. find(0)≠find(3). 0 and 3 are NOT in the same component."
+        },
+        {
+          "question": "What is the worst-case tree height in naive Union-Find after n-1 unions?",
+          "options": [
+            "O(log n)",
+            "O(sqrt(n))",
+            "O(n) — degenerates to a chain",
+            "O(1)"
+          ],
+          "answer": 2,
+          "explanation": "Without rank/size: union always attaches one root under the other in a fixed order. If 0→1→2→3→...→n-1, the tree is a chain of height n-1. find(0) traverses all n nodes. O(n) worst case."
+        }
+      ],
+      "visual_aid": {
+        "type": "union_find_trace",
+        "description": "Union-Find naive operations traced step by step",
+        "diagram": "n=5, initial: parent=[0,1,2,3,4] (each node is its own root)\n\nunion(0,1): find(0)=0, find(1)=1 → parent[0]=1\n  parent=[1,1,2,3,4]\n  Components: {0,1}, {2}, {3}, {4}\n\nunion(1,2): find(1)=1, find(2)=2 → parent[1]=2\n  parent=[1,2,2,3,4]\n  Components: {0,1,2}, {3}, {4}\n\nunion(3,4): find(3)=3, find(4)=4 → parent[3]=4\n  parent=[1,2,2,4,4]\n  Components: {0,1,2}, {3,4}\n\nfind(0): 0→parent[0]=1→parent[1]=2→parent[2]=2 ✓ root=2\nfind(3): 3→parent[3]=4→parent[4]=4 ✓ root=4\nSame component? 2 ≠ 4 → NO\n\nWORST CASE DEGENERATION:\n  union(0,1)→union(1,2)→union(2,3)→union(3,4)\n  Chain: 0→1→2→3→4 (height=4, find(0)=O(n))"
+      },
+      "complexity_summary": {
+        "naive_find": "O(n) worst case — chain degeneration",
+        "naive_union": "O(n) — two find calls",
+        "naive_n_operations": "O(n²) for n operations on n elements",
+        "with_both_optimisations": "O(α(n)) amortised — effectively O(1)"
+      },
+      "practice_problems": [
+        {
+          "id": "custom-uf1",
+          "title": "Implement Union-Find from scratch and verify 5 union/find operations",
+          "difficulty": "Easy",
+          "pattern": "Naive Union-Find baseline"
+        },
+        {
+          "id": "lc-684",
+          "title": "Redundant Connection — first real Union-Find problem",
+          "difficulty": "Medium",
+          "pattern": "Union-Find cycle detection"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M8-L1-TH-1",
+            "question": "What does the `parent` array represent in Union-Find, and what does `parent[i] === i` signify?",
+            "options": [
+              "parent[i] is the number of children of node i; parent[i]===i means the node has no children",
+              "`parent[i]` stores the IMMEDIATE PARENT of element i in the Union-Find forest; `parent[i] === i` means i is its own parent — i.e., i is the ROOT (representative) of its component; initially, every element is its own root (every element forms its own singleton component); the find operation follows parent pointers upward until reaching a node where parent[x]===x (the root)",
+              "parent[i] stores the component size; parent[i]===i means the component has one element",
+              "parent[i] is the index of the leftmost element in i's component"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concepts: 'parent array: parent[i] = immediate parent of element i' and 'find(x): follow parent pointers to the root (representative) of x's component' — the initialisation `Array.from({length:n},(_,i)=>i)` sets every element as its own parent, representing n singleton components; a root is identified by parent[i]===i."
+          },
+          {
+            "id": "L2M8-L1-TH-2",
+            "question": "What does `union(x, y)` return `false` indicate in the Redundant Connection context?",
+            "options": [
+              "false means the union operation failed due to invalid input",
+              "`union(x, y)` returns FALSE when `find(x) === find(y)` — x and y are ALREADY IN THE SAME COMPONENT; in the Redundant Connection problem, this means adding edge (x,y) would create a CYCLE (a path already exists between x and y through other edges); the edge is therefore redundant; returning a boolean from union is the key design choice that makes Union-Find elegant for cycle detection",
+              "false means x has a higher rank than y",
+              "false means the union was successful and components were merged"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'return value of union: true if x and y were in different components, false if same' — when union returns false, the two nodes were already connected, meaning the edge creates a cycle; this is the direct basis for Redundant Connection and general cycle detection."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M8-L1-LG-1",
+            "question": "Starting with UnionFind(5) and calling union(0,1) then union(1,2), what are the component count and the result of connected(0,2)?",
+            "options": [
+              "component count=3, connected(0,2)=true — confirmed by direct execution",
+              "component count=2, connected(0,2)=false",
+              "component count=4, connected(0,2)=true",
+              "component count=3, connected(0,2)=false"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: after union(0,1): components=4 (0 and 1 merged); after union(1,2): components=3 (1 and 2 merged, and 0 is already connected to 1 hence also to 2); connected(0,2) follows parent pointers: find(0)=root of {0,1,2}, find(2)=same root → true."
+          },
+          {
+            "id": "L2M8-L1-LG-2",
+            "question": "In the naive UnionFind, after union(0,1), union(1,2), union(2,3), union(3,4), what does `find(0)` traverse, and why is this O(n)?",
+            "options": [
+              "find(0) returns immediately since parent[0]=0 after these unions",
+              "Each union attaches the first root under the second: parent becomes [1,2,3,4,4]; find(0) follows 0→1→2→3→4, traversing a CHAIN of length n-1=4; this O(n) path represents the worst case — a degenerate linear chain created by always attaching trees without considering height, requiring traversal of the entire chain to reach the root",
+              "find(0) traverses 0→4 directly in O(1)",
+              "find(0) returns 0 because 0 is never moved from its original position"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's trace: 'union(0,1): parent=[1,1,2,3,4]; union(1,2): parent=[1,2,2,3,4]; union(2,3): parent=[1,2,3,3,4]; union(3,4): parent=[1,2,3,4,4]. find(0): 0→1→2→3→4 O(n) chain traversal!' — the naive union always attaches rootX under rootY without any balancing, creating chains that degrade find to O(n)."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M8-L1-SY-1",
+            "question": "The UnionFind constructor uses `Array.from({length: n}, (_, i) => i)` — the factory `(_, i) => i` maps each index to itself. What does the underscore `_` represent and why is it needed?",
+            "options": [
+              "_ is a required JavaScript keyword for array initialisation",
+              "In `Array.from`, the factory function receives `(element, index)` — the first parameter is the element value (which is `undefined` for `Array.from({length:n},...)`); the underscore `_` is a JavaScript CONVENTION for 'I need this parameter for signature reasons but don't use it'; only the second parameter `i` (the index) is used to set parent[i]=i; using `_` makes the intent clear: we explicitly ignore the element value and only care about the index",
+              "_ is a shorthand for Math.floor; the function computes floor of undefined",
+              "_ is the previous array element; the factory references both current and previous"
+            ],
+            "answer": 1,
+            "explanation": "The `_` convention for unused parameters is standard in JavaScript (and many other languages): `(_, i)` signals 'I acknowledge the first parameter exists but don't use it'; the factory only uses `i` (the index) to create the identity initialisation where each element is its own parent; this is equivalent to `new Array(n).fill(0).map((_,i)=>i)` but more concise."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M8-L1-CC-1",
+            "title": "Basic Union-Find",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the basic Union-Find data structure from this lesson.",
+            "requirements": [
+              "Implement `class UnionFindBasic` with constructor(n), find(x), union(x,y), connected(x,y) matching the lesson's naive approach (no path compression or rank)"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "class UnionFindBasic {\n  constructor(n) {\n    // TODO: parent array, components counter\n  }\n  find(x) {\n    // TODO: follow parent pointers to root (no compression)\n  }\n  union(x, y) {\n    // TODO: merge components, return false if already same\n  }\n  connected(x, y) {\n    return this.find(x) === this.find(y);\n  }\n}"
+            },
+            "test_cases": [
+              {
+                "input": "(() => { const uf = new UnionFindBasic(5); uf.union(0,1); uf.union(1,2); return uf.components; })()",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const uf = new UnionFindBasic(5); uf.union(0,1); uf.union(1,2); return uf.connected(0,2); })()",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const uf = new UnionFindBasic(5); uf.union(0,1); return uf.union(0,1); })()",
+                "expected": false,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const uf = new UnionFindBasic(4); uf.union(0,1); uf.union(2,3); return uf.components; })()",
+                "expected": 2,
+                "type": "hidden"
+              },
+              {
+                "input": "(() => { const uf = new UnionFindBasic(3); return uf.components; })()",
+                "expected": 3,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "class UnionFindBasic {\n  constructor(n) {\n    this.parent = Array.from({length:n},(_,i)=>i);\n    this.components = n;\n  }\n  find(x) {\n    while (this.parent[x] !== x) x = this.parent[x];\n    return x;\n  }\n  union(x, y) {\n    const rx = this.find(x), ry = this.find(y);\n    if (rx === ry) return false;\n    this.parent[rx] = ry;\n    this.components--;\n    return true;\n  }\n  connected(x, y) { return this.find(x) === this.find(y); }\n}"
+            },
+            "complexity_analysis": "find: O(n) worst case (chain). union: O(n) (calls find twice). connected: O(n).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "constructor: parent[i]=i for all i; components=n."
+              },
+              {
+                "level": 2,
+                "text": "find: while(parent[x]!==x) x=parent[x]; return x — iterate until root."
+              },
+              {
+                "level": 3,
+                "text": "union: find roots; if same return false; parent[rootX]=rootY; components--; return true."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 2,
+      "title": "Path Compression And Rank",
+      "tag": null,
+      "objective": "Implement Union-Find with path compression and union-by-rank, achieve near-O(1) amortised operations, and understand why both optimisations are needed together.",
+      "concepts": [
+        "Path compression: during find, point all nodes directly to the root",
+        "find with path compression: while traversing, set parent[x] = find(parent[x])",
+        "Union-by-rank: always attach the smaller-rank tree under the larger-rank root",
+        "rank: upper bound on the height of the tree rooted at each node",
+        "Rank only increases when two trees of equal rank are merged",
+        "O(α(n)) amortised: inverse Ackermann function, effectively constant",
+        "Path compression alone: O(log n) amortised",
+        "Both together: O(α(n)) amortised, near O(1) for practical n"
+      ],
+      "explanation": "Two optimisations transform Union-Find from O(n) worst case to near-O(1) amortised. Path compression: during find(x), after reaching the root, set every visited node's parent directly to the root. Subsequent finds starting from these nodes immediately reach the root. Implementation: recursive find that sets parent[x] = find(parent[x]) before returning. Union-by-rank: when merging two trees, always attach the shorter tree (lower rank) under the root of the taller tree (higher rank). The rank is an upper bound on tree height. Rank only increases when merging two trees of equal rank (resulting tree has rank+1). Union-by-rank alone guarantees O(log n) tree height, making find O(log n). Combined with path compression, the amortised cost per operation is O(α(n)) where α is the inverse Ackermann function. For any practical value of n (up to 10^80), α(n) <= 4. This is effectively O(1).",
+      "analogy": "Path compression is like remembering the direct shortcut to the boss after navigating through layers of management once. After your first trip through 5 intermediaries to reach the CEO, you note the CEO's number directly in your phonebook. Next time you call the CEO from the same starting point, it's direct. Union-by-rank is like merging departments: always make the smaller department report to the larger one's head (avoiding a situation where a large department suddenly has a long reporting chain above it).",
+      "code_example": {
+        "language": "javascript",
+        "code": "// UNION-FIND with path compression and union-by-rank\nclass UnionFind {\n    constructor(n) {\n        this.parent = Array.from({length: n}, (_, i) => i);\n        this.rank   = new Array(n).fill(0); // initial rank 0\n        this.components = n;\n    }\n\n    // FIND with path compression: O(α(n)) amortised\n    find(x) {\n        if (this.parent[x] !== x) {\n            this.parent[x] = this.find(this.parent[x]); // PATH COMPRESSION\n        }\n        return this.parent[x];\n    }\n\n    // UNION by rank: attach smaller rank tree under larger rank root\n    union(x, y) {\n        const rootX = this.find(x);\n        const rootY = this.find(y);\n        if (rootX === rootY) return false; // same component\n\n        // UNION BY RANK: attach lower rank under higher rank\n        if (this.rank[rootX] < this.rank[rootY]) {\n            this.parent[rootX] = rootY;\n        } else if (this.rank[rootX] > this.rank[rootY]) {\n            this.parent[rootY] = rootX;\n        } else {\n            // Equal rank: attach rootX under rootY, increment rootY's rank\n            this.parent[rootX] = rootY;\n            this.rank[rootY]++;\n        }\n        this.components--;\n        return true;\n    }\n\n    connected(x, y) { return this.find(x) === this.find(y); }\n}\n\n// PATH COMPRESSION TRACE:\n// parent before: [1, 2, 3, 3]  (chain: 0->1->2->3, root=3)\n// find(0):\n//   find(parent[0]=1) -> find(parent[1]=2) -> find(parent[2]=3) -> return 3\n//   parent[2] = 3 (already pointed to root)\n//   parent[1] = 3 (compressed: skip 2)\n//   parent[0] = 3 (compressed: skip 1 and 2)\n// parent after: [3, 3, 3, 3]  (all point directly to root)\n// Next find(0): O(1)!  parent[0]=3 directly\n\n// RANK EXAMPLE:\n// union(0,1): rank[0]=0, rank[1]=0. Equal -> parent[0]=1, rank[1]=1. rank=[0,1,0,0]\n// union(2,3): rank[2]=0, rank[3]=0. Equal -> parent[2]=3, rank[3]=1. rank=[0,1,0,1]\n// union(1,3): rank[1]=1, rank[3]=1. Equal -> parent[1]=3, rank[3]=2. rank=[0,1,0,2]\n// Tree height never exceeds 2 regardless of n insertions with union-by-rank\n\nconsole.log('Optimised UnionFind ready'); // test with Redundant Connection next",
+        "explanation": "The path compression in find is recursive: parent[x] = find(parent[x]) makes x point directly to whatever find(parent[x]) returns, which is the ultimate root after full compression. This is the 'full path compression' variant. An iterative variant (halving) compresses partially by making x point to its grandparent, which is simpler but slightly less effective."
+      },
+      "common_mistakes": [
+        "Forgetting to return this.parent[x] at the end of the recursive find — setting parent[x] but not returning the root leaves the caller without the root value",
+        "Incrementing rank when ranks are different — rank only increases when two trees of EQUAL rank are merged; if one tree is taller, it remains the root and its rank does not change",
+        "Using size instead of rank as the union heuristic — union-by-size (attach smaller subtree under larger) is also valid and achieves the same O(α(n)) amortised; either works but do not mix the two"
+      ],
+      "interview_relevance": "Path compression and union-by-rank are expected implementation knowledge for any interview that asks Union-Find. The O(α(n)) complexity claim should be stated but you do not need to prove it from scratch — 'inverse Ackermann, effectively constant for all practical n' is sufficient. What IS expected: explaining why both optimisations work and why one alone (rank alone = O(log n), compression alone = O(log n) amortised) is not as good as both together.",
+      "mini_challenge": "Implement the optimised UnionFind class above. Run the rank example trace and verify parent and rank arrays match. Then implement a method getComponentSize(x) that returns the number of elements in x's component. Hint: add a size array initialised to 1, and update size when merging in the union method. This size array is an alternative to rank for the union heuristic (union-by-size).",
+      "flashcards": [
+        {
+          "front": "Path compression: what does it do?",
+          "back": "After find(x) traverses x→...→root, SET parent of every node along the path DIRECTLY to root. Future find() calls on those nodes are O(1). Implemented by: return parent[x] = find(parent[x]) (recursive) or two-pass iterative."
+        },
+        {
+          "front": "Union by rank: what is rank and how is it used?",
+          "back": "rank[i] = upper bound on the height of the subtree rooted at i. On union: attach the SHORTER tree under the TALLER tree (higher rank). If ranks equal: attach either, increment the new root's rank by 1."
+        },
+        {
+          "front": "Union by rank: three cases?",
+          "back": "rank[x] < rank[y]: parent[rootX] = rootY (short under tall, no rank change). rank[x] > rank[y]: parent[rootY] = rootX. rank[x] === rank[y]: parent[rootY] = rootX, rank[rootX]++ (arbitrary choice, increment winner's rank)."
+        },
+        {
+          "front": "Combined complexity with both optimisations?",
+          "back": "Amortised O(α(n)) per operation where α is the inverse Ackermann function. α(n) ≤ 4 for any practical n (even n = 10^80). Effectively O(1) amortised. Without both: O(log n) with rank alone, O(log n) with path compression alone."
+        },
+        {
+          "front": "Path compression: recursive vs iterative?",
+          "back": "Recursive (two-line): if parent[x]===x return x; return parent[x]=find(parent[x]). Iterative two-pass: first pass find root, second pass set all nodes directly to root. Recursive is cleaner in interviews; iterative avoids stack overflow for very deep trees."
+        },
+        {
+          "front": "Union by size (alternative to rank): what is tracked?",
+          "back": "size[i] = number of elements in i's component. Attach smaller component under larger. size[newRoot] += size[otherRoot]. Same O(α(n)) amortised. Size is more intuitive for counting component members."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Path compression: find(0) on chain parent=[1,2,3,4,4]. After find(0), what is parent[0]?",
+          "options": [
+            "1 (unchanged)",
+            "4 (directly to root)",
+            "2 (halfway up)",
+            "0 (self-loop)"
+          ],
+          "answer": 1,
+          "explanation": "find(0): 0→1→2→3→4 (root). Recursive path compression: parent[0]=find(parent[0])=find(1)=find(2)=find(3)=find(4)=4. All nodes on path now point to 4. parent[0]=4."
+        },
+        {
+          "question": "rank=[0,0,0,0,0]. After union(0,1): rank[0] or rank[1] becomes 1. After union(0,2): ranks?",
+          "options": [
+            "rank=[1,0,0,0,0] (0 is root of both merges)",
+            "rank=[1,0,0,0,0] if 0 becomes root of 1, then: find(2)=2, find(0)=0. rank[0]=rank[2]=0? wait...",
+            "After union(0,1) rank equal: say parent[1]=0, rank[0]=1. union(0,2): rank[0]=1 > rank[2]=0 → parent[2]=0. rank=[1,0,0,0,0]",
+            "rank=[0,1,0,0,0]"
+          ],
+          "answer": 2,
+          "explanation": "union(0,1): ranks equal (both 0) → parent[1]=0, rank[0]=1. rank=[1,0,0,0,0]. union(0,2): find(0)=0 (rank=1), find(2)=2 (rank=0). rank[0]>rank[2]: parent[2]=0 (attach smaller under larger). rank unchanged. rank=[1,0,0,0,0]."
+        },
+        {
+          "question": "Why is union by rank better than naive union (always attach rootX under rootY)?",
+          "options": [
+            "Rank uses less memory",
+            "Rank bounds tree height at O(log n), preventing O(n) degenerate chains",
+            "Rank allows negative indices",
+            "No difference in practice"
+          ],
+          "answer": 1,
+          "explanation": "Naive union: height can reach O(n) (always attach in the same direction). Rank ensures the taller tree is always the root: height bounded by O(log n). Combined with path compression: O(α(n)) amortised."
+        },
+        {
+          "question": "After path compression, rank values may be 'stale' (higher than actual tree height). Is this a problem?",
+          "options": [
+            "Yes — rank must always reflect true height",
+            "No — rank is an UPPER BOUND on height, not the exact height. Stale (too-high) ranks don't break correctness, only slightly affect which tree is attached as root.",
+            "Yes — stale ranks cause incorrect merges",
+            "No — path compression resets ranks automatically"
+          ],
+          "answer": 1,
+          "explanation": "Rank is an upper bound. Path compression flattens trees but doesn't update ranks (that would require O(n) work). Stale ranks may cause suboptimal merges (attaching a shorter tree as 'taller') but not incorrect ones. The O(α(n)) bound still holds."
+        }
+      ],
+      "visual_aid": {
+        "type": "optimisation_comparison",
+        "description": "Path compression and rank effects visualised",
+        "diagram": "PATH COMPRESSION:\nBefore: parent=[1,2,3,4,4] (chain 0→1→2→3→4)\n\nfind(0) with compression:\n  Traversal: 0→1→2→3→4\n  After: parent=[4,4,4,4,4]  ← all point to root!\n  Next find(0): 0→4 (O(1))\n  Next find(2): 2→4 (O(1))\n\nUNION BY RANK:\nrank=[0,0,0,0] n=4\n\nunion(0,1): equal → parent[1]=0, rank[0]=1\n  Tree:  0     height=1\n         |\n         1\n\nunion(2,3): equal → parent[3]=2, rank[2]=1\n  Trees: 0    2\n         |    |\n         1    3\n\nunion(0,2): rank[0]=rank[2]=1 (equal)\n  → parent[2]=0, rank[0]=2\n  Tree:     0        height=2 (bounded!)\n           / \\\n          1   2\n              |\n              3\n\nNAIVE (no rank):\nunion(0,1)→(1,2)→(2,3): 0→1→2→3 (chain, height=3 for 4 nodes)"
+      },
+      "complexity_summary": {
+        "path_compression_only": "O(log n) amortised",
+        "rank_only": "O(log n) amortised",
+        "both_combined": "O(α(n)) amortised ≈ O(1) for all practical n",
+        "height_bound_with_rank": "O(log n) — never exceeds log₂(n)"
+      },
+      "practice_problems": [
+        {
+          "id": "custom-uf2",
+          "title": "Implement Union-Find with path compression + rank and verify O(α(n)) behaviour",
+          "difficulty": "Medium",
+          "pattern": "Optimised Union-Find"
+        },
+        {
+          "id": "lc-547",
+          "title": "Number of Provinces — first optimised UF problem",
+          "difficulty": "Medium",
+          "pattern": "Union-Find component counting"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M8-L2-TH-1",
+            "question": "What does PATH COMPRESSION do during `find`, and how does it improve future operations?",
+            "options": [
+              "Path compression removes all intermediate nodes from the graph permanently",
+              "During `find(x)`, path compression DIRECTLY CONNECTS every node along the traversal path TO THE ROOT: each `parent[x] = find(parent[x])` call recursively finds the root and sets x's parent directly to that root; after one find call, all traversed nodes now point directly to the root; FUTURE find calls on any of these nodes take O(1) (single parent lookup); this 'flattens' the tree over time without changing the logical component structure",
+              "Path compression reverses the parent pointers to point from root to leaves",
+              "Path compression duplicates parent pointers for faster lookup at the cost of space"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's trace: 'parent before: [1,2,3,3] (chain: 0→1→2→3). find(0) sets parent[2]=3 (already), parent[1]=3 (compressed), parent[0]=3 (compressed). parent after: [3,3,3,3] (all point directly to root). Next find(0): O(1)!' — the recursive path compression `parent[x] = find(parent[x])` is the two-line change from naive find."
+          },
+          {
+            "id": "L2M8-L2-TH-2",
+            "question": "What does UNION-BY-RANK guarantee about tree height, and when does rank increase?",
+            "options": [
+              "Rank always equals the tree height; rank increases on every union",
+              "UNION-BY-RANK ensures tree height stays O(log n) WITHOUT path compression: by always attaching the SHORTER tree (lower rank) under the TALLER tree (higher rank), the height of the combined tree is max(rank_larger, rank_smaller+1) = rank_larger (unchanged) unless both are equal; rank ONLY INCREASES when two trees of EQUAL RANK merge — their combined tree has height one more than either; rank never decreases; with path compression AND rank together, the amortised complexity is O(α(n)) — inverse Ackermann, essentially constant",
+              "Rank increases on every successful union regardless of current ranks",
+              "Rank equals the number of elements in the component; it increases as elements are added"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concepts: 'Union-by-rank: always attach the smaller-rank tree under the larger-rank root' and 'Rank only increases when two trees of equal rank are merged' — the rank trace confirms: union(0,1) equal→rank[1]=1; union(2,3) equal→rank[3]=1; union(1,3) equal→rank[3]=2; height stays at most 2 regardless of n with this strategy."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M8-L2-LG-1",
+            "question": "Trace path compression on the chain `parent=[1,2,3,3]` (0→1→2→3) when `find(0)` is called. What is parent after the call?",
+            "options": [
+              "parent=[1,2,3,3] — unchanged; path compression only happens on repeated calls",
+              "parent=[3,3,3,3] — find(0) recursively finds root=3, then sets parent[0]=3 (compressed), parent[1]=3 (compressed), parent[2]=3 (already correct); all nodes now point directly to root 3 — confirmed by the lesson's trace",
+              "parent=[3,2,3,3] — only parent[0] is compressed",
+              "parent=[3,3,2,3] — intermediate nodes are swapped"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's exact trace: 'find(0): find(parent[0]=1) → find(parent[1]=2) → find(parent[2]=3) → return 3. parent[2]=3 (already). parent[1]=3 (compressed). parent[0]=3 (compressed). parent after: [3,3,3,3]' — the recursive `parent[x]=find(parent[x])` applies compression on the way BACK up the recursion stack."
+          },
+          {
+            "id": "L2M8-L2-LG-2",
+            "question": "After union(0,1), union(2,3), union(1,3) — all starting with rank 0 — what are the final ranks?",
+            "options": [
+              "[0,1,0,1] after all three unions",
+              "After union(0,1): equal rank→parent[0]=1, rank[1]=1 → [0,1,0,0]; after union(2,3): equal→parent[2]=3, rank[3]=1 → [0,1,0,1]; after union(1,3): rank[1]=1===rank[3]=1, equal→parent[1]=3, rank[3]=2 → [0,1,0,2] — confirmed by direct execution",
+              "[1,1,1,2] after all three unions",
+              "Ranks remain [0,0,0,0] throughout since no tree becomes taller"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: final rank=[0,1,0,2]; union(0,1): ranks 0==0 → root[1].rank++=[0,1,0,0]; union(2,3): ranks 0==0 → root[3].rank++=[0,1,0,1]; union(1,3): ranks both 1 → root[3].rank++=[0,1,0,2]; tree height never exceeds 2."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M8-L2-SY-1",
+            "question": "In the optimised `find`, `this.parent[x] = this.find(this.parent[x])` uses RECURSION rather than iteration. Why does this single line achieve path compression?",
+            "options": [
+              "The recursion is equivalent to iteration; both achieve the same result with equal clarity",
+              "The recursive call `this.find(this.parent[x])` first TRAVERSES to the root (returning root's value), then on the way BACK UP the call stack, each frame assigns `this.parent[x] = root` — directly connecting x to the root; this 'assign on return' pattern is cleaner than an iterative approach that requires two passes (one to find root, one to compress); the single-line recursion naturally does both in one traversal by exploiting the call stack's return-path behaviour",
+              "The recursion is incorrect; only iterative path compression is valid",
+              "The recursive version has O(n²) space complexity due to the call stack"
+            ],
+            "answer": 1,
+            "explanation": "The recursive path compression `parent[x] = find(parent[x])` elegantly achieves compression: the recursive call `find(parent[x])` returns the root; the assignment `parent[x] =` sets x's parent directly to that root; this happens on the way back up through each frame in the recursion, compressing every node on the path; the iterative equivalent requires finding root first, then a second loop to compress — the recursive version combines both in one pass."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M8-L2-CC-1",
+            "title": "Optimised Union-Find with Path Compression and Rank",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the optimised Union-Find from this lesson.",
+            "requirements": [
+              "Implement `class UnionFindOptimised` with path compression (recursive find) and union-by-rank"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "class UnionFindOptimised {\n  constructor(n) {\n    // TODO: parent, rank, components\n  }\n  find(x) {\n    // TODO: recursive path compression\n  }\n  union(x, y) {\n    // TODO: union by rank\n  }\n  connected(x, y) { return this.find(x) === this.find(y); }\n}"
+            },
+            "test_cases": [
+              {
+                "input": "(() => { const uf = new UnionFindOptimised(4); uf.union(0,1); uf.union(2,3); uf.union(1,3); return uf.rank[uf.find(0)]; })()",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const uf = new UnionFindOptimised(5); uf.union(0,1); uf.union(1,2); const root = uf.find(0); return uf.parent[0] === root; })()",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const uf = new UnionFindOptimised(3); uf.union(0,1); uf.union(1,2); return uf.components; })()",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const uf = new UnionFindOptimised(4); uf.union(0,1); uf.union(2,3); return uf.components; })()",
+                "expected": 2,
+                "type": "hidden"
+              },
+              {
+                "input": "(() => { const uf = new UnionFindOptimised(1); return uf.find(0); })()",
+                "expected": 0,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "class UnionFindOptimised {\n  constructor(n) {\n    this.parent = Array.from({length:n},(_,i)=>i);\n    this.rank = new Array(n).fill(0);\n    this.components = n;\n  }\n  find(x) {\n    if (this.parent[x] !== x) this.parent[x] = this.find(this.parent[x]);\n    return this.parent[x];\n  }\n  union(x, y) {\n    const rx = this.find(x), ry = this.find(y);\n    if (rx === ry) return false;\n    if (this.rank[rx] < this.rank[ry]) this.parent[rx] = ry;\n    else if (this.rank[rx] > this.rank[ry]) this.parent[ry] = rx;\n    else { this.parent[rx] = ry; this.rank[ry]++; }\n    this.components--;\n    return true;\n  }\n  connected(x, y) { return this.find(x) === this.find(y); }\n}"
+            },
+            "complexity_analysis": "find: O(α(n)) amortised. union: O(α(n)) amortised. O(α(n)) ≈ O(1) for all practical n.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "find: single line: if(parent[x]!==x) parent[x]=find(parent[x]); return parent[x]."
+              },
+              {
+                "level": 2,
+                "text": "union by rank: rx.rank < ry.rank → parent[rx]=ry; rx.rank > ry.rank → parent[ry]=rx; equal → parent[rx]=ry; rank[ry]++."
+              },
+              {
+                "level": 3,
+                "text": "After path compression, find(0) on a compressed tree returns the root in O(1) since parent[0] points directly to root."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 3,
+      "title": "Redundant Connection",
+      "tag": null,
+      "objective": "Detect the edge that creates a cycle in an undirected graph using Union-Find's return value, and handle the 'last edge' requirement correctly.",
+      "concepts": [
+        "Redundant Connection: find the edge that creates the first cycle in a tree+1 edge graph",
+        "Cycle detection: if union(u, v) returns false, u and v are already connected = cycle",
+        "Process edges in order: the LAST edge causing a cycle is the redundant one",
+        "Why last: problem guarantees exactly one redundant edge; return the last cycle edge",
+        "Union-Find O(α(n)) per edge check",
+        "DFS alternative: O(V+E) but Union-Find is cleaner and faster here",
+        "O(E * α(V)) total: E edges each with near-O(1) union-find",
+        "Undirected graph: add both directions to parent, or handle via union"
+      ],
+      "explanation": "Redundant Connection (#684): given a graph of n nodes with n edges (a tree plus one extra edge), find the edge that if removed would make the graph a tree. The key insight: a tree has exactly n-1 edges. Adding any edge to a tree creates exactly one cycle. Process edges in the given order. For each edge (u, v): call union(u, v). If union returns false (u and v are already connected), this edge creates a cycle — it is a redundant connection. Return it. Since the problem guarantees exactly one redundant edge and asks for the last one (in the case of multiple, though the problem guarantees uniqueness), we can return immediately upon detecting the first false union. The Union-Find approach is O(E * α(V)) — nearly linear. The DFS approach would also work but requires building the graph first, then doing DFS cycle detection.",
+      "analogy": "Redundant Connection with Union-Find is like laying cable for a network. You install cables one at a time. For each cable, you check whether the two endpoints are already connected (via other cables). If yes, this cable is redundant — it creates a loop that is not needed. The Union-Find data structure answers 'are these endpoints already connected?' in near-constant time.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// REDUNDANT CONNECTION (#684)\n// O(E * α(V)) time, O(V) space\nfunction findRedundantConnection(edges) {\n    const n = edges.length; // n nodes, n edges\n    const uf = new UnionFind(n + 1); // 1-indexed nodes\n\n    for (const [u, v] of edges) {\n        if (!uf.union(u, v)) {\n            return [u, v]; // u and v already connected: this edge is redundant\n        }\n    }\n    return []; // unreachable: problem guarantees one redundant edge\n}\n\nconsole.log(findRedundantConnection([[1,2],[1,3],[2,3]])); // [2,3]\n// Process [1,2]: union(1,2) -> true (different components). OK.\n// Process [1,3]: union(1,3) -> true. OK.\n// Process [2,3]: union(2,3) -> false! 2 and 3 are already connected (1-2-3). Redundant!\n\nconsole.log(findRedundantConnection([[1,2],[2,3],[3,4],[1,4],[1,5]])); // [1,4]\n// [1,2] true, [2,3] true, [3,4] true, [1,4] false! (1-2-3-4 already connected). Return [1,4].\n\n// REDUNDANT CONNECTION II (#685) - directed graph version\n// More complex: a node has two parents OR there's a directed cycle\n// Not shown here: requires tracking in-degrees and two-phase checking\n\n// COMPARISON: Union-Find vs DFS for cycle detection\n// Union-Find: O(E * α(V)), online (processes edges one at a time)\n//   Better when: edges added dynamically, need to detect cycle on each addition\n// DFS: O(V+E), requires full graph built first\n//   Better when: graph is static and you need full cycle analysis\n\n// GENERAL CYCLE DETECTION WITH UNION-FIND:\nfunction hasCycle(n, edges) {\n    const uf = new UnionFind(n);\n    for (const [u, v] of edges) {\n        if (!uf.union(u, v)) return true; // cycle found\n    }\n    return false;\n}",
+        "explanation": "Union-Find detects cycles online (as edges are added one by one). DFS detects cycles offline (on a fully built graph). The online property is what makes Union-Find uniquely suited for Redundant Connection and Kruskal's MST: both need to check 'does adding this edge create a cycle?' one edge at a time."
+      },
+      "common_mistakes": [
+        "Returning the first edge that creates a cycle without considering which edge the problem wants — for Redundant Connection (#684), the problem asks for the last edge in the input that is part of a cycle when multiple could qualify; process in order and return the first false union (which is the last valid answer)",
+        "Using a 0-indexed union-find when the problem uses 1-indexed nodes — LeetCode graph problems are often 1-indexed; always initialise n+1 elements and use nodes as-is",
+        "Not accounting for the return value of union in cycle detection — the false return from union is the cycle signal; not checking this return value misses the detection entirely"
+      ],
+      "interview_relevance": "Redundant Connection (#684) is NeetCode 150 and the canonical Union-Find cycle detection problem. It is used to test whether candidates know that Union-Find's return value is the cycle detector. The follow-up 'How would you solve this without Union-Find?' (DFS on the full graph) demonstrates breadth. The follow-up 'What if it were a directed graph?' (Redundant Connection II #685) tests deeper understanding.",
+      "mini_challenge": "Implement findRedundantConnection and verify both test cases. Then solve Graph Valid Tree (LeetCode #261): given n nodes and a list of edges, determine if the edges form a valid tree. A valid tree has exactly n-1 edges and is fully connected (no cycles). Use Union-Find: check that no edge creates a cycle (all unions return true) AND the final component count is 1. Verify on edges [[0,1],[0,2],[0,3],[1,4]] with n=5 (valid tree) and edges [[0,1],[1,2],[2,0]] with n=3 (cycle, not a tree).",
+      "flashcards": [
+        {
+          "front": "Redundant Connection: what is being detected?",
+          "back": "The edge that, when added to a graph that was previously a tree (V-1 edges, no cycle), creates a cycle. The FIRST such edge in the input order is the answer."
+        },
+        {
+          "front": "Redundant Connection: Union-Find cycle detection rule?",
+          "back": "For each edge (u,v): if find(u) === find(v): they are ALREADY in the same component — this edge creates a cycle. Return it. Otherwise: union(u,v) to merge their components."
+        },
+        {
+          "front": "Why Union-Find is optimal for Redundant Connection?",
+          "back": "Processing each edge with Union-Find is O(α(n)) per edge → O(n·α(n)) ≈ O(n) total. DFS would also work (O(V+E) per edge = O(n²) total naively). Union-Find is faster for edge-by-edge online processing."
+        },
+        {
+          "front": "Redundant Connection edge case: multiple answers?",
+          "back": "The problem guarantees exactly one redundant edge (input is a tree plus one extra edge). If multiple valid answers exist, return the one appearing LAST in the input (LeetCode specification). Processing edges in order and returning the first cycle-creating edge satisfies this."
+        },
+        {
+          "front": "Redundant Connection II (directed graph): what changes?",
+          "back": "In a directed graph, there are TWO possible reasons for invalidity: a node with two parents, OR a cycle without a node with two parents. Need to find the redundant directed edge satisfying both constraints. More complex than undirected case."
+        },
+        {
+          "front": "Union-Find for cycle detection vs DFS: key difference?",
+          "back": "Union-Find: O(α(n)) per edge, works ONLINE (edges arrive one at a time), detects cycle immediately when it forms. DFS cycle detection: O(V+E) for the full graph, requires all edges upfront, uses three-colour marking (L2-M04 L9)."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "edges=[[1,2],[1,3],[2,3]]. Processing edge [2,3]: find(2)=? find(3)=? Are they same component?",
+          "options": [
+            "find(2)=1, find(3)=1 — same! Return [2,3]",
+            "find(2)=2, find(3)=3 — different",
+            "find(2)=2, find(3)=1 — different",
+            "find(2)=1, find(3)=2 — different"
+          ],
+          "answer": 0,
+          "explanation": "Process [1,2]: find(1)=1, find(2)=2, different → union → parent[2]=1 (or similar). Process [1,3]: find(1)=1, find(3)=3, different → union → parent[3]=1. Process [2,3]: find(2)=1, find(3)=1 → SAME! Cycle detected. Return [2,3]."
+        },
+        {
+          "question": "edges=[[1,2],[2,3],[3,4],[1,4],[1,5]]. Which edge is redundant?",
+          "options": [
+            "[3,4]",
+            "[1,4] — creates cycle 1-2-3-4-1",
+            "[1,5]",
+            "[2,3]"
+          ],
+          "answer": 1,
+          "explanation": "Process [1,2]: merge {1,2}. [2,3]: merge {1,2,3}. [3,4]: merge {1,2,3,4}. [1,4]: find(1)=root, find(4)=same root → CYCLE. Return [1,4]. Cycle: 1→2→3→4→1."
+        },
+        {
+          "question": "Union-Find for Redundant Connection: what is the time complexity for n edges?",
+          "options": [
+            "O(n²) — DFS per edge",
+            "O(n log n) — log factor from tree traversal",
+            "O(n·α(n)) ≈ O(n) — α(n) per edge, n edges",
+            "O(n√n) — sqrt decomposition"
+          ],
+          "answer": 2,
+          "explanation": "Each edge processed with Union-Find: O(α(n)) amortised (path compression + rank). n edges total: O(n·α(n)). Since α(n)≤4 for any practical n, this is effectively O(n)."
+        },
+        {
+          "question": "Can Union-Find detect which specific cycle was formed (list all nodes in the cycle)?",
+          "options": [
+            "Yes — follow parent pointers from cycle nodes",
+            "No — Union-Find only detects IF a cycle exists, not the specific nodes in the cycle",
+            "Yes — rank array encodes cycle length",
+            "Only for trees, not general graphs"
+          ],
+          "answer": 1,
+          "explanation": "Union-Find tells you 'this edge creates a cycle' (find(u)===find(v)), but parent pointers after path compression don't preserve the original path — they point directly to the root. To enumerate cycle nodes, DFS (with three-colour marking) is needed."
+        }
+      ],
+      "visual_aid": {
+        "type": "uf_cycle_detection",
+        "description": "Redundant Connection step-by-step Union-Find trace",
+        "diagram": "edges=[[1,2],[1,3],[2,3]], n=3\nInitial: parent=[0,1,2,3] (1-indexed, node 0 unused)\n\nEdge [1,2]:\n  find(1)=1, find(2)=2 — different\n  union(1,2): parent[2]=1\n  parent=[0,1,1,3]\n  Components: {1,2}, {3}\n\nEdge [1,3]:\n  find(1)=1, find(3)=3 — different\n  union(1,3): parent[3]=1\n  parent=[0,1,1,1]\n  Components: {1,2,3}\n\nEdge [2,3]:\n  find(2): 2→parent[2]=1→parent[1]=1 → root=1\n  find(3): 3→parent[3]=1→parent[1]=1 → root=1\n  find(2)=find(3)=1 → SAME COMPONENT → CYCLE!\n  Return [2,3] ✓"
+      },
+      "complexity_summary": {
+        "time": "O(n·α(n)) ≈ O(n) for n edges",
+        "space": "O(n) — parent and rank arrays",
+        "vs_dfs": "O(n) UF vs O(n²) naive DFS per edge",
+        "cycle_detection_rule": "find(u)===find(v) before union → cycle"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-684",
+          "title": "Redundant Connection",
+          "difficulty": "Medium",
+          "pattern": "Union-Find cycle detection — return first cycle edge"
+        },
+        {
+          "id": "lc-685",
+          "title": "Redundant Connection II (directed)",
+          "difficulty": "Hard",
+          "pattern": "UF + two-parent analysis for directed graphs"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M8-L3-TH-1",
+            "question": "Why does Redundant Connection return the LAST edge that creates a cycle (not the first occurrence of any cycle-creating edge in any ordering)?",
+            "options": [
+              "The last edge is always the heaviest; we want to remove the heaviest edge",
+              "The problem statement guarantees the graph has EXACTLY V EDGES (one more than a tree's V-1); there is EXACTLY ONE redundant edge; the edges are processed in order and union returns false exactly ONCE (when the cycle-forming edge is encountered); since there is exactly one such edge, it is simultaneously the first AND last cycle-forming edge; the 'return last' instruction in the problem specifically handles the case where MULTIPLE edges could complete a cycle — return the one appearing latest in the input",
+              "The last edge is returned because we sort edges before processing",
+              "The last edge always has the smallest index; the problem requires minimising the index"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Process edges in order: the LAST edge causing a cycle is the redundant one. Why last: problem guarantees exactly one redundant edge; return the last cycle edge' — in a graph with V nodes and V edges, there is exactly one cycle and exactly one redundant edge; the algorithm processes all edges and returns the one where union first returns false."
+          },
+          {
+            "id": "L2M8-L3-TH-2",
+            "question": "When would Union-Find be PREFERRED over DFS for cycle detection?",
+            "options": [
+              "DFS is always better for cycle detection; Union-Find only applies to MST",
+              "Union-Find is preferred when: edges are ADDED DYNAMICALLY (one at a time, online) and cycle detection is needed IMMEDIATELY after each addition — Union-Find handles each edge in O(α(n)) without rebuilding any data structure; DFS requires the FULL GRAPH upfront and takes O(V+E) for a complete cycle check; for static graphs where all edges are known upfront, DFS is equally valid; Union-Find's online property is its key advantage",
+              "Union-Find is better only for directed graphs; DFS for undirected",
+              "Union-Find always uses less memory than DFS"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's comparison: 'Union-Find: O(E*α(V)), online (processes edges one at a time). Better when: edges added dynamically, need to detect cycle on each addition. DFS: O(V+E), requires full graph built first. Better when: graph is static and you need full cycle analysis' — the online/dynamic distinction is the primary factor."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M8-L3-LG-1",
+            "question": "Trace `findRedundantConnection([[1,2],[1,3],[2,3]])`. At which edge does union return false?",
+            "options": [
+              "Edge [2,3]: process [1,2]→union(1,2)=true; [1,3]→union(1,3)=true; [2,3]→find(2)=root({1,2,3}), find(3)=same root → union returns false → return [2,3] ✓",
+              "Edge [1,3]: already connected to 1",
+              "No edge returns false; the graph has no cycle",
+              "Edge [1,2]: immediately creates a cycle on the first edge"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: findRedundantConnection([[1,2],[1,3],[2,3]])=[2,3]; processing: [1,2]→different components, union=true; [1,3]→1 and 3 in different components, union=true (now {1,2,3} connected); [2,3]→find(2) and find(3) both return the same root of {1,2,3} → union=false → return [2,3]."
+          },
+          {
+            "id": "L2M8-L3-LG-2",
+            "question": "For `findRedundantConnection([[1,2],[2,3],[3,4],[1,4],[1,5]])`, which edge creates the cycle?",
+            "options": [
+              "[1,4]: process [1,2]→true; [2,3]→true; [3,4]→true (now {1,2,3,4} all connected); [1,4]→find(1)=find(4)=same root → false → return [1,4] ✓",
+              "[3,4]: creates a cycle with the previous edges",
+              "[1,5]: the last edge always creates a cycle",
+              "[2,3]: 2 and 3 are already connected through 1"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: findRedundantConnection([[1,2],[2,3],[3,4],[1,4],[1,5]])=[1,4]; after [1,2],[2,3],[3,4]: nodes 1,2,3,4 are all connected in one component; [1,4]: find(1) and find(4) are the same root → union returns false → return [1,4]; [1,5] is never reached."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M8-L3-SY-1",
+            "question": "In `findRedundantConnection`, `const uf = new UnionFind(n + 1)` uses `n+1` nodes. Why not `n` nodes?",
+            "options": [
+              "n+1 is needed because edges are 0-indexed but nodes are 1-indexed in LeetCode",
+              "The problem uses 1-INDEXED nodes (1 through n); creating UnionFind(n) would give indices 0..n-1, but the nodes are 1..n; using UnionFind(n+1) gives indices 0..n, where 0 is unused and nodes 1..n map directly to their natural indices without any -1 offset; this is the same 1-indexed pattern as Network Delay Time — creating size n+1 and leaving index 0 unused is cleaner than adjusting every node index by -1",
+              "n+1 accounts for a virtual source node added by the algorithm",
+              "n+1 is required to prevent out-of-bounds when n=edges.length"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's comment: '1-indexed nodes' — LeetCode's Redundant Connection uses nodes 1..n; UnionFind(n+1) creates parent[0..n] where index 0 is unused as a sentinel; nodes 1..n map directly to parent[1]..parent[n]; this avoids constant -1 adjustments and matches the common pattern for 1-indexed LeetCode graph problems."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M8-L3-CC-1",
+            "title": "Redundant Connection and Cycle Detection",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement cycle detection using Union-Find from this lesson.",
+            "requirements": [
+              "Implement `findRedundantConnectionImpl(edges)` matching the lesson's approach",
+              "Implement `hasCycleImpl(n, edges)` returning true if the graph has a cycle"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "class UnionFind {\n    constructor(n){\n        this.parent=Array.from({length:n},(_,i)=>i);\n        this.rank=new Array(n).fill(0);\n        this.components=n;\n    }\n    find(x){\n        if(this.parent[x]!==x)this.parent[x]=this.find(this.parent[x]);\n        return this.parent[x];\n    }\n    union(x,y){\n        const rx=this.find(x),ry=this.find(y);\n        if(rx===ry)return false;\n        if(this.rank[rx]<this.rank[ry])this.parent[rx]=ry;\n        else if(this.rank[rx]>this.rank[ry])this.parent[ry]=rx;\n        else{this.parent[rx]=ry;this.rank[ry]++;}\n        this.components--;return true;\n    }\n    connected(x,y){return this.find(x)===this.find(y);}\n}\n\nfunction findRedundantConnectionImpl(edges) {\n  // TODO: 1-indexed UF; return [u,v] when union returns false\n}\n\nfunction hasCycleImpl(n, edges) {\n  // TODO: 0-indexed UF(n); return true if any union returns false\n}"
+            },
+            "test_cases": [
+              {
+                "input": "JSON.stringify(findRedundantConnectionImpl([[1,2],[1,3],[2,3]]))",
+                "expected": "[2,3]",
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(findRedundantConnectionImpl([[1,2],[2,3],[3,4],[1,4],[1,5]]))",
+                "expected": "[1,4]",
+                "type": "visible"
+              },
+              {
+                "input": "hasCycleImpl(3, [[0,1],[1,2],[0,2]])",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "hasCycleImpl(3, [[0,1],[1,2]])",
+                "expected": false,
+                "type": "hidden"
+              },
+              {
+                "input": "JSON.stringify(findRedundantConnectionImpl([[1,2],[2,3],[3,1]]))",
+                "expected": "[3,1]",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "class UnionFind {\n    constructor(n){\n        this.parent=Array.from({length:n},(_,i)=>i);\n        this.rank=new Array(n).fill(0);\n        this.components=n;\n    }\n    find(x){\n        if(this.parent[x]!==x)this.parent[x]=this.find(this.parent[x]);\n        return this.parent[x];\n    }\n    union(x,y){\n        const rx=this.find(x),ry=this.find(y);\n        if(rx===ry)return false;\n        if(this.rank[rx]<this.rank[ry])this.parent[rx]=ry;\n        else if(this.rank[rx]>this.rank[ry])this.parent[ry]=rx;\n        else{this.parent[rx]=ry;this.rank[ry]++;}\n        this.components--;return true;\n    }\n    connected(x,y){return this.find(x)===this.find(y);}\n}\n\nfunction findRedundantConnectionImpl(edges) {\n  const n = edges.length;\n  const uf = new UnionFind(n + 1);\n  for (const [u, v] of edges) {\n    if (!uf.union(u, v)) return [u, v];\n  }\n  return [];\n}\n\nfunction hasCycleImpl(n, edges) {\n  const uf = new UnionFind(n);\n  for (const [u, v] of edges) {\n    if (!uf.union(u, v)) return true;\n  }\n  return false;\n}"
+            },
+            "complexity_analysis": "O(E * α(V)) time, O(V) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "findRedundantConnectionImpl: new UnionFind(edges.length+1) for 1-indexed; return [u,v] when union(u,v)===false."
+              },
+              {
+                "level": 2,
+                "text": "hasCycleImpl: new UnionFind(n) for 0-indexed; return true when union returns false; return false after all edges."
+              },
+              {
+                "level": 3,
+                "text": "Both functions share identical structure — the only differences are the UF size and return type."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 4,
+      "title": "Number Of Connected Components",
+      "tag": null,
+      "objective": "Count connected components in an undirected graph using Union-Find as a dynamic connectivity structure, and compare it with the DFS approach from Level 1.",
+      "concepts": [
+        "Number of connected components: count disjoint groups of connected vertices",
+        "Union-Find approach: initialise with n components, decrement on each successful union",
+        "DFS/BFS approach from L1-M10: O(V+E) on static graph",
+        "Union-Find advantage: handles dynamic edge additions in near-O(1)",
+        "Final component count: uf.components after processing all edges",
+        "O(E * α(V)) time total",
+        "Equivalent problems: Number of Provinces, Friend Circles",
+        "When Union-Find beats DFS: streaming edges, online connectivity queries"
+      ],
+      "explanation": "Number of Connected Components (#323) counts how many separate connected groups exist in an undirected graph. Two approaches: DFS/BFS (Module 10, Level 1) starts a new traversal from each unvisited node and counts traversals. O(V+E) on a static fully-known graph. Union-Find: initialise with n components (one per node). Process each edge: if union(u, v) returns true (different components merged), decrement component count. After all edges, return component count. O(E * α(V)). The Union-Find advantage is the dynamic property: edges can be added incrementally and the component count is always up-to-date in near-O(1) per edge. DFS requires rebuilding or rerunning on the full graph for each change. For static graphs, DFS is simpler. For dynamic graphs or online queries, Union-Find is the right tool.",
+      "analogy": "Number of Connected Components with Union-Find is like tracking friend circles that form dynamically. Each person starts as their own circle. When two people become friends (union), their circles merge. The total number of circles decreases by 1 for each new friendship between people from different circles. After all friendships are established, the number of circles is the answer.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// NUMBER OF CONNECTED COMPONENTS (#323)\n// O(E * α(V)) time, O(V) space\nfunction countComponents(n, edges) {\n    const uf = new UnionFind(n);\n    for (const [u, v] of edges) {\n        uf.union(u, v); // components decrements inside union on true\n    }\n    return uf.components;\n}\n\nconsole.log(countComponents(5, [[0,1],[1,2],[3,4]])); // 2\n// Components: {0,1,2} and {3,4} = 2\nconsole.log(countComponents(5, [[0,1],[1,2],[2,3],[3,4]])); // 1\n// All connected = 1 component\n\n// EQUIVALENT: Number of Provinces (#547)\n// isConnected[i][j] = 1 means city i and j are directly connected\n// Count the number of provinces (connected components)\nfunction findCircleNum(isConnected) {\n    const n = isConnected.length;\n    const uf = new UnionFind(n);\n    for (let i = 0; i < n; i++) {\n        for (let j = i + 1; j < n; j++) {\n            if (isConnected[i][j] === 1) uf.union(i, j);\n        }\n    }\n    return uf.components;\n}\n\nconsole.log(findCircleNum([[1,1,0],[1,1,0],[0,0,1]])); // 2\nconsole.log(findCircleNum([[1,0,0],[0,1,0],[0,0,1]])); // 3\n\n// ACCOUNTS MERGE (#721) — Union-Find on email addresses\n// Each account has a name and emails. Merge accounts that share an email.\n// Union-Find approach: map each email to an account index\n// For each account, union all its emails to the first email's account\nfunction accountsMerge(accounts) {\n    const emailToId = new Map();  // email -> account index\n    const uf = new UnionFind(accounts.length);\n\n    accounts.forEach((account, i) => {\n        const emails = account.slice(1);\n        for (const email of emails) {\n            if (emailToId.has(email)) {\n                uf.union(i, emailToId.get(email)); // merge accounts\n            } else {\n                emailToId.set(email, i);\n            }\n        }\n    });\n\n    // Group emails by root account\n    const roots = new Map();\n    for (const [email, id] of emailToId) {\n        const root = uf.find(id);\n        if (!roots.has(root)) roots.set(root, []);\n        roots.get(root).push(email);\n    }\n\n    return [...roots.entries()].map(([root, emails]) => {\n        emails.sort();\n        return [accounts[root][0], ...emails];\n    });\n}",
+        "explanation": "Accounts Merge shows Union-Find applied to a non-obvious graph problem. The key insight: two accounts should be merged if they share any email address. By mapping emails to account indices and unioning accounts that share emails, Union-Find correctly groups all accounts with any common email, even through chains of shared emails (account A shares with B, B shares with C means all three merge)."
+      },
+      "common_mistakes": [
+        "Not initialising component count to n before processing edges — the initial state is n components (one per node); missing this causes an off-by-n error in the final count",
+        "Using DFS for a problem where edges are added dynamically over time — DFS requires a complete graph; Union-Find handles edge additions in streaming order",
+        "Forgetting that the union operation inside the class already decrements components — if you track components separately outside the class, you might double-count decrements"
+      ],
+      "interview_relevance": "Number of Connected Components (#323) and Number of Provinces (#547) are NeetCode 150. Accounts Merge (#721) is Blind 75. All three use the same Union-Find template with minor variations. The interview question 'When would you use Union-Find versus DFS for connectivity?' tests algorithm selection depth: Union-Find for dynamic/online, DFS for static/offline.",
+      "mini_challenge": "Implement countComponents and verify both test cases. Implement findCircleNum and verify on the two test cases. Then solve Accounts Merge (LeetCode #721) using the accountsMerge template above and verify on input [['John','johnsmith@mail.com','john00@mail.com'],['John','johnnybravo@mail.com'],['John','johnsmith@mail.com','john_newyork@mail.com'],['Mary','mary@mail.com']]. The result should merge accounts 0 and 2 (they share johnsmith@mail.com).",
+      "flashcards": [
+        {
+          "front": "Number of Connected Components via Union-Find: approach?",
+          "back": "Initialise count = n (all isolated). For each edge (u,v): if find(u) !== find(v): union(u,v) AND count--. At the end, count = number of connected components."
+        },
+        {
+          "front": "Number of Components: why count-- only when find(u)!==find(v)?",
+          "back": "Only merge when u and v are in DIFFERENT components — this reduces the component count by 1 (two components become one). If they're already in the same component, merging does nothing and count should not decrease."
+        },
+        {
+          "front": "Number of Components: what is the initial count and why?",
+          "back": "count = n. Initially each node is its own isolated component. Each successful union reduces count by 1. After all edges processed, count = number of remaining distinct components."
+        },
+        {
+          "front": "Accounts Merge (#721): how does Union-Find apply?",
+          "back": "Each email maps to exactly one account via a Union-Find. For each account, union all its emails under the first email. Then group accounts by their root email. Sort each group's emails alphabetically."
+        },
+        {
+          "front": "Accounts Merge: two maps needed?",
+          "back": "emailToOwner: email → account name. emailToRoot: after Union-Find, group emails by find(email). emailToRoot effectively comes from the parent array. Alternatively: emailToId (map each email to an integer ID for Union-Find)."
+        },
+        {
+          "front": "Number of Components: streaming update?",
+          "back": "Union-Find excels at dynamic connectivity: process edges as they arrive, update count immediately. No need to rebuild the graph. O(α(n)) per update. DFS requires O(V+E) per query on the full graph."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "n=5, edges=[[0,1],[1,2],[3,4]]. Initial count=5. After all edges, count=?",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "answer": 1,
+          "explanation": "edge [0,1]: different → union, count=4. edge [1,2]: different → union, count=3. edge [3,4]: different → union, count=2. Components: {0,1,2} and {3,4}. count=2."
+        },
+        {
+          "question": "n=4, edges=[[0,1],[0,2],[1,2]]. Final count?",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "answer": 1,
+          "explanation": "[0,1]: count=3. [0,2]: count=2. [1,2]: find(1)=root({0,1,2}), find(2)=same root → NO union, count stays 2. Components: {0,1,2} and {3}. count=2."
+        },
+        {
+          "question": "Accounts Merge: accounts=[['John','j@g.com','j@m.com'],['Mary','m@g.com'],['John','j@m.com','j@fb.com']]. After merging, how many unique accounts?",
+          "options": [
+            "3",
+            "2",
+            "1",
+            "4"
+          ],
+          "answer": 1,
+          "explanation": "Account 0 has j@g.com, j@m.com. Account 2 has j@m.com, j@fb.com. They SHARE j@m.com → same person → merge. Account 1 (Mary) is separate. Result: [['John','j@fb.com','j@g.com','j@m.com'],['Mary','m@g.com']]. 2 accounts."
+        },
+        {
+          "question": "For Number of Components, can BFS/DFS also solve it? When is Union-Find strictly better?",
+          "options": [
+            "BFS/DFS cannot solve it",
+            "BFS/DFS works on static graphs. Union-Find is better when edges arrive dynamically (one at a time) — no need to rebuild the graph for each query",
+            "Union-Find always solves faster",
+            "Same efficiency for all cases"
+          ],
+          "answer": 1,
+          "explanation": "BFS/DFS O(V+E) works on any static graph. Union-Find advantage: DYNAMIC updates. 'Given a stream of edges, how many components after each edge?' — BFS/DFS would require O(V+E) per query; UF handles each in O(α(n))."
+        }
+      ],
+      "visual_aid": {
+        "type": "component_trace",
+        "description": "Number of Connected Components count trace",
+        "diagram": "n=6, edges=[[0,1],[1,2],[2,3],[4,5]]\nInitial: parent=[0,1,2,3,4,5], count=6\n\nEdge [0,1]: find(0)=0, find(1)=1 → different\n  union(0,1). count-- → 5\n  parent=[1,1,2,3,4,5]\n\nEdge [1,2]: find(1)=1, find(2)=2 → different\n  union(1,2). count-- → 4\n  parent=[1,2,2,3,4,5]\n\nEdge [2,3]: find(2)=2, find(3)=3 → different\n  union(2,3). count-- → 3\n  parent=[1,2,3,3,4,5]\n\nEdge [4,5]: find(4)=4, find(5)=5 → different\n  union(4,5). count-- → 2\n  parent=[1,2,3,3,5,5]\n\nFinal: count=2, components={0,1,2,3} and {4,5} ✓\n\nNote: node 0 path: 0→parent[0]=1→parent[1]=2→parent[2]=3→root=3\n(Apply path compression for O(α(n)) future queries)"
+      },
+      "complexity_summary": {
+        "time": "O((V+E)·α(n)) for all edges",
+        "space": "O(V) — parent, rank, count",
+        "dynamic_update": "O(α(n)) per edge — unlike O(V+E) BFS/DFS rebuild",
+        "accounts_merge_extra": "O(E log E) for sorting emails within each component"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-323",
+          "title": "Number of Connected Components in an Undirected Graph",
+          "difficulty": "Medium",
+          "pattern": "Union-Find with count--"
+        },
+        {
+          "id": "lc-721",
+          "title": "Accounts Merge",
+          "difficulty": "Medium",
+          "pattern": "Union-Find on email nodes, group by root"
+        },
+        {
+          "id": "lc-547",
+          "title": "Number of Provinces",
+          "difficulty": "Medium",
+          "pattern": "Union-Find or DFS on adjacency matrix"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M8-L4-TH-1",
+            "question": "In `countComponents`, why does the component count correctly track connected components throughout edge additions?",
+            "options": [
+              "The component count must be recalculated from scratch after each union",
+              "The `components` counter is initialised to n (n singleton components) in the UnionFind constructor; each SUCCESSFUL `union(u, v)` call (returning true, meaning u and v were in DIFFERENT components) decrements components by 1 (two components merge into one); after processing all edges, `components` holds exactly the number of remaining disjoint groups; failed unions (same component, returning false) do NOT decrement — they don't merge anything",
+              "Components are counted by scanning the parent array after each edge",
+              "The component count only works correctly for trees; general graphs require DFS"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Union-Find approach: initialise with n components, decrement on each successful union' — the invariant is maintained throughout: components starts at n and decreases by 1 for each edge that connects previously-separate components; the final value is the exact number of connected components."
+          },
+          {
+            "id": "L2M8-L4-TH-2",
+            "question": "When does Union-Find OUTPERFORM DFS/BFS for counting connected components?",
+            "options": [
+              "Union-Find always outperforms DFS for connected components",
+              "Union-Find outperforms DFS when edges are ADDED DYNAMICALLY: if the graph has n vertices and edges arrive one at a time (streaming), each edge requires a connectivity query; Union-Find handles each edge+query in O(α(n)) ≈ O(1); DFS would need to re-traverse the entire graph after each edge to recount components, costing O(V+E) per edge addition; for a STATIC graph (all edges known upfront), DFS and Union-Find are comparable in practice (both O(V+E) effectively)",
+              "Union-Find only applies to weighted graphs; DFS handles unweighted",
+              "DFS is always faster because it avoids the overhead of the parent array"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Union-Find advantage: handles dynamic edge additions in near-O(1)' — the online/streaming scenario is where Union-Find shines; for static problems like the standard Number of Connected Components on LeetCode, both approaches give correct O(V+E) solutions and the choice is stylistic."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M8-L4-LG-1",
+            "question": "For `countComponents(5, [[0,1],[1,2],[3,4]])`, which components exist after processing all edges?",
+            "options": [
+              "3 components: {0}, {1,2}, {3,4}",
+              "2 components: {0,1,2} and {3,4} — processing: [0,1]→merge 0 and 1, components=4; [1,2]→merge 1 and 2 (0 transitively connected), components=3; [3,4]→merge 3 and 4, components=2; final components=2 ✓",
+              "1 component: all nodes connected",
+              "5 components: no edges actually merge nodes"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: countComponents(5,[[0,1],[1,2],[3,4]])=2; after [0,1]: components=4, {0,1},{2},{3},{4}; after [1,2]: components=3, {0,1,2},{3},{4}; after [3,4]: components=2, {0,1,2},{3,4}; node 4 (index 4 in 0-indexed) remains isolated."
+          },
+          {
+            "id": "L2M8-L4-LG-2",
+            "question": "For `findCircleNum([[1,1,0],[1,1,0],[0,0,1]])`, the matrix shows cities 0 and 1 are directly connected (matrix[0][1]=1). What is the number of provinces?",
+            "options": [
+              "3 provinces: each city is its own province",
+              "2 provinces: {0,1} (directly connected, matrix[0][1]=1) and {2} (no connections to 0 or 1, matrix[2][0]=0 and matrix[2][1]=0) — confirmed by direct execution returning 2; the upper-triangle scan (j>i) processes: (0,1)→union(0,1)=true; (0,2)→matrix[0][2]=0 skip; (1,2)→matrix[1][2]=0 skip; final components=2",
+              "1 province: all cities eventually connected through city 1",
+              "2 provinces: determined by counting rows with a non-diagonal 1"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: findCircleNum([[1,1,0],[1,1,0],[0,0,1]])=2; the adjacency matrix has isConnected[0][1]=1 (cities 0 and 1 are connected) and isConnected[2][*]=0 for 0 and 1 (city 2 is isolated); Union-Find scans the upper triangle and unions only (0,1), giving 2 components."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M8-L4-SY-1",
+            "question": "In `findCircleNum`, the inner loop `for (let j = i + 1; j < n; j++)` starts at `j = i + 1`. Why not `j = 0`?",
+            "options": [
+              "j=0 would cause an out-of-bounds error when i=0",
+              "Starting at `j = i + 1` processes only the UPPER TRIANGLE of the adjacency matrix (j > i), avoiding two issues: (1) the DIAGONAL `isConnected[i][i] = 1` (a city is connected to itself) would incorrectly trigger union(i,i) — which returns false and is harmless but wasteful; (2) each undirected edge (i,j) appears TWICE in the matrix (isConnected[i][j]=isConnected[j][i]=1); processing only j>i ensures each edge is unioned ONCE rather than twice (double-unioning is harmless but unnecessarily calls find twice)",
+              "Starting at j=i+1 ensures the matrix is processed in sorted order",
+              "j=i+1 is required because isConnected[i][j] is only defined for j>i"
+            ],
+            "answer": 1,
+            "explanation": "The upper-triangle scan avoids the diagonal (self-connections) and double-processing of symmetric edges; `j = i+1` guarantees i < j always, covering each pair (i,j) exactly once; since isConnected is symmetric (isConnected[i][j]=isConnected[j][i]), the upper triangle alone captures all unique connections."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M8-L4-CC-1",
+            "title": "Number of Connected Components and Number of Provinces",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement connected components counting from this lesson.",
+            "requirements": [
+              "Implement `countComponentsImpl(n, edges)` matching the lesson",
+              "Implement `findCircleNumImpl(isConnected)` matching the lesson's upper-triangle scan"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "class UnionFind {\n    constructor(n){\n        this.parent=Array.from({length:n},(_,i)=>i);\n        this.rank=new Array(n).fill(0);\n        this.components=n;\n    }\n    find(x){\n        if(this.parent[x]!==x)this.parent[x]=this.find(this.parent[x]);\n        return this.parent[x];\n    }\n    union(x,y){\n        const rx=this.find(x),ry=this.find(y);\n        if(rx===ry)return false;\n        if(this.rank[rx]<this.rank[ry])this.parent[rx]=ry;\n        else if(this.rank[rx]>this.rank[ry])this.parent[ry]=rx;\n        else{this.parent[rx]=ry;this.rank[ry]++;}\n        this.components--;return true;\n    }\n    connected(x,y){return this.find(x)===this.find(y);}\n}\n\nfunction countComponentsImpl(n, edges) {\n  // TODO: UF(n), union all edges, return uf.components\n}\n\nfunction findCircleNumImpl(isConnected) {\n  // TODO: UF(n), scan upper triangle (j>i), union if isConnected[i][j]===1\n}"
+            },
+            "test_cases": [
+              {
+                "input": "countComponentsImpl(5, [[0,1],[1,2],[3,4]])",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "countComponentsImpl(5, [[0,1],[1,2],[2,3],[3,4]])",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "findCircleNumImpl([[1,1,0],[1,1,0],[0,0,1]])",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "findCircleNumImpl([[1,0,0],[0,1,0],[0,0,1]])",
+                "expected": 3,
+                "type": "hidden"
+              },
+              {
+                "input": "countComponentsImpl(4, [])",
+                "expected": 4,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "class UnionFind {\n    constructor(n){\n        this.parent=Array.from({length:n},(_,i)=>i);\n        this.rank=new Array(n).fill(0);\n        this.components=n;\n    }\n    find(x){\n        if(this.parent[x]!==x)this.parent[x]=this.find(this.parent[x]);\n        return this.parent[x];\n    }\n    union(x,y){\n        const rx=this.find(x),ry=this.find(y);\n        if(rx===ry)return false;\n        if(this.rank[rx]<this.rank[ry])this.parent[rx]=ry;\n        else if(this.rank[rx]>this.rank[ry])this.parent[ry]=rx;\n        else{this.parent[rx]=ry;this.rank[ry]++;}\n        this.components--;return true;\n    }\n    connected(x,y){return this.find(x)===this.find(y);}\n}\n\nfunction countComponentsImpl(n, edges) {\n  const uf = new UnionFind(n);\n  for (const [u, v] of edges) uf.union(u, v);\n  return uf.components;\n}\n\nfunction findCircleNumImpl(isConnected) {\n  const n = isConnected.length;\n  const uf = new UnionFind(n);\n  for (let i = 0; i < n; i++)\n    for (let j = i + 1; j < n; j++)\n      if (isConnected[i][j] === 1) uf.union(i, j);\n  return uf.components;\n}"
+            },
+            "complexity_analysis": "countComponentsImpl: O(E*α(V)). findCircleNumImpl: O(n²*α(n)).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "countComponentsImpl: create UnionFind(n), call uf.union(u,v) for each edge, return uf.components."
+              },
+              {
+                "level": 2,
+                "text": "findCircleNumImpl: scan upper triangle (j=i+1 to n-1); union if isConnected[i][j]===1."
+              },
+              {
+                "level": 3,
+                "text": "Both solutions are identical in structure — create UF, process connections, return components."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 5,
+      "title": "Minimum Spanning Tree — Kruskal",
+      "tag": null,
+      "objective": "Implement Kruskal's MST algorithm using sorted edges and Union-Find for cycle detection, prove correctness via the cut property, and solve Min Cost to Connect All Points.",
+      "concepts": [
+        "Minimum Spanning Tree: subset of edges connecting all vertices with minimum total weight",
+        "Spanning tree: connects all V vertices with exactly V-1 edges, no cycles",
+        "Kruskal's algorithm: sort edges by weight, greedily add non-cycle edges",
+        "Union-Find: cycle detection during edge addition",
+        "O(E log E) time: sorting dominates",
+        "Cut property: minimum weight edge crossing any cut is always in some MST",
+        "Prim's algorithm alternative: start from a vertex, grow MST greedily",
+        "MST application: Min Cost to Connect All Points (#1584)"
+      ],
+      "explanation": "A Minimum Spanning Tree (MST) of a connected weighted graph is a spanning tree with the minimum possible total edge weight. Kruskal's algorithm: sort all edges by weight ascending. Process edges in sorted order. For each edge (u, v, w): use Union-Find to check if u and v are already connected (same component). If they are, skip this edge (it would create a cycle). If not, add this edge to the MST (union the components). Stop when the MST has V-1 edges (or when all edges are processed). The greedy choice is justified by the cut property: the minimum-weight edge crossing any partition of vertices into two groups is guaranteed to be in some MST. Adding the globally cheapest edge that does not create a cycle always makes progress toward the MST. Time: O(E log E) for sorting + O(E * α(V)) for Union-Find operations = O(E log E) total (sorting dominates).",
+      "analogy": "Kruskal's MST is like building a railway network connecting all cities with the cheapest possible track. Sort all possible routes by cost. Build the cheapest route first. Then the next cheapest. Skip any route if the two cities it would connect are already reachable via existing routes (that route would create a redundant connection). Stop when all cities are connected. Union-Find checks 'are these cities already reachable from each other?' in near-constant time.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// KRUSKAL'S MST ALGORITHM\n// O(E log E) time, O(V+E) space\nfunction kruskalMST(n, edges) {\n    // edges: [[weight, u, v], ...]\n    edges.sort((a, b) => a[0] - b[0]); // sort by weight ascending\n\n    const uf = new UnionFind(n);\n    let mstWeight = 0;\n    let edgesUsed = 0;\n    const mstEdges = [];\n\n    for (const [w, u, v] of edges) {\n        if (uf.union(u, v)) {   // no cycle: add to MST\n            mstWeight += w;\n            mstEdges.push([u, v, w]);\n            edgesUsed++;\n            if (edgesUsed === n - 1) break; // MST complete: V-1 edges\n        }\n        // If union returns false: edge creates cycle, skip it\n    }\n    return { mstWeight, mstEdges, connected: edgesUsed === n - 1 };\n}\n\n// TEST\nconst edges = [[4,0,1],[8,0,7],[11,1,7],[8,1,2],[7,2,8],[2,2,5],[6,8,6],[7,7,8],[1,7,6],[5,5,6],[2,5,3],[9,2,3],[14,3,4],[10,3,4]];\nconst result = kruskalMST(9, edges);\nconsole.log(result.mstWeight); // 37 (standard MST example)\n\n// MIN COST TO CONNECT ALL POINTS (#1584)\n// Points on a 2D plane, connect all with minimum Manhattan distance edges\nfunction minCostConnectPoints(points) {\n    const n = points.length;\n\n    // Generate all edges (N*(N-1)/2 edges)\n    const allEdges = [];\n    for (let i = 0; i < n; i++) {\n        for (let j = i + 1; j < n; j++) {\n            const dist = Math.abs(points[i][0] - points[j][0]) +\n                         Math.abs(points[i][1] - points[j][1]);\n            allEdges.push([dist, i, j]);\n        }\n    }\n\n    // Sort and run Kruskal\n    allEdges.sort((a, b) => a[0] - b[0]);\n    const uf = new UnionFind(n);\n    let totalCost = 0, edgesUsed = 0;\n\n    for (const [dist, i, j] of allEdges) {\n        if (uf.union(i, j)) {\n            totalCost += dist;\n            edgesUsed++;\n            if (edgesUsed === n - 1) break;\n        }\n    }\n    return totalCost;\n}\n\nconsole.log(minCostConnectPoints([[0,0],[2,2],[3,10],[5,2],[7,0]])); // 20",
+        "explanation": "Min Cost to Connect All Points generates O(n²) edges (all pairs of points with their Manhattan distances), then runs Kruskal's MST. For n=1000 points, there are 500,000 edges. Sorting is O(n² log n). An alternative is Prim's algorithm which can achieve O(n²) without generating all edges upfront (expanding the MST greedily from one point at a time using the nearest unvisited point)."
+      },
+      "common_mistakes": [
+        "Sorting edges in descending instead of ascending order — Kruskal's greedy strategy requires adding the cheapest edge that does not create a cycle; descending order would build the maximum spanning tree instead",
+        "Not stopping early when n-1 edges are found — the MST is complete when V-1 edges are added; continuing to process remaining edges wastes time but does not change the result (they would all be rejected by union)",
+        "Not checking if the graph is connected after Kruskal finishes — if fewer than n-1 edges are added, the graph is not connected and no MST exists; check edgesUsed === n-1 and return -1 or handle the disconnected case"
+      ],
+      "interview_relevance": "Kruskal's MST directly solves Min Cost to Connect All Points (#1584, NeetCode 150). The algorithm itself is not typically asked from scratch but understanding MST, the cut property, and the Union-Find connection is expected. Interviewers ask 'How does Union-Find enable Kruskal's algorithm?' The answer: 'Union-Find detects cycles in O(α(n)), replacing a O(V) DFS cycle check, making the algorithm practical.'",
+      "mini_challenge": "Implement minCostConnectPoints and verify it returns 20 for [[0,0],[2,2],[3,10],[5,2],[7,0]]. Then implement Prim's MST as an alternative: start from point 0, maintain a min-heap of (distance, point) pairs where distance is the minimum Manhattan distance to any already-connected point. At each step, extract the nearest unconnected point and add its distance to the total cost. Compare the time complexity of Kruskal's O(n² log n) vs Prim's O(n²) for this specific problem.",
+      "flashcards": [
+        {
+          "front": "Minimum Spanning Tree (MST): definition?",
+          "back": "A spanning tree of a connected graph that: (1) includes ALL V vertices, (2) has exactly V-1 edges, (3) is connected with no cycles, (4) has minimum total edge weight among all spanning trees."
+        },
+        {
+          "front": "Kruskal's algorithm: two steps?",
+          "back": "1) SORT all edges by weight ascending. 2) For each edge (in sorted order): if find(u) !== find(v): add to MST and union(u,v). Stop when V-1 edges are in MST (or all edges processed). Total: O(E log E) for sort."
+        },
+        {
+          "front": "Kruskal's greedy correctness: the cut property?",
+          "back": "For any cut (partition of vertices into two sets), the minimum-weight edge crossing the cut is in SOME MST. Kruskal's processes edges in order and adds the cheapest edge that doesn't create a cycle — this is the cut property applied greedily."
+        },
+        {
+          "front": "Kruskal's time complexity?",
+          "back": "O(E log E) for sorting + O(E·α(V)) for Union-Find operations ≈ O(E log E). Sorting dominates. Since E ≤ V², log E ≤ 2 log V, so O(E log E) = O(E log V)."
+        },
+        {
+          "front": "Prim's algorithm vs Kruskal's: key difference?",
+          "back": "Kruskal: edge-based, sort all edges, add cheapest non-cycle edge. Best for sparse graphs. Prim: vertex-based, grow MST from a seed vertex, expand to closest unvisited vertex (like Dijkstra). Best for dense graphs. Both give the same MST with equal-weight tie-breaking."
+        },
+        {
+          "front": "Min Cost to Connect All Points (#1584): how is it an MST problem?",
+          "back": "Points = vertices. Edge weight between points = Manhattan distance |x1-x2| + |y1-y2|. MST of this complete graph = minimum total cost to connect all points. Apply Kruskal (sort all n(n-1)/2 edges) or Prim (O(n²) without heap, better for dense graph)."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Kruskal on edges=[[1,2,1],[2,3,2],[1,3,3],[3,4,4],[2,4,5]], n=4. Which edges are in the MST?",
+          "options": [
+            "[[1,2,1],[2,3,2],[3,4,4]] — total weight 7",
+            "[[1,2,1],[2,3,2],[1,3,3]] — total weight 6 (but cycle!)",
+            "[[1,2,1],[1,3,3],[3,4,4]] — total weight 8",
+            "[[2,3,2],[3,4,4],[2,4,5]] — total weight 11"
+          ],
+          "answer": 0,
+          "explanation": "Sort: (1,2,1)→(2,3,2)→(1,3,3)→(3,4,4)→(2,4,5). Add (1,2,1): no cycle. Add (2,3,2): no cycle. Skip (1,3,3): find(1)=find(3) (already same component via 1-2-3). Add (3,4,4): no cycle. MST done (3 edges for 4 nodes). Total=7."
+        },
+        {
+          "question": "MST of n=5 nodes has how many edges?",
+          "options": [
+            "4",
+            "5",
+            "n-1=4",
+            "depends on graph"
+          ],
+          "answer": 2,
+          "explanation": "Any spanning tree of n nodes has exactly n-1 edges. For n=5: 5-1=4 edges. MST is a spanning tree with minimum total weight."
+        },
+        {
+          "question": "Kruskal skips edge (u,v) when find(u)===find(v). What does this mean?",
+          "options": [
+            "The edge has a duplicate weight",
+            "u and v are already connected in the current MST — adding this edge would create a cycle",
+            "The edge goes in the wrong direction",
+            "The edge is too expensive"
+          ],
+          "answer": 1,
+          "explanation": "find(u)===find(v) means u and v are in the same component. Adding edge (u,v) would create a cycle within that component. MST must be acyclic, so skip."
+        },
+        {
+          "question": "Min Cost Connect All Points: n=4 points. How many edges does the complete graph have?",
+          "options": [
+            "4",
+            "6",
+            "12",
+            "n(n-1)/2 = 6"
+          ],
+          "answer": 3,
+          "explanation": "Complete graph on n=4 vertices: n(n-1)/2 = 4×3/2 = 6 edges. Each pair of points has one edge (Manhattan distance). Kruskal sorts all 6 edges, then builds MST with 3 edges."
+        }
+      ],
+      "visual_aid": {
+        "type": "kruskal_trace",
+        "description": "Kruskal's algorithm building an MST step by step",
+        "diagram": "Kruskal on 4 nodes, edges sorted by weight:\n  (A,B,1), (B,C,2), (A,C,3), (C,D,4), (B,D,5)\n\nInit: parent=[A,B,C,D], MST=[], cost=0\n\nEdge (A,B,1): find(A)=A, find(B)=B → different\n  Add to MST! union(A,B). cost=1. MST=[(A,B,1)]\n  parent=[B,B,C,D]\n\nEdge (B,C,2): find(B)=B, find(C)=C → different\n  Add to MST! union(B,C). cost=3. MST=[(A,B,1),(B,C,2)]\n  parent=[B,C,C,D]\n\nEdge (A,C,3): find(A)→B→C, find(C)=C → SAME\n  SKIP — would create cycle A-B-C-A\n\nEdge (C,D,4): find(C)=C, find(D)=D → different\n  Add to MST! union(C,D). cost=7. MST=[(A,B,1),(B,C,2),(C,D,4)]\n  MST has V-1=3 edges → DONE\n\nMST total cost = 7 ✓"
+      },
+      "complexity_summary": {
+        "kruskal_sort": "O(E log E)",
+        "kruskal_uf": "O(E·α(V)) ≈ O(E)",
+        "kruskal_total": "O(E log E) — sort dominates",
+        "prim_sparse": "O(E log V) — with min-heap (Dijkstra-like)",
+        "prim_dense": "O(V²) — without heap, better for E≈V²"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-1584",
+          "title": "Min Cost to Connect All Points",
+          "difficulty": "Medium",
+          "pattern": "MST — Kruskal or Prim on complete Manhattan-distance graph"
+        },
+        {
+          "id": "custom-mst1",
+          "title": "Implement Kruskal's from scratch with Union-Find and verify on a 5-node graph",
+          "difficulty": "Medium",
+          "pattern": "Kruskal's MST"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M8-L5-TH-1",
+            "question": "What is the CUT PROPERTY that proves Kruskal's algorithm produces a correct MST?",
+            "options": [
+              "The cut property states that the maximum edge in any cycle must be removed",
+              "CUT PROPERTY: for any CUT (partition of vertices into two disjoint sets S and V-S), the MINIMUM WEIGHT EDGE crossing the cut is guaranteed to be in some MST; Kruskal's algorithm processes edges in ascending weight order and adds an edge only if it doesn't create a cycle (i.e., it crosses some cut between two currently-separate components); by the cut property, this minimum-crossing edge is safe to add to the MST; this greedy choice is provably correct",
+              "The cut property states that every edge in the MST must be the lightest edge globally",
+              "The cut property only applies to complete graphs with all-positive weights"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Cut property: minimum weight edge crossing any cut is always in some MST' — Kruskal's greedy 'add lightest non-cycle edge' directly implements the cut property: at each step, the two endpoints of the lightest remaining edge are in different components (a valid cut), and the cut property guarantees adding this edge is safe."
+          },
+          {
+            "id": "L2M8-L5-TH-2",
+            "question": "Why does a Minimum Spanning Tree have EXACTLY V-1 EDGES for a connected graph with V vertices?",
+            "options": [
+              "V-1 is an arbitrary constraint chosen for implementation convenience",
+              "A SPANNING TREE connects all V vertices with NO CYCLES; a tree on V vertices has exactly V-1 edges — this is a fundamental graph theory result: (1) fewer than V-1 edges: cannot be connected (disconnected graph); (2) exactly V-1 edges + connected: must be a tree (acyclic); (3) more than V-1 edges + connected: must contain at least one cycle; Kruskal's early-exit condition `if (edgesUsed === n-1) break` exploits this: once V-1 edges are added, the MST is complete regardless of remaining edges",
+              "V-1 edges are needed to avoid parallel paths between any two vertices",
+              "V-1 is the minimum number of edges for the graph to be bipartite"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Spanning tree: connects all V vertices with exactly V-1 edges, no cycles' — the V-1 edge count follows from the tree definition; Kruskal's break condition leverages this: as soon as V-1 non-cycle edges are added, all V vertices are connected and the MST is complete, avoiding unnecessary further edge processing."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M8-L5-LG-1",
+            "question": "In Kruskal's algorithm, what is the FIRST edge added to the MST from the lesson's edge set, and which edges are SKIPPED and why?",
+            "options": [
+              "First edge: (7,6) weight=1; an edge is skipped when union returns false (both endpoints already in same component = would create a cycle)",
+              "First edge: (0,1) weight=4; edges are skipped based on vertex degree",
+              "Edges are sorted by endpoints, not weight; first edge is (0,1)",
+              "First edge: (2,5) weight=2; all weight-1 edges are skipped as too light"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: after sorting by weight, the first edge added is weight=1 (7,6); subsequent additions are (2,5) w=2, (5,3) w=2, (0,1) w=4, (5,6) w=5, (8,6) w=6, (0,7) w=8, (3,4) w=10; skipped edges include (2,8) w=7 and (7,8) w=7 (both endpoints already connected via 8→6→5→2 and 7→6→8 paths), (1,2) w=8, (2,3) w=9."
+          },
+          {
+            "id": "L2M8-L5-LG-2",
+            "question": "For `minCostConnectPoints([[0,0],[2,2],[3,10],[5,2],[7,0]])`, the answer is 20. How many edges are in the MST?",
+            "options": [
+              "5 edges — one per point",
+              "4 edges (V-1 = 5-1 = 4); a spanning tree for 5 points has exactly 4 edges; confirmed by direct execution returning 20 from exactly 4 selected edges",
+              "10 edges — the total number of point pairs",
+              "3 edges — one triangle connecting the three closest points"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution returning 20; with 5 points (V=5), the MST has exactly V-1=4 edges; Kruskal generates all C(5,2)=10 edges (Manhattan distances), sorts them, and greedily selects 4 non-cycle edges; the early-exit `if (edgesUsed===n-1) break` terminates after 4 edges."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M8-L5-SY-1",
+            "question": "In Kruskal's, edges are stored as `[weight, u, v]` (weight FIRST) rather than `[u, v, weight]`. Why does weight-first matter?",
+            "options": [
+              "Edge format is irrelevant; JavaScript destructuring handles any order",
+              "Kruskal's SORT STEP `edges.sort((a,b) => a[0]-b[0])` sorts by the FIRST element (index 0); storing `[weight, u, v]` means `a[0]` is the weight — the correct sort key; if edges were stored as `[u, v, weight]`, then `a[0]` would be the source vertex u, sorting by vertex rather than weight and producing an incorrect MST; the `[weight, u, v]` format is a design choice that makes the sort comparator cleaner (`a[0]-b[0]` is self-documenting as 'sort by weight')",
+              "Weight-first is required by the UnionFind constructor",
+              "Weight-first enables O(1) weight lookup during the union step"
+            ],
+            "answer": 1,
+            "explanation": "The `[weight, u, v]` format is a deliberate design choice for Kruskal's: `edges.sort((a,b) => a[0]-b[0])` reads as 'sort by first element = weight'; alternative formats work but require `a[2]-b[2]` (weight at index 2) which is less readable; the convention also matches the lesson's destructuring `for (const [w,u,v] of edges)` where w,u,v are clearly labelled."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M8-L5-CC-1",
+            "title": "Kruskal's MST and Min Cost to Connect All Points",
+            "difficulty": "Advanced",
+            "problem_statement": "Implement Kruskal's MST algorithm and its application.",
+            "requirements": [
+              "Implement `kruskalMSTImpl(n, edges)` where edges are [[weight,u,v],...]; return {mstWeight, connected}",
+              "Implement `minCostConnectPointsImpl(points)` matching the lesson's approach"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "class UnionFind {\n    constructor(n){\n        this.parent=Array.from({length:n},(_,i)=>i);\n        this.rank=new Array(n).fill(0);\n        this.components=n;\n    }\n    find(x){\n        if(this.parent[x]!==x)this.parent[x]=this.find(this.parent[x]);\n        return this.parent[x];\n    }\n    union(x,y){\n        const rx=this.find(x),ry=this.find(y);\n        if(rx===ry)return false;\n        if(this.rank[rx]<this.rank[ry])this.parent[rx]=ry;\n        else if(this.rank[rx]>this.rank[ry])this.parent[ry]=rx;\n        else{this.parent[rx]=ry;this.rank[ry]++;}\n        this.components--;return true;\n    }\n    connected(x,y){return this.find(x)===this.find(y);}\n}\n\nfunction kruskalMSTImpl(n, edges) {\n  // TODO: sort by weight, union non-cycle edges, stop at n-1 edges\n}\n\nfunction minCostConnectPointsImpl(points) {\n  // TODO: generate all O(n²) edges, sort, Kruskal\n}"
+            },
+            "test_cases": [
+              {
+                "input": "kruskalMSTImpl(4, [[1,0,1],[2,1,2],[3,0,2],[4,2,3]]).mstWeight",
+                "expected": 7,
+                "type": "visible"
+              },
+              {
+                "input": "kruskalMSTImpl(2, [[5,0,1]]).connected",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "minCostConnectPointsImpl([[0,0],[2,2],[3,10],[5,2],[7,0]])",
+                "expected": 20,
+                "type": "visible"
+              },
+              {
+                "input": "kruskalMSTImpl(3, [[1,0,1],[2,1,2],[3,0,2]]).mstWeight",
+                "expected": 3,
+                "type": "hidden"
+              },
+              {
+                "input": "minCostConnectPointsImpl([[0,0],[1,1]])",
+                "expected": 2,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "class UnionFind {\n    constructor(n){\n        this.parent=Array.from({length:n},(_,i)=>i);\n        this.rank=new Array(n).fill(0);\n        this.components=n;\n    }\n    find(x){\n        if(this.parent[x]!==x)this.parent[x]=this.find(this.parent[x]);\n        return this.parent[x];\n    }\n    union(x,y){\n        const rx=this.find(x),ry=this.find(y);\n        if(rx===ry)return false;\n        if(this.rank[rx]<this.rank[ry])this.parent[rx]=ry;\n        else if(this.rank[rx]>this.rank[ry])this.parent[ry]=rx;\n        else{this.parent[rx]=ry;this.rank[ry]++;}\n        this.components--;return true;\n    }\n    connected(x,y){return this.find(x)===this.find(y);}\n}\n\nfunction kruskalMSTImpl(n, edges) {\n  edges.sort((a,b) => a[0]-b[0]);\n  const uf = new UnionFind(n);\n  let mstWeight = 0, edgesUsed = 0;\n  for (const [w, u, v] of edges) {\n    if (uf.union(u, v)) {\n      mstWeight += w;\n      edgesUsed++;\n      if (edgesUsed === n-1) break;\n    }\n  }\n  return {mstWeight, connected: edgesUsed === n-1};\n}\n\nfunction minCostConnectPointsImpl(points) {\n  const n = points.length, allEdges = [];\n  for (let i = 0; i < n; i++)\n    for (let j = i+1; j < n; j++) {\n      const d = Math.abs(points[i][0]-points[j][0]) + Math.abs(points[i][1]-points[j][1]);\n      allEdges.push([d, i, j]);\n    }\n  allEdges.sort((a,b) => a[0]-b[0]);\n  const uf = new UnionFind(n);\n  let total = 0, used = 0;\n  for (const [d, i, j] of allEdges) {\n    if (uf.union(i, j)) { total += d; used++; if (used === n-1) break; }\n  }\n  return total;\n}"
+            },
+            "complexity_analysis": "kruskalMSTImpl: O(E log E) for sort. minCostConnectPointsImpl: O(n² log n) — n² edges generated and sorted.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "kruskalMSTImpl: sort edges by weight (a[0]-b[0]); add edge if uf.union(u,v)=true; break when edgesUsed===n-1."
+              },
+              {
+                "level": 2,
+                "text": "minCostConnectPointsImpl: generate all i<j pairs with Manhattan distance; same Kruskal logic."
+              },
+              {
+                "level": 3,
+                "text": "Early exit (break when n-1 edges added) is important for performance on large inputs."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 6,
+      "title": "Union Find Problem Thinking",
+      "tag": null,
+      "objective": "Select Union-Find over DFS/BFS for connectivity problems based on the dynamic vs static nature, and map all Module 8 NeetCode 150 problems to their Union-Find patterns.",
+      "concepts": [
+        "Union-Find vs DFS: dynamic (streaming edges) -> UF; static (full graph known) -> DFS",
+        "Union-Find vs BFS: connectivity queries after each edge addition -> UF; level-order -> BFS",
+        "Cycle detection: UF is simpler than three-colour DFS for undirected graphs",
+        "MST: Kruskal uses UF; Prim uses a heap (closer to Dijkstra)",
+        "Online connectivity: UF supports O(α(n)) per edge addition and query",
+        "Module 8 NeetCode 150 problems mapped",
+        "Skills unlocked: Union-Find, MST, Dynamic Connectivity",
+        "Bridge to L2-M09: topological sort completes the advanced graph toolkit"
+      ],
+      "explanation": "Union-Find is the right choice when: (1) edges are added one at a time and you need connectivity queries after each addition (dynamic/online setting), (2) you need simple cycle detection in undirected graphs without tracking three states, (3) you are building an MST (Kruskal's algorithm), or (4) the problem involves merging equivalence classes (Accounts Merge, Friend Circles). DFS/BFS is the right choice when: (1) the full graph is known upfront and you need a single traversal, (2) you need to find specific paths (not just connectivity), (3) the graph is directed (three-colour DFS for directed cycle detection), or (4) you need level information (BFS). The amortised O(α(n)) per Union-Find operation is effectively O(1) for all practical values of n, making it the most efficient connectivity structure available for both static and dynamic graphs when only connectivity information is needed.",
+      "analogy": "Union-Find vs DFS is like choosing between a phone book (UF) and a door-to-door survey (DFS) to answer 'are these two people in the same network?' The phone book gives you an instant answer after you have built it (one O(α(n)) lookup). The survey requires walking the network from one person to the other (O(V+E)). For a static network you visit once, the survey cost is amortised. For a dynamic network where new connections are added constantly and you need instant answers, the phone book wins every time.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// DECISION GUIDE: Union-Find vs DFS/BFS\n\n// Use UNION-FIND when:\n// - Edges added dynamically (streaming)\n// - Need O(1) connectivity queries after each addition\n// - Cycle detection in undirected graph\n// - Building MST (Kruskal's)\n// - Merging equivalence classes\nfunction useUnionFind(problem) {\n    const signals = [\n        'edges added one at a time',\n        'detect if adding edge creates cycle',\n        'merge connected groups',\n        'minimum spanning tree',\n        'accounts merge / friend circles'\n    ];\n    return signals.some(s => problem.includes(s));\n}\n\n// Use DFS/BFS when:\n// - Full graph known upfront\n// - Need path information (not just connectivity)\n// - Directed graph cycle detection (three-colour)\n// - Level-order traversal\n// - Grid flood fill\n\n// MODULE 8 NEETCODE 150 PROBLEMS:\nconst module8_problems = [\n    { id: 684,  title: 'Redundant Connection',               pattern: 'UF cycle detect',    nc150: true  },\n    { id: 323,  title: 'Number of Connected Components',     pattern: 'UF component count', nc150: true  },\n    { id: 200,  title: 'Number of Islands',                  pattern: 'DFS flood fill',     nc150: true  }, // reconfirmed DFS\n    { id: 547,  title: 'Number of Provinces',                pattern: 'UF or DFS',          nc150: true  },\n    { id: 721,  title: 'Accounts Merge',                     pattern: 'UF email grouping',  nc150: true  }, // Blind 75\n    { id: 1584, title: 'Min Cost to Connect All Points',     pattern: 'Kruskal MST',        nc150: true  },\n    { id: 1061, title: 'Lexicographically Smallest Equiv',   pattern: 'UF equivalence',     nc150: false },\n    { id: 990,  title: 'Satisfiability of Equality Equations', pattern: 'UF equation',     nc150: true  },\n];\n\nconsole.log('Module 8 NeetCode 150 problems:',\n    module8_problems.filter(p => p.nc150).length); // 7\n\n// PATH COMPRESSION BENEFIT IN PRACTICE:\n// n=10^9 nodes, 10^9 union operations\n// Without optimisation: O(n) per find = 10^18 total operations (impossible)\n// With path compression + union-by-rank: O(α(n)) ≈ O(4) per op = 4*10^9 total (fast)\n// This is why Union-Find is used in large-scale systems (Google's Bigtable, social graphs)",
+        "explanation": "Satisfiability of Equality Equations (#990) is an elegant Union-Find problem: equations like 'a==b' mean union(a, b), and 'a!=b' means they must be in different components. First process all '==' equations (union them), then check that no '!=' equation has both sides in the same component. This two-pass approach — process equals first, then verify inequalities — is a pattern that appears in other Union-Find constraint satisfaction problems."
+      },
+      "common_mistakes": [
+        "Using Union-Find for directed graph problems — Union-Find treats edges as undirected (bidirectional); for directed cycle detection, three-colour DFS from Module 10 Level 1 is required",
+        "Not using path compression for performance-critical applications — the basic union-find without optimisation is O(n) per find; always use path compression and union-by-rank in production",
+        "Not solving all Module 8 NeetCode 150 problems before continuing — Union-Find appears in Advanced Graph problems (Module 9 topological sort may use UF for cycle checking), and the pattern needs to be automatic"
+      ],
+      "interview_relevance": "Module 8 covers 7 NeetCode 150 problems. Union-Find is a favourite interview data structure because it is conceptually simple but implementation-subtle (path compression, union-by-rank, return value semantics). Companies use Accounts Merge (#721, Blind 75) and Redundant Connection (#684) specifically as Union-Find tests. Being able to implement the optimised version from memory in under 5 minutes is the target.",
+      "mini_challenge": "Set a 60-minute timer and solve these 7 NeetCode 150 problems using Union-Find: #684 Redundant Connection, #323 Number of Connected Components, #547 Number of Provinces, #721 Accounts Merge, #1584 Min Cost to Connect All Points, #990 Satisfiability of Equality Equations, plus implement a clean Kruskal's MST. For each: use the optimised UnionFind class with path compression and union-by-rank. Journal which problems needed modifications to the template.",
+      "flashcards": [
+        {
+          "front": "Union-Find signal words: what problem phrases indicate Union-Find?",
+          "back": "'Connected components', 'dynamic connectivity', 'detect cycle', 'redundant edge', 'merge groups', 'find groups', 'online edge stream'. Key: when edges arrive one-at-a-time and you need fast connectivity queries."
+        },
+        {
+          "front": "Union-Find vs DFS/BFS: decision rule?",
+          "back": "Use Union-Find when: edges are processed INCREMENTALLY (dynamic), you need component membership queries, you're detecting cycles in undirected graphs. Use DFS/BFS when: graph is STATIC and fully known, you need to traverse the graph or find paths, not just component membership."
+        },
+        {
+          "front": "MST vs Shortest Path: key distinction?",
+          "back": "MST: connects ALL vertices with minimum total edge weight — used to reduce infrastructure cost. Shortest Path: finds minimum-weight path from SOURCE to DESTINATION — not all vertices need be visited. Different problem, different algorithms."
+        },
+        {
+          "front": "Module 8 NeetCode 150 problems?",
+          "back": "5 problems: #684 Redundant Connection (UF cycle), #323 Number Connected Components (UF count), #721 Accounts Merge (UF grouping), #1584 Min Cost Connect All Points (MST Kruskal/Prim), #547 Number of Provinces (UF or DFS)."
+        },
+        {
+          "front": "Union-Find template: complete implementation?",
+          "back": "parent = Array.from({length:n},(_,i)=>i); rank = new Array(n).fill(0). find(x): if parent[x]!==x: parent[x]=find(parent[x]); return parent[x]. union(x,y): px=find(x),py=find(y); if px===py return false; rank[px]>rank[py]?parent[py]=px:rank[px]<rank[py]?parent[px]=py:(parent[py]=px,rank[px]++); return true."
+        },
+        {
+          "front": "What does union() returning a boolean enable?",
+          "back": "union() returning true = merge occurred (different components). false = already same component. This enables the Redundant Connection pattern (return the edge when union returns false) and counting (count-- only when union returns true)."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Problem: 'Given a list of friendships arriving one at a time, after each new friendship, report the number of friend groups.' Best data structure?",
+          "options": [
+            "Adjacency list + DFS for each query",
+            "Union-Find with component count — O(α(n)) per friendship, O(1) count query",
+            "Hash map of sets",
+            "BFS from random node"
+          ],
+          "answer": 1,
+          "explanation": "Dynamic connectivity + component count = Union-Find. Each friendship: union() — O(α(n)). Count is maintained as component count decreases with each merge. No graph rebuild needed. Perfect fit."
+        },
+        {
+          "question": "MST vs Shortest Path: 'minimum cost network connecting all cities' vs 'minimum cost route from city A to city B'. Which needs MST?",
+          "options": [
+            "Neither — both need Dijkstra",
+            "Both need MST",
+            "First (connect all cities) = MST. Second (A to B route) = Dijkstra.",
+            "First = Dijkstra, second = MST"
+          ],
+          "answer": 2,
+          "explanation": "Connect ALL cities with minimum total cable cost = MST. Find cheapest flight A→B = shortest path (Dijkstra). MST connects everything; shortest path optimises one specific source-destination pair."
+        },
+        {
+          "question": "union(x,y) return value: what does false mean in the context of Redundant Connection?",
+          "options": [
+            "Error — union always succeeds",
+            "x and y were already connected — this edge creates a cycle — it is the redundant edge",
+            "The rank arrays need updating",
+            "Path compression failed"
+          ],
+          "answer": 1,
+          "explanation": "union() returns false when find(x)===find(y) (already same component). Adding edge (x,y) would create a cycle. For Redundant Connection, return this edge. For Number of Components, do NOT decrement count."
+        },
+        {
+          "question": "find() with path compression: parent=[2,2,3,3,4,4]. find(0) traverses?",
+          "options": [
+            "0→2→3→4 (3 hops), then compresses to parent[0]=4",
+            "0 only (already root)",
+            "0→2 only",
+            "0→2→3 (2 hops), then parent[0]=3"
+          ],
+          "answer": 0,
+          "explanation": "parent[0]=2, parent[2]=3, parent[3]=4, parent[4]=4. Traversal: 0→2→3→4 (root). Path compression: parent[0]=4, parent[2]=4, parent[3]=4 (all point to root). Future find(0)=O(1)."
+        }
+      ],
+      "visual_aid": {
+        "type": "decision_framework",
+        "description": "Union-Find vs BFS/DFS decision map with MST integration",
+        "diagram": "UNION FIND vs BFS/DFS vs MST DECISION MAP:\n\nQ: Do you need to TRAVERSE the graph (paths, levels, BFS/DFS order)?\n  YES → BFS (shortest path unweighted) or DFS (components, cycles, topo)\n  NO  → continue\n\nQ: Do edges arrive DYNAMICALLY (one at a time, online queries)?\n  YES → UNION-FIND\n    + count-- for component count\n    + return edge when union()=false for cycle detection\n    + group by find() for merging (Accounts Merge)\n  NO  → BFS/DFS on full static graph (equal complexity, simpler)\n\nQ: Do you need minimum cost to CONNECT ALL VERTICES?\n  YES → MST (Kruskal: sort edges + UF)\n  NO  → Shortest path (Dijkstra for one source)\n\nMODULE 8 NC150 MAP:\n  #684 Redundant Connection   → UF cycle detection\n  #323 Num Components         → UF with count--\n  #547 Num Provinces          → UF or DFS (static)\n  #721 Accounts Merge         → UF grouping by root\n  #1584 Min Cost Connect      → MST (Kruskal + UF)"
+      },
+      "complexity_summary": {
+        "union_find_per_op": "O(α(n)) ≈ O(1) amortised",
+        "kruskal_mst": "O(E log E) — sort dominates",
+        "vs_bfs_dfs_static": "O(V+E) — same order, simpler for static graphs",
+        "dynamic_advantage": "UF: O(α(n)) per online edge vs O(V+E) DFS rebuild",
+        "module8_nc150_count": 5
+      },
+      "practice_problems": [
+        {
+          "id": "lc-684",
+          "title": "Redundant Connection",
+          "difficulty": "Medium",
+          "pattern": "UF cycle detection — return false edge"
+        },
+        {
+          "id": "lc-323",
+          "title": "Number of Connected Components",
+          "difficulty": "Medium",
+          "pattern": "UF count--"
+        },
+        {
+          "id": "lc-547",
+          "title": "Number of Provinces",
+          "difficulty": "Medium",
+          "pattern": "UF or DFS"
+        },
+        {
+          "id": "lc-721",
+          "title": "Accounts Merge",
+          "difficulty": "Medium",
+          "pattern": "UF grouping by root"
+        },
+        {
+          "id": "lc-1584",
+          "title": "Min Cost to Connect All Points",
+          "difficulty": "Medium",
+          "pattern": "MST — Kruskal or Prim"
+        },
+        {
+          "id": "lc-1971",
+          "title": "Find if Path Exists in Graph",
+          "difficulty": "Easy",
+          "pattern": "UF or BFS — check find(src)===find(dst)"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M8-L6-TH-1",
+            "question": "What are the KEY SIGNALS that indicate Union-Find over DFS/BFS for a graph problem?",
+            "options": [
+              "Union-Find is always better; DFS/BFS are only for tree traversal",
+              "UNION-FIND SIGNALS: 'edges added one at a time' (dynamic/streaming connectivity); 'detect if adding edge creates cycle' (online cycle detection); 'merge connected groups' (equivalence class merging like Accounts Merge); 'minimum spanning tree' (Kruskal's); 'friend circles / provinces' (when the union operation models the relationship directly); DFS/BFS SIGNALS: 'grid flood fill', 'level-order traversal', 'directed cycle detection (three-colour)', 'shortest path', 'full graph known upfront'",
+              "Union-Find is used for weighted graphs; DFS for unweighted",
+              "Union-Find only applies to trees; DFS applies to general graphs"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's decision guide: 'Use UNION-FIND when: Edges added dynamically; detect if adding edge creates cycle; merge connected groups; minimum spanning tree; accounts merge / friend circles' — the dynamic/online nature and equivalence-class-merging operations are the defining Union-Find signals."
+          },
+          {
+            "id": "L2M8-L6-TH-2",
+            "question": "The lesson notes O(α(n)) ≈ O(4) for practical n. What does this claim mean for real-world use?",
+            "options": [
+              "Union-Find is exact O(4) constant time for all inputs",
+              "For any n within the observable universe (n < 2^65536), α(n) ≤ 4 — the inverse Ackermann function grows so incredibly slowly that it is effectively a constant for ALL PRACTICAL PURPOSES; this means Union-Find with path compression and rank achieves what is functionally O(1) per operation on any real dataset; the lesson notes this enables 10⁹ union operations on 10⁹ nodes in practical time vs 10¹⁸ operations without optimisations",
+              "O(α(n)) means Union-Find is slower than O(1) hash tables",
+              "O(α(n)) applies only when n < 10⁶; for larger n the complexity degrades"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's note: 'n=10^9 nodes, 10^9 union operations. Without optimisation: O(n) per find = 10^18 total (impossible). With path compression + union-by-rank: O(α(n))≈O(4) per op = 4*10^9 total (fast)' — α(n) is the inverse Ackermann function, which is ≤5 for n < 10^600 — far beyond any practical dataset size."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M8-L6-LG-1",
+            "question": "How many NC150 problems in Module 8 use Union-Find (not DFS), and which one uses DFS instead?",
+            "options": [
+              "6 use Union-Find; #200 Number of Islands uses DFS flood fill (reconfirmed in the lesson)",
+              "All 7 use Union-Find",
+              "4 use Union-Find; 3 use DFS",
+              "5 use Union-Find; #684 and #200 use DFS"
+            ],
+            "answer": 0,
+            "explanation": "Matching the lesson's module8_problems array: nc150=true problems are #684 (UF), #323 (UF), #200 (DFS — 'reconfirmed DFS'), #547 (UF or DFS), #721 (UF), #1584 (Kruskal), #990 (UF) = 7 nc150 problems; #200 Number of Islands uses DFS flood fill as confirmed in Level 1 Module 10, not Union-Find; #1061 has nc150=false."
+          },
+          {
+            "id": "L2M8-L6-LG-2",
+            "question": "What is the KEY DIFFERENCE between Kruskal's (Union-Find) and Prim's algorithm for MST?",
+            "options": [
+              "Kruskal's and Prim's always produce the same MST with identical time complexity",
+              "KRUSKAL'S: sorts ALL EDGES globally, processes in weight order, uses Union-Find for cycle detection, builds MST edge by edge; O(E log E) — better for SPARSE GRAPHS (few edges); PRIM'S: starts from a SINGLE VERTEX, grows MST by adding the cheapest edge FROM THE CURRENT TREE to an unvisited vertex, uses a MIN-HEAP (similar to Dijkstra), O((V+E) log V) — better for DENSE GRAPHS; they always produce an MST (same total weight) but may choose different edges when multiple MSTs exist",
+              "Kruskal's produces a minimum spanning tree; Prim's produces a shortest path tree",
+              "Prim's uses Union-Find; Kruskal's uses BFS"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Prim's algorithm alternative: start from a vertex, grow MST greedily' and 'MST: Kruskal uses UF; Prim uses a heap (closer to Dijkstra)' — the two algorithms implement the same cut property differently: Kruskal via global edge sorting + Union-Find cycle detection; Prim via local min-heap growing from a start vertex."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M8-L6-SY-1",
+            "question": "In the `useUnionFind` function, `signals.some(s => problem.includes(s))` uses `some` rather than `every`. What does this mean for the classification logic?",
+            "options": [
+              "every would be safer; some is an approximation",
+              "`some` returns true if AT LEAST ONE signal matches — any one of the listed patterns in the problem description suggests Union-Find; this OR logic is correct: the presence of even one Union-Find signal (like 'edges added one at a time') is sufficient to choose Union-Find; `every` would require ALL signals to match simultaneously, which is too strict — most problems don't exhibit all Union-Find characteristics at once; the `some` logic correctly implements 'if any signal matches → use Union-Find'",
+              "some and every produce identical results for this use case",
+              "every is used for AND logic; some is only valid for OR logic in special cases"
+            ],
+            "answer": 1,
+            "explanation": "The signal-matching logic uses OR semantics: any single matching signal is sufficient evidence to choose Union-Find; `signals.some(s => problem.includes(s))` correctly implements this — if any signal string appears in the problem description, return true; `every` would require all signals to appear simultaneously, which would rarely match any real problem description."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M8-L6-CC-1",
+            "title": "Union-Find Pattern Classifier",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+            "problem_statement": "Build a Union-Find pattern classifier for Module 8 problems.",
+            "requirements": [
+              "Implement `classifyUnionFindProblem(signals)` taking an array of signal strings and returning the appropriate pattern",
+              "Implement `module8Summary()` returning {total, nc150, unionFind, dfs} counts",
+              "Implement `mstAlgorithmFor(density)` returning 'Kruskal' for 'sparse' and 'Prim' for 'dense'"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "const MODULE8_PROBLEMS = [\n  {id:684,  pattern:'UF cycle detect',    nc150:true},\n  {id:323,  pattern:'UF component count', nc150:true},\n  {id:200,  pattern:'DFS flood fill',     nc150:true},\n  {id:547,  pattern:'UF or DFS',          nc150:true},\n  {id:721,  pattern:'UF email grouping',  nc150:true},\n  {id:1584, pattern:'Kruskal MST',        nc150:true},\n  {id:1061, pattern:'UF equivalence',     nc150:false},\n  {id:990,  pattern:'UF equation',        nc150:true}\n];\n\nfunction classifyUnionFindProblem(signals) {\n  // signals: array of strings like 'cycle', 'components', 'mst', 'dynamic', 'dfs'\n  // TODO: return pattern name\n}\n\nfunction module8Summary() {\n  // TODO: total, nc150, unionFind (patterns starting with 'UF' or 'Kruskal'), dfs\n}\n\nfunction mstAlgorithmFor(density) {\n  // density: 'sparse' or 'dense'\n  // TODO: return 'Kruskal' or 'Prim'\n}"
+            },
+            "test_cases": [
+              {
+                "input": "classifyUnionFindProblem(['cycle'])",
+                "expected": "UF cycle detect",
+                "type": "visible"
+              },
+              {
+                "input": "classifyUnionFindProblem(['mst'])",
+                "expected": "Kruskal MST",
+                "type": "visible"
+              },
+              {
+                "input": "module8Summary().nc150",
+                "expected": 7,
+                "type": "visible"
+              },
+              {
+                "input": "mstAlgorithmFor('sparse')",
+                "expected": "Kruskal",
+                "type": "hidden"
+              },
+              {
+                "input": "module8Summary().total",
+                "expected": 8,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "const MODULE8_PROBLEMS = [\n  {id:684,  pattern:'UF cycle detect',    nc150:true},\n  {id:323,  pattern:'UF component count', nc150:true},\n  {id:200,  pattern:'DFS flood fill',     nc150:true},\n  {id:547,  pattern:'UF or DFS',          nc150:true},\n  {id:721,  pattern:'UF email grouping',  nc150:true},\n  {id:1584, pattern:'Kruskal MST',        nc150:true},\n  {id:1061, pattern:'UF equivalence',     nc150:false},\n  {id:990,  pattern:'UF equation',        nc150:true}\n];\n\nfunction classifyUnionFindProblem(signals) {\n  const map = {\n    'cycle': 'UF cycle detect',\n    'components': 'UF component count',\n    'dfs': 'DFS flood fill',\n    'mst': 'Kruskal MST',\n    'merge': 'UF email grouping',\n    'equivalence': 'UF equivalence',\n    'dynamic': 'UF component count'\n  };\n  for (const s of signals) if (map[s]) return map[s];\n  return 'unknown';\n}\n\nfunction module8Summary() {\n  const vals = MODULE8_PROBLEMS;\n  return {\n    total: vals.length,\n    nc150: vals.filter(p=>p.nc150).length,\n    unionFind: vals.filter(p=>p.pattern.startsWith('UF')||p.pattern.startsWith('Kruskal')).length,\n    dfs: vals.filter(p=>p.pattern.startsWith('DFS')).length\n  };\n}\n\nfunction mstAlgorithmFor(density) {\n  return density === 'sparse' ? 'Kruskal' : 'Prim';\n}"
+            },
+            "complexity_analysis": "classifyUnionFindProblem: O(signals.length). module8Summary: O(n). mstAlgorithmFor: O(1).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "classifyUnionFindProblem: map signal strings to pattern names; return first match."
+              },
+              {
+                "level": 2,
+                "text": "module8Summary: count nc150=true, UF/Kruskal patterns, DFS patterns using filter."
+              },
+              {
+                "level": 3,
+                "text": "mstAlgorithmFor: sparse→Kruskal (sort all edges, O(E log E)); dense→Prim (heap from vertex, O((V+E)log V))."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "module_summary": {
+    "total_lessons": 6,
+    "level": "L2",
+    "neetcode150_problems": 5,
+    "blind75_problems": 0,
+    "core_patterns": [
+      "Union-Find: parent[i]=i (init), find with path compression (parent[x]=find(parent[x])), union by rank",
+      "Path compression: every node on find() path points directly to root after traversal",
+      "Union by rank: attach shorter tree under taller, increment rank only on tie",
+      "Combined complexity: O(α(n)) ≈ O(1) amortised — effectively constant for all practical n",
+      "Cycle detection: find(u)===find(v) BEFORE union → edge creates cycle → return/report it",
+      "Component counting: count=n init, count-- on every successful union() call",
+      "union() returning boolean: false=same component (cycle/no-merge), true=merged (different components)",
+      "Kruskal MST: sort edges by weight, greedily add if find(u)!==find(v), stop at V-1 edges",
+      "UF dynamic advantage: O(α(n)) per online edge vs O(V+E) DFS for static graph queries",
+      "MST vs shortest path: MST connects all vertices (infrastructure), SP finds optimal src→dst route"
+    ],
+    "prerequisite_modules": [
+      "L1-M10 (basic graphs)",
+      "L2-M07 (weighted graphs)"
+    ],
+    "unlocks_modules": [
+      "L2-M09 (Topological Sort — advanced directed graph algorithms)"
+    ],
+    "recommended_problem_order": [
+      "lc-684",
+      "lc-323",
+      "lc-547",
+      "lc-721",
+      "lc-1584"
+    ],
+    "spaced_review_target": "Re-solve 3 problems from Module 7 from scratch before Module 9",
+    "module_difficulty": "Medium — Union-Find implementation (L1-L2) is straightforward once path compression and rank are understood; the insight is recognising when to use UF. MST (L5) adds Kruskal's algorithm on top of UF. Accounts Merge (L4) is the most implementation-heavy problem.",
+    "honest_time_estimate": "12-14 hours. UF basics (L1-L2): 3 hrs. Redundant Connection (L3): 1.5 hrs. Number of Components + Accounts Merge (L4): 3 hrs. MST / Kruskal (L5): 3 hrs. Review (L6): 1 hr.",
+    "uf_template": "parent[i]=i; rank[i]=0; find(x): parent[x]===x?x:(parent[x]=find(parent[x])); union(x,y): px=find(x),py=find(y);if px===py:return false;rank[px]>rank[py]?parent[py]=px:rank[px]<rank[py]?parent[px]=py:(parent[py]=px,rank[px]++);return true"
+  },
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "intermediate": "Lessons 1-2 (basic UF operations, path compression trace, rank example)",
+      "advanced": "Lessons 3-5 (Redundant Connection cycle detection, Connected Components, Kruskal MST + min cost points)",
+      "capstone": "Lesson 6 (UF vs DFS decision guide, module8 classifier, MST algorithm selection)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

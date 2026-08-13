@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { GraduationCap, Send, Loader2, Sparkles, BookOpen, Target, Lightbulb, ChevronDown, ChevronUp } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { useAuth } from "@/components/AuthProvider";
 
 interface Message {
     role: "user" | "assistant";
@@ -14,6 +15,7 @@ interface Message {
 }
 
 export function DashboardAI() {
+    const { session } = useAuth();
     const [messages, setMessages] = useState<Message[]>([
         {
             role: "assistant",
@@ -56,7 +58,10 @@ export function DashboardAI() {
         try {
             const response = await fetch("/api/ai/groq", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+                },
                 body: JSON.stringify({
                     task: "study_planning",
                     messages: newMessages.map(m => ({ role: m.role, content: m.content }))

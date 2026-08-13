@@ -1,0 +1,1670 @@
+{
+  "module_id": "L3-M02",
+  "module_number": 2,
+  "title": "Segment Trees And Range Queries",
+  "tag": "ADDED",
+  "is_optional_for_product_track": false,
+  "estimated_hours": "12–15 hours",
+  "prerequisites": [
+    "L1-M07"
+  ],
+  "learning_outcomes": [
+    "Build a segment tree array-representation in O(n) and explain why size 4n is sufficient",
+    "Implement point update and range query on a segment tree in O(log n) each",
+    "Implement lazy propagation for range updates to avoid O(n) push-down costs",
+    "Solve Range Sum Query Mutable using a segment tree with O(log n) update and query",
+    "Implement a Fenwick Tree (Binary Indexed Tree) for prefix sum in O(log n) with elegant bit operations",
+    "Select between segment tree and Fenwick tree based on operation type and implementation complexity"
+  ],
+  "notes": [
+    "ADDED — Segment trees and Fenwick trees are asked at top-tier companies and were entirely missing from this curriculum."
+  ],
+  "spaced_review": "Re-solve 3 hard DP problems from Module 1 from scratch",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "title": "Segment Tree Structure And Build",
+      "tag": "ADDED",
+      "objective": "Understand the segment tree as a binary tree stored in an array, derive the 4n size requirement, and implement the build operation in O(n).",
+      "concepts": [
+        "Segment tree: binary tree where each node stores aggregate of a range",
+        "Array representation: root at index 1, left child = 2*i, right child = 2*i+1",
+        "Leaf nodes store individual elements; internal nodes store aggregates",
+        "Build: recursively compute aggregates bottom-up from leaves",
+        "Why 4n size: worst case when n is not a power of 2",
+        "O(n) build: each of the 2n-1 nodes computed exactly once",
+        "Supports: range sum, range min, range max, range GCD",
+        "The aggregate function must be associative (but not necessarily commutative)"
+      ],
+      "explanation": "A segment tree is a binary tree where each node represents a range [l, r] of the underlying array and stores an aggregate value (sum, min, max) for that range. Leaf nodes represent single elements. Internal nodes store the aggregate of their two children's ranges. The array representation stores the tree in a 1-indexed array of size 4n (to handle all possible tree shapes when n is not a power of 2). The root is at index 1, the left child of node i is at 2*i, and the right child is at 2*i+1. The parent of node i is at i/2 (integer division). Build: recursively split the range in half (mid = (l+r)/2), build left child for [l, mid] and right child for [mid+1, r], then combine. O(n) build: there are 2n-1 nodes total (n leaves + n-1 internal), each computed once. The 4n size: a complete binary tree for n leaves has at most 4n nodes because the tree has height ceil(log2(n)) and the array needs to accommodate indices up to 2^(ceil(log2(n))+1), which is at most 4n.",
+      "analogy": "A segment tree is like a corporate hierarchy where each manager's performance score is the aggregate of their team's scores. The CEO (root) knows the aggregate for the entire company. Each manager knows their department's aggregate. The individual contributors (leaves) are the raw data. Building the tree bottom-up is like computing bonuses from frontline workers up to the CEO without any employee being evaluated more than once.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// SEGMENT TREE — array representation\nclass SegmentTree {\n    constructor(nums) {\n        this.n = nums.length;\n        this.tree = new Array(4 * this.n).fill(0);\n        this.build(nums, 1, 0, this.n - 1);\n    }\n\n    // BUILD: O(n) — compute all nodes bottom-up\n    build(nums, node, l, r) {\n        if (l === r) {\n            this.tree[node] = nums[l]; // leaf: store element\n            return;\n        }\n        const mid = Math.floor((l + r) / 2);\n        this.build(nums, 2*node,   l,     mid); // left child\n        this.build(nums, 2*node+1, mid+1, r);   // right child\n        this.tree[node] = this.tree[2*node] + this.tree[2*node+1]; // combine\n    }\n\n    // NODE COUNT VERIFICATION:\n    // n=8 leaves: complete binary tree has 15 nodes (2^4 - 1)\n    // Array needs indices 1..15, size 16 = 2*8 = 2n  (exact for power of 2)\n    // n=5 leaves: ceil(log2(5)) = 3, tree has height 3\n    //   Max index = 2^(3+1) - 1 = 15, need array size 16 < 4*5 = 20 ✓\n    // 4n always sufficient: covers worst case\n}\n\n// WHY 4n: detailed derivation\n// A segment tree for n elements has height h = ceil(log2(n))\n// Maximum number of nodes = 2^(h+1) - 1\n// For n not a power of 2: 2^(h+1) <= 4n (by definition of ceil(log2))\n// For n=5: h=3, 2^4=16 <= 4*5=20 ✓\n// For n=9: h=4, 2^5=32 <= 4*9=36 ✓\n\n// AGGREGATE FUNCTIONS (the tree generalises over these):\n// Sum: tree[node] = tree[left] + tree[right]\n// Min: tree[node] = Math.min(tree[left], tree[right])\n// Max: tree[node] = Math.max(tree[left], tree[right])\n// GCD: tree[node] = gcd(tree[left], tree[right])\n// XOR: tree[node] = tree[left] ^ tree[right]\n// All are associative: f(f(a,b),c) == f(a,f(b,c))\n\nconst st = new SegmentTree([1,3,5,7,9,11]);\nconsole.log(st.tree.slice(1, 12)); // First 11 entries of tree array",
+        "explanation": "The 4n size guarantee comes from the fact that the segment tree for n elements has height ceil(log2(n)). The last level of a complete binary tree at height h has 2^h nodes, but when n is not a power of 2, the last level is only partially filled. The 4n bound ensures the array is large enough for any n. A tighter bound of 2*2^(ceil(log2(n))) is exact but 4n is simpler to state and always safe."
+      },
+      "common_mistakes": [
+        "Allocating exactly 2n instead of 4n for the tree array — for n that is not a power of 2, the tree needs more than 2n nodes; 4n is the safe upper bound that avoids index out-of-bounds",
+        "Using 0-indexed nodes (root at 0) instead of 1-indexed — the 1-indexed representation has the elegant property that left child = 2*i and right child = 2*i+1; 0-indexed requires left = 2*i+1 and right = 2*i+2, which loses the symmetry",
+        "Forgetting to combine children in the build function — tree[node] must be set to the combination of tree[2*node] and tree[2*node+1]; forgetting this leaves internal nodes as 0"
+      ],
+      "interview_relevance": "The segment tree build is the foundation for all operations that follow. Interviewers expect candidates to know the 4n size requirement and the 1-indexed array representation. The O(n) build complexity (not O(n log n)) is specifically asked: 'How long does it take to build the segment tree?' The answer requires recognising that each of the 2n-1 nodes is visited exactly once in the recursion.",
+      "mini_challenge": "Implement the SegmentTree class build function. Verify the tree array for nums=[1,3,5,7,9,11]: draw the tree structure and fill in all node values. The root (index 1) should be 36 (sum of all). Verify indices 2 and 3 (children of root) are 9 and 27. Calculate: for n=7, what is the minimum array size needed? Verify 4*7=28 is sufficient by computing the maximum node index in the tree.",
+      "flashcards": [
+        {
+          "front": "Segment tree: what problem does it solve?",
+          "back": "Efficient RANGE QUERIES and POINT/RANGE UPDATES on an array. A balanced binary tree where each node stores the aggregate (sum, min, max, GCD, etc.) of a contiguous subarray. O(log n) per query and update vs O(n) naive scan."
+        },
+        {
+          "front": "Segment tree: array representation for a tree with n leaves?",
+          "back": "Use 1-indexed array of size 4n (or 2×next_power_of_2). Node at index i: left child = 2i, right child = 2i+1, parent = i//2. Root = index 1. Leaf nodes correspond to array elements. The 4n bound safely handles all tree sizes."
+        },
+        {
+          "front": "Build segment tree: recurrence?",
+          "back": "build(node, start, end): if start==end: tree[node]=arr[start] (leaf). Else: mid=(start+end)//2; build(2*node, start, mid); build(2*node+1, mid+1, end); tree[node] = tree[2*node] + tree[2*node+1] (combine children). O(n) total."
+        },
+        {
+          "front": "Segment tree: what is stored at each internal node?",
+          "back": "The AGGREGATE of all array elements in its range [l, r]. For sum queries: sum of arr[l..r]. For min: minimum. For max: maximum. For GCD: GCD of all elements. The aggregate function must be ASSOCIATIVE (order of combining doesn't matter for correctness)."
+        },
+        {
+          "front": "Segment tree height and build complexity?",
+          "back": "Height = ceil(log₂ n). Total nodes ≤ 4n. Build: visits each of 2n-1 nodes once → O(n). Each leaf takes O(1) to assign; each internal node takes O(1) to combine children → O(n) total."
+        },
+        {
+          "front": "Segment tree: what operations does it support natively?",
+          "back": "POINT UPDATE: update a single arr[i] → O(log n). RANGE QUERY: query aggregate over arr[l..r] → O(log n). RANGE UPDATE: with lazy propagation → O(log n). Does NOT support O(log n) sorted insertion (use order-statistic tree for that)."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Segment tree for arr=[1,2,3,4,5]: what is tree[1] (root value for sum query)?",
+          "options": [
+            "5",
+            "15",
+            "3",
+            "1"
+          ],
+          "answer": 1,
+          "explanation": "Root covers the full range [0,4]. Sum = 1+2+3+4+5 = 15. tree[1]=15."
+        },
+        {
+          "question": "For 1-indexed segment tree, what are the children of node 3?",
+          "options": [
+            "4 and 5",
+            "6 and 7",
+            "5 and 6",
+            "2 and 4"
+          ],
+          "answer": 1,
+          "explanation": "Left child = 2×3 = 6. Right child = 2×3+1 = 7. Parent of node 3 = 3//2 = 1 (root)."
+        },
+        {
+          "question": "Building a segment tree on n=8 elements: how many total nodes in the tree array?",
+          "options": [
+            "8",
+            "15",
+            "16 or fewer (≤ 4n=32 bound)",
+            "32 exactly"
+          ],
+          "answer": 2,
+          "explanation": "For n=8 (perfect power of 2): exactly 2n-1 = 15 internal+leaf nodes. The array is sized ≥ 2×8 = 16. The 4n=32 bound is a safe upper bound for any n. The actual nodes needed: 15."
+        },
+        {
+          "question": "Segment tree vs sorted array for range minimum query: key difference?",
+          "options": [
+            "Both O(log n) — no difference",
+            "Segment tree: O(log n) query + O(log n) update. Sorted array: O(log n) query + O(n) update for random positions.",
+            "Sorted array is always faster",
+            "Segment tree supports sorted insertion; sorted array does not"
+          ],
+          "answer": 1,
+          "explanation": "Sorted array gives O(log n) binary search for minimum but O(n) insertion/update (shifting elements). Segment tree gives O(log n) for both. For static arrays: sparse table achieves O(1) query O(n log n) build. Segment tree is optimal for dynamic (mutable) arrays."
+        }
+      ],
+      "visual_aid": {
+        "type": "segment_tree_structure",
+        "description": "Segment tree structure for arr=[1,2,3,4,5] (sum query)",
+        "diagram": "arr = [1, 2, 3, 4, 5]  (0-indexed)\n\nSEGMENT TREE (1-indexed node array, sum):\n\n         tree[1]=15  [0,4]\n        /              \\\n  tree[2]=6 [0,2]    tree[3]=9 [3,4]\n   /         \\          /      \\\ntr[4]=3 [0,1] tr[5]=3 [2,2] tr[6]=4 [3,3] tr[7]=5 [4,4]\n  /      \\\ntr[8]=1  tr[9]=2\n[0,0]    [1,1]\n\nNODE INDEX MATH:\n  Root: 1\n  Left child of node i:  2i\n  Right child of node i: 2i+1\n  Parent of node i:      i//2\n\nARRAY SIZES:\n  Safe: 4n elements\n  Tight: 2×(next power of 2 ≥ n)"
+      },
+      "complexity_summary": {
+        "build": "O(n) — each of 2n-1 nodes visited once",
+        "point_query": "O(log n) — traverse from root to leaf",
+        "point_update": "O(log n) — update leaf + ancestors",
+        "range_query": "O(log n) — visit O(log n) nodes",
+        "space": "O(n) — at most 4n nodes in array"
+      },
+      "practice_problems": [
+        {
+          "id": "custom-seg1",
+          "title": "Build a min segment tree on [3,1,4,1,5,9] and verify tree[1]",
+          "difficulty": "Medium",
+          "pattern": "Segment tree build"
+        },
+        {
+          "id": "lc-307",
+          "title": "Range Sum Query — Mutable (intro to segment tree)",
+          "difficulty": "Medium",
+          "pattern": "Sum segment tree with point updates"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M2-L1-TH-1",
+            "question": "Why does a segment tree array need 4n elements rather than the seemingly sufficient 2n?",
+            "options": [
+              "4n is an arbitrary safety margin; 2n always works",
+              "2n IS sufficient when n is a PERFECT POWER OF 2 (complete binary tree has 2n-1 nodes fitting in indices 1..2n-1); but when n is NOT a power of 2, the tree is INCOMPLETE and some bottom-level nodes require higher indices than 2n-1; for n=5 (height=3), the maximum node index reaches 2^(h+1)-1 = 15 < 4*5=20; the derivation: height h=ceil(log2(n)), max index = 2^(h+1)-1 <= 4n holds for all n; 4n is the universal safe bound covering all cases without needing to compute the exact required size",
+              "4n is required because segment trees store both values and parent pointers",
+              "The extra 2n space is used by the lazy propagation array in all variants"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's derivation: 'For n not a power of 2: 2^(h+1) <= 4n (by definition of ceil(log2)); For n=5: h=3, 2^4=16 <= 4*5=20 ✓' — 4n is the universal safe bound; for n=9: h=4, 2^5=32 <= 4*9=36 ✓; the extra space is wasted for power-of-2 n but prevents buffer overflows for all other n."
+          },
+          {
+            "id": "L3M2-L1-TH-2",
+            "question": "The segment tree build is O(n) because 'each of the 2n-1 nodes is computed exactly once'. Why are there exactly 2n-1 nodes?",
+            "options": [
+              "A balanced binary tree always has exactly n nodes",
+              "A FULL BINARY TREE with n LEAF NODES has exactly n-1 INTERNAL NODES (a well-known tree property: in any full binary tree — where every non-leaf has exactly 2 children — internal nodes = leaves - 1); total nodes = n leaves + (n-1) internal = 2n-1; the segment tree is a full binary tree by construction (each non-leaf always has exactly 2 children representing left and right halves); thus 2n-1 nodes are computed during build = O(n) work",
+              "The build recurses n times, each taking O(1), giving O(n)",
+              "2n-1 nodes come from the 4n array having half its entries unused"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'O(n) build: each of the 2n-1 nodes computed exactly once' — the full binary tree property (internal = leaves - 1) gives total = 2n-1; each node computation is O(1) (combine two children); total build work = O(2n-1) = O(n); this is why segment tree build is linear despite the tree having O(n) height."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M2-L1-LG-1",
+            "question": "For segment tree on [1,3,5,7,9,11] (n=6), what is stored at node 1 (root) and why?",
+            "options": [
+              "Root stores 36 (sum of all elements: 1+3+5+7+9+11=36) — confirmed",
+              "Root stores 1 (the first element)",
+              "Root stores 6 (the count of elements)",
+              "Root stores 11 (the maximum element)"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: tree[1]=36 for sum segment tree on [1,3,5,7,9,11]; the root covers the entire range [0,5] and stores the aggregate (sum) of all elements; 1+3+5+7+9+11=36; this is the defining property of the root node — it covers the full array range."
+          },
+          {
+            "id": "L3M2-L1-LG-2",
+            "question": "In the build recursion, `this.tree[node] = this.tree[2*node] + this.tree[2*node+1]` runs AFTER the two child calls. Why must it come after (not before)?",
+            "options": [
+              "The order is arbitrary; the tree values are the same either way",
+              "BOTTOM-UP computation: a node's aggregate depends on its CHILDREN'S aggregates, which in turn depend on THEIR children's aggregates; combining before recursing would use uninitialized values (still 0 from fill(0)); the correct order is: recursively build left subtree → recursively build right subtree → combine results; this is POST-ORDER traversal where the parent's computation happens AFTER both subtrees are fully populated",
+              "Combining before recursion would create infinite loops",
+              "JavaScript requires sequential array access; out-of-order access causes memory errors"
+            ],
+            "answer": 1,
+            "explanation": "Post-order construction is fundamental: the combine step `tree[node] = tree[2*node] + tree[2*node+1]` reads tree[2*node] and tree[2*node+1] which are only correct after their respective subtrees are built; doing this before the recursive calls would combine zeros (initial fill values), not the actual subtree aggregates."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M2-L1-SY-1",
+            "question": "The tree is 1-indexed (root at index 1) rather than 0-indexed. What is the KEY ADVANTAGE of 1-indexing for tree navigation?",
+            "options": [
+              "1-indexing prevents off-by-one errors in the mid computation",
+              "1-INDEXING enables PURE ARITHMETIC NAVIGATION without conditional checks: left child = 2*node, right child = 2*node+1, parent = Math.floor(node/2); these formulas work perfectly for all valid indices; if the root were at 0: left child = 2*0+1=1, right = 2*0+2=2 — navigation still works but the formulas become 2*node+1 and 2*node+2 (less elegant); 1-indexing makes the Fenwick tree even more natural (operations rely on bit manipulations of 1-indexed positions); 0-indexed would leave index 0 permanently wasted anyway",
+              "1-indexing allows using 0 as a sentinel value in the tree array",
+              "1-indexing enables O(1) parent lookup without storing parent pointers"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Array representation: root at index 1, left child = 2*i, right child = 2*i+1' — the 2*i and 2*i+1 formulas work cleanly only when the root is at index 1; with root at 0, formulas become 2*i+1 and 2*i+2 (still correct but less intuitive); the 1-indexed convention is universal for array-represented binary trees."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M2-L1-CC-1",
+            "title": "Segment Tree Build",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the segment tree build operation from this lesson.",
+            "requirements": [
+              "Implement `buildSegTree(nums)` returning the tree array (size 4n) with correct sum aggregates"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function buildSegTree(nums) {\n  const n = nums.length;\n  const tree = new Array(4 * n).fill(0);\n  function build(node, l, r) {\n    // TODO: leaf: tree[node]=nums[l]; else: recurse both children, combine\n  }\n  build(1, 0, n - 1);\n  return tree;\n}"
+            },
+            "test_cases": [
+              {
+                "input": "buildSegTree([1,3,5,7,9,11])[1]",
+                "expected": 36,
+                "type": "visible"
+              },
+              {
+                "input": "buildSegTree([1,2,3,4])[1]",
+                "expected": 10,
+                "type": "visible"
+              },
+              {
+                "input": "buildSegTree([5])[1]",
+                "expected": 5,
+                "type": "visible"
+              },
+              {
+                "input": "buildSegTree([1,2])[2]",
+                "expected": 1,
+                "type": "hidden"
+              },
+              {
+                "input": "buildSegTree([1,2])[3]",
+                "expected": 2,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function buildSegTree(nums) {\n  const n=nums.length;\n  const tree=new Array(4*n).fill(0);\n  function build(node,l,r){\n    if(l===r){tree[node]=nums[l];return;}\n    const mid=Math.floor((l+r)/2);\n    build(2*node,l,mid);\n    build(2*node+1,mid+1,r);\n    tree[node]=tree[2*node]+tree[2*node+1];\n  }\n  build(1,0,n-1);\n  return tree;\n}"
+            },
+            "complexity_analysis": "O(n) time — 2n-1 nodes each computed O(1). O(4n) = O(n) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Leaf case (l===r): tree[node]=nums[l]; return."
+              },
+              {
+                "level": 2,
+                "text": "mid=Math.floor((l+r)/2); recurse left (2*node, l, mid) then right (2*node+1, mid+1, r)."
+              },
+              {
+                "level": 3,
+                "text": "Combine AFTER both children are built: tree[node]=tree[2*node]+tree[2*node+1]."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 2,
+      "title": "Point Update And Range Query",
+      "tag": "ADDED",
+      "objective": "Implement point update and range query on a segment tree in O(log n) each, and trace the path from root to leaf that makes both operations efficient.",
+      "concepts": [
+        "Point update: change a single element, update O(log n) nodes on the root-to-leaf path",
+        "Update path: only nodes whose range contains the updated index need updating",
+        "Range query: find aggregate over [ql, qr] by combining O(log n) disjoint segments",
+        "Query decomposition: split [ql, qr] into at most 2*log(n) stored ranges",
+        "O(log n) both: height of tree is log n, each level contributes at most 2 nodes to query",
+        "Query base cases: range fully outside [ql,qr] (return identity), fully inside (return stored)",
+        "Identity values: 0 for sum, Infinity for min, -Infinity for max",
+        "Partial overlap: recurse into both children and combine"
+      ],
+      "explanation": "Point update: to update position i, traverse from root to the leaf for i. At each node, after updating the appropriate child, recompute the node's aggregate from its two children. This updates exactly log(n) nodes (one per level on the path). Range query [ql, qr]: traverse the tree, at each node with range [l, r]: if [l, r] is fully outside [ql, qr], return the identity value (0 for sum, Infinity for min). If [l, r] is fully inside [ql, qr], return tree[node]. Otherwise (partial overlap), recurse into both children and combine the results. At most 2*log(n) nodes are visited because each level of the tree can contribute at most 2 nodes to the result (one from each side of the range boundaries). Both operations are O(log n) = O(tree height).",
+      "analogy": "Range query is like asking a company hierarchy 'what is the total performance score for employees 3 through 7?'. You ask each manager: if your entire team is in range, give me your team's aggregate. If your team is completely outside the range, give me nothing. If your team partially overlaps, ask both of your sub-managers. At most two sub-manager responses are needed per level, giving O(log n) managers consulted total.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// SEGMENT TREE WITH POINT UPDATE AND RANGE QUERY\nclass SegmentTree {\n    constructor(nums) {\n        this.n = nums.length;\n        this.tree = new Array(4 * this.n).fill(0);\n        this.build(nums, 1, 0, this.n - 1);\n    }\n\n    build(nums, node, l, r) {\n        if (l === r) { this.tree[node] = nums[l]; return; }\n        const mid = Math.floor((l + r) / 2);\n        this.build(nums, 2*node, l, mid);\n        this.build(nums, 2*node+1, mid+1, r);\n        this.tree[node] = this.tree[2*node] + this.tree[2*node+1];\n    }\n\n    // POINT UPDATE: set nums[idx] = val — O(log n)\n    update(idx, val, node=1, l=0, r=this.n-1) {\n        if (l === r) {\n            this.tree[node] = val; // leaf: update value\n            return;\n        }\n        const mid = Math.floor((l + r) / 2);\n        if (idx <= mid) this.update(idx, val, 2*node,   l,     mid);\n        else            this.update(idx, val, 2*node+1, mid+1, r);\n        this.tree[node] = this.tree[2*node] + this.tree[2*node+1]; // recompute\n    }\n\n    // RANGE QUERY: sum of nums[ql..qr] — O(log n)\n    query(ql, qr, node=1, l=0, r=this.n-1) {\n        if (qr < l || r < ql) return 0;  // fully outside: return identity\n        if (ql <= l && r <= qr) return this.tree[node]; // fully inside\n        const mid = Math.floor((l + r) / 2);\n        return this.query(ql, qr, 2*node,   l,     mid) +\n               this.query(ql, qr, 2*node+1, mid+1, r);\n    }\n}\n\nconst st = new SegmentTree([1,3,5,7,9,11]);\nconsole.log(st.query(0, 2));  // 9 (1+3+5)\nconsole.log(st.query(1, 4));  // 24 (3+5+7+9)\nst.update(1, 10);              // change index 1 from 3 to 10\nconsole.log(st.query(0, 2));  // 16 (1+10+5)\nconsole.log(st.query(1, 4));  // 31 (10+5+7+9)\n\n// TRACE update(1, 10) on [1,3,5,7,9,11]:\n// node=1 [0,5]: idx=1 <= mid=2 -> go left\n// node=2 [0,2]: idx=1 <= mid=1 -> go left\n// node=4 [0,1]: idx=1 > mid=0 -> go right\n// node=9 [1,1]: leaf -> tree[9] = 10\n// BACK: tree[4] = tree[8]+tree[9] = 1+10=11\n// BACK: tree[2] = tree[4]+tree[5] = 11+5=16\n// BACK: tree[1] = tree[2]+tree[3] = 16+27=43\n// Updated path: nodes 9,4,2,1 (log n = 3 levels ✓)",
+        "explanation": "The update path traces exactly from root to the target leaf, updating each node on the way back up (post-order). The query decomposes the range into at most 2 nodes per level of the tree: the leftmost and rightmost segments that partially overlap the query range each contribute at most one node per level. This gives the O(log n) query bound."
+      },
+      "common_mistakes": [
+        "Calling update without propagating changes back up — the recomputation tree[node] = tree[2*node] + tree[2*node+1] must happen on the way back up from the recursive call; without it, internal nodes remain stale",
+        "Using the wrong identity value for the aggregate — for range sum, return 0 on fully-outside; for range min, return Infinity; for range max, return -Infinity; using 0 for min would incorrectly report 0 as the minimum when no valid elements are in range",
+        "Forgetting the fully-inside check before the partial-overlap recursion — without the fully-inside check (ql <= l && r <= qr), the query recurses all the way to leaves even when an internal node already stores the exact answer"
+      ],
+      "interview_relevance": "Point update and range query are the two fundamental segment tree operations. Range Sum Query - Mutable (#307) is NeetCode 150 and directly tests these. The O(log n) complexity of both operations (versus O(n) for a naive prefix sum update) is specifically asked. Tracing the update path (log n nodes updated) is a common interview question to verify understanding.",
+      "mini_challenge": "Add update and query methods to your SegmentTree class. Verify query(0,2)=9 and query(1,4)=24 for nums=[1,3,5,7,9,11]. After update(1,10), verify query(0,2)=16. Trace the full update path showing which node indices are updated. Then modify the segment tree to support range minimum instead of range sum: what changes? (aggregate function, identity value, combination in query)",
+      "flashcards": [
+        {
+          "front": "Point update in segment tree: algorithm?",
+          "back": "update(node, start, end, idx, val): if start==end: tree[node]=val; return. mid=(start+end)//2. If idx≤mid: update(2*node, start, mid, idx, val). Else: update(2*node+1, mid+1, end, idx, val). tree[node] = combine(tree[2*node], tree[2*node+1])."
+        },
+        {
+          "front": "Range query in segment tree: algorithm?",
+          "back": "query(node, start, end, l, r): if r<start or end<l: return IDENTITY (0 for sum, ∞ for min). If l≤start and end≤r: return tree[node]. mid=(start+end)//2. Return combine(query(2*node,start,mid,l,r), query(2*node+1,mid+1,end,l,r))."
+        },
+        {
+          "front": "What is the IDENTITY element for different segment tree operations?",
+          "back": "Sum: 0 (arr[i]+0=arr[i]). Min: +∞. Max: -∞. GCD: 0 (gcd(a,0)=a). AND: all 1s (0xFFFFFFFF). OR: 0. XOR: 0. The identity must satisfy: combine(x, identity) = x for all x."
+        },
+        {
+          "front": "Range query: why does it visit O(log n) nodes?",
+          "back": "At each level, the query range [l,r] intersects at most 2 nodes. This is because each node either: (1) is fully within [l,r] → return immediately, (2) is fully outside → return identity, or (3) partially overlaps → recurse on both children. Only 'partial' nodes recurse, and there are O(log n) partial nodes total."
+        },
+        {
+          "front": "Segment tree: what aggregate functions are valid?",
+          "back": "Any function that is ASSOCIATIVE: f(a,f(b,c)) = f(f(a,b),c). Sum, min, max, GCD, LCM, AND, OR, XOR, product (careful with overflow), count satisfying a condition, polynomial composition. Does NOT work with average (not associative by itself — need to track sum AND count)."
+        },
+        {
+          "front": "Difference between point update and range update?",
+          "back": "POINT UPDATE: change one element → update O(log n) nodes on the path from that leaf to root. RANGE UPDATE: change all elements in [l,r] → without lazy propagation: O(n log n) by updating each element. With lazy propagation: O(log n)."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Range query [2,4] on tree for arr=[1,2,3,4,5] (sum). Which node returns immediately without recursing?",
+          "options": [
+            "tree[3] covering [3,4] — fully inside [2,4]",
+            "tree[2] covering [0,2] — partially overlapping",
+            "tree[5] covering [2,2] — leaf, inside [2,4]",
+            "Both A and C return immediately"
+          ],
+          "answer": 3,
+          "explanation": "Any node fully inside [l,r]=[2,4] returns immediately. tree[3] covers [3,4] ⊆ [2,4] → return tree[3]=9. tree[5] covers [2,2] ⊆ [2,4] → return tree[5]=3. Combined: 3+9=12 = 3+4+5 ✓."
+        },
+        {
+          "question": "Point update: arr[2] changes from 3 to 10. Which nodes are updated?",
+          "options": [
+            "Only the leaf at index 2",
+            "Leaf(arr[2]) + all ancestors up to root — O(log n) nodes",
+            "All nodes in range covering index 2",
+            "The root only"
+          ],
+          "answer": 1,
+          "explanation": "Update propagates from leaf UP to root: leaf(arr[2]=10) → its parent (covering [0,2]) → grandparent (covering [0,4]=root). Each ancestor recomputes as combine(left_child, right_child). O(log n) nodes total."
+        },
+        {
+          "question": "Range minimum query on [3,1,4,1,5,9], query [1,4]: answer?",
+          "options": [
+            "1",
+            "3",
+            "4",
+            "5"
+          ],
+          "answer": 0,
+          "explanation": "arr[1..4] = [1,4,1,5]. Minimum = 1. The segment tree would return 1 from the node(s) covering this range."
+        },
+        {
+          "question": "What is the identity element for range GCD queries?",
+          "options": [
+            "1",
+            "0",
+            "n (array size)",
+            "-1"
+          ],
+          "answer": 1,
+          "explanation": "gcd(a, 0) = a for all a > 0. So 0 is the identity for GCD. When a query returns identity (no elements in range), returning 0 is correct since gcd(answer, 0) = answer won't corrupt the combination."
+        }
+      ],
+      "visual_aid": {
+        "type": "query_trace",
+        "description": "Range sum query [2,4] on segment tree for [1,2,3,4,5]",
+        "diagram": "RANGE QUERY [2,4] on arr=[1,2,3,4,5] (sum):\n\n  query(1,[0,4],[2,4]):\n    Left child query(2,[0,2],[2,4]):\n      Left child query(4,[0,1],[2,4]):\n        [0,1] doesn't overlap [2,4] → return 0 (IDENTITY)\n      Right child query(5,[2,2],[2,4]):\n        [2,2] ⊆ [2,4] → return tree[5]=3 ✓ (IMMEDIATE)\n      return 0+3 = 3\n    Right child query(3,[3,4],[2,4]):\n      [3,4] ⊆ [2,4] → return tree[3]=9 ✓ (IMMEDIATE)\n    return 3+9 = 12\n\nFINAL: 12 = arr[2]+arr[3]+arr[4] = 3+4+5 ✓\n\nNODES VISITED: 1,2,3,4,5 = 5 nodes for n=5\nO(log n) because at each level: ≤ 2 partial-overlap nodes recurse"
+      },
+      "complexity_summary": {
+        "point_update": "O(log n) — O(log n) ancestors updated",
+        "range_query": "O(log n) — O(log n) partial-overlap nodes visited",
+        "identity_elements": "Sum:0, Min:+∞, Max:-∞, GCD:0, AND:all-1s, OR:0, XOR:0",
+        "valid_aggregates": "Any associative function f(a,b)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-307",
+          "title": "Range Sum Query — Mutable",
+          "difficulty": "Medium",
+          "pattern": "Sum segment tree: build + point update + range query"
+        },
+        {
+          "id": "lc-308",
+          "title": "Range Sum Query 2D — Mutable",
+          "difficulty": "Hard",
+          "pattern": "2D segment tree or 2D BIT"
+        },
+        {
+          "id": "custom-seg2",
+          "title": "Range min segment tree with point updates on [3,1,4,1,5,9]",
+          "difficulty": "Medium",
+          "pattern": "Min segment tree — identity=+∞"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M2-L2-TH-1",
+            "question": "Why does a range query visit at most O(log n) nodes despite potentially spanning many elements?",
+            "options": [
+              "The query prunes entire subtrees when they are fully inside or fully outside the query range",
+              "QUERY DECOMPOSITION: at each level of the tree, the query range [ql,qr] can produce at most 2 PARTIAL OVERLAPS (one on the left boundary, one on the right boundary); every other node at that level is either FULLY INSIDE (return stored value immediately) or FULLY OUTSIDE (return identity immediately); with O(log n) levels and at most 2 active nodes per level: at most 2*log(n) nodes are visited total; this O(log n) bound is tight — a query range that spans exactly half the array visits exactly O(log n) nodes",
+              "The query uses binary search to find the boundaries, reducing to O(log n)",
+              "Range queries are O(log n) because the tree has height log n"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Query decomposition: split [ql,qr] into at most 2*log(n) stored ranges' — the key insight is that per level, at most 2 nodes straddle the query boundary (partial overlap → recurse); all other nodes in the query range are completely inside and returned in O(1); height=log n → at most 2*log(n) nodes visited total."
+          },
+          {
+            "id": "L3M2-L2-TH-2",
+            "question": "In `update(idx, val)`, why must `this.tree[node] = this.tree[2*node] + this.tree[2*node+1]` be called on the WAY BACK UP?",
+            "options": [
+              "The combine step on the way back is optional if the leaf was correctly set",
+              "BOTTOM-UP PROPAGATION: when a leaf value changes, all ANCESTORS of that leaf have incorrect aggregates; the update descends to the leaf (setting it correctly), then as the recursion returns (back up the path), each ancestor is RECOMPUTED using its two children's current values; all other nodes in the tree are unaffected because only the ancestors of the changed leaf have that leaf in their range; O(log n) recompute steps on the way back = O(log n) total update cost",
+              "The combine runs bottom-up to propagate the lazy tag",
+              "Without recomputing, the tree structure becomes invalid and future queries fail"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's trace: 'BACK: tree[4]=tree[8]+tree[9]=1+10=11; BACK: tree[2]=tree[4]+tree[5]=11+5=16; BACK: tree[1]=tree[2]+tree[3]=16+27=43' — each ancestor on the leaf-to-root path is recomputed using the now-correct children; only log(n) ancestors exist, giving O(log n) total update."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M2-L2-LG-1",
+            "question": "For `query(0, 2)` on [1,3,5,7,9,11], the result is 9. Which NODES does the query visit and what does it return from each?",
+            "options": [
+              "node1[0,5]: partial; node2[0,2]: fully inside → return 9; total = 9 ✓",
+              "node1[0,5]: fully inside → return 36",
+              "Visits all 11 nodes; sums leaf values 1+3+5=9",
+              "node1[0,5]: partial; node2[0,2]: partial; node4[0,1]: inside→4; node5[2,2]: inside→5; returns 4+5=9"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: query(0,2)=9; at node1 [0,5]: ql=0,qr=2 partially overlaps → recurse; at node2 [0,2]: ql=0<=l=0 AND r=2<=qr=2 → FULLY INSIDE → return tree[2]=9 immediately; at node3 [3,5]: qr=2<l=3 → FULLY OUTSIDE → return 0; total=9+0=9; the query only visits nodes 1, 2, and 3 (3 nodes for a 6-element tree)."
+          },
+          {
+            "id": "L3M2-L2-LG-2",
+            "question": "After `update(1, 10)` on [1,3,5,7,9,11], the trace shows nodes [9,4,2,1] are updated. Verify `query(1,4)` returns 31.",
+            "options": [
+              "After update: nums=[1,10,5,7,9,11]; query(1,4)=10+5+7+9=31 ✓",
+              "query(1,4)=3+5+7+9=24 (stale pre-update value)",
+              "query(1,4)=1+10+5+7=23",
+              "query(1,4)=10+5+7+9+11=42"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: query(1,4)=31 after update(1,10); updated array=[1,10,5,7,9,11]; sum of indices 1..4 = 10+5+7+9=31; the update correctly propagated through nodes 9→4→2→1 (leaf to root path for index 1)."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M2-L2-SY-1",
+            "question": "The query uses `if (qr < l || r < ql) return 0` as the FULLY OUTSIDE base case. Why return 0 specifically (not -1 or null)?",
+            "options": [
+              "0 is returned because null or undefined would cause arithmetic errors",
+              "0 is the ADDITIVE IDENTITY for SUM queries: adding 0 to any partial result leaves it unchanged; returning 0 for an out-of-range subtree correctly contributes nothing to the total sum; for MINIMUM queries, the identity would be +Infinity (min(any, Infinity) = any); for MAXIMUM queries, -Infinity; the identity element MUST match the aggregate function — using 0 for min would incorrectly make empty ranges contribute 0 to min computations; the correct identity ensures the partial-overlap recursion correctly combines results",
+              "0 is returned because the tree is initialised with 0 (fill(0))",
+              "0 signals to the parent that no contribution was made from this subtree"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Identity values: 0 for sum, Infinity for min, -Infinity for max' — the out-of-range return value must be the identity element for the aggregate function; for sum: 0+x=x (correct); for min: min(Infinity,x)=x (correct); using the wrong identity corrupts results — e.g., returning 0 for min queries would make any query that hits an out-of-range subtree return 0 incorrectly."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M2-L2-CC-1",
+            "title": "Segment Tree: Point Update and Range Query",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the full segment tree with point update and range sum query.",
+            "requirements": [
+              "Implement the `SegmentTree` class with constructor(nums), update(idx,val), and query(ql,qr)"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "class SegmentTree {\n  constructor(nums) {\n    // TODO: build tree\n  }\n  update(idx, val) {\n    // TODO: O(log n) point update\n  }\n  query(ql, qr) {\n    // TODO: O(log n) range sum query; return 0 for fully outside, tree[node] for fully inside\n  }\n}"
+            },
+            "test_cases": [
+              {
+                "input": "(() => { const st=new SegmentTree([1,3,5,7,9,11]); return st.query(0,2); })()",
+                "expected": 9,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const st=new SegmentTree([1,3,5,7,9,11]); st.update(1,10); return st.query(0,2); })()",
+                "expected": 16,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const st=new SegmentTree([1,3,5,7,9,11]); st.update(1,10); return st.query(1,4); })()",
+                "expected": 31,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const st=new SegmentTree([5]); return st.query(0,0); })()",
+                "expected": 5,
+                "type": "hidden"
+              },
+              {
+                "input": "(() => { const st=new SegmentTree([1,2,3]); st.update(0,10); return st.query(0,2); })()",
+                "expected": 15,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "class SegmentTree {\n  constructor(nums){this.n=nums.length;this.tree=new Array(4*this.n).fill(0);this.build(nums,1,0,this.n-1);}\n  build(nums,node,l,r){if(l===r){this.tree[node]=nums[l];return;}const mid=Math.floor((l+r)/2);this.build(nums,2*node,l,mid);this.build(nums,2*node+1,mid+1,r);this.tree[node]=this.tree[2*node]+this.tree[2*node+1];}\n  update(idx,val,node=1,l=0,r=this.n-1){if(l===r){this.tree[node]=val;return;}const mid=Math.floor((l+r)/2);if(idx<=mid)this.update(idx,val,2*node,l,mid);else this.update(idx,val,2*node+1,mid+1,r);this.tree[node]=this.tree[2*node]+this.tree[2*node+1];}\n  query(ql,qr,node=1,l=0,r=this.n-1){if(qr<l||r<ql)return 0;if(ql<=l&&r<=qr)return this.tree[node];const mid=Math.floor((l+r)/2);return this.query(ql,qr,2*node,l,mid)+this.query(ql,qr,2*node+1,mid+1,r);}\n}\n"
+            },
+            "complexity_analysis": "constructor: O(n). update: O(log n). query: O(log n). Space: O(4n).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "update: navigate left if idx<=mid, right otherwise; recompute parent on way back up."
+              },
+              {
+                "level": 2,
+                "text": "query: return 0 if qr<l||r<ql (outside); return tree[node] if ql<=l&&r<=qr (inside); else recurse both and add."
+              },
+              {
+                "level": 3,
+                "text": "Both update and query pass node, l, r as parameters tracking the current node's range — the caller doesn't need to track this."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 3,
+      "title": "Lazy Propagation",
+      "tag": "ADDED",
+      "objective": "Implement lazy propagation to support range updates in O(log n) by deferring child updates until they are actually needed.",
+      "concepts": [
+        "Range update problem: update all elements in [l, r] by adding delta",
+        "Naive: O(n) range update (update each element individually)",
+        "Lazy array: stores pending updates not yet pushed to children",
+        "Lazy tag: when updating a range, mark internal nodes with pending delta",
+        "Push down: before querying or updating children, propagate lazy tags",
+        "O(log n) range update + O(log n) range query with lazy propagation",
+        "Lazy tag combination: multiple range updates compose additively",
+        "Range set vs range add: different lazy tag logic"
+      ],
+      "explanation": "Without lazy propagation, a range update (add delta to all elements in [l, r]) requires visiting all n elements, making it O(n). Lazy propagation defers the update: when updating a range that covers a segment tree node's range entirely, mark the node with a 'lazy tag' (the pending delta) instead of immediately updating all children. The node's stored value is updated to reflect the pending changes, but children are not updated yet. When a future query or update needs to visit a node's children, the lazy tag is 'pushed down' to the children first (propagate the pending update to them and reset the node's lazy tag to 0). This ensures O(log n) range updates because only O(log n) nodes are directly marked with lazy tags. The lazy tag for range-add is additive: if a node already has lazy tag 5 and a new +3 arrives, the combined tag is 8. For range-set (set all elements to a value), the lazy tag is the new value and overwrites any previous lazy tag.",
+      "analogy": "Lazy propagation is like a manager who receives a 'give everyone a $100 bonus' instruction for their entire team. Instead of immediately updating every employee's salary, the manager writes '+ $100 pending' on a sticky note (lazy tag) attached to the team roster. Only when someone asks about a specific employee's salary does the manager calculate the actual value and update individual records. This defers work until it is needed, avoiding unnecessary updates for employees whose salaries are never queried.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// SEGMENT TREE WITH LAZY PROPAGATION (range add, range sum)\nclass LazySegTree {\n    constructor(nums) {\n        this.n = nums.length;\n        this.tree = new Array(4*this.n).fill(0);\n        this.lazy = new Array(4*this.n).fill(0); // pending add values\n        this.build(nums, 1, 0, this.n-1);\n    }\n\n    build(nums, node, l, r) {\n        if (l === r) { this.tree[node] = nums[l]; return; }\n        const mid = Math.floor((l+r)/2);\n        this.build(nums, 2*node, l, mid);\n        this.build(nums, 2*node+1, mid+1, r);\n        this.tree[node] = this.tree[2*node] + this.tree[2*node+1];\n    }\n\n    // PUSH DOWN: propagate lazy tag to children\n    pushDown(node, l, r) {\n        if (this.lazy[node] === 0) return; // nothing to propagate\n        const mid = Math.floor((l+r)/2);\n        const leftLen  = mid - l + 1;\n        const rightLen = r - mid;\n        // Left child: add lazy*leftLen to its sum; propagate tag\n        this.tree[2*node]   += this.lazy[node] * leftLen;\n        this.lazy[2*node]   += this.lazy[node];\n        // Right child\n        this.tree[2*node+1] += this.lazy[node] * rightLen;\n        this.lazy[2*node+1] += this.lazy[node];\n        this.lazy[node] = 0; // reset this node's tag\n    }\n\n    // RANGE UPDATE: add delta to all elements in [ql, qr] — O(log n)\n    rangeUpdate(ql, qr, delta, node=1, l=0, r=this.n-1) {\n        if (qr < l || r < ql) return; // fully outside\n        if (ql <= l && r <= qr) {      // fully inside\n            this.tree[node] += delta * (r - l + 1); // update sum\n            this.lazy[node] += delta;               // mark lazy\n            return;\n        }\n        this.pushDown(node, l, r); // propagate before going deeper\n        const mid = Math.floor((l+r)/2);\n        this.rangeUpdate(ql, qr, delta, 2*node,   l,     mid);\n        this.rangeUpdate(ql, qr, delta, 2*node+1, mid+1, r);\n        this.tree[node] = this.tree[2*node] + this.tree[2*node+1];\n    }\n\n    // RANGE QUERY: sum of [ql, qr] — O(log n)\n    rangeQuery(ql, qr, node=1, l=0, r=this.n-1) {\n        if (qr < l || r < ql) return 0;\n        if (ql <= l && r <= qr) return this.tree[node];\n        this.pushDown(node, l, r); // propagate before going deeper\n        const mid = Math.floor((l+r)/2);\n        return this.rangeQuery(ql, qr, 2*node, l, mid) +\n               this.rangeQuery(ql, qr, 2*node+1, mid+1, r);\n    }\n}\n\nconst lst = new LazySegTree([1,2,3,4,5]);\nconsole.log(lst.rangeQuery(0,4)); // 15\nlst.rangeUpdate(1,3,10);          // add 10 to elements [1,2,3] -> [1,12,13,14,5]\nconsole.log(lst.rangeQuery(0,4)); // 45\nconsole.log(lst.rangeQuery(1,3)); // 39 (12+13+14)",
+        "explanation": "The pushDown is called BEFORE recursing into children in both rangeUpdate and rangeQuery. This ensures that when children are visited, their stored values include all pending lazy updates from ancestors. The order is critical: pushDown, then recurse, then recombine (for updates). Without pushDown before recursing, children would have stale values and queries would return incorrect sums."
+      },
+      "common_mistakes": [
+        "Not calling pushDown before recursing into children — without pushDown, children may have stale values from pending lazy tags of their parent; always pushDown before any recursive child visit",
+        "Updating tree[node] without accounting for the range length in lazy propagation — tree[node] stores the sum for the entire range [l, r]; when adding delta to every element, the sum increases by delta * (r-l+1), not just delta",
+        "Not resetting lazy[node] to 0 after pushDown — if the lazy tag is not cleared after propagation, future queries will incorrectly apply it again when they push down through this node"
+      ],
+      "interview_relevance": "Lazy propagation is the advanced segment tree technique asked at top-tier companies. It converts range update from O(n) to O(log n). The pushDown mechanism — propagate before recursing — is specifically evaluated. Problems requiring range updates (add to range, set range) all need lazy propagation. This is specifically asked at Google and Uber for problems with both range updates and range queries.",
+      "mini_challenge": "Implement LazySegTree with rangeUpdate and rangeQuery. Verify rangeQuery(0,4)=15 initially. After rangeUpdate(1,3,10), verify rangeQuery(0,4)=45 and rangeQuery(1,3)=39. Trace the pushDown calls: for query(1,3) after the update, show exactly which lazy tags are pushed down and at which nodes. Then implement range-set (set all elements in a range to a value) instead of range-add: what changes in pushDown?",
+      "flashcards": [
+        {
+          "front": "Lazy propagation: what problem does it solve?",
+          "back": "RANGE UPDATE in O(log n). Without lazy: updating all elements in [l,r] requires O((r-l+1) log n) = O(n log n) worst case. With lazy: defer updates using a 'lazy' array, apply them when needed. Range update + range query both O(log n)."
+        },
+        {
+          "front": "Lazy propagation: what does the lazy array store?",
+          "back": "Pending updates not yet pushed down to children. lazy[node] = a deferred operation that should be applied to the entire range of this node. When we need to access a node's children, we first PUSH DOWN: apply lazy[node] to both children and clear lazy[node]."
+        },
+        {
+          "front": "Lazy propagation: pushDown algorithm?",
+          "back": "pushDown(node): if lazy[node] != 0: for child in [2*node, 2*node+1]: tree[child] += lazy[node] × (child_range_size). lazy[child] += lazy[node]. lazy[node] = 0. This applies the deferred update to children before accessing them."
+        },
+        {
+          "front": "Lazy propagation: range update for addition?",
+          "back": "updateRange(node, start, end, l, r, val): if range [start,end] fully inside [l,r]: tree[node] += val × (end-start+1); lazy[node] += val; return. pushDown(node). Update left+right children recursively. Recompute tree[node] = combine(children)."
+        },
+        {
+          "front": "Lazy propagation: when must you pushDown?",
+          "back": "BEFORE accessing children — both in range queries and range updates. Failure to pushDown before a child query/update means the child has stale values that don't reflect the pending lazy update from the parent."
+        },
+        {
+          "front": "Lazy propagation: tree[node] formula for range-add?",
+          "back": "tree[node] = sum of elements in [start,end]. After adding val to every element: tree[node] += val × (end-start+1). The lazy[node] += val tracks the per-element addition so children can be updated later."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Lazy propagation: you apply range-add 5 to [0,4] (size 5). tree[root] changes how?",
+          "options": [
+            "tree[root] += 5",
+            "tree[root] += 5×5 = 25 (5 elements × value 5)",
+            "tree[root] stays the same until pushDown",
+            "tree[root] = 5"
+          ],
+          "answer": 1,
+          "explanation": "Range add val=5 to range of size 5: tree[root] += 5 × 5 = 25. The root's stored sum increases by the total addition across all elements. lazy[root] += 5 records 'each element in this range has a pending +5'."
+        },
+        {
+          "question": "When you call rangeQuery([2,4]) on a lazy segment tree and node covering [0,2] has lazy[node]=3, what MUST happen before recursing into its children?",
+          "options": [
+            "Nothing — lazy values are applied during queries",
+            "pushDown: apply lazy[node]=3 to both children, clear lazy[node]",
+            "Add 3 to the query result",
+            "Clear lazy[node] without applying to children"
+          ],
+          "answer": 1,
+          "explanation": "pushDown MUST be called before accessing children. Lazy[node]=3 means children have outdated values. Applying to children: each child's tree value += 3 × child_range_size; each child's lazy += 3. Then lazy[node]=0. Only now are children safe to access."
+        },
+        {
+          "question": "Range-set operation (set all elements in [l,r] to val) with lazy propagation: what's different from range-add?",
+          "options": [
+            "Same implementation — just use val instead of val×size",
+            "Range-set needs a different pushDown: tree[child]=val×child_size; lazy[child]=val (overwrite, don't add)",
+            "Range-set requires O(n) time",
+            "No difference"
+          ],
+          "answer": 1,
+          "explanation": "Range-set lazy: when pushing down, the child's entire range is set to val → tree[child] = val × child_size; lazy[child] = val (overwrite). Range-add lazy: tree[child] += lazy[parent] × child_size; lazy[child] += lazy[parent] (accumulate). Different semantics require different pushDown logic."
+        },
+        {
+          "question": "Lazy propagation: after a range update on [l,r], do you need to recompute tree values on the path to the root?",
+          "options": [
+            "No — lazy values handle everything",
+            "Yes — after updating children and clearing lazy, each internal node on the update path recomputes from its children",
+            "Only if the query comes in the same function call",
+            "Only for the root node"
+          ],
+          "answer": 1,
+          "explanation": "After recursively updating children: tree[node] = combine(tree[2*node], tree[2*node+1]). Internal nodes on the update path must be recomputed bottom-up so that future range queries on containing ranges get correct values."
+        }
+      ],
+      "visual_aid": {
+        "type": "lazy_trace",
+        "description": "Lazy propagation range-add trace",
+        "diagram": "LAZY PROPAGATION — range add 5 to [1,3] on arr=[1,2,3,4,5]:\n\nBEFORE: tree[1]=15, tree[2]=6(sum[0,2]), tree[3]=9(sum[3,4])\n\nrangeUpdate(1,[0,4],[1,3],5):\n  [0,4] not fully inside [1,3]\n  pushDown(1): lazy[1]=0, nothing to push\n  recurse left: rangeUpdate(2,[0,2],[1,3],5):\n    [0,2] not fully inside [1,3]\n    pushDown(2): lazy[2]=0\n    recurse left: rangeUpdate(4,[0,1],[1,3],5):\n      [0,1] not fully inside [1,3]\n      pushDown(4): nothing\n      recurse left: updateRange(8,[0,0],[1,3],5) → outside [1,3] → RETURN\n      recurse right: updateRange(9,[1,1],[1,3],5):\n        [1,1] ⊆ [1,3]: tree[9]+=5×1=7. lazy[9]+=5. RETURN.\n      tree[4]=tree[8]+tree[9]=1+7=8\n    recurse right: rangeUpdate(5,[2,2],[1,3],5):\n      [2,2] ⊆ [1,3]: tree[5]+=5×1=8. lazy[5]+=5. RETURN.\n    tree[2]=tree[4]+tree[5]=8+8=16\n  recurse right: rangeUpdate(3,[3,4],[1,3],5):\n    [3,4] not fully inside [1,3]\n    ...recurse left: tree[6]([3,3]) ⊆ [1,3]: tree[6]+=5, lazy[6]+=5\n    ...recurse right: outside\n    tree[3] = 9+5=14\n  tree[1]=tree[2]+tree[3]=16+14=30 ✓\n  (arr was [1,7,8,9,5], sum=30)"
+      },
+      "complexity_summary": {
+        "range_update_with_lazy": "O(log n)",
+        "range_query_with_lazy": "O(log n) — pushDown before accessing children",
+        "without_lazy": "O(n log n) for range update",
+        "pushdown_cost": "O(1) per node — just arithmetic operations"
+      },
+      "practice_problems": [
+        {
+          "id": "custom-lazy1",
+          "title": "Implement lazy segment tree: range-add + range-sum query on [1,2,3,4,5]",
+          "difficulty": "Hard",
+          "pattern": "Lazy propagation — pushDown before recursing"
+        },
+        {
+          "id": "lc-2286",
+          "title": "Booking Concert Tickets in Groups",
+          "difficulty": "Hard",
+          "pattern": "Lazy segment tree — range update + binary search on tree"
+        },
+        {
+          "id": "custom-lazy2",
+          "title": "Range-set + range-max query with lazy propagation",
+          "difficulty": "Hard",
+          "pattern": "Range-set lazy — overwrite not accumulate"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M2-L3-TH-1",
+            "question": "Why is LAZY PROPAGATION needed for range updates, and what problem does naive range update have?",
+            "options": [
+              "Lazy propagation reduces space usage by not storing all intermediate values",
+              "NAIVE RANGE UPDATE decomposes into O(n) INDIVIDUAL POINT UPDATES: updating all elements in [l,r] one by one costs O(n log n) per range update; for m range updates, total cost is O(mn log n) — too slow; LAZY PROPAGATION defers the update to child nodes until they are actually accessed: when the current node's range is FULLY INSIDE the update range, mark the node with a LAZY TAG (pending addition) and update the stored aggregate immediately without touching children; children are only updated when a query or further update REQUIRES accessing them (pushed down then)",
+              "Naive range update is incorrect; only lazy propagation gives correct results",
+              "Lazy propagation is needed only for non-commutative aggregates"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Range update problem: update all elements in [l,r] by adding delta. Naive: O(n) range update (update each element individually)' — lazy propagation achieves O(log n) range update by tagging entire subtrees with pending updates instead of propagating to every leaf; correctness is maintained by pushing down tags before any child access."
+          },
+          {
+            "id": "L3M2-L3-TH-2",
+            "question": "In `pushDown(node, l, r)`, why is the SEGMENT SIZE (mid-l+1 and r-mid) multiplied by the lazy tag when updating children's tree values?",
+            "options": [
+              "The size multiplication is an error; lazy tags should be added without multiplying",
+              "The lazy tag represents a PER-ELEMENT ADDITION DELTA: if lazy[node]=d, it means every element in node's range should be increased by d; the stored tree[node] is the SUM of all elements in the range; when pushing to a child covering 'len' elements: the child's sum increases by d * len (d added to each of len elements); the child's own lazy tag is incremented by d (to be further propagated when needed); without the multiplication, the sum would be wrong (only d added, not d*len)",
+              "The size multiplication handles the case where some elements were already updated",
+              "Multiplying by size converts from per-element delta to per-range delta"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: `this.tree[2*node] += this.lazy[node] * leftLen` — if lazy[node]=10 and leftLen=3, the left child's sum increases by 30 (10 added to each of 3 elements); the child's lazy tag gets +=10 (propagated per-element for future pushdowns); this correctly decomposes: sum_update = delta * count, tag_update = delta (per-element)."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M2-L3-LG-1",
+            "question": "After `rangeUpdate(1, 3, 10)` on [1,2,3,4,5], the array becomes [1,12,13,14,5]. Verify `rangeQuery(0,4)=45` and `rangeQuery(1,3)=39`.",
+            "options": [
+              "1+12+13+14+5=45 ✓; 12+13+14=39 ✓ — confirmed by direct execution",
+              "rangeQuery(0,4)=15+30=45 but rangeQuery(1,3)=30 (only the delta)",
+              "rangeQuery(0,4)=40 (misses element 5 which wasn't updated)",
+              "rangeQuery(1,3)=36 (3 elements * 10 + original 3+4+5=12)"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: rangeQuery(0,4)=45 and rangeQuery(1,3)=39; array after update: [1,2+10,3+10,4+10,5]=[1,12,13,14,5]; total=1+12+13+14+5=45; partial [1..3]=12+13+14=39."
+          },
+          {
+            "id": "L3M2-L3-LG-2",
+            "question": "Why is `pushDown` called BEFORE recursing into children in both `rangeUpdate` and `rangeQuery`?",
+            "options": [
+              "pushDown is called after recursion to avoid double counting",
+              "CORRECTNESS GUARANTEE: before recursing into a child, any PENDING LAZY TAG on the current node must be propagated to the children; without pushDown first, the children's tree values would be stale (missing the pending update); a query to a child would return an incorrect value, and a further update to a child would be combined with an unaccounted-for parent delta; pushDown before recursion ensures children have CORRECT CURRENT values before any reads or writes; the invariant: if lazy[node]!=0, children's values are wrong by exactly lazy[node]*their_count",
+              "pushDown is only needed before rangeQuery, not rangeUpdate",
+              "pushDown is called before recursion to reset the lazy array"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: `this.pushDown(node, l, r); // propagate before going deeper` in both methods — the lazy invariant: lazy[node] represents a pending per-element delta NOT YET reflected in children; before accessing children, this delta must be pushed; if pushDown were omitted, querying a range that partially overlaps a tagged node would read stale child values."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M2-L3-SY-1",
+            "question": "When the `rangeUpdate` range FULLY COVERS the current node's range, we do `this.tree[node] += delta * (r-l+1); this.lazy[node] += delta; return`. Why NOT recurse into children here?",
+            "options": [
+              "We must always recurse into children to maintain the tree invariant",
+              "The LAZY INSIGHT: when the update range FULLY COVERS [l,r], we can update the node's SUM in O(1) without touching children; delta*len gives the exact sum change; we STORE the per-element delta in lazy[node] for LATER propagation; recursing into children now would be O(n) work (visiting all leaves); by deferring propagation, the range update costs O(log n) total; the children WILL get correct values when pushDown is called before they are next accessed; this deferral is what makes lazy propagation O(log n)",
+              "Not recursing saves memory by avoiding stack overflow",
+              "Children are not recursed into because they have correct values already"
+            ],
+            "answer": 1,
+            "explanation": "The lazy propagation insight: for a fully-covered node, the sum update is exact and immediate (tree[node] += delta*(r-l+1)), but the per-element update to children is DEFERRED via lazy[node] += delta; deferring avoids the O(n) cost of propagating to all leaves immediately; the correctness guarantee is that pushDown happens before any child access."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M2-L3-CC-1",
+            "title": "Segment Tree with Lazy Propagation",
+            "difficulty": "Hard",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement lazy propagation for range add + range sum.",
+            "requirements": [
+              "Implement `LazySegTree` class with rangeUpdate(ql,qr,delta) and rangeQuery(ql,qr)"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "class LazySegTree {\n  constructor(nums) {\n    // TODO: tree and lazy arrays (4n each)\n  }\n  pushDown(node, l, r) {\n    // TODO: propagate lazy[node] to both children; reset lazy[node]=0\n  }\n  rangeUpdate(ql, qr, delta, node=1, l=0, r=this.n-1) {\n    // TODO: outside→skip; inside→update sum+lazy, return; else pushDown then recurse\n  }\n  rangeQuery(ql, qr, node=1, l=0, r=this.n-1) {\n    // TODO: outside→0; inside→return; else pushDown then recurse\n  }\n}"
+            },
+            "test_cases": [
+              {
+                "input": "(() => { const t=new LazySegTree([1,2,3,4,5]); return t.rangeQuery(0,4); })()",
+                "expected": 15,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const t=new LazySegTree([1,2,3,4,5]); t.rangeUpdate(1,3,10); return t.rangeQuery(0,4); })()",
+                "expected": 45,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const t=new LazySegTree([1,2,3,4,5]); t.rangeUpdate(1,3,10); return t.rangeQuery(1,3); })()",
+                "expected": 39,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const t=new LazySegTree([1,2,3,4,5]); t.rangeUpdate(0,4,1); return t.rangeQuery(0,4); })()",
+                "expected": 20,
+                "type": "hidden"
+              },
+              {
+                "input": "(() => { const t=new LazySegTree([0,0,0]); t.rangeUpdate(0,2,5); t.rangeUpdate(1,2,3); return t.rangeQuery(0,2); })()",
+                "expected": 21,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "class LazySegTree {\n  constructor(nums){this.n=nums.length;this.tree=new Array(4*this.n).fill(0);this.lazy=new Array(4*this.n).fill(0);this.build(nums,1,0,this.n-1);}\n  build(nums,node,l,r){if(l===r){this.tree[node]=nums[l];return;}const mid=Math.floor((l+r)/2);this.build(nums,2*node,l,mid);this.build(nums,2*node+1,mid+1,r);this.tree[node]=this.tree[2*node]+this.tree[2*node+1];}\n  pushDown(node,l,r){if(this.lazy[node]===0)return;const mid=Math.floor((l+r)/2);const ll=mid-l+1,rl=r-mid;this.tree[2*node]+=this.lazy[node]*ll;this.lazy[2*node]+=this.lazy[node];this.tree[2*node+1]+=this.lazy[node]*rl;this.lazy[2*node+1]+=this.lazy[node];this.lazy[node]=0;}\n  rangeUpdate(ql,qr,d,node=1,l=0,r=this.n-1){if(qr<l||r<ql)return;if(ql<=l&&r<=qr){this.tree[node]+=d*(r-l+1);this.lazy[node]+=d;return;}this.pushDown(node,l,r);const mid=Math.floor((l+r)/2);this.rangeUpdate(ql,qr,d,2*node,l,mid);this.rangeUpdate(ql,qr,d,2*node+1,mid+1,r);this.tree[node]=this.tree[2*node]+this.tree[2*node+1];}\n  rangeQuery(ql,qr,node=1,l=0,r=this.n-1){if(qr<l||r<ql)return 0;if(ql<=l&&r<=qr)return this.tree[node];this.pushDown(node,l,r);const mid=Math.floor((l+r)/2);return this.rangeQuery(ql,qr,2*node,l,mid)+this.rangeQuery(ql,qr,2*node+1,mid+1,r);}\n}\n"
+            },
+            "complexity_analysis": "rangeUpdate and rangeQuery: O(log n) each. Space: O(4n) for both tree and lazy arrays.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "pushDown: if lazy[node]===0 return; compute leftLen=mid-l+1, rightLen=r-mid; update each child's tree += lazy[node]*len and lazy += lazy[node]; reset lazy[node]=0."
+              },
+              {
+                "level": 2,
+                "text": "rangeUpdate fully inside: tree[node]+=delta*(r-l+1); lazy[node]+=delta; return. Partially inside: pushDown then recurse both, recompute tree[node]."
+              },
+              {
+                "level": 3,
+                "text": "rangeQuery: identical structure to rangeUpdate but reads tree[node] (fully inside) or recursively sums (partial). Always pushDown before recursing."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 4,
+      "title": "Range Sum Query — Mutable",
+      "tag": "ADDED",
+      "objective": "Solve Range Sum Query - Mutable using a segment tree, analyse the tradeoff versus prefix sums and Fenwick trees, and implement the complete NumArray class.",
+      "concepts": [
+        "Range Sum Query Mutable (#307): support both update and range sum query",
+        "NumArray class: constructor, update, sumRange methods",
+        "Segment tree solution: O(n) build, O(log n) update, O(log n) query",
+        "Prefix sum alternative: O(1) query but O(n) update",
+        "Choosing the right tool: prefix sum for read-heavy, segment tree for balanced",
+        "Fenwick tree alternative: simpler code, same O(log n) complexity",
+        "Space: O(n) for Fenwick, O(4n) for segment tree",
+        "Practical tradeoff: Fenwick is preferred when only prefix sum is needed"
+      ],
+      "explanation": "Range Sum Query - Mutable (#307) asks for a data structure supporting two operations: update(i, val) to change a single element, and sumRange(left, right) to query the sum of a range. Three approaches: (1) Prefix sum array: O(1) query (prefix[right+1] - prefix[left]) but O(n) update (rebuild prefix array). (2) Segment tree: O(log n) both update and query, O(4n) space. (3) Fenwick tree: O(log n) both, O(n) space, simpler code for prefix sums. The segment tree is the right tool when both updates and queries are frequent (mixed workload). For a read-heavy workload (few updates), the prefix sum array's O(1) query is better despite O(n) updates. For write-heavy workloads where only prefix sums are needed (not arbitrary range), the Fenwick tree is simpler and uses less space.",
+      "analogy": "Range Sum Query Mutable is like a bank with two operations: change an account balance (update) and compute the total balance for a range of accounts (range sum). A prefix sum array is like a daily summary report: easy to read but expensive to regenerate after any change. A segment tree is like a hierarchical accounting system: both operations are efficient because changes only affect O(log n) summary nodes.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// RANGE SUM QUERY - MUTABLE (#307)\nclass NumArray {\n    constructor(nums) {\n        this.n = nums.length;\n        this.tree = new Array(4*this.n).fill(0);\n        this._build(nums, 1, 0, this.n-1);\n    }\n\n    _build(nums, node, l, r) {\n        if (l === r) { this.tree[node] = nums[l]; return; }\n        const mid = (l+r)>>1;\n        this._build(nums, 2*node, l, mid);\n        this._build(nums, 2*node+1, mid+1, r);\n        this.tree[node] = this.tree[2*node] + this.tree[2*node+1];\n    }\n\n    update(index, val, node=1, l=0, r=this.n-1) {\n        if (l === r) { this.tree[node] = val; return; }\n        const mid = (l+r)>>1;\n        if (index <= mid) this.update(index, val, 2*node, l, mid);\n        else              this.update(index, val, 2*node+1, mid+1, r);\n        this.tree[node] = this.tree[2*node] + this.tree[2*node+1];\n    }\n\n    sumRange(left, right, node=1, l=0, r=this.n-1) {\n        if (right < l || r < left) return 0;\n        if (left <= l && r <= right) return this.tree[node];\n        const mid = (l+r)>>1;\n        return this.sumRange(left, right, 2*node, l, mid) +\n               this.sumRange(left, right, 2*node+1, mid+1, r);\n    }\n}\n\n// TEST\nconst numArray = new NumArray([1,3,5]);\nconsole.log(numArray.sumRange(0,2)); // 9\nnumArray.update(1, 2);               // [1,2,5]\nconsole.log(numArray.sumRange(0,2)); // 8\n\n// COMPLEXITY COMPARISON:\nconst approaches = [\n    { name: 'Prefix Sum Array', build: 'O(n)', update: 'O(n)', query: 'O(1)', space: 'O(n)' },\n    { name: 'Segment Tree',     build: 'O(n)', update: 'O(log n)', query: 'O(log n)', space: 'O(4n)' },\n    { name: 'Fenwick Tree',     build: 'O(n log n)', update: 'O(log n)', query: 'O(log n)', space: 'O(n)' },\n];\nfor (const a of approaches) {\n    console.log(`${a.name}: build=${a.build}, update=${a.update}, query=${a.query}, space=${a.space}`);\n}",
+        "explanation": "The (l+r)>>1 right-shift is equivalent to Math.floor((l+r)/2) but is a micro-optimisation. In JavaScript, bitwise right shift is integer division by 2. For interview purposes, both are acceptable; Math.floor is more readable and should be preferred unless performance is critical."
+      },
+      "common_mistakes": [
+        "Using default parameters for the recursive segment tree methods incorrectly — the default parameters (node=1, l=0, r=this.n-1) are set at the class method level; each call re-evaluates these defaults, so recursive calls must pass explicit parameters",
+        "Not testing with the exact LeetCode interface (update vs rangeUpdate) — the NeetCode 150 problem expects specific method names; verify the exact API before the interview",
+        "Choosing segment tree when Fenwick tree is simpler — for pure prefix sum problems (sumRange(0, i)), the Fenwick tree is 20 lines vs 40+ for a segment tree; know both and choose the simpler one"
+      ],
+      "interview_relevance": "Range Sum Query - Mutable (#307) is NeetCode 150. It is the direct application problem for segment trees. The comparison of all three approaches (prefix sum, segment tree, Fenwick tree) with their tradeoffs is the expected answer to 'Walk me through your approach'. The follow-up 'When would you choose prefix sum over segment tree?' tests understanding of the tradeoffs.",
+      "mini_challenge": "Implement NumArray and verify the test cases. Then implement the same class using a Fenwick tree (Lesson 5) and compare the code length. Measure: for a workload with 90% queries and 10% updates, which approach has lower total work? For 50/50 updates and queries? Calculate the crossover point where segment tree becomes better than prefix sum.",
+      "flashcards": [
+        {
+          "front": "Range Sum Query Mutable (#307): three approaches compared?",
+          "back": "1) Naive: O(1) update, O(n) query. 2) Prefix sum: O(n) update, O(1) query. 3) Segment tree: O(log n) update, O(log n) query. 4) Fenwick tree (BIT): O(log n) update, O(log n) query, half the code of segment tree. For this specific problem: BIT is the cleanest solution."
+        },
+        {
+          "front": "Range Sum Mutable: segment tree vs BIT — when to use which?",
+          "back": "BIT: only supports SUM (prefix sum) queries + point updates. Simpler to implement. Segment tree: supports any associative aggregate (sum, min, max, GCD, etc.) + range updates with lazy. For pure sum queries with point updates: BIT. For complex aggregates or range updates: segment tree."
+        },
+        {
+          "front": "NumArray class design (#307): what to initialise in the constructor?",
+          "back": "Build the segment tree on the input array. Store: (1) tree[] array of size 4n. (2) n (array size). Build in O(n). Update calls update(1, 0, n-1, idx, val) in O(log n). SumRange calls query(1, 0, n-1, left, right) in O(log n)."
+        },
+        {
+          "front": "Range Sum Mutable: why is a sorted list or balanced BST wrong here?",
+          "back": "Sorted list: O(n) update (maintaining sort order). BST of values: range sum = O(n) traversal (no partial sums stored). Segment tree stores PRECOMPUTED sums at internal nodes, enabling O(log n) range sum without iterating all elements."
+        },
+        {
+          "front": "Range Sum Mutable: space usage comparison?",
+          "back": "Segment tree: O(n) nodes (up to 4n). BIT: O(n) exactly. Prefix sum array: O(n). Naive array: O(n). All O(n) space. The constant factors differ: BIT is tightest (exactly n+1 entries)."
+        },
+        {
+          "front": "Range Sum Mutable: update(idx, val) vs update(idx, val - current_val)?",
+          "back": "Some implementations store ABSOLUTE values (replace arr[idx] with val): tree is rebuilt from scratch. Others store DELTA (add val - arr[idx]): propagate the difference. Delta approach is more general. Segment tree update propagates change, not absolute value."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "NumArray([1,3,5]), sumRange(0,2) = ?",
+          "options": [
+            "5",
+            "8",
+            "9",
+            "3"
+          ],
+          "answer": 2,
+          "explanation": "Sum of arr[0..2] = 1+3+5 = 9."
+        },
+        {
+          "question": "After update(1, 2) (set arr[1]=2), sumRange(0,2) = ?",
+          "options": [
+            "8",
+            "9",
+            "6",
+            "7"
+          ],
+          "answer": 0,
+          "explanation": "arr becomes [1,2,5]. sumRange(0,2) = 1+2+5 = 8."
+        },
+        {
+          "question": "For 1000 update/query operations on n=10^6, which is faster: segment tree or nested loop?",
+          "options": [
+            "Nested loop O(n) per query: 10^3 × 10^6 = 10^9 ops — too slow",
+            "Segment tree O(log n) per op: 10^3 × 20 = 20,000 ops — fast",
+            "Same speed",
+            "Depends on the distribution of updates and queries"
+          ],
+          "answer": 1,
+          "explanation": "Segment tree: 1000 × O(log 10^6) = 1000 × 20 = 20,000 operations. Naive: 1000 × 10^6 = 10^9 — will time out. For any n > 100 with multiple queries/updates, the segment tree or BIT is required."
+        },
+        {
+          "question": "Can a segment tree answer 'find the index of the first element ≥ k in range [l,r]'?",
+          "options": [
+            "No — segment trees only do aggregate queries",
+            "Yes — using a max segment tree: recurse right child first when left child's max < k; return index when found",
+            "Only with O(n) scan after building the tree",
+            "Only if the array is sorted"
+          ],
+          "answer": 1,
+          "explanation": "Segment tree walk: at each node, check if the range's max ≥ k. If so, recurse into left child first (leftmost index), then right child if not found in left. This finds the first index ≥ k in O(log n) — more powerful than simple range queries."
+        }
+      ],
+      "visual_aid": {
+        "type": "approach_comparison",
+        "description": "Range Sum Mutable — four approaches compared",
+        "diagram": "RANGE SUM QUERY MUTABLE (#307) — APPROACH COMPARISON:\n\nApproach        Update      Query      Space   Notes\n──────────────────────────────────────────────────────\nNaive array     O(1)        O(n)       O(n)    Too slow for many queries\nPrefix sum      O(n)        O(1)       O(n)    Too slow for many updates\nSegment tree    O(log n)    O(log n)   O(n)    General, handles min/max too\nFenwick (BIT)   O(log n)    O(log n)   O(n)    Simpler code, sum only\n\nFOR LC#307 (sum + point updates): BIT is cleanest\nFOR min/max + range updates: Segment tree required\n\nSEGMENT TREE CODE SKELETON (Python):\nclass NumArray:\n    def __init__(self, nums):\n        n = len(nums)\n        self.n = n\n        self.tree = [0] * (4*n)\n        self.build(nums, 1, 0, n-1)\n\n    def build(self, nums, node, start, end):\n        if start == end:\n            self.tree[node] = nums[start]\n        else:\n            mid = (start+end)//2\n            self.build(nums, 2*node, start, mid)\n            self.build(nums, 2*node+1, mid+1, end)\n            self.tree[node] = self.tree[2*node]+self.tree[2*node+1]\n\n    def update(self, idx, val): ...  # O(log n)\n    def sumRange(self, l, r): ...   # O(log n)"
+      },
+      "complexity_summary": {
+        "segment_tree": "O(n) build, O(log n) update, O(log n) query",
+        "bit": "O(n) build, O(log n) update, O(log n) prefix query",
+        "naive": "O(1) update, O(n) query",
+        "prefix_sum": "O(n) update, O(1) query"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-307",
+          "title": "Range Sum Query — Mutable",
+          "difficulty": "Medium",
+          "pattern": "Segment tree or BIT — primary application"
+        },
+        {
+          "id": "lc-315",
+          "title": "Count of Smaller Numbers After Self",
+          "difficulty": "Hard",
+          "pattern": "BIT with coordinate compression — count inversions"
+        },
+        {
+          "id": "lc-327",
+          "title": "Count of Range Sum",
+          "difficulty": "Hard",
+          "pattern": "Merge sort or BIT with prefix sums"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M2-L4-TH-1",
+            "question": "LeetCode #307 offers three approaches: prefix sum, segment tree, and Fenwick tree. When should you choose SEGMENT TREE over FENWICK TREE?",
+            "options": [
+              "Segment tree is always better; Fenwick tree is an inferior alternative",
+              "CHOOSE SEGMENT TREE when: (1) the aggregate is NOT a PREFIX SUM (e.g., range minimum, range maximum, range GCD, range XOR) — Fenwick trees natively support only prefix sums; (2) range updates (lazy propagation) are needed — Fenwick trees can support range updates but with more complex logic; CHOOSE FENWICK when: only prefix sums needed and the query range is always [0..r] or computed via subtraction; Fenwick uses less code (~10 lines) and less space (n vs 4n) for the prefix sum case",
+              "Segment tree should be used when n is large (>10^5)",
+              "Fenwick tree should be used for minimum queries; segment tree for maximum"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Fenwick tree alternative: simpler code, same O(log n) complexity. Practical tradeoff: Fenwick is preferred when only prefix sum is needed' — the segment tree's generality (any associative aggregate, range updates) comes at the cost of more code and 4n space; Fenwick's simplicity and efficiency for prefix sums make it the preferred choice when those constraints fit."
+          },
+          {
+            "id": "L3M2-L4-TH-2",
+            "question": "The `(l+r)>>1` operation for computing mid in NumArray. Why use bit-shift instead of `Math.floor((l+r)/2)`?",
+            "options": [
+              "Bit-shift is required because JavaScript doesn't have integer division",
+              "For POSITIVE INTEGERS, `(l+r)>>1` is EQUIVALENT to `Math.floor((l+r)/2)` but FASTER: the right bit-shift by 1 divides by 2 and truncates to integer in a single CPU instruction; Math.floor involves floating-point conversion, floor computation, and conversion back to integer — multiple operations; in segment tree implementations with millions of recursive calls, this constant-factor improvement matters; the two forms are identical for non-negative l and r (all valid index ranges); `>>1` is the idiomatic form in competitive programming",
+              ">>1 handles negative indices that Math.floor would compute incorrectly",
+              ">>1 prevents integer overflow when l+r exceeds 32 bits"
+            ],
+            "answer": 1,
+            "explanation": "For non-negative integer indices (all valid segment tree positions), `(l+r)>>1` is exactly equivalent to `Math.floor((l+r)/2)` and is a micro-optimisation; JavaScript engines may optimise both identically in practice; the >>1 form is conventional in performance-sensitive code and explicitly signals 'integer division by 2'."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M2-L4-LG-1",
+            "question": "For NumArray([1,3,5]) with `sumRange(0,2)=9` and then `update(1,2); sumRange(0,2)=8`. Verify these results.",
+            "options": [
+              "Initial sum: 1+3+5=9 ✓; after update(1,2): array=[1,2,5]; 1+2+5=8 ✓",
+              "update(1,2) adds 2 to index 1: array=[1,5,5]; sum=11",
+              "sumRange(0,2) after update=9 (update not reflected yet)",
+              "sumRange(0,2)=7 after update(1,2) because index 1 changes from 3 to 2 (difference=-1)"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: sumRange(0,2)=9 (1+3+5); after update(1,2) sets index 1 to value 2: array=[1,2,5]; sumRange(0,2)=1+2+5=8; note: update(index, val) SETS the value (not adds to it); point update replaces the element."
+          },
+          {
+            "id": "L3M2-L4-LG-2",
+            "question": "The complexity table shows: prefix sum has O(1) query but O(n) update. WHY is prefix sum update O(n)?",
+            "options": [
+              "Prefix sum array has n entries, each taking O(1) to compute — so O(n) total",
+              "When a SINGLE ELEMENT changes, ALL PREFIX SUMS starting from that position change: if nums[i] changes by delta, then prefix[i], prefix[i+1], ..., prefix[n-1] all change by delta (since prefix[j] = sum(nums[0..j])); updating all n-i affected prefix sums requires O(n) time; this is the fundamental tradeoff — storing prefix sums enables O(1) range queries but makes updates O(n); segment trees and Fenwick trees break this tradeoff by accepting O(log n) for both",
+              "Prefix sum update rebuilds the entire array from scratch",
+              "Only the prefix sums at even indices need updating, giving O(n/2)≈O(n)"
+            ],
+            "answer": 1,
+            "explanation": "The O(n) update cost of prefix sums follows from their definition: prefix[j] = sum(nums[0..j]) includes nums[i] for all j >= i; changing nums[i] invalidates all prefix[j] for j in [i, n-1] — that's n-i entries requiring recomputation; in the worst case (i=0), all n prefix sums need updating."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M2-L4-SY-1",
+            "question": "In `NumArray`, the build method is named `_build` (with underscore). What JavaScript convention does this signal?",
+            "options": [
+              "_build is a JavaScript reserved keyword that forces private method syntax",
+              "UNDERSCORE PREFIX is a CONVENTIONAL SIGNAL that the method is PRIVATE or INTERNAL — not part of the public interface; JavaScript doesn't enforce true private methods by default (unlike Python or Java); `_build` tells users of the NumArray class that this method is an implementation detail, not meant to be called from outside; modern JavaScript uses `#build` (with hash) for true private fields/methods; the underscore convention predates the `#` syntax and remains common in codebases for compatibility",
+              "_build is called differently than build due to the leading underscore",
+              "Methods starting with _ are automatically memoised by JavaScript engines"
+            ],
+            "answer": 1,
+            "explanation": "The underscore prefix is a longstanding JavaScript convention (inherited from Python) signalling 'this is an internal implementation method'; it's not enforced by the language but communicates developer intent; modern JavaScript uses `#name` for actual private class fields/methods; in the NumArray context, `_build` is called only from the constructor and should not be called by external code."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M2-L4-CC-1",
+            "title": "Range Sum Query — Mutable (LeetCode #307)",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the NumArray class for LeetCode #307.",
+            "requirements": [
+              "Implement `class NumArray` with constructor(nums), update(index,val), and sumRange(left,right)"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "class NumArray {\n  constructor(nums) {\n    // TODO: segment tree build\n  }\n  update(index, val) {\n    // TODO: O(log n) point update\n  }\n  sumRange(left, right) {\n    // TODO: O(log n) range sum query\n  }\n}"
+            },
+            "test_cases": [
+              {
+                "input": "(() => { const a=new NumArray([1,3,5]); return a.sumRange(0,2); })()",
+                "expected": 9,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const a=new NumArray([1,3,5]); a.update(1,2); return a.sumRange(0,2); })()",
+                "expected": 8,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const a=new NumArray([1,3,5]); a.update(1,2); return a.sumRange(1,2); })()",
+                "expected": 7,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const a=new NumArray([1]); a.update(0,5); return a.sumRange(0,0); })()",
+                "expected": 5,
+                "type": "hidden"
+              },
+              {
+                "input": "(() => { const a=new NumArray([1,2,3,4,5]); return a.sumRange(1,3); })()",
+                "expected": 9,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "class NumArray {\n  constructor(nums){\n    this.n=nums.length;\n    this.tree=new Array(4*this.n).fill(0);\n    this._build(nums,1,0,this.n-1);\n  }\n  _build(nums,node,l,r){\n    if(l===r){this.tree[node]=nums[l];return;}\n    const mid=(l+r)>>1;\n    this._build(nums,2*node,l,mid);\n    this._build(nums,2*node+1,mid+1,r);\n    this.tree[node]=this.tree[2*node]+this.tree[2*node+1];\n  }\n  update(index,val,node=1,l=0,r=this.n-1){\n    if(l===r){this.tree[node]=val;return;}\n    const mid=(l+r)>>1;\n    if(index<=mid)this.update(index,val,2*node,l,mid);\n    else this.update(index,val,2*node+1,mid+1,r);\n    this.tree[node]=this.tree[2*node]+this.tree[2*node+1];\n  }\n  sumRange(left,right,node=1,l=0,r=this.n-1){\n    if(right<l||r<left)return 0;\n    if(left<=l&&r<=right)return this.tree[node];\n    const mid=(l+r)>>1;\n    return this.sumRange(left,right,2*node,l,mid)+this.sumRange(left,right,2*node+1,mid+1,r);\n  }\n}"
+            },
+            "complexity_analysis": "constructor: O(n). update/sumRange: O(log n). Space: O(4n).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Identical structure to Lesson 2's SegmentTree — just rename methods to match LeetCode's interface."
+              },
+              {
+                "level": 2,
+                "text": "update(index, val) SETS the value at index (doesn't add); at the leaf: tree[node]=val."
+              },
+              {
+                "level": 3,
+                "text": "sumRange(left, right) is the range query — same logic as query(ql,qr) from Lesson 2."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 5,
+      "title": "Binary Indexed Tree — Fenwick Tree",
+      "tag": "ADDED",
+      "objective": "Implement a Fenwick Tree (Binary Indexed Tree) for prefix sums in O(log n) per operation using the elegant lowbit operation, and understand why it is simpler than a segment tree for prefix sum problems.",
+      "concepts": [
+        "Fenwick tree: compact array where bit[i] stores sum of a specific range",
+        "lowbit(i) = i & (-i): isolates the lowest set bit of i",
+        "update(i, delta): add delta to position i, propagate to ancestors",
+        "prefix query(i): sum from 1 to i, follow parent chain",
+        "Range query [l, r]: query(r) - query(l-1)",
+        "O(log n) both operations: lowbit removes bits, log n steps max",
+        "1-indexed: Fenwick trees work naturally with 1-indexed arrays",
+        "Why simpler than segment tree: no explicit tree structure, ~10 lines total"
+      ],
+      "explanation": "A Fenwick tree (Binary Indexed Tree) is a compact data structure for prefix sums that achieves O(log n) per update and query. The bit array bit[i] stores the sum of a range of elements determined by i's binary representation: bit[i] covers elements from i-lowbit(i)+1 to i, where lowbit(i) = i & (-i) gives the value of the lowest set bit of i. For example, bit[6] (binary 110, lowbit=2) covers elements 5 and 6. Update(i, delta): add delta to bit[i], then move to the next responsible node by adding lowbit(i). This propagates upward through all ancestors. Query(i): sum from position 1 to i by adding bit[i], then moving to the previous responsible node by subtracting lowbit(i). This aggregates downward through all relevant buckets. Both operations take at most log(n) steps because each step either gains or loses a set bit. The Fenwick tree's elegance: the entire implementation is ~10 lines with no explicit tree structure or recursive calls.",
+      "analogy": "The Fenwick tree is like a system of overlapping team leads where each lead is responsible for a specific crew size determined by their ID's binary representation. Team lead 6 (binary 110) is responsible for the last 2 employees before them. Team lead 8 (binary 1000) is responsible for the last 8. When you update an employee's performance, you update their direct lead and all leads who cover that employee. When you query the total for employees 1 through i, you collect exactly the right set of non-overlapping lead reports.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// FENWICK TREE (Binary Indexed Tree) — O(log n) per operation\nclass FenwickTree {\n    constructor(n) {\n        this.n = n;\n        this.bit = new Array(n+1).fill(0); // 1-indexed\n    }\n\n    // lowbit: isolate lowest set bit\n    // 6 = 0110 -> lowbit = 0010 = 2\n    // 8 = 1000 -> lowbit = 1000 = 8\n    lowbit(i) { return i & (-i); }\n\n    // UPDATE: add delta to position i (1-indexed)\n    update(i, delta) {\n        while (i <= this.n) {\n            this.bit[i] += delta;\n            i += this.lowbit(i); // move to parent (add lowbit)\n        }\n    }\n\n    // PREFIX QUERY: sum of positions 1..i\n    query(i) {\n        let sum = 0;\n        while (i > 0) {\n            sum += this.bit[i];\n            i -= this.lowbit(i); // move to previous bucket (remove lowbit)\n        }\n        return sum;\n    }\n\n    // RANGE QUERY: sum of positions l..r\n    rangeQuery(l, r) {\n        return this.query(r) - this.query(l-1);\n    }\n}\n\n// BUILD from array in O(n log n)\nfunction buildFenwick(nums) {\n    const ft = new FenwickTree(nums.length);\n    for (let i = 0; i < nums.length; i++) {\n        ft.update(i+1, nums[i]); // 1-indexed\n    }\n    return ft;\n}\n\nconst ft = buildFenwick([1,3,5,7,9,11]);\nconsole.log(ft.query(3));        // 9 (1+3+5)\nconsole.log(ft.rangeQuery(2,4)); // 15 (3+5+7)\nft.update(2, 7);                  // add 7 to index 2 (3->10)\nconsole.log(ft.query(3));        // 16 (1+10+5)\n\n// TRACE update(6, delta) on n=8:\n// i=6 (0110): bit[6] += delta. i += lowbit(6)=2. i=8.\n// i=8 (1000): bit[8] += delta. i += lowbit(8)=8. i=16>8. stop.\n// Nodes updated: bit[6], bit[8] = 2 nodes = log2(8) nodes max ✓\n\n// TRACE query(6) on n=8:\n// i=6 (0110): sum += bit[6]. i -= lowbit(6)=2. i=4.\n// i=4 (0100): sum += bit[4]. i -= lowbit(4)=4. i=0. stop.\n// Nodes visited: bit[6], bit[4] = 2 nodes ✓\n// bit[6] covers positions 5,6; bit[4] covers positions 1,2,3,4\n// Together: positions 1-6 ✓",
+        "explanation": "The alternating direction in update (add lowbit) vs query (subtract lowbit) is the key to the Fenwick tree's correctness. Update moves toward larger indices (toward the root in a conceptual tree), collecting all nodes responsible for covering position i. Query moves toward smaller indices (toward position 0), collecting non-overlapping prefix segments that together cover [1, i]. The two operations are inverses of each other in the index traversal direction."
+      },
+      "common_mistakes": [
+        "Using 0-indexed arrays with Fenwick trees — Fenwick trees are inherently 1-indexed because lowbit(0) = 0 causing an infinite loop in update/query; always convert 0-indexed input to 1-indexed (i+1) when calling Fenwick operations",
+        "Confusing the direction of index traversal — update adds lowbit (moves toward larger indices); query subtracts lowbit (moves toward smaller indices); reversing them gives wrong answers",
+        "Not implementing O(n) build (using n point updates instead) — building with n calls to update is O(n log n); there is an O(n) build using the parent-child relationship but O(n log n) is acceptable for most interviews"
+      ],
+      "interview_relevance": "The Fenwick tree is the preferred data structure for prefix sum with updates in competitive programming and is increasingly asked at top-tier companies. Count of Smaller Numbers After Self (#315, NeetCode 150) uses a Fenwick tree or merge sort for the optimal O(n log n) solution. The lowbit trick (i & (-i)) is specifically evaluated: 'Explain what i & (-i) computes and why it is useful.'",
+      "mini_challenge": "Implement FenwickTree with update, query, and rangeQuery. Verify query(3)=9 and rangeQuery(2,4)=15 for nums=[1,3,5,7,9,11]. Trace update(2,7) showing exactly which bit[] indices are modified. Then implement Count of Smaller Numbers After Self (LeetCode #315): for each number, count how many numbers to its right are smaller. Use a Fenwick tree by processing from right to left, querying prefix sums for how many smaller elements have been seen.",
+      "flashcards": [
+        {
+          "front": "Fenwick Tree (BIT): key operation — lowbit?",
+          "back": "lowbit(i) = i & (-i). The lowest set bit of i. Example: i=6=110₂, -6=...11111010₂ (two's complement), 6&(-6)=000...010=2. This operation determines how much of the array each BIT node covers."
+        },
+        {
+          "front": "BIT: what does bit[i] store?",
+          "back": "bit[i] stores the sum of arr[i - lowbit(i) + 1 .. i]. The range length = lowbit(i). bit[4]=arr[1..4] (lowbit(4)=4). bit[6]=arr[5..6] (lowbit(6)=2). bit[5]=arr[5..5] (lowbit(5)=1)."
+        },
+        {
+          "front": "BIT: prefix sum query prefix(r) algorithm?",
+          "back": "result = 0. While r > 0: result += bit[r]. r -= lowbit(r) (r &= r-1). Return result. Each step removes the lowest set bit → O(log n) iterations. Answer = sum of arr[1..r]."
+        },
+        {
+          "front": "BIT: point update at index i algorithm?",
+          "back": "While i ≤ n: bit[i] += delta. i += lowbit(i). Each step moves to the next BIT node that covers index i. O(log n) updates. This propagates the change to all BIT nodes that include arr[i] in their range."
+        },
+        {
+          "front": "BIT range query [l, r]?",
+          "back": "prefix(r) - prefix(l-1). BIT natively supports prefix sums. Range sum [l,r] = prefix(r) - prefix(l-1). This is always O(log n) per range query."
+        },
+        {
+          "front": "BIT vs segment tree: concrete code complexity difference?",
+          "back": "BIT: ~10 lines total (init, update, query). Segment tree: ~40-50 lines (build, update, query with recursion). BIT is strictly simpler for prefix-sum queries. Tradeoff: BIT CANNOT handle arbitrary range queries (like range minimum), only prefix sums."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "lowbit(12) = ? (12 = 1100₂)",
+          "options": [
+            "4",
+            "8",
+            "2",
+            "12"
+          ],
+          "answer": 0,
+          "explanation": "12 = 1100₂. -12 in two's complement = 0100₂ (flip all bits of 1100=0011, add 1=0100). 12 & (-12) = 1100 & 0100 = 0100 = 4."
+        },
+        {
+          "question": "BIT prefix(6) on 1-indexed BIT: which indices are accessed?",
+          "options": [
+            "6, then 4 (6-lowbit(6)=6-2=4), then 0 (stop)",
+            "6, 5, 4, 3, 2, 1 (linear scan)",
+            "6, 4, 0 — visits 3 nodes",
+            "6, 2, 0"
+          ],
+          "answer": 0,
+          "explanation": "prefix(6): i=6 (lowbit=2, 6-2=4). i=4 (lowbit=4, 4-4=0). Stop. Access bit[6] and bit[4]. Two steps, O(log 6) = O(3) iterations at most."
+        },
+        {
+          "question": "BIT point update at index 3 (1-indexed), n=8: which bit[] indices are updated?",
+          "options": [
+            "3, 4, 8 (3+1=4, 4+4=8, 8+8>n stop)",
+            "3 only",
+            "1, 2, 3, 4",
+            "3, 6, 8"
+          ],
+          "answer": 0,
+          "explanation": "update(3): bit[3]+=delta. next=3+lowbit(3)=3+1=4. bit[4]+=delta. next=4+lowbit(4)=4+4=8. bit[8]+=delta. next=8+8=16>8, stop. Indices: 3, 4, 8."
+        },
+        {
+          "question": "Range sum [3,7] using BIT (1-indexed): computation?",
+          "options": [
+            "bit[7] - bit[2]",
+            "prefix(7) - prefix(2)",
+            "prefix(7) - prefix(3)",
+            "prefix(7) - prefix(2) = sum[1..7] - sum[1..2] = sum[3..7]"
+          ],
+          "answer": 3,
+          "explanation": "Range [3,7] = prefix(7) - prefix(2). prefix(7) = sum[1..7]. prefix(2) = sum[1..2]. Difference = sum[3..7] ✓. Option B and D are equivalent — D just states it more explicitly."
+        }
+      ],
+      "visual_aid": {
+        "type": "bit_structure",
+        "description": "Fenwick Tree structure showing which ranges each bit[] covers",
+        "diagram": "FENWICK TREE (BIT) for n=8 — what each bit[i] stores:\n\n  i:    1    2    3    4    5    6    7    8\n  bin:  001  010  011  100  101  110  111 1000\n  low:  1    2    1    4    1    2    1    8\n  bit[i] covers: arr[i-low+1..i]\n    bit[1] = arr[1..1]   (covers 1 element)\n    bit[2] = arr[1..2]   (covers 2 elements)\n    bit[3] = arr[3..3]   (covers 1 element)\n    bit[4] = arr[1..4]   (covers 4 elements)\n    bit[5] = arr[5..5]   (covers 1 element)\n    bit[6] = arr[5..6]   (covers 2 elements)\n    bit[7] = arr[7..7]   (covers 1 element)\n    bit[8] = arr[1..8]   (covers 8 elements)\n\nPREFIX QUERY prefix(6):\n  bit[6] + bit[4] = arr[5..6] + arr[1..4] = arr[1..6] ✓\n  Path: 6 → 4 → 0 (stop)\n\nPOINT UPDATE at i=5:\n  bit[5] += delta (covers arr[5])\n  bit[6] += delta (covers arr[5..6])\n  bit[8] += delta (covers arr[1..8])\n  Path: 5 → 6 → 8 → 16>8 (stop)"
+      },
+      "complexity_summary": {
+        "build_naive": "O(n log n) — n point updates",
+        "build_efficient": "O(n) — using bit[i] = bit[i] + arr[i] propagation trick",
+        "point_update": "O(log n) — follow i += lowbit(i) chain",
+        "prefix_query": "O(log n) — follow i -= lowbit(i) chain",
+        "range_query": "O(log n) — prefix(r) - prefix(l-1)",
+        "limitation": "Sum only — cannot do range min/max"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-307",
+          "title": "Range Sum Query — Mutable (BIT solution)",
+          "difficulty": "Medium",
+          "pattern": "BIT: build O(n), update O(log n), prefix O(log n)"
+        },
+        {
+          "id": "lc-315",
+          "title": "Count of Smaller Numbers After Self",
+          "difficulty": "Hard",
+          "pattern": "BIT with coordinate compression — count how many smaller elements exist to the right"
+        },
+        {
+          "id": "lc-493",
+          "title": "Reverse Pairs",
+          "difficulty": "Hard",
+          "pattern": "BIT or merge sort — count pairs i<j where nums[i] > 2×nums[j]"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M2-L5-TH-1",
+            "question": "What does `lowbit(i) = i & (-i)` compute and why does it work?",
+            "options": [
+              "lowbit computes the highest set bit of i",
+              "lowbit(i) isolates the LOWEST SET BIT of i: -i in two's complement is ~i+1 (invert all bits then add 1); this sets all bits BELOW the lowest set bit of i to 1 and all bits AT AND ABOVE it to 0 (except the lowest set bit itself which stays 1); i & (-i) then extracts only the lowest set bit position; example: i=6=0110, -i=1010 (two's complement), i&(-i)=0010=2 (bit 1) ✓; i=8=1000, -i=1000, i&(-i)=1000=8 (bit 3) ✓",
+              "lowbit computes floor(log2(i))",
+              "lowbit is equivalent to i modulo 2"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: lowbit(6)=2, lowbit(8)=8; the two's complement explanation: -i = ~i + 1 flips all bits above the lowest set bit and sets that bit to 1 (via carry); i & (-i) then zeros everything except the shared lowest set bit; this operation is the foundation of both Fenwick update (add lowbit to move up) and query (subtract lowbit to move to prefix parent)."
+          },
+          {
+            "id": "L3M2-L5-TH-2",
+            "question": "In Fenwick update, `i += this.lowbit(i)` moves to the NEXT node that bit[i] CONTRIBUTES TO. In query, `i -= this.lowbit(i)` moves to the PREVIOUS PREFIX BUCKET. Why are these directions opposite?",
+            "options": [
+              "The directions are arbitrary; both operations could use either direction",
+              "The Fenwick tree has an ASYMMETRIC structure: bit[i] stores the sum of a range ENDING AT i with length lowbit(i); QUERY traverses backward: to compute prefix[i]=sum(1..i), we need bit[i] (covers i-lowbit(i)+1 to i), then bit[i-lowbit(i)] (covers its own range), etc. — moving LEFT (subtracting lowbit) collects non-overlapping ranges; UPDATE traverses forward: when element i changes, all ANCESTORS whose range CONTAINS i must be updated — i contributes to bit[j] whenever j's range includes i, which happens for j = i, i+lowbit(i), i+lowbit(i)+lowbit(i+lowbit(i)), etc. — moving RIGHT (adding lowbit)",
+              "The opposite directions are needed to avoid infinite loops",
+              "Update uses addition to prevent index 0 from being accessed"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's trace: 'TRACE update(6): i=6→bit[6]+=delta, i=8→bit[8]+=delta; TRACE query(6): i=6→sum+=bit[6], i=4→sum+=bit[4], i=0 stop' — the divergent directions are inherent to the Fenwick tree's structure: update propagates upward (to all ancestors), query aggregates leftward (collecting disjoint prefix ranges); these are two different tree traversals on the same underlying structure."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M2-L5-LG-1",
+            "question": "For FenwickTree on [1,3,5,7,9,11], `query(3)=9` (1+3+5). Trace the query path.",
+            "options": [
+              "query(3): i=3(011), sum+=bit[3]; i-=lowbit(3)=1, i=2(010), sum+=bit[2]; i-=lowbit(2)=2, i=0, stop; total=9 ✓ (bit[3] covers pos3=5; bit[2] covers pos1-2: 1+3=4; 5+4=9)",
+              "query(3): directly returns bit[3] which equals 1+3+5=9",
+              "query(3): i=3, sum+=bit[3]=7, i=0 stop; but 7≠9",
+              "query(3) requires visiting all elements 1,2,3"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: query(3)=9; trace: i=3(011): sum+=bit[3]=5 (bit[3] covers only position 3 since lowbit(3)=1); i-=1, i=2(010): sum+=bit[2]=1+3=4 (bit[2] covers positions 1-2 since lowbit(2)=2); i-=2, i=0: stop; total=5+4=9 ✓."
+          },
+          {
+            "id": "L3M2-L5-LG-2",
+            "question": "After `ft.update(2, 7)` on the Fenwick tree (adding 7 to position 2), `query(3)` returns 16. Verify.",
+            "options": [
+              "After adding 7 to position 2: prefix sum 1..3 = 1+(3+7)+5 = 16 ✓",
+              "query(3)=9+7=16 (the 7 was added to the total, not position 2)",
+              "query(3) still returns 9 since Fenwick updates are lazy",
+              "query(3)=9+7*3=30 (delta applied to all 3 positions)"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: query(3)=16 after update(2,7); ft.update(2,7) adds 7 to position 2 (1-indexed), making the element at position 2 become 3+7=10; prefix sum 1..3 = 1+10+5=16 ✓; the update propagates through bit[2] and bit[4] (ancestors of position 2)."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M2-L5-SY-1",
+            "question": "The Fenwick tree is 1-indexed but `buildFenwick(nums)` converts 0-indexed nums using `ft.update(i+1, nums[i])`. What would happen if `ft.update(i, nums[i])` were used (no +1)?",
+            "options": [
+              "No difference — Fenwick trees can be either 0-indexed or 1-indexed",
+              "Using `ft.update(i, ...)` without +1: when i=0, the update is called with position 0; in the Fenwick update loop `while(i<=this.n)`, starting at i=0: i+=lowbit(0)=0 (since 0 & (-0) = 0 & 0 = 0) — the loop NEVER TERMINATES (infinite loop); the Fenwick tree REQUIRES 1-indexing because lowbit(0)=0 would cause the update loop to get stuck at i=0 forever; the 1-indexed convention is not just convention — it's a correctness requirement for the i+=lowbit(i) termination to work",
+              "0-indexed Fenwick trees work correctly; the +1 is a coding style preference",
+              "ft.update(0,...) would update position n (the last position) due to wrap-around"
+            ],
+            "answer": 1,
+            "explanation": "Critical correctness issue: lowbit(0) = 0 & (-0) = 0 & 0 = 0; the update loop `i += lowbit(i)` with i=0 gives i=0+0=0 → infinite loop; the query loop `i -= lowbit(i)` with i=0 gives i=0-0=0 → infinite loop; 1-indexing ensures all valid indices have non-zero lowbits, guaranteeing termination; this is why Fenwick trees are ALWAYS 1-indexed."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M2-L5-CC-1",
+            "title": "Fenwick Tree (Binary Indexed Tree)",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the Fenwick Tree from this lesson.",
+            "requirements": [
+              "Implement `class FenwickTree` with update(i,delta) and query(i) (1-indexed)",
+              "Implement `buildFenwick(nums)` returning a FenwickTree from a 0-indexed array"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "class FenwickTree {\n  constructor(n) {\n    // TODO: 1-indexed bit array\n  }\n  lowbit(i) { return i & (-i); }\n  update(i, delta) {\n    // TODO: add delta, propagate via i+=lowbit(i)\n  }\n  query(i) {\n    // TODO: prefix sum 1..i via i-=lowbit(i)\n  }\n  rangeQuery(l, r) { return this.query(r) - this.query(l-1); }\n}\n\nfunction buildFenwick(nums) {\n  // TODO: 1-indexed build using update\n}"
+            },
+            "test_cases": [
+              {
+                "input": "buildFenwick([1,3,5,7,9,11]).query(3)",
+                "expected": 9,
+                "type": "visible"
+              },
+              {
+                "input": "buildFenwick([1,3,5,7,9,11]).rangeQuery(2,4)",
+                "expected": 15,
+                "type": "visible"
+              },
+              {
+                "input": "(() => { const ft=buildFenwick([1,3,5,7,9,11]); ft.update(2,7); return ft.query(3); })()",
+                "expected": 16,
+                "type": "visible"
+              },
+              {
+                "input": "buildFenwick([5]).query(1)",
+                "expected": 5,
+                "type": "hidden"
+              },
+              {
+                "input": "buildFenwick([1,2,3,4,5]).rangeQuery(3,5)",
+                "expected": 12,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "class FenwickTree {\n  constructor(n){this.n=n;this.bit=new Array(n+1).fill(0);}\n  lowbit(i){return i&(-i);}\n  update(i,d){while(i<=this.n){this.bit[i]+=d;i+=this.lowbit(i);}}\n  query(i){let s=0;while(i>0){s+=this.bit[i];i-=this.lowbit(i);}return s;}\n  rangeQuery(l,r){return this.query(r)-this.query(l-1);}\n}\nfunction buildFenwick(nums){const ft=new FenwickTree(nums.length);for(let i=0;i<nums.length;i++)ft.update(i+1,nums[i]);return ft;}\n"
+            },
+            "complexity_analysis": "update and query: O(log n) — at most log n iterations. buildFenwick: O(n log n). Space: O(n).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "update(i,delta): while(i<=n) bit[i]+=delta; i+=lowbit(i) — moves to ancestors."
+              },
+              {
+                "level": 2,
+                "text": "query(i): while(i>0) sum+=bit[i]; i-=lowbit(i) — collects disjoint prefix ranges."
+              },
+              {
+                "level": 3,
+                "text": "buildFenwick: call ft.update(i+1, nums[i]) for each element — MUST use i+1 (1-indexed)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 6,
+      "title": "Range Query Problem Thinking",
+      "tag": "ADDED",
+      "objective": "Select the correct range query data structure for any problem based on supported operations, and map all Module 2 NeetCode 150 problems to their patterns.",
+      "concepts": [
+        "Decision tree: point update vs range update, prefix query vs range query",
+        "Prefix sum: O(1) query O(n) update, static or read-heavy arrays",
+        "Fenwick tree: O(log n) both, prefix sums only, simpler code",
+        "Segment tree: O(log n) both, arbitrary range aggregates, flexible",
+        "Lazy segment tree: range updates + range queries in O(log n)",
+        "Sparse table: O(n log n) build, O(1) query for idempotent functions (min/max)",
+        "Module 2 NeetCode 150 problems mapped",
+        "Skills unlocked: Segment Tree, Fenwick Tree, Lazy Propagation"
+      ],
+      "explanation": "Range query data structures solve the fundamental problem: given an array with frequent updates and range queries, how do you answer range queries efficiently after updates? The decision tree: (1) No updates (static array): use prefix sums for O(1) range sum, or sparse table for O(1) range min/max. (2) Point updates, prefix sums only: Fenwick tree. (3) Point updates, arbitrary range aggregates (sum, min, max, GCD): segment tree. (4) Range updates + range queries: lazy segment tree. (5) Very large n with many distinct values: coordinate compression before any of the above. Sparse table: a different structure for O(1) range minimum/maximum queries (RMQ) that works only on static arrays. Preprocessing takes O(n log n). Queries are O(1) using the overlap property of min/max (idempotent): sparse[i][j] = min(sparse[i][j-1], sparse[i + 2^(j-1)][j-1]).",
+      "analogy": "Range query data structure selection is like choosing the right filing system for a library. A sorted bookshelf (prefix sum) is perfect for reading but reorganising takes forever. A hierarchical catalogue (segment tree) allows both finding and updating books efficiently. A simple ledger (Fenwick tree) is perfect if you only need cumulative totals. Choosing the wrong filing system makes one operation fast and the other prohibitively slow.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// RANGE QUERY DATA STRUCTURE DECISION GUIDE\n\nfunction selectRangeStructure(props) {\n    const { hasUpdates, updateType, queryType, n } = props;\n\n    if (!hasUpdates) {\n        if (queryType === 'min' || queryType === 'max') return 'Sparse Table O(n log n) build, O(1) query';\n        return 'Prefix Sum O(n) build, O(1) query';\n    }\n    if (updateType === 'point' && queryType === 'prefix_sum') return 'Fenwick Tree O(log n) both';\n    if (updateType === 'point') return 'Segment Tree O(log n) both';\n    if (updateType === 'range') return 'Lazy Segment Tree O(log n) both';\n}\n\n// MODULE 2 NEETCODE 150 PROBLEMS:\nconst module2_problems = [\n    { id: 307,  title: 'Range Sum Query - Mutable',         structure: 'Segment Tree or Fenwick', nc150: true },\n    { id: 315,  title: 'Count of Smaller Numbers After Self', structure: 'Fenwick + coord compress', nc150: true },\n    { id: 327,  title: 'Count of Range Sum',                structure: 'Merge Sort or Fenwick',   nc150: false },\n    { id: 699,  title: 'Falling Squares',                  structure: 'Lazy Segment Tree',        nc150: false },\n];\nconsole.log('Module 2 NeetCode 150:', module2_problems.filter(p=>p.nc150).length); // 2\n\n// SPARSE TABLE for static range minimum — O(n log n) build, O(1) query\nfunction buildSparseTable(arr) {\n    const n = arr.length;\n    const LOG = Math.floor(Math.log2(n)) + 1;\n    const table = Array.from({length:n}, () => new Array(LOG).fill(0));\n    // Base: table[i][0] = arr[i]\n    for (let i = 0; i < n; i++) table[i][0] = arr[i];\n    // Fill: table[i][j] = min of [i, i+2^j)\n    for (let j = 1; j < LOG; j++) {\n        for (let i = 0; i + (1<<j) <= n; i++) {\n            table[i][j] = Math.min(table[i][j-1], table[i + (1<<(j-1))][j-1]);\n        }\n    }\n    return table;\n}\n\nfunction sparseTableQuery(table, l, r) {\n    const k = Math.floor(Math.log2(r - l + 1));\n    return Math.min(table[l][k], table[r - (1<<k) + 1][k]); // overlap is OK for min\n}\n\nconst arr = [3,1,4,1,5,9,2,6];\nconst st = buildSparseTable(arr);\nconsole.log(sparseTableQuery(st, 0, 7)); // 1 (min of entire array)\nconsole.log(sparseTableQuery(st, 2, 5)); // 1 (min of [4,1,5,9])",
+        "explanation": "The sparse table uses the overlap property of idempotent operations: for range minimum, min(arr[l..r]) = min(sparse[l][k], sparse[r-2^k+1][k]) where k = floor(log2(r-l+1)). The two windows of size 2^k overlap, which is fine for min/max because min(x, x) = x (idempotent). This overlap trick is what enables O(1) queries but makes sparse table inapplicable to sum queries (sum(x, x) != sum of the range)."
+      },
+      "common_mistakes": [
+        "Using a segment tree when a Fenwick tree suffices — if the problem only requires prefix sums with point updates, Fenwick tree is simpler and more memory-efficient; reserve segment trees for general range aggregates",
+        "Applying sparse table to a dynamic array (with updates) — sparse table is a static structure; any update requires O(n log n) rebuild; only use for completely static arrays",
+        "Not recognising when coordinate compression is needed — when values in the problem are large (up to 10^9) but the number of distinct values is small (up to n), compress coordinates to [1..n] before applying range structures"
+      ],
+      "interview_relevance": "Module 2 covers 2 NeetCode 150 problems (Range Sum Query Mutable and Count of Smaller Numbers After Self) plus the foundational data structures (segment tree, Fenwick tree, lazy propagation, sparse table) that underpin competitive programming and senior engineering interviews. The decision tree for selecting the right structure is specifically evaluated in system design DSA questions.",
+      "mini_challenge": "For each scenario, select the data structure and state the complexity: (1) Static array of 10^6 integers, 10^9 range minimum queries. (2) Array with 10^5 point updates and range sum queries. (3) Array with range add operations and range max queries. (4) Array with 10^6 prefix sum queries but only 100 updates. Implement the sparse table build and query and verify sparseTableQuery returns 1 for the range [2,5] of [3,1,4,1,5,9,2,6].",
+      "flashcards": [
+        {
+          "front": "Range query problem decision: when to use segment tree vs BIT vs sparse table?",
+          "back": "SPARSE TABLE: O(n log n) build, O(1) query, NO updates — for static arrays with min/max queries. BIT: O(log n) update+query, sum only — for dynamic arrays needing prefix sums. SEGMENT TREE: O(log n) update+query, any associative aggregate — for dynamic arrays with complex aggregates or range updates."
+        },
+        {
+          "front": "Coordinate compression: when is it needed with BIT?",
+          "back": "When values are large (up to 10^9) but count is small (n ≤ 10^5). Map values to rank in [1,n] to fit in a BIT of size n. Example: [100, 3, 50, 3] → ranks [3, 1, 2, 1] (sorted unique: [3,50,100]). BIT of size 3 instead of 10^9."
+        },
+        {
+          "front": "Offline vs online range queries: what's the difference?",
+          "back": "OFFLINE: all queries known upfront. Can process in sorted order, use divide-and-conquer or sorted event sweeps. ONLINE: queries arrive one at a time; answer each before the next arrives. Segment tree and BIT support online; some offline-only techniques (Mo's algorithm) cannot."
+        },
+        {
+          "front": "Segment tree on strings: what operations are possible?",
+          "back": "Each node stores an aggregate over substring characters. Example: count distinct characters in range (node stores a bitmask of chars). XOR/AND of character frequencies. Hash of substring. The aggregate function must still be associative and computable from children."
+        },
+        {
+          "front": "2D range queries: two approaches?",
+          "back": "2D SEGMENT TREE: O(n² log² n) space, O(log² n) query. 2D BINARY INDEXED TREE: O(n²) space, O(log² n) update+query. For n ≤ 10³: both feasible. For n ≤ 10^4: may exceed memory. Alternative: 1D segment tree where each node has a sorted list of values (merge sort tree) for 2D queries."
+        },
+        {
+          "front": "Mo's algorithm: when is it useful?",
+          "back": "OFFLINE range queries where: (1) adding/removing one element from the window is O(1) or O(√n), and (2) all queries are given upfront. Sort queries by (l//√n, r). Total operations: O((n+q)√n). Useful when no data structure handles the specific aggregate cleanly."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Static array, n=10^5, only range minimum queries, no updates. Best approach?",
+          "options": [
+            "Segment tree O(n) build, O(log n) query",
+            "Sparse table O(n log n) build, O(1) query — optimal for static arrays",
+            "BIT — always the best for range queries",
+            "Naive O(n) per query"
+          ],
+          "answer": 1,
+          "explanation": "No updates → static array → sparse table. O(n log n) build, O(1) query using overlap property of powers of 2. No segment tree needed since updates never happen."
+        },
+        {
+          "question": "Count of smaller numbers to the right: arr=[5,2,6,1]. For element 5, how many elements to its right are smaller?",
+          "options": [
+            "2 (both 2 and 1)",
+            "3 (2,1,6 — wait, 6>5)",
+            "2 — only 2 and 1 are < 5",
+            "1"
+          ],
+          "answer": 2,
+          "explanation": "To the right of 5: [2,6,1]. Smaller than 5: 2 and 1. Count = 2. The answer array would be [2,1,1,0]."
+        },
+        {
+          "question": "BIT with coordinate compression for [5,2,6,1] (Count Smaller After Self). Coordinate compression maps these to?",
+          "options": [
+            "[3,2,4,1] (rank in sorted order: 1→1, 2→2, 5→3, 6→4)",
+            "[1,2,3,4]",
+            "[5,2,6,1] (unchanged)",
+            "[4,3,2,1]"
+          ],
+          "answer": 0,
+          "explanation": "Sorted unique values: [1,2,5,6]. Ranks: 1→1, 2→2, 5→3, 6→4. Array [5,2,6,1] → ranks [3,2,4,1]. BIT of size 4 instead of size 6 (original max value)."
+        },
+        {
+          "question": "Mo's algorithm processes queries in which order?",
+          "options": [
+            "Left endpoint ascending",
+            "Blocks of size √n: sort by (l//√n, r) — alternating r direction for each block",
+            "Random order for better cache performance",
+            "Right endpoint descending"
+          ],
+          "answer": 1,
+          "explanation": "Mo's ordering: primary sort by block (l//√n), secondary by r (ascending in even blocks, descending in odd blocks — 'hilbert curve' optimisation). This minimises total pointer movement to O((n+q)√n)."
+        }
+      ],
+      "visual_aid": {
+        "type": "decision_matrix",
+        "description": "Range query data structure selection guide",
+        "diagram": "RANGE QUERY DATA STRUCTURE SELECTION:\n\nCriteria          Sparse Table    BIT          Segment Tree\n─────────────────────────────────────────────────────────\nPoint update      ✗ (static)     O(log n)     O(log n)\nRange update      ✗              ✗            O(log n)*\nRange min/max     O(1) query     ✗ (sum only) O(log n)\nRange sum         O(1) query     O(log n)     O(log n)\nAny aggregate     ✓ (assoc)     Sum only      ✓ (assoc)\nCode complexity   Low            Very low      Medium-High\nBuild time        O(n log n)     O(n log n)    O(n)\nSpace             O(n log n)     O(n)          O(n)\n\n* with lazy propagation\n\nDECISION FLOWCHART:\n  Static array (no updates)? → Sparse Table (min/max O(1))\n  Sum only + dynamic? → BIT (simpler code)\n  Complex aggregate or range update? → Segment Tree\n  2D range? → 2D BIT or 2D Seg Tree\n  Offline queries + complex window? → Mo's Algorithm"
+      },
+      "complexity_summary": {
+        "sparse_table": "O(n log n) build, O(1) query, no updates",
+        "bit": "O(n log n) or O(n) build, O(log n) update+query, sum only",
+        "segment_tree": "O(n) build, O(log n) update+query, any aggregate",
+        "lazy_segment_tree": "O(n) build, O(log n) range update+query",
+        "mo_algorithm": "O((n+q)√n) — offline, no data structure needed"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-307",
+          "title": "Range Sum Query — Mutable (primary reference)",
+          "difficulty": "Medium",
+          "pattern": "BIT or segment tree — O(log n) both"
+        },
+        {
+          "id": "lc-315",
+          "title": "Count of Smaller Numbers After Self",
+          "difficulty": "Hard",
+          "pattern": "BIT + coordinate compression"
+        },
+        {
+          "id": "lc-493",
+          "title": "Reverse Pairs",
+          "difficulty": "Hard",
+          "pattern": "BIT or merge sort — count cross pairs"
+        },
+        {
+          "id": "lc-2407",
+          "title": "Longest Increasing Subsequence II",
+          "difficulty": "Hard",
+          "pattern": "Segment tree on value range — O(n log n) LIS variant"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L3M2-L6-TH-1",
+            "question": "The SPARSE TABLE achieves O(1) query but requires the aggregate function to be IDEMPOTENT. What does idempotent mean and why is it required?",
+            "options": [
+              "Idempotent means the function returns the same value for the same input (like identity)",
+              "IDEMPOTENT means f(x, x) = x — applying the function to the SAME VALUE twice gives the same result; min(x,x)=x and max(x,x)=x are idempotent; sum is NOT idempotent (x+x=2x≠x); sparse table achieves O(1) query by using TWO OVERLAPPING POWER-OF-2 RANGES that together cover [l,r]; since the ranges overlap, some elements are counted TWICE; for idempotent functions (min/max), counting twice is harmless; for sum, counting an element twice gives the wrong answer — which is why sparse table doesn't support sum queries with O(1) time",
+              "Idempotent means the function is commutative (order doesn't matter)",
+              "Idempotent functions are required for O(n log n) build time"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Sparse table: O(n log n) build, O(1) query for idempotent functions (min/max)' — the O(1) query trick: find k=floor(log2(r-l+1)), then min(table[l][k], table[r-(1<<k)+1][k]); the two ranges [l, l+2^k-1] and [r-2^k+1, r] overlap but min(a,min(a,b))=min(a,b) by idempotency; if sum were used: sum(a, sum(a,b)) = 2a+b ≠ a+b (wrong)."
+          },
+          {
+            "id": "L3M2-L6-TH-2",
+            "question": "For the decision guide: given 'range min queries, NO updates', which structure is optimal and why?",
+            "options": [
+              "Segment tree — it handles all cases including static arrays",
+              "SPARSE TABLE: when there are NO UPDATES, the array is STATIC and the sparse table's O(n log n) build cost is paid once; queries are O(1) per query — faster than segment tree's O(log n); for q queries: sparse table costs O(n log n + q) vs segment tree's O(n + q log n); when q is large, sparse table wins decisively; for dynamic arrays (with updates), sparse table cannot efficiently update (O(n log n) per update makes it impractical) — segment tree or lazy segment tree is required",
+              "Fenwick tree — it handles all range queries in O(log n)",
+              "Prefix sum — it has O(1) query for all aggregate types"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's decision guide: 'if !hasUpdates && (queryType==='min'||queryType==='max') return Sparse Table O(n log n) build, O(1) query' — the No-Updates + min/max combination makes sparse table the clear winner; its O(1) per query advantage over segment tree's O(log n) is decisive for query-heavy workloads; static arrays are the prerequisite since sparse table rebuild is prohibitively expensive."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L3M2-L6-LG-1",
+            "question": "For `sparseTableQuery(st, 2, 5)` on [3,1,4,1,5,9,2,6], the result is 1. Verify using the range [2..5]=[4,1,5,9].",
+            "options": [
+              "Range [2..5] = [4,1,5,9]; min = 1 ✓; k=floor(log2(4))=2; table[2][2]=min(arr[2..5])=1; table[5-4+1=2][2] also covers position 2; result=min(1,1)=1 ✓",
+              "sparseTableQuery(2,5) returns 4 (the first element in the range)",
+              "The result is 9 (the maximum of [4,1,5,9])",
+              "sparseTableQuery cannot handle ranges of length 4; it returns -1"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: sparseTableQuery(st,2,5)=1; range [2..5]=[4,1,5,9]; min=1; k=floor(log2(4))=2; the two overlapping ranges: [2..5] (table[2][2]) and [2..5] (table[5-4+1][2]=table[2][2]); both return 1; min(1,1)=1 ✓."
+          },
+          {
+            "id": "L3M2-L6-LG-2",
+            "question": "Module 2 has 2 NC150 problems (#307 and #315). Problem #315 'Count of Smaller Numbers After Self' uses 'Fenwick + coordinate compression'. What does coordinate compression enable here?",
+            "options": [
+              "Coordinate compression sorts the array to enable binary search",
+              "COORDINATE COMPRESSION maps potentially large values (e.g., nums[i] up to 10^4) to SMALL INDICES (1..n) so the Fenwick tree's size is O(n) rather than O(max_value); for #315: to count smaller numbers to the right of each element, process right-to-left; compress values to rank 1..n; for each element at rank r, query(r-1) gives count of smaller already-seen elements; update(r, 1) registers the current element; without compression, the Fenwick tree would need size 10^4+1 even for n=5 elements",
+              "Coordinate compression converts the 2D problem to 1D",
+              "Compression is needed only when elements are negative"
+            ],
+            "answer": 1,
+            "explanation": "Coordinate compression for Fenwick trees: map actual values to ranks 1..n; this bounds the Fenwick tree size to O(n) regardless of value magnitude; for #315, process right-to-left with a Fenwick tree tracking seen values by rank; query(rank-1) = count of elements already seen with rank < current rank = elements to the RIGHT (already processed) that are SMALLER; this gives O(n log n) solution vs O(n²) naive."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L3M2-L6-SY-1",
+            "question": "In `sparseTableQuery`, `const k = Math.floor(Math.log2(r - l + 1))` computes k once for O(1) query. Why is precomputing log values (not computing at query time) important for production?",
+            "options": [
+              "Math.log2 is not available in all JavaScript environments",
+              "Math.log2 is a FLOATING-POINT OPERATION costing multiple CPU cycles; for O(1) queries to be practically fast, the log computation must not be the bottleneck; in production sparse tables with millions of queries, precomputing a LOG TABLE (log2[i] for i=1..n) converts the log lookup to O(1) array access (faster than computing Math.log2 each time); the lesson's implementation computes Math.log2 per query for simplicity; a production implementation would precompute: `const logTable = Array.from({length:n+1}, (_,i)=>Math.floor(Math.log2(i||1)))`",
+              "Math.log2 returns floating-point; the integer conversion via Math.floor is O(n)",
+              "Precomputing log values enables parallel processing of multiple queries"
+            ],
+            "answer": 1,
+            "explanation": "Production sparse table optimisation: precompute `log[i] = floor(log2(i))` for i=1..n as an O(n) array; query lookup then costs O(1) integer array access instead of O(1) floating-point log computation; for 10^8 queries, the constant factor matters; the lesson's Math.log2 approach is pedagogically clear and functionally O(1), but production code precomputes the log table."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L3M2-L6-CC-1",
+            "title": "Sparse Table for Range Minimum and Data Structure Selector",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+            "problem_statement": "Implement sparse table RMQ and the data structure decision guide.",
+            "requirements": [
+              "Implement `buildSparseTable(arr)` and `sparseMin(table, l, r)` for O(1) range minimum",
+              "Implement `selectRangeDS(props)` matching the lesson's decision guide"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function buildSparseTable(arr) {\n  // TODO: table[i][j] = min of arr[i..i+2^j-1]\n}\n\nfunction sparseMin(table, l, r) {\n  // TODO: k=floor(log2(r-l+1)); overlap min of two ranges\n}\n\nfunction selectRangeDS(props) {\n  // props: {hasUpdates, updateType, queryType}\n  // return: 'Prefix Sum', 'Fenwick Tree', 'Segment Tree', 'Lazy Segment Tree', 'Sparse Table'\n}"
+            },
+            "test_cases": [
+              {
+                "input": "sparseMin(buildSparseTable([3,1,4,1,5,9,2,6]), 0, 7)",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "sparseMin(buildSparseTable([3,1,4,1,5,9,2,6]), 2, 5)",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "selectRangeDS({hasUpdates:false, queryType:'sum'})",
+                "expected": "Prefix Sum",
+                "type": "visible"
+              },
+              {
+                "input": "selectRangeDS({hasUpdates:true, updateType:'point', queryType:'prefix_sum'})",
+                "expected": "Fenwick Tree",
+                "type": "hidden"
+              },
+              {
+                "input": "selectRangeDS({hasUpdates:true, updateType:'range', queryType:'sum'})",
+                "expected": "Lazy Segment Tree",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function buildSparseTable(arr){\n  const n=arr.length,LOG=Math.floor(Math.log2(n))+1;\n  const t=Array.from({length:n},()=>new Array(LOG).fill(0));\n  for(let i=0;i<n;i++)t[i][0]=arr[i];\n  for(let j=1;j<LOG;j++)\n    for(let i=0;i+(1<<j)<=n;i++)\n      t[i][j]=Math.min(t[i][j-1],t[i+(1<<(j-1))][j-1]);\n  return t;\n}\n\nfunction sparseMin(table,l,r){\n  const k=Math.floor(Math.log2(r-l+1));\n  return Math.min(table[l][k],table[r-(1<<k)+1][k]);\n}\n\nfunction selectRangeDS(props){\n  const{hasUpdates,updateType,queryType}=props;\n  if(!hasUpdates){\n    if(queryType==='min'||queryType==='max')return'Sparse Table';\n    return'Prefix Sum';\n  }\n  if(updateType==='point'&&queryType==='prefix_sum')return'Fenwick Tree';\n  if(updateType==='point')return'Segment Tree';\n  return'Lazy Segment Tree';\n}"
+            },
+            "complexity_analysis": "buildSparseTable: O(n log n). sparseMin: O(1). selectRangeDS: O(1).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "buildSparseTable: t[i][0]=arr[i]; then for j=1..LOG: t[i][j]=min(t[i][j-1], t[i+2^(j-1)][j-1])."
+              },
+              {
+                "level": 2,
+                "text": "sparseMin: k=floor(log2(r-l+1)); result=min(table[l][k], table[r-(1<<k)+1][k])."
+              },
+              {
+                "level": 3,
+                "text": "selectRangeDS: no updates→Sparse Table (min/max) or Prefix Sum; point update→Fenwick (prefix) or Segment; range update→Lazy Segment."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "module_summary": {
+    "total_lessons": 6,
+    "level": "L3",
+    "difficulty": "Hard — segment trees and BITs require careful index arithmetic; lazy propagation is the most complex data structure implementation in the curriculum",
+    "core_patterns": [
+      "Segment tree: 1-indexed array of size 4n; left=2i, right=2i+1; build O(n) postorder",
+      "Range query: return IDENTITY when range doesn't intersect; return node when fully inside; else split at mid",
+      "Point update: recurse to leaf, update leaf, recompute ancestors bottom-up",
+      "Lazy propagation: store pending update in lazy[]; pushDown before accessing children in ANY operation",
+      "Range update: if fully inside, apply to node + update lazy, return; else pushDown + recurse + recompute",
+      "BIT prefix query: sum bit[i], then i -= lowbit(i) until i=0",
+      "BIT point update: bit[i] += delta, then i += lowbit(i) until i>n",
+      "lowbit(i) = i & (-i) — lowest set bit of i",
+      "BIT range [l,r]: prefix(r) - prefix(l-1)",
+      "Coordinate compression: map large values to ranks in [1,n] for BIT over value space"
+    ],
+    "prerequisite_modules": [
+      "L2-M12 (bit manipulation for lowbit)",
+      "L2-M01 (DP — understanding aggregate functions)"
+    ],
+    "unlocks_modules": [
+      "L3-M03 (Advanced Graph Algorithms)",
+      "Competitive programming: segment tree beats, persistent segment trees"
+    ],
+    "recommended_problem_order": [
+      "lc-307",
+      "lc-315",
+      "lc-493",
+      "lc-2407"
+    ],
+    "spaced_review_target": "Re-implement BIT from scratch (10 lines) before attempting the harder problems",
+    "module_difficulty_breakdown": {
+      "L1_build": "Medium — structure and array indexing is learnable",
+      "L2_point_update_range_query": "Medium — standard template once structure is understood",
+      "L3_lazy_propagation": "Hard — pushDown logic and timing is subtle; most implementations have bugs here",
+      "L4_range_sum_mutable": "Medium — applying the structure to the concrete LeetCode problem",
+      "L5_bit": "Medium — lowbit operation and index arithmetic is less intuitive than segment tree but code is much shorter",
+      "L6_decision_framework": "Hard — choosing the right structure requires experience with the tradeoffs"
+    },
+    "honest_time_estimate": "14-18 hours. Structure+build (L1): 2 hrs. Point update+query (L2): 2 hrs. Lazy propagation (L3): 5 hrs — the hardest lesson. Range Sum Mutable (L4): 2 hrs. BIT (L5): 3 hrs. Framework (L6): 2 hrs.",
+    "key_implementation_rule": "The single most common bug in lazy segment trees: forgetting to call pushDown BEFORE accessing children — in BOTH the query AND the update function. This causes reading stale child values when lazy updates haven't been propagated. Always: before recursing into children, call pushDown(current_node)."
+  },
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "advanced": "Lessons 1-2 (4n size derivation, 2n-1 nodes, O(log n) query decomposition, update path propagation)",
+      "hard": "Lessons 3-5 (lazy propagation pushDown logic, range update deferral, lowbit operation, Fenwick 1-indexing requirement)",
+      "capstone": "Lesson 6 (sparse table idempotency requirement, 5-structure decision guide, coordinate compression for Fenwick)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

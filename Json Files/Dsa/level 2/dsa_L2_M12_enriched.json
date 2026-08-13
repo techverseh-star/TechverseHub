@@ -1,0 +1,1658 @@
+{
+  "module_id": "L2-M12",
+  "module_number": 12,
+  "title": "Bit Manipulation",
+  "tag": null,
+  "is_optional_for_product_track": false,
+  "estimated_hours": "8–10 hours",
+  "prerequisites": [
+    "L1-M01"
+  ],
+  "learning_outcomes": [
+    "Convert integers between binary and decimal and explain how bits represent numbers",
+    "Apply AND, OR, XOR, NOT, and shift operations to solve common bit-manipulation patterns",
+    "Count set bits (1s) in an integer in O(number of set bits) using Brian Kernighan's algorithm",
+    "Build the counting bits DP table using the most significant bit recurrence in O(n)",
+    "Reverse the 32 bits of an integer in O(32) using bit extraction and placement",
+    "Add two integers without + or - using XOR for sum and AND+shift for carry propagation"
+  ],
+  "notes": [],
+  "spaced_review": "Re-solve 3 sliding window problems from Module 11 from scratch",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "title": "Binary Representation Refresher",
+      "tag": null,
+      "objective": "Convert integers between binary and decimal, understand two's complement for negative numbers, and identify common bit patterns that appear in manipulation problems.",
+      "concepts": [
+        "Binary: base-2 number system, each digit is 0 or 1",
+        "Bit position k: value 2^k (rightmost = bit 0 = least significant bit)",
+        "Decimal to binary: repeatedly divide by 2, collect remainders",
+        "Binary to decimal: sum of 2^k for each set bit k",
+        "Two's complement: represent negative numbers by inverting bits and adding 1",
+        "-1 in 32-bit: 0xFFFFFFFF (all 1s)",
+        "Integer.MAX_VALUE: 0x7FFFFFFF (0 followed by 31 ones)",
+        "Powers of 2 in binary: exactly one set bit (10, 100, 1000, ...)"
+      ],
+      "explanation": "In binary, each digit (bit) represents a power of 2. Bit position k (0-indexed from right) contributes 2^k to the number if set to 1. The number 13 = 8+4+1 = 1101 in binary (bits 3, 2, and 0 are set). Conversion from decimal to binary: repeatedly divide by 2 and collect remainders from bottom to top. Conversion from binary to decimal: sum up 2^k for each position k where the bit is 1. Two's complement represents negative numbers: to negate n, invert all bits (bitwise NOT) and add 1. In a 32-bit system, -1 is all 32 bits set (0xFFFFFFFF), -n = ~n + 1. This means bit patterns with all 1s often represent -1 in integer arithmetic, which can confuse sign-agnostic operations like unsigned right shift. Understanding these representations is the foundation for every bit manipulation algorithm.",
+      "analogy": "Binary is like a row of light switches, each either on (1) or off (0). The rightmost switch controls 1 lamp, the next controls 2, the next 4, then 8, and so on — powers of 2. To represent any number, you flip on exactly the switches that sum to it. Two's complement negative numbers flip all the switches for the absolute value and add 1 to the pattern, creating a seamless wrap-around where adding n and -n gives 0.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// BINARY REPRESENTATION OPERATIONS\n\n// Convert decimal to binary string\nfunction toBinary(n) {\n    if (n === 0) return '0';\n    let result = '';\n    while (n > 0) {\n        result = (n & 1) + result; // LSB first, then prepend\n        n >>= 1;                   // right shift by 1 = divide by 2\n    }\n    return result;\n}\n\n// Built-in: n.toString(2) for unsigned, handles negatives as '-' + abs\nconsole.log((13).toString(2));   // '1101'\nconsole.log((255).toString(2));  // '11111111'\nconsole.log(toBinary(13));       // '1101'\n\n// COMMON BIT PATTERNS:\nconst patterns = {\n    allOnes32:    0xFFFFFFFF, // -1 in two's complement (32-bit)\n    maxPositive:  0x7FFFFFFF, // 2147483647 = 2^31 - 1\n    minNegative:  0x80000000, // -2147483648 = -2^31\n    isPowerOf2:   n => n > 0 && (n & (n-1)) === 0, // exactly one bit set\n    lowestSetBit: n => n & (-n),                    // isolate rightmost 1\n    clearLowest:  n => n & (n-1),                   // clear rightmost 1 bit\n    countBits:    n => n.toString(2).split('').filter(b => b==='1').length\n};\n\nconsole.log(patterns.isPowerOf2(8));    // true  (1000: one bit)\nconsole.log(patterns.isPowerOf2(6));    // false (110: two bits)\nconsole.log(patterns.lowestSetBit(12)); // 4     (1100 -> 0100)\nconsole.log(patterns.clearLowest(12));  // 8     (1100 -> 1000)\n\n// TWO'S COMPLEMENT\nconsole.log(~5 + 1);  // -5  (invert 0101 -> 1010, add 1 -> 1011 = -5 in 32-bit)\nconsole.log(-5 >>> 0); // 4294967291 (unsigned 32-bit view of -5)\n// -5 in 32-bit two's complement = 0xFFFFFFFB = 4294967291",
+        "explanation": "The isPowerOf2 check (n & (n-1)) === 0 is the most important single bit pattern. A power of 2 has exactly one bit set (e.g., 8 = 1000). Subtracting 1 from 1000 gives 0111. AND-ing them: 1000 & 0111 = 0. Any non-power-of-2 has at least two bits set, so n-1 still shares at least one bit with n, giving a non-zero AND."
+      },
+      "common_mistakes": [
+        "Forgetting that n & (n-1) is 0 if and only if n is a power of 2 (with n > 0) — without the n > 0 check, 0 & -1 = 0 would incorrectly classify 0 as a power of 2",
+        "Confusing arithmetic right shift >> with logical (unsigned) right shift >>> in JavaScript — >> preserves the sign bit (fills with 1s for negatives); >>> always fills with 0s; for bit manipulation on non-negative integers use >>, but for treating numbers as unsigned 32-bit use >>>",
+        "Not knowing that JavaScript numbers are 64-bit floats but bitwise operators treat them as 32-bit signed integers — (1 << 31) gives -2147483648 in JavaScript due to sign bit interpretation"
+      ],
+      "interview_relevance": "Binary representation is the foundation of every bit manipulation problem. Interviewers test this knowledge implicitly: 'What is n & (n-1)?' (clears lowest set bit) and 'What is n & (-n)?' (isolates lowest set bit) are specific interview questions. The isPowerOf2 trick appears directly in LeetCode #231.",
+      "mini_challenge": "For each number, convert to binary and verify using the patterns: (1) 42 in binary. (2) Is 64 a power of 2? Verify with n & (n-1). (3) What is the lowest set bit of 44 (101100)? Verify with n & (-n). (4) Clear the lowest set bit of 44. Verify with n & (n-1). (5) What is -1 in 32-bit binary? Verify with (0xFFFFFFFF).toString(2).",
+      "flashcards": [
+        {
+          "front": "Convert 13 to binary?",
+          "back": "13 = 8+4+1 = 2³+2²+2⁰. Binary: 1101. Read remainders from repeated division by 2: 13÷2=6r1, 6÷2=3r0, 3÷2=1r1, 1÷2=0r1. Remainders bottom-up: 1101."
+        },
+        {
+          "front": "Convert binary 1010 to decimal?",
+          "back": "1×2³ + 0×2² + 1×2¹ + 0×2⁰ = 8+0+2+0 = 10. Each bit position k (from right, 0-indexed) contributes bit × 2^k."
+        },
+        {
+          "front": "Two's complement: how is -1 represented in 32-bit?",
+          "back": "All 1s: 11111111 11111111 11111111 11111111. Two's complement of positive n: flip all bits of n, then add 1. ~0 (flip all bits of 0) = all 1s. Adding 1 to all 1s overflows to 0 (mod 2³²). So -1 = all 1s."
+        },
+        {
+          "front": "Two's complement: what is the range of a 32-bit signed integer?",
+          "back": "-2³¹ to 2³¹-1 = -2,147,483,648 to 2,147,483,647. Most negative: 10...0 (1 followed by 31 zeros). Most positive: 01...1 (0 followed by 31 ones)."
+        },
+        {
+          "front": "Key powers of 2 to memorise?",
+          "back": "2¹=2, 2²=4, 2³=8, 2⁴=16, 2⁸=256, 2¹⁰=1024≈1K, 2¹⁶=65536≈64K, 2²⁰≈1M, 2³⁰≈1B, 2³¹=2,147,483,648, 2³²=4,294,967,296."
+        },
+        {
+          "front": "Bit at position k (0-indexed from right): how to check if it's 1?",
+          "back": "(n >> k) & 1. Right-shift n by k positions to bring bit k to position 0, then AND with 1 to isolate it. Returns 0 or 1."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "What is 42 in binary?",
+          "options": [
+            "100010",
+            "101010",
+            "110010",
+            "101100"
+          ],
+          "answer": 1,
+          "explanation": "42 = 32+8+2 = 2⁵+2³+2¹. Binary: 101010. Positions 5,3,1 are 1; positions 4,2,0 are 0."
+        },
+        {
+          "question": "Binary 11001 in decimal?",
+          "options": [
+            "25",
+            "27",
+            "24",
+            "26"
+          ],
+          "answer": 0,
+          "explanation": "1×16 + 1×8 + 0×4 + 0×2 + 1×1 = 16+8+1 = 25."
+        },
+        {
+          "question": "Two's complement of 5 (in 4-bit): what is -5?",
+          "options": [
+            "1010",
+            "1011",
+            "0101",
+            "1101"
+          ],
+          "answer": 1,
+          "explanation": "5 = 0101. Flip all bits: 1010. Add 1: 1011. So -5 = 1011 in 4-bit two's complement. Verify: 5+(-5)=0101+1011=10000, drop carry = 0000 ✓."
+        },
+        {
+          "question": "Is bit 3 (0-indexed) of 12 (binary 1100) set?",
+          "options": [
+            "Yes — (12>>3)&1 = 1",
+            "No — (12>>3)&1 = 0",
+            "Yes — bit 3 is position 4",
+            "Cannot determine"
+          ],
+          "answer": 0,
+          "explanation": "12 = 1100. (12 >> 3) = 0001. 0001 & 1 = 1. Bit 3 IS set. Positions: bit0=0, bit1=0, bit2=1, bit3=1."
+        }
+      ],
+      "visual_aid": {
+        "type": "binary_reference",
+        "description": "Binary representation and powers of 2 reference",
+        "diagram": "DECIMAL TO BINARY:\n  13 ÷ 2 = 6  r 1  ↑ read\n   6 ÷ 2 = 3  r 0  | upward\n   3 ÷ 2 = 1  r 1  |\n   1 ÷ 2 = 0  r 1  ← start here\n  Result: 1101\n\nBIT POSITIONS (0-indexed from right):\n  Position: 7  6  5  4  3  2  1  0\n  Value:   128 64 32 16  8  4  2  1\n  Example 42: 0  0  1  0  1  0  1  0 = 101010\n\nTWO'S COMPLEMENT:\n  +5 = 00000101\n   5 flipped = 11111010\n  +1 → -5 = 11111011\n\nCHECK BIT k: (n >> k) & 1\n  n=12(1100), k=2: (12>>2)=11=3, 3&1=1 → bit 2 is SET\n  n=12(1100), k=1: (12>>1)=110=6, 6&1=0 → bit 1 is CLEAR"
+      },
+      "complexity_summary": {
+        "decimal_to_binary": "O(log n) — log₂(n) bits to process",
+        "binary_to_decimal": "O(log n) — scan each bit",
+        "twos_complement": "Flip all bits + add 1",
+        "check_bit_k": "(n >> k) & 1 — O(1)"
+      },
+      "practice_problems": [
+        {
+          "id": "custom-bit1",
+          "title": "Convert 5 decimal numbers to binary and back — manual drill",
+          "difficulty": "Easy",
+          "pattern": "Binary ↔ decimal conversion"
+        },
+        {
+          "id": "custom-bit2",
+          "title": "Check which bits are set in 42: list all set bit positions",
+          "difficulty": "Easy",
+          "pattern": "(n>>k)&1 for k=0..7"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M12-L1-TH-1",
+            "question": "In TWO'S COMPLEMENT, why is `-1` represented as `0xFFFFFFFF` (all 32 bits set to 1)?",
+            "options": [
+              "-1 is stored as 0x00000001 with a sign flag",
+              "Two's complement of +1 (0x00000001): invert all bits → 0xFFFFFFFE, then add 1 → 0xFFFFFFFF; this is -1; the design ensures that adding +1 and -1 in binary produces 0x100000000 (the carry discards the 33rd bit) leaving 0x00000000 = 0; two's complement is chosen precisely because ordinary addition hardware works correctly for both signed and unsigned arithmetic",
+              "-1 occupies all 32 bits because it is the smallest representable value",
+              "0xFFFFFFFF is +1 in two's complement; -1 is 0x80000000"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Two's complement: represent negative numbers by inverting bits and adding 1' and '-1 in 32-bit: 0xFFFFFFFF (all 1s)' — ~1 = 0xFFFFFFFE, then +1 = 0xFFFFFFFF; confirmed by the lesson's note that ~5+1=-5 and -5>>>0=4294967291 (unsigned view of 0xFFFFFFFB)."
+          },
+          {
+            "id": "L2M12-L1-TH-2",
+            "question": "The `isPowerOf2` pattern `n > 0 && (n & (n-1)) === 0` works because powers of 2 have exactly ONE set bit. Why does `n & (n-1)` equal 0 for powers of 2?",
+            "options": [
+              "n & (n-1) equals 0 only for odd numbers",
+              "For a power of 2: n = 100...0 (one bit at position k, rest 0); n-1 = 011...1 (all bits below k set, bit k cleared); n & (n-1) = 100...0 & 011...1 = 000...0 = 0; no overlapping set bits; for non-powers of 2 (multiple set bits), n-1 only flips the lowest bit cluster — remaining set bits above stay in both n and n-1, producing a non-zero AND",
+              "n & (n-1) is always 0 for even numbers",
+              "Powers of 2 have n-1 equal to their bitwise complement"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's pattern: 'isPowerOf2: n > 0 && (n & (n-1)) === 0' — the Brian Kernighan insight: n & (n-1) clears the lowest set bit; if n has only one set bit (power of 2), clearing it leaves 0; confirmed: lowestSetBit(12)=4 (1100→0100) and clearLowest(12)=8 (1100→1000) showing the mechanics."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M12-L1-LG-1",
+            "question": "For `toBinary(13)`, trace the algorithm. What are the remainders collected in order, and what is the final binary string?",
+            "options": [
+              "Remainders (LSB first): 13&1=1, 6&1=0, 3&1=1, 1&1=1; prepending gives '1101' — confirmed",
+              "Remainders (MSB first): 1,1,0,1; result '0110'",
+              "The algorithm divides by 2 each time: 13/2=6, 6/2=3, 3/2=1; result has 3 digits",
+              "toBinary(13) returns '13' because 13 is odd"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: toBinary(13)='1101'; each iteration: (13&1)=1 prepend→'1', n>>=1→6; (6&1)=0 prepend→'01', n>>=1→3; (3&1)=1 prepend→'101', n>>=1→1; (1&1)=1 prepend→'1101', n>>=1→0; loop ends; result='1101' ✓ (13 = 8+4+1 = 2³+2²+2⁰)."
+          },
+          {
+            "id": "L2M12-L1-LG-2",
+            "question": "What is `lowestSetBit(12)` and `clearLowest(12)`? Verify using binary.",
+            "options": [
+              "lowestSetBit(12)=4, clearLowest(12)=8 — 12=1100; n&-n=1100&0100=0100=4; n&(n-1)=1100&1011=1000=8",
+              "lowestSetBit(12)=2, clearLowest(12)=10",
+              "lowestSetBit(12)=8, clearLowest(12)=4",
+              "lowestSetBit(12)=12, clearLowest(12)=0"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: lowestSetBit(12)=4, clearLowest(12)=8; 12=1100; -12=0100 (two's complement: ~12+1); 12&(-12)=1100&0100=0100=4 (isolates bit 2); 12&(12-1)=1100&1011=1000=8 (clears bit 2, keeps bit 3)."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M12-L1-SY-1",
+            "question": "In `toBinary`, `result = (n & 1) + result` PREPENDS each bit (LSB first, then prepended). Why is `+result` concatenation at the END (not beginning)?",
+            "options": [
+              "Concatenating at the end builds the string in MSB-first order",
+              "The loop extracts bits from the LEAST SIGNIFICANT BIT (via `n & 1`) and then right-shifts to get the next bit; the first extracted bit is the LSB (rightmost bit of the final binary string); PREPENDING each new bit via `bit + result` places each new extraction at the LEFT of the accumulated string; the last extracted bit (MSB) ends up at the leftmost position; this builds the binary string in the correct MSB-first order naturally",
+              "result is appended at the end because + is left-associative",
+              "The order doesn't matter; binary strings are symmetric"
+            ],
+            "answer": 1,
+            "explanation": "The prepend pattern `(n & 1) + result` is the key: each new bit extracted (LSB first) is placed to the LEFT of what's already accumulated; iteration 1 extracts LSB → becomes rightmost after later iterations prepend MSB; the last (most significant) bit is prepended last, ending up at position 0 of the final string — exactly MSB-first order."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M12-L1-CC-1",
+            "title": "Binary Patterns and Bit Utilities",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the binary utility functions from this lesson.",
+            "requirements": [
+              "Implement `toBinaryImpl(n)` matching the lesson's LSB-extract-and-prepend approach",
+              "Implement `isPowerOf2Impl(n)` using the single-bit check",
+              "Implement `lowestSetBitImpl(n)` and `clearLowestImpl(n)`"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function toBinaryImpl(n) {\n  // TODO: LSB via n&1, prepend, right-shift n until 0\n}\n\nfunction isPowerOf2Impl(n) {\n  // TODO: n>0 && (n&(n-1))===0\n}\n\nfunction lowestSetBitImpl(n) { return n & (-n); }\nfunction clearLowestImpl(n)  { return n & (n - 1); }"
+            },
+            "test_cases": [
+              {
+                "input": "toBinaryImpl(13)",
+                "expected": "1101",
+                "type": "visible"
+              },
+              {
+                "input": "isPowerOf2Impl(8)",
+                "expected": true,
+                "type": "visible"
+              },
+              {
+                "input": "isPowerOf2Impl(6)",
+                "expected": false,
+                "type": "visible"
+              },
+              {
+                "input": "lowestSetBitImpl(12)",
+                "expected": 4,
+                "type": "hidden"
+              },
+              {
+                "input": "clearLowestImpl(12)",
+                "expected": 8,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function toBinaryImpl(n) {\n  if (n === 0) return '0';\n  let result = '';\n  while (n > 0) {\n    result = (n & 1) + result;\n    n >>= 1;\n  }\n  return result;\n}\n\nfunction isPowerOf2Impl(n) {\n  return n > 0 && (n & (n - 1)) === 0;\n}\n\nfunction lowestSetBitImpl(n) { return n & (-n); }\nfunction clearLowestImpl(n)  { return n & (n - 1); }"
+            },
+            "complexity_analysis": "toBinaryImpl: O(log n). isPowerOf2Impl: O(1). lowestSetBitImpl/clearLowestImpl: O(1).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "toBinaryImpl: result=(n&1)+result (prepend); n>>=1 (right shift); repeat while n>0."
+              },
+              {
+                "level": 2,
+                "text": "isPowerOf2Impl: must have n>0 (0 is not a power of 2) AND (n&(n-1))===0 (exactly one set bit)."
+              },
+              {
+                "level": 3,
+                "text": "lowestSetBit uses n&(-n): -n is two's complement which shares only the lowest set bit with n."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 2,
+      "title": "AND, OR, XOR Operations",
+      "tag": null,
+      "objective": "Apply AND, OR, XOR, NOT, and left/right shift operations to solve common bit patterns, and know the canonical use case for each operation.",
+      "concepts": [
+        "AND (&): 1 only if BOTH bits are 1; use for masking and clearing bits",
+        "OR (|): 1 if EITHER bit is 1; use for setting bits",
+        "XOR (^): 1 if bits DIFFER; use for toggling, find-single, swap",
+        "NOT (~): inverts all bits; ~n = -(n+1) in two's complement",
+        "Left shift (<<): multiply by 2^k, fills right with 0s",
+        "Right shift (>>): divide by 2^k, fills left with sign bit",
+        "Unsigned right shift (>>>): divide by 2^k, fills left with 0s",
+        "XOR properties: a^a=0, a^0=a, commutative and associative"
+      ],
+      "explanation": "Each bitwise operation has a canonical pattern. AND: mask out specific bits (clear all bits except selected ones). Example: n & 0xFF extracts the lowest 8 bits. n & 1 checks if n is odd (checks LSB). OR: set specific bits to 1. Example: n | (1 << k) sets bit k. NOT: flip all bits. In two's complement, ~n = -(n+1). Left shift: n << k multiplies n by 2^k (fast multiplication for powers of 2). Right shift: n >> k divides by 2^k (with sign preservation). Unsigned right shift: n >>> k divides treating n as unsigned 32-bit. XOR: the most versatile operation. Properties: a XOR a = 0 (same bits cancel), a XOR 0 = a (XOR with 0 is identity), XOR is commutative and associative. These properties power the single number trick (XOR all elements — duplicates cancel, leaving the unique element) and the swap-without-temp-variable pattern.",
+      "analogy": "Bitwise operations are like coloured light filters. AND is like a dark filter: only light that passes through BOTH filters shows (1 only if both are 1). OR is a light filter: any light passing through EITHER filter shows. XOR is like a polarised filter: only light that differs in polarisation passes (toggles on difference). Left shift multiplies by 2 with each step, like moving decimal digits left by one position in decimal multiplication.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// CANONICAL BIT OPERATION PATTERNS\n\n// CHECK: is bit k set in n?\nfunction isBitSet(n, k)    { return (n >> k) & 1; }  // shift bit k to position 0, check\n// Alternative: return (n & (1 << k)) !== 0;\n\n// SET: set bit k in n\nfunction setBit(n, k)      { return n | (1 << k); }    // OR with mask\n\n// CLEAR: clear bit k in n\nfunction clearBit(n, k)    { return n & ~(1 << k); }   // AND with inverted mask\n\n// TOGGLE: flip bit k in n\nfunction toggleBit(n, k)   { return n ^ (1 << k); }    // XOR with mask\n\n// EXTRACT: get value of bits [lo..hi] in n\nfunction extractBits(n, lo, hi) {\n    const mask = ((1 << (hi - lo + 1)) - 1) << lo;\n    return (n & mask) >> lo;\n}\n\nconsole.log(isBitSet(13, 2)); // 1 (13=1101, bit 2 = 1)\nconsole.log(isBitSet(13, 1)); // 0 (13=1101, bit 1 = 0)\nconsole.log(setBit(8, 1));    // 10 (1000 | 0010 = 1010)\nconsole.log(clearBit(13, 2)); // 9  (1101 & ~0100 = 1101 & 1011 = 1001)\nconsole.log(toggleBit(13, 2)); // 9 (1101 ^ 0100 = 1001)\n\n// XOR TRICKS:\n// Single Number (#136): find the one element that appears once, all others appear twice\nfunction singleNumber(nums) {\n    return nums.reduce((acc, n) => acc ^ n, 0);\n    // XOR all: duplicates cancel (a^a=0), unique element remains (0^a=a)\n}\nconsole.log(singleNumber([4,1,2,1,2])); // 4\n\n// Swap without temp variable (using XOR)\nfunction swapXOR(arr, i, j) {\n    arr[i] ^= arr[j]; // a = a^b\n    arr[j] ^= arr[i]; // b = b^(a^b) = a\n    arr[i] ^= arr[j]; // a = (a^b)^a = b\n    // Warning: if i==j, this sets arr[i] to 0! Check i!==j first.\n}\n\n// SHIFT OPERATIONS:\nconsole.log(1 << 3);   // 8  (left shift 3 = multiply by 8)\nconsole.log(16 >> 2);  // 4  (right shift 2 = divide by 4)\nconsole.log(-4 >> 1);  // -2 (arithmetic: fills with sign bit 1)\nconsole.log(-4 >>> 1); // 2147483646 (logical: fills with 0)",
+        "explanation": "The XOR swap works because: after step 1, arr[i] = a^b. After step 2, arr[j] = b^(a^b) = a (because b^b=0, leaving a). After step 3, arr[i] = (a^b)^a = b (because a^a=0, leaving b). The warning: if i==j, step 1 sets arr[i] = a^a = 0, destroying the value. Always check i !== j before using XOR swap."
+      },
+      "common_mistakes": [
+        "Using n & 1 << k without parentheses — the shift operator has lower precedence than & in some contexts; always write (n & (1 << k)) with explicit parentheses to avoid precedence surprises",
+        "Using >> on negative numbers when unsigned behaviour is needed — -4 >> 1 = -2 (fills with 1s), but -4 >>> 1 = 2147483646 (fills with 0s); use >>> for unsigned bit operations",
+        "Assuming XOR swap is always better — XOR swap is obscure and fails when i==j; a simple temp variable swap is clearer and equally efficient in modern compilers"
+      ],
+      "interview_relevance": "AND/OR/XOR patterns appear in Single Number (#136, Blind 75), Missing Number (#268), and various bitmask DP problems. The XOR cancellation property (a^a=0) and the associativity/commutativity allow solving these problems in O(n) time O(1) space. The canonical bit operation patterns (check, set, clear, toggle) are foundational knowledge tested at every level.",
+      "mini_challenge": "Without running code: (1) What is 0b1010 & 0b1100? Show binary and decimal. (2) What is 0b1010 | 0b1100? (3) What is 0b1010 ^ 0b1100? (4) XOR all elements of [2,3,2,4,4]: what remains? (5) Set bit 5 of 0b0001111. Verify your answers using JavaScript's built-in binary literals.",
+      "flashcards": [
+        {
+          "front": "AND (&): what does it do?",
+          "back": "Bit is 1 only if BOTH input bits are 1. Uses: clear a bit (n & ~mask), check a bit (n & (1<<k)), extract lower bits (n & (2^k - 1)). 0 is the identity for OR, 1 for AND (n & 1 = last bit)."
+        },
+        {
+          "front": "OR (|): what does it do?",
+          "back": "Bit is 1 if EITHER input bit is 1. Uses: set a bit (n | (1<<k)), combine bit patterns. 0 is the identity for OR (n | 0 = n)."
+        },
+        {
+          "front": "XOR (^): three key properties?",
+          "back": "1) n^n = 0 (same values cancel). 2) n^0 = n (XOR with 0 changes nothing). 3) Commutative and associative. Uses: find the unique number in a list of duplicates, toggle bits, check if two values are equal (a^b == 0)."
+        },
+        {
+          "front": "Left shift (<<): effect?",
+          "back": "n << k = n × 2^k. Shifts all bits k positions left, fills with 0s on right. Example: 3 << 2 = 12. Warning: left-shifting into the sign bit causes overflow in signed integers."
+        },
+        {
+          "front": "Right shift (>>): arithmetic vs logical?",
+          "back": "Arithmetic (>>) for signed integers: fills left with sign bit (preserves sign). -8 >> 1 = -4. Logical (>>>): fills left with 0s regardless of sign. Java has >>>; C/C++ behavior is implementation-defined for negative; Python uses >> (arithmetic)."
+        },
+        {
+          "front": "XOR trick for finding unique element: why does it work?",
+          "back": "All duplicate elements cancel (n^n=0). The unique element XORs with 0s and survives. XOR all elements: result = unique element. Works because XOR is commutative and associative — order doesn't matter."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "5 & 3 = ? (5=101, 3=011)",
+          "options": [
+            "7",
+            "1",
+            "4",
+            "6"
+          ],
+          "answer": 1,
+          "explanation": "101 & 011: bit0=1&1=1, bit1=0&1=0, bit2=1&0=0. Result: 001 = 1."
+        },
+        {
+          "question": "5 | 3 = ? (5=101, 3=011)",
+          "options": [
+            "6",
+            "7",
+            "4",
+            "1"
+          ],
+          "answer": 1,
+          "explanation": "101 | 011: bit0=1|1=1, bit1=0|1=1, bit2=1|0=1. Result: 111 = 7."
+        },
+        {
+          "question": "XOR of [4,1,2,1,2]: result?",
+          "options": [
+            "4",
+            "0",
+            "9",
+            "7"
+          ],
+          "answer": 0,
+          "explanation": "4^1^2^1^2 = 4^(1^1)^(2^2) = 4^0^0 = 4. All duplicates cancel, unique element 4 remains."
+        },
+        {
+          "question": "How to toggle (flip) bit k of n?",
+          "options": [
+            "n & (1<<k)",
+            "n | (1<<k)",
+            "n ^ (1<<k)",
+            "n - (1<<k)"
+          ],
+          "answer": 2,
+          "explanation": "XOR with a mask that has only bit k set: if bit k was 0, XOR makes it 1. If bit k was 1, XOR makes it 0. n ^ (1<<k) flips bit k."
+        }
+      ],
+      "visual_aid": {
+        "type": "bitwise_operations",
+        "description": "AND, OR, XOR truth table with practical uses",
+        "diagram": "BITWISE OPERATIONS TRUTH TABLE:\n  A  B | A&B  A|B  A^B\n  0  0 |  0    0    0\n  0  1 |  0    1    1\n  1  0 |  0    1    1\n  1  1 |  1    1    0   ← XOR: same=0, different=1\n\nPRACTICAL USES:\n  CHECK bit k:   (n >> k) & 1\n  SET bit k:      n | (1 << k)\n  CLEAR bit k:    n & ~(1 << k)\n  TOGGLE bit k:   n ^ (1 << k)\n  LOWEST set bit: n & (-n)  or  n & (~n + 1)\n\nXOR UNIQUE ELEMENT [4,1,2,1,2]:\n  4^1^2^1^2\n  = 4^(1^1)^(2^2)    ← commutative+associative\n  = 4^0^0\n  = 4 ✓\n\n-n IN TWO'S COMPLEMENT = ~n + 1\n  So n & (-n) = n & (~n + 1) = LOWEST SET BIT"
+      },
+      "complexity_summary": {
+        "all_bitwise_ops": "O(1) — single CPU instruction",
+        "xor_unique_element": "O(n) time, O(1) space",
+        "shift_operations": "O(1) — left: ×2^k, right: ÷2^k (arithmetic)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-136",
+          "title": "Single Number — XOR unique element",
+          "difficulty": "Easy",
+          "pattern": "XOR all elements: duplicates cancel",
+          "blind75": true
+        },
+        {
+          "id": "lc-137",
+          "title": "Single Number II — one element appears once, others 3×",
+          "difficulty": "Medium",
+          "pattern": "Bit counting mod 3"
+        },
+        {
+          "id": "lc-260",
+          "title": "Single Number III — two unique elements",
+          "difficulty": "Medium",
+          "pattern": "XOR split by a set bit"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M12-L2-TH-1",
+            "question": "Why does XOR of all elements find the SINGLE NUMBER in an array where every other element appears exactly twice?",
+            "options": [
+              "XOR sums all elements and divides by 2",
+              "XOR has two key properties: a^a=0 (any number XOR'd with itself is 0) and a^0=a (XOR with 0 is identity); reducing with XOR: all paired elements cancel (a^a=0) and the unique element XOR'd with 0 survives (0^x=x); commutativity and associativity ensure this works regardless of element order",
+              "XOR finds duplicates by comparing adjacent elements",
+              "XOR adds binary digits without carry, giving the unique element"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'XOR properties: a^a=0, a^0=a, commutative and associative' — for array [4,1,2,1,2]: 4^1^2^1^2 = 4^(1^1)^(2^2) = 4^0^0 = 4; confirmed by direct execution: singleNumber([4,1,2,1,2])=4."
+          },
+          {
+            "id": "L2M12-L2-TH-2",
+            "question": "What is the difference between `>>` (signed) and `>>>` (unsigned) right shift?",
+            "options": [
+              "Both fill vacated bits with 0; they are identical",
+              "SIGNED right shift `>>` fills vacated high bits with the SIGN BIT (1 for negative numbers, 0 for positive) — preserves the sign; UNSIGNED right shift `>>>` always fills with 0 regardless of sign — treats the number as unsigned; example: -4>>1 = -2 (fills with 1s, stays negative); -4>>>1 = 2147483646 (fills with 0s, treats as large unsigned integer 0xFFFFFFFC>>1 = 0x7FFFFFFE)",
+              ">>> is for floating-point; >> is for integers",
+              ">> fills with 1s; >>> fills with 0s regardless"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: -4>>1=-2 (arithmetic shift, sign preserved); -4>>>1=2147483646 (logical shift, 0xFFFFFFFC>>>1=0x7FFFFFFE=2147483646); matching the lesson's concepts: 'Right shift (>>): fills left with sign bit' and 'Unsigned right shift (>>>): fills left with 0s'."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M12-L2-LG-1",
+            "question": "For `clearBit(13, 2)` and `toggleBit(13, 2)`, both return 9. Verify using binary why this happens.",
+            "options": [
+              "Both happen to return 9 because 13-2-2=9 by coincidence",
+              "13=1101 in binary; bit 2 is the third bit from right (value 4); clearBit: 13 & ~(1<<2) = 1101 & ~0100 = 1101 & 1011 = 1001 = 9; toggleBit: 13 ^ (1<<2) = 1101 ^ 0100 = 1001 = 9; both give 9 BECAUSE bit 2 is already SET in 13 (1101 has bit 2 = 1); clearing a set bit and toggling a set bit both turn it to 0, giving the same result 1001=9",
+              "clearBit and toggleBit are always identical operations",
+              "Both return 9 because 13 XOR 4 = 9 and 13 AND 11 = 9"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: both clearBit(13,2)=9 and toggleBit(13,2)=9; 13=1101, bit 2 (value 4) is SET; clearing a set bit: AND with inverted mask removes it; toggling a set bit: XOR flips 1→0; both produce 1101 → 1001 = 9; they differ when the target bit is 0: clearBit(9,2)=9 (already clear), toggleBit(9,2)=13 (0→1)."
+          },
+          {
+            "id": "L2M12-L2-LG-2",
+            "question": "For `swapXOR(arr, i, j)` where `i === j`, why does the swap result in `arr[i] = 0`?",
+            "options": [
+              "swapXOR is safe for i===j; arr[i] remains unchanged",
+              "When i===j: arr[i] ^= arr[j] is arr[i] ^= arr[i] = 0 (any value XOR itself = 0); arr[j] ^= arr[i] is arr[i] ^= 0 = 0 (already 0, stays 0); arr[i] ^= arr[j] is 0 ^= 0 = 0; the element is destroyed; the lesson explicitly warns: 'Warning: if i==j, this sets arr[i] to 0! Check i!==j first'",
+              "swapXOR always preserves the original value because XOR is reversible",
+              "i===j causes an infinite loop in the XOR swap"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's warning: 'if i==j, this sets arr[i] to 0! Check i!==j first' — when i===j, step 1: arr[i]^=arr[i]=0; step 2: arr[i]^=0=0; step 3: arr[i]^=0=0; the element is zeroed out; this is not a bug in XOR but a property: any value XOR'd with itself is 0, and i===j means we're XOR-swapping an element with itself."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M12-L2-SY-1",
+            "question": "In `setBit(n, k)`, the mask is `1 << k`. What happens when k=31 in JavaScript?",
+            "options": [
+              "1 << 31 always produces 2147483648 as expected",
+              "`1 << 31` in JavaScript produces -2147483648 (0x80000000 as a SIGNED 32-bit integer) because JavaScript's bitwise operators work on 32-bit signed integers; the result is the minimum 32-bit signed integer, not 2^31; to set bit 31 correctly for unsigned operations, you'd use `(n | (1 << 31)) >>> 0` to convert back to unsigned; this is why `>>> 0` is commonly used at the end of bit manipulation results",
+              "1 << 31 is undefined behavior in JavaScript",
+              "1 << 31 = 0 because JavaScript only supports 30-bit integers"
+            ],
+            "answer": 1,
+            "explanation": "JavaScript bitwise operators convert operands to 32-bit SIGNED integers; 1<<31 sets the sign bit, producing the minimum signed int -2147483648; for unsigned semantics, `(1<<31)>>>0` converts to 2147483648; this is why the lesson uses `>>> 0` in reverseBits and getSum to force unsigned 32-bit interpretation."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M12-L2-CC-1",
+            "title": "Bit Operations and Single Number",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the canonical bit operations and Single Number from this lesson.",
+            "requirements": [
+              "Implement `isBitSetImpl(n, k)`, `setBitImpl(n, k)`, `clearBitImpl(n, k)`, `toggleBitImpl(n, k)`",
+              "Implement `singleNumberImpl(nums)` using XOR reduce"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function isBitSetImpl(n, k)  { /* TODO: (n>>k)&1 */ }\nfunction setBitImpl(n, k)     { /* TODO: n|(1<<k) */ }\nfunction clearBitImpl(n, k)   { /* TODO: n&~(1<<k) */ }\nfunction toggleBitImpl(n, k)  { /* TODO: n^(1<<k) */ }\n\nfunction singleNumberImpl(nums) {\n  // TODO: XOR all elements — duplicates cancel, unique survives\n}"
+            },
+            "test_cases": [
+              {
+                "input": "isBitSetImpl(13, 2)",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "setBitImpl(8, 1)",
+                "expected": 10,
+                "type": "visible"
+              },
+              {
+                "input": "singleNumberImpl([4,1,2,1,2])",
+                "expected": 4,
+                "type": "visible"
+              },
+              {
+                "input": "clearBitImpl(13, 2)",
+                "expected": 9,
+                "type": "hidden"
+              },
+              {
+                "input": "singleNumberImpl([2,2,1])",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function isBitSetImpl(n, k)  { return (n >> k) & 1; }\nfunction setBitImpl(n, k)     { return n | (1 << k); }\nfunction clearBitImpl(n, k)   { return n & ~(1 << k); }\nfunction toggleBitImpl(n, k)  { return n ^ (1 << k); }\n\nfunction singleNumberImpl(nums) {\n  return nums.reduce((acc, n) => acc ^ n, 0);\n}"
+            },
+            "complexity_analysis": "All bit operations: O(1). singleNumberImpl: O(n), O(1) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "isBitSet: shift bit k to position 0 then AND 1; OR: n|(1<<k); clear: AND with inverted mask n&~(1<<k); toggle: XOR with mask."
+              },
+              {
+                "level": 2,
+                "text": "singleNumberImpl: nums.reduce((acc,n)=>acc^n, 0) — XOR all; paired elements cancel to 0; unique element remains."
+              },
+              {
+                "level": 3,
+                "text": "XOR properties to remember: a^a=0 (self-cancel), a^0=a (identity), commutative and associative."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 3,
+      "title": "Number Of 1 Bits",
+      "tag": null,
+      "objective": "Count the number of set bits in an integer in O(number of set bits) using Brian Kernighan's algorithm, and understand why it is faster than O(32) for sparse integers.",
+      "concepts": [
+        "Number of 1 bits (Hamming weight): count of set bits in binary representation",
+        "Naive: check each of 32 bits O(32) = O(1) for 32-bit integers",
+        "Brian Kernighan: n &= (n-1) clears lowest set bit; count iterations until 0",
+        "O(k) where k = number of set bits: faster for sparse integers",
+        "n & (n-1) proof: flips the lowest set bit and all bits below it",
+        "Built-in: no standard JS built-in; Java has Integer.bitCount()",
+        "Use case: Hamming distance, weighted graph problems, bitmask DP",
+        "Lookup table optimisation: precompute popcount for 8-bit chunks"
+      ],
+      "explanation": "Number of 1 Bits (#191) counts the number of 1 bits in the binary representation of an integer (also called popcount or Hamming weight). Naive approach: check each of 32 bits one by one by ANDing with 1 and shifting — O(32) = O(1) but with a constant of 32. Brian Kernighan's trick: the expression n & (n-1) clears the lowest set bit of n. Why: n has some lowest set bit at position k. n-1 flips all bits from position k down (bit k becomes 0, bits 0..k-1 become 1). n & (n-1) clears bit k and all lower bits were already 0 in n. Repeating this until n becomes 0 counts exactly one iteration per set bit. For integers with few set bits (sparse), this is much faster than checking all 32 positions. For example, n=1048576 (2^20, one set bit) takes 1 iteration with Brian Kernighan but 32 iterations with the naive approach.",
+      "analogy": "Brian Kernighan's algorithm is like harvesting only the ripe apples on a tree instead of checking every branch. n & (n-1) picks the lowest ripe apple (lowest set bit) and removes it. You repeat until no apples remain, counting one per iteration. Checking all 32 branches (naive) takes constant time but is wasteful when only a few branches have apples.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// NUMBER OF 1 BITS (#191)\n\n// NAIVE: check all 32 bits O(32)\nfunction hammingWeight_naive(n) {\n    let count = 0;\n    for (let i = 0; i < 32; i++) {\n        if (n & 1) count++;\n        n >>>= 1; // unsigned right shift: fills with 0, handles negative inputs\n    }\n    return count;\n}\n\n// BRIAN KERNIGHAN'S: O(k) where k = number of set bits\nfunction hammingWeight(n) {\n    let count = 0;\n    while (n !== 0) {\n        n &= (n - 1); // clear the lowest set bit\n        count++;\n    }\n    return count;\n}\n\nconsole.log(hammingWeight(11));         // 3  (1011: three 1s)\nconsole.log(hammingWeight(128));        // 1  (10000000: one 1)\nconsole.log(hammingWeight(0xFFFFFFFF)); // 32 (all 1s)\n\n// WHY n & (n-1) CLEARS THE LOWEST SET BIT:\n// n = ...a1000...0 (lowest set bit at position k)\n// n-1 = ...a0111...1 (borrow propagates through the 0s)\n// n & (n-1) = ...a0000...0 (bit k cleared, bits 0..k-1 cleared)\n// All bits above k are unchanged.\n\n// TRACE for n=12 (1100):\n// n=12=1100: n&(n-1) = 1100 & 1011 = 1000 = 8. count=1.\n// n=8=1000:  n&(n-1) = 1000 & 0111 = 0000 = 0. count=2.\n// n=0: loop ends. Return 2. ✓ (1100 has two set bits)\n\n// HAMMING DISTANCE (#461) — extension of bit counting\nfunction hammingDistance(x, y) {\n    return hammingWeight(x ^ y); // XOR gives differing bits; count them\n}\nconsole.log(hammingDistance(1, 4)); // 2  (001 XOR 100 = 101, two 1s)\n\n// TOTAL HAMMING DISTANCE (#477) — sum over all pairs\nfunction totalHammingDistance(nums) {\n    let total = 0;\n    for (let bit = 0; bit < 32; bit++) {\n        const ones = nums.filter(n => (n >> bit) & 1).length;\n        const zeros = nums.length - ones;\n        total += ones * zeros; // each 1-0 pair contributes 1 to distance\n    }\n    return total;\n}",
+        "explanation": "Hamming Distance (XOR + popcount) shows the power of combining bit operations. x^y gives a number with 1s only where x and y differ. Counting those 1s gives the number of bit positions where x and y disagree. This is the Hamming Distance. Total Hamming Distance avoids O(n²) pairwise computation by processing each bit position independently."
+      },
+      "common_mistakes": [
+        "Using >> instead of >>> in the naive bit-counting loop — >> preserves the sign bit; for the number 0xFFFFFFFF (-1 in signed 32-bit), the loop would never end because >> -1 = -1; use >>> to fill with 0s",
+        "Not handling the case n=0 in Brian Kernighan's algorithm — the while loop condition n !== 0 handles this correctly; if n=0 initially, the loop never executes and count=0 is returned",
+        "Using n = n & (n-1) inside the loop body without understanding that it modifies n — the algorithm destroys n in the process; if the original n is needed, save it first"
+      ],
+      "interview_relevance": "Number of 1 Bits (#191) is Blind 75. It appears as a warm-up in bit manipulation interviews. Brian Kernighan's trick is specifically tested: 'Can you count bits faster than checking all 32?' The O(k) vs O(32) distinction matters when k << 32. Hamming Distance (#461) directly extends this and is NeetCode 150.",
+      "mini_challenge": "Implement hammingWeight using Brian Kernighan's algorithm and verify it returns 3 for 11, 1 for 128. Implement hammingDistance and verify it returns 2 for (1,4). Then trace Brian Kernighan's algorithm for n=255 (11111111): how many iterations does it take? For n=256 (100000000)? Compare with naive 32-iteration approach. For which inputs does Brian Kernighan's provide the most improvement?",
+      "flashcards": [
+        {
+          "front": "Hamming weight: what is it?",
+          "back": "The number of set bits (1s) in the binary representation of an integer. Also called 'popcount' (population count). Example: hamming_weight(11) = hamming_weight(1011) = 3."
+        },
+        {
+          "front": "Brian Kernighan's trick: n = n & (n-1)?",
+          "back": "n-1 flips the lowest set bit of n and all bits below it. n & (n-1) CLEARS the lowest set bit of n. Repeatedly applying clears one bit at a time. Count iterations until n=0 = number of 1 bits. Each iteration is O(1), total O(popcount)."
+        },
+        {
+          "front": "Why does n & (n-1) clear the LOWEST set bit?",
+          "back": "n-1 turns the lowest 1-bit to 0 and all bits below it to 1 (borrow propagation). AND with n: bits ABOVE the lowest 1 are unchanged (same in n and n-1). The lowest 1-bit becomes 0 (1 & 0). All bits below it become 0 (0 & 1)."
+        },
+        {
+          "front": "n & (n-1) vs right-shift approach: complexity?",
+          "back": "Right-shift: always 32 iterations (one per bit). n & (n-1): exactly popcount(n) iterations. For numbers with few set bits, n & (n-1) is faster. For dense bit patterns (e.g., all 1s), same speed. Brian Kernighan is always ≤ 32 iterations."
+        },
+        {
+          "front": "Is Power of Two check: using bit manipulation?",
+          "back": "n is a power of 2 iff it has exactly ONE set bit: n > 0 && (n & (n-1)) === 0. n & (n-1) clears the single set bit → result is 0. Non-powers have multiple set bits → result ≠ 0."
+        },
+        {
+          "front": "n = n & (n-1) applied to n=12 (1100): result?",
+          "back": "12 = 1100. 12-1 = 11 = 1011. 1100 & 1011 = 1000 = 8. The lowest set bit (bit 2, value 4) is cleared. Now 8 = 1000. Next: 8 & 7 = 1000 & 0111 = 0. Two iterations → 2 set bits in 12."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Hamming weight of 255 (binary: 11111111)?",
+          "options": [
+            "4",
+            "7",
+            "8",
+            "255"
+          ],
+          "answer": 2,
+          "explanation": "255 = 11111111 = eight 1-bits. Hamming weight = 8. With Brian Kernighan: 8 iterations to clear all 8 bits."
+        },
+        {
+          "question": "n=6 (110). What is n & (n-1)?",
+          "options": [
+            "4 (100)",
+            "2 (010)",
+            "0",
+            "7 (111)"
+          ],
+          "answer": 0,
+          "explanation": "6=110. 6-1=5=101. 110 & 101 = 100 = 4. Cleared bit 1 (the lowest set bit of 6). Next iteration: 4 & 3 = 100 & 011 = 0. Done. Two set bits in 6. ✓"
+        },
+        {
+          "question": "isPowerOfTwo(16)?",
+          "options": [
+            "false",
+            "true — 16>0 AND 16&15=0",
+            "true — 16=2^4",
+            "Both B and C are correct"
+          ],
+          "answer": 3,
+          "explanation": "16=10000. 16-1=15=01111. 10000 & 01111 = 00000 = 0. 16>0 ✓. Result: true. Also: 16=2^4 ✓. Both explanations are correct."
+        },
+        {
+          "question": "isPowerOfTwo(0)?",
+          "options": [
+            "true — 0&(-1)=0",
+            "false — 0>0 check fails",
+            "true — 0 has no set bits",
+            "undefined"
+          ],
+          "answer": 1,
+          "explanation": "The check n>0 && (n&(n-1))===0. 0>0 is FALSE. Return false. 0 is not a power of 2 (no power of 2 equals 0)."
+        }
+      ],
+      "visual_aid": {
+        "type": "kernighan_trace",
+        "description": "Brian Kernighan's trick traced on n=13 (1101)",
+        "diagram": "countBits(13) using n & (n-1):\n\nn=13 = 1101\n  13 & 12 = 1101 & 1100 = 1100 = 12  (cleared bit 0)  count=1\nn=12 = 1100\n  12 & 11 = 1100 & 1011 = 1000 = 8   (cleared bit 2)  count=2\nn=8  = 1000\n   8 &  7 = 1000 & 0111 = 0000 = 0   (cleared bit 3)  count=3\nn=0: loop ends\n\nResult: 3 set bits ✓ (13 = 1101 has bits 0,2,3 set)\n\nVS RIGHT-SHIFT (always 32 iterations for 32-bit int):\n  while n: count += n&1; n >>= 1  ← 32 iterations regardless\n\nKEY: n & (n-1) always removes the LOWEST set bit\n     = exact number of iterations equals popcount"
+      },
+      "complexity_summary": {
+        "right_shift_approach": "O(32) = O(1) for 32-bit integers",
+        "kernighan": "O(popcount(n)) ≤ O(32) — fewer iterations for sparse bits",
+        "built_in": "O(1) — Integer.bitCount(n) in Java, bin(n).count('1') in Python",
+        "power_of_two": "O(1) — n>0 && (n&(n-1))===0"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-191",
+          "title": "Number of 1 Bits",
+          "difficulty": "Easy",
+          "pattern": "Brian Kernighan n&(n-1) or right-shift",
+          "blind75": true
+        },
+        {
+          "id": "lc-231",
+          "title": "Power of Two",
+          "difficulty": "Easy",
+          "pattern": "n>0 && (n&(n-1))===0"
+        },
+        {
+          "id": "lc-338",
+          "title": "Counting Bits — all values 0..n",
+          "difficulty": "Easy",
+          "pattern": "DP using popcount(i) = popcount(i>>1) + (i&1)",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M12-L3-TH-1",
+            "question": "Why is Brian Kernighan's algorithm `n &= (n-1)` faster than naive 32-iteration for SPARSE integers?",
+            "options": [
+              "Brian Kernighan's runs in O(1) while naive is O(32)",
+              "Brian Kernighan's iterates exactly k times where k = number of SET BITS; each iteration clears exactly one set bit (`n &= (n-1)` removes the lowest); for sparse integers (few set bits), k << 32 — e.g., 128=10000000 takes 1 iteration; 0 takes 0 iterations; worst case k=32 (0xFFFFFFFF) matches the naive; naive always runs 32 iterations regardless of how many bits are set",
+              "Brian Kernighan's uses bit manipulation which is hardware-accelerated",
+              "Both algorithms have identical performance; Brian Kernighan's is preferred for style"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'O(k) where k = number of set bits: faster for sparse integers' — the key comparison: hammingWeight(128)=1 requires just 1 iteration of Brian Kernighan's vs always 32 in the naive; hammingWeight(0xFFFFFFFF)=32 requires 32 iterations of both; for typical integer inputs (few set bits), Brian Kernighan's provides a practical speedup."
+          },
+          {
+            "id": "L2M12-L3-TH-2",
+            "question": "Why does `n & (n-1)` always clear EXACTLY the lowest set bit (and nothing else above it)?",
+            "options": [
+              "n & (n-1) clears all bits at once",
+              "Let the lowest set bit of n be at position k; n = ...a1000...0 (bit k set, bits 0 to k-1 are 0); n-1 subtracts 1: the borrow propagates through all the 0s below k: n-1 = ...a0111...1 (bit k cleared, bits 0 to k-1 set to 1); n & (n-1) = ...a1000...0 & ...a0111...1 = ...a0000...0; bit k is cleared (1 & 0 = 0), bits below k are cleared (0 & 1 = 0), bits above k are unchanged (...a & ...a = ...a)",
+              "n & (n-1) is a coincidence that happens to clear the lowest bit",
+              "n & (n-1) clears the highest set bit, not the lowest"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's proof: 'n = ...a1000...0 (lowest set bit at position k). n-1 = ...a0111...1 (borrow propagates). n & (n-1) = ...a0000...0 (bit k cleared, bits 0..k-1 cleared). All bits above k unchanged' — this is the Brian Kernighan identity; the trace confirms: 12=1100, 12&11=1100&1011=1000=8 (bit 2 cleared), 8&7=1000&0111=0000=0 (bit 3 cleared)."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M12-L3-LG-1",
+            "question": "Trace `hammingWeight(12)` using Brian Kernighan's. How many iterations run?",
+            "options": [
+              "4 iterations — one per bit position in 1100",
+              "2 iterations: n=12=1100 → n&(n-1)=1100&1011=1000=8, count=1; n=8=1000 → n&(n-1)=1000&0111=0000=0, count=2; n=0, loop ends; returns 2 ✓ (12=1100 has 2 set bits)",
+              "3 iterations because 12 has 4 binary digits",
+              "1 iteration because 12 is even"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution and the lesson's trace: 'n=12=1100: n&(n-1)=1100&1011=1000=8. count=1. n=8=1000: n&(n-1)=1000&0111=0000=0. count=2. n=0: loop ends. Return 2.' — exactly 2 iterations for 12 which has 2 set bits; Brian Kernighan's is optimal for sparse integers."
+          },
+          {
+            "id": "L2M12-L3-LG-2",
+            "question": "For `hammingDistance(1, 4)`, why is the result 2?",
+            "options": [
+              "1 and 4 differ by 3, so distance is 3",
+              "hammingDistance(1,4) = hammingWeight(1^4) = hammingWeight(001^100) = hammingWeight(101) = 2; XOR reveals DIFFERING BIT POSITIONS: 1=001 and 4=100 differ at bit 0 (1 vs 0) and bit 2 (0 vs 1); they agree at bit 1 (both 0); 2 differing bits = Hamming distance 2 — confirmed by direct execution",
+              "The distance is |4-1| = 3 (absolute difference)",
+              "1 and 4 share no bits in common, so distance equals the total bit count"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: hammingDistance(1,4)=2; 1^4=001^100=101 (binary), which has 2 set bits; these correspond to bit positions 0 and 2 where 1 and 4 differ; this is the standard Hamming distance definition for integers — count of bit positions where the two values differ."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M12-L3-SY-1",
+            "question": "In the naive `hammingWeight_naive`, `n >>>= 1` uses UNSIGNED right shift instead of `n >>= 1`. Why does the signed shift fail for negative inputs?",
+            "options": [
+              "Both shifts produce the same result for counting bits",
+              "For negative integers: signed `n >>= 1` fills vacated high bits with 1 (sign extension); for n=-1 (0xFFFFFFFF), -1>>1 = 0xFFFFFFFF (still all 1s) — the loop NEVER TERMINATES because n never reaches 0; unsigned `n >>>= 1` fills with 0: for n=-1 (0xFFFFFFFF), -1>>>1 = 0x7FFFFFFF → eventually reaches 0 after 32 shifts; `>>>` correctly handles the 32-bit unsigned counting",
+              "Unsigned shift is used only when n is even",
+              ">>>= is faster than >>= in JavaScript engines"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'n >>> 1: unsigned right shift extracts next bit without sign extension' — signed >>= would fill with the sign bit (1 for negatives), making negative numbers never reach 0 in the while loop; >>>= always fills with 0, ensuring the value decreases monotonically toward 0 after 32 iterations regardless of sign."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M12-L3-CC-1",
+            "title": "Number of 1 Bits and Hamming Distance",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement bit-counting from this lesson.",
+            "requirements": [
+              "Implement `hammingWeightImpl(n)` using Brian Kernighan's n&=(n-1) approach",
+              "Implement `hammingDistanceImpl(x, y)` using XOR + hammingWeight"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function hammingWeightImpl(n) {\n  // TODO: Brian Kernighan's: n &= (n-1) clears lowest set bit; count iterations\n}\n\nfunction hammingDistanceImpl(x, y) {\n  // TODO: XOR gives differing bits; count them\n}"
+            },
+            "test_cases": [
+              {
+                "input": "hammingWeightImpl(11)",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "hammingWeightImpl(128)",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "hammingDistanceImpl(1, 4)",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "hammingWeightImpl(0xFFFFFFFF)",
+                "expected": 32,
+                "type": "hidden"
+              },
+              {
+                "input": "hammingDistanceImpl(93, 73)",
+                "expected": 2,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function hammingWeightImpl(n) {\n  let count = 0;\n  while (n !== 0) {\n    n &= (n - 1);\n    count++;\n  }\n  return count;\n}\n\nfunction hammingDistanceImpl(x, y) {\n  return hammingWeightImpl(x ^ y);\n}"
+            },
+            "complexity_analysis": "hammingWeightImpl: O(k) where k = number of set bits. hammingDistanceImpl: O(k). Both O(1) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "n &= (n-1) clears exactly one set bit per iteration; count until n===0."
+              },
+              {
+                "level": 2,
+                "text": "hammingDistanceImpl: x^y gives a number with 1s exactly where x and y differ; count those 1s."
+              },
+              {
+                "level": 3,
+                "text": "Use n!==0 not n>0 for the while condition — negative inputs (if any) need the !== check."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 4,
+      "title": "Counting Bits",
+      "tag": null,
+      "objective": "Build a DP table of popcount values for 0 to n in O(n) using the most significant bit recurrence, and understand why this DP is more efficient than calling hammingWeight n times.",
+      "concepts": [
+        "Problem: return array where result[i] = number of 1 bits in i, for i in [0,n]",
+        "Naive: call hammingWeight for each i O(n * 32) = O(n)",
+        "DP recurrence: dp[i] = dp[i >> 1] + (i & 1)",
+        "i >> 1 removes the least significant bit; i & 1 is the bit removed",
+        "Equivalently: dp[i] = dp[i - lowbit(i)] + 1 using highest set bit",
+        "O(n) time, O(n) space for the result array",
+        "Base case: dp[0] = 0",
+        "Result array has n+1 entries for indices 0..n"
+      ],
+      "explanation": "Counting Bits (#338) returns an array where result[i] = popcount(i) for all i from 0 to n. Naive: call hammingWeight for each of the n+1 values — O(n * 32) = O(n) but with a constant of 32. DP approach: dp[i] = dp[i >> 1] + (i & 1). Explanation: i >> 1 is i with the least significant bit removed (right shift divides by 2, dropping the LSB). dp[i >> 1] is the popcount of i without its LSB. (i & 1) is the LSB itself (0 or 1). So popcount(i) = popcount(i/2) + the_lowest_bit. This recurrence gives O(n) with constant 1 (not 32). Base case: dp[0] = 0 (zero has no set bits). Alternative recurrence: dp[i] = dp[i & (i-1)] + 1. i & (i-1) clears the lowest set bit; its popcount is one less than i's. Both are O(n) with constant 1.",
+      "analogy": "Counting Bits DP is like counting apples in a growing orchard by using the count from a smaller orchard. The count for orchard of size i equals the count for orchard of size i/2 (remove the newest tree) plus whether the newest tree (LSB) has an apple. You never recount the entire orchard from scratch; you always build on what you already know.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// COUNTING BITS (#338)\n\n// NAIVE: O(n * 32)\nfunction countBits_naive(n) {\n    return Array.from({length: n+1}, (_, i) => hammingWeight(i));\n}\n\n// DP APPROACH 1: dp[i] = dp[i>>1] + (i&1)  O(n)\nfunction countBits(n) {\n    const dp = new Array(n + 1).fill(0); // dp[0] = 0\n    for (let i = 1; i <= n; i++) {\n        dp[i] = dp[i >> 1] + (i & 1);\n        // dp[i>>1]: popcount of i without its lowest bit\n        // (i & 1): the lowest bit itself (0 or 1)\n    }\n    return dp;\n}\n\n// DP APPROACH 2: dp[i] = dp[i & (i-1)] + 1  O(n)\nfunction countBits_v2(n) {\n    const dp = new Array(n + 1).fill(0);\n    for (let i = 1; i <= n; i++) {\n        dp[i] = dp[i & (i-1)] + 1;\n        // i & (i-1): clear lowest set bit\n        // dp[i&(i-1)]: popcount one less than i's\n    }\n    return dp;\n}\n\nconsole.log(countBits(5));   // [0,1,1,2,1,2]\nconsole.log(countBits_v2(5));// [0,1,1,2,1,2]\n\n// TRACE for n=5:\n// dp[0]=0 (base)\n// dp[1]: dp[0]+1=1.  (1>>1=0, 1&1=1. dp[0]+1=1)\n// dp[2]: dp[1]+0=1.  (2>>1=1, 2&1=0. dp[1]+0=1)\n// dp[3]: dp[1]+1=2.  (3>>1=1, 3&1=1. dp[1]+1=2)\n// dp[4]: dp[2]+0=1.  (4>>1=2, 4&1=0. dp[2]+0=1)\n// dp[5]: dp[2]+1=2.  (5>>1=2, 5&1=1. dp[2]+1=2)\n// Result: [0,1,1,2,1,2] ✓\n\n// PATTERN: dp[2k] = dp[k] (even numbers have same bits as their half)\n//          dp[2k+1] = dp[k] + 1 (odd numbers add 1 to their half)\nconsole.log('Even pattern: dp[8]=', countBits(8)[8]);  // 1 = dp[4] = 1\nconsole.log('Odd pattern: dp[9]=',  countBits(9)[9]);  // 2 = dp[4]+1 = 2",
+        "explanation": "The even/odd pattern in the comments shows why the DP is natural. Even numbers have 0 as their LSB, so their popcount equals their half's popcount. Odd numbers have 1 as their LSB, so their popcount is one more than their half's. This mirrors the decimal digit pattern: removing the last digit of n gives n//10, and the popcount of n is the popcount of n//10 plus whether the last digit is nonzero."
+      },
+      "common_mistakes": [
+        "Returning dp[0..n] as the array but allocating n entries instead of n+1 — the result must include index 0; the array has n+1 entries indexed 0 through n",
+        "Using i >> 1 >> 1 (two shifts) instead of i >> 1 (one shift) for the recurrence — we remove only the least significant bit (one shift); double-shifting removes two bits and gives wrong results",
+        "Not recognising that O(n) here means constant work per element (not O(n*32)) — the DP does exactly one array lookup and one bit operation per element; always state the true constant when comparing algorithms"
+      ],
+      "interview_relevance": "Counting Bits (#338) is NeetCode 150 and appears as a DP + bit manipulation hybrid problem. The O(n) DP with the right recurrence vs O(n) naive with a 32x constant factor is the specific optimisation interviewers test. Knowing both recurrences (dp[i>>1]+(i&1) and dp[i&(i-1)]+1) and being able to explain why each is correct demonstrates DP and bit manipulation fluency simultaneously.",
+      "mini_challenge": "Implement countBits and verify the output for n=5 is [0,1,1,2,1,2]. Trace through n=7 using both recurrences and verify both give [0,1,1,2,1,2,2,3]. Then answer: at what value of n is countBits more efficient than calling hammingWeight n+1 times? (Hint: each DP step is 1 operation vs 32 for naive; they cross at roughly n=0 since DP is always better; the real comparison is about cache performance and code complexity.)",
+      "flashcards": [
+        {
+          "front": "Counting Bits DP recurrence?",
+          "back": "countBits[i] = countBits[i >> 1] + (i & 1). Right-shift drops the last bit; countBits[i>>1] has the bits-1 count. Add (i&1) for the dropped bit (0 or 1)."
+        },
+        {
+          "front": "Counting Bits: why is this O(n) and not O(n log n)?",
+          "back": "One O(1) operation per number from 0 to n. No inner loop. Total: n+1 = O(n). Naive approach (countBits per number) would be O(n × 32) = O(n) asymptotically but the DP is faster in practice."
+        },
+        {
+          "front": "Counting Bits: base case?",
+          "back": "countBits[0] = 0. Zero has no set bits. All subsequent values are computed from already-computed smaller values."
+        },
+        {
+          "front": "Counting Bits: alternative DP using lowest set bit?",
+          "back": "countBits[i] = countBits[i & (i-1)] + 1. i & (i-1) clears the lowest set bit, giving a smaller number already computed. +1 accounts for the cleared bit. Both recurrences are O(n)."
+        },
+        {
+          "front": "countBits[6] using right-shift recurrence?",
+          "back": "countBits[6] = countBits[6>>1] + (6&1) = countBits[3] + 0. countBits[3] = countBits[1] + (3&1) = countBits[1] + 1 = 1+1 = 2. countBits[6] = 2+0 = 2. (6=110: two 1-bits ✓)"
+        },
+        {
+          "front": "Counting Bits vs Number of 1 Bits: what problem does each solve?",
+          "back": "Number of 1 Bits: single number, returns popcount. O(32). Counting Bits: ALL numbers 0 to n, returns array. O(n) via DP reuse. For n queries on individual numbers: O(n×32). DP is better when all values 0..n are needed."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "countBits[7] using the right-shift recurrence?",
+          "options": [
+            "2",
+            "3",
+            "1",
+            "4"
+          ],
+          "answer": 1,
+          "explanation": "countBits[7] = countBits[3] + (7&1) = countBits[3] + 1. countBits[3]=2 (from previous). 2+1=3. (7=111: three 1-bits ✓)"
+        },
+        {
+          "question": "countBits[8] using right-shift recurrence?",
+          "options": [
+            "1",
+            "0",
+            "2",
+            "4"
+          ],
+          "answer": 0,
+          "explanation": "countBits[8] = countBits[4] + (8&1) = countBits[4] + 0. countBits[4] = countBits[2] + 0 = countBits[1] + 0 = 1+0=1. countBits[8]=1. (8=1000: one 1-bit ✓)"
+        },
+        {
+          "question": "countBits(5) full output array [0..5]?",
+          "options": [
+            "[0,1,1,2,1,2]",
+            "[0,0,1,1,2,2]",
+            "[0,1,2,3,4,5]",
+            "[0,1,1,2,2,3]"
+          ],
+          "answer": 0,
+          "explanation": "0=0(0 bits), 1=1(1 bit), 2=10(1 bit), 3=11(2 bits), 4=100(1 bit), 5=101(2 bits). Array: [0,1,1,2,1,2]."
+        },
+        {
+          "question": "Alternative recurrence: countBits[i] = countBits[i & (i-1)] + 1. countBits[12]?",
+          "options": [
+            "2",
+            "3",
+            "4",
+            "1"
+          ],
+          "answer": 0,
+          "explanation": "i=12(1100). i&(i-1)=12&11=1100&1011=1000=8. countBits[8]=1. countBits[12]=1+1=2. (12=1100: two 1-bits ✓)"
+        }
+      ],
+      "visual_aid": {
+        "type": "dp_table",
+        "description": "Counting Bits DP table for n=8",
+        "diagram": "COUNTING BITS DP — n=8:\ncountBits[i] = countBits[i>>1] + (i&1)\n\n  i  | binary | i>>1 | i&1 | countBits\n ────|────────|──────|─────|──────────\n  0  |   0    |  0   |  0  |  0  (base)\n  1  |   1    |  0   |  1  |  0+1=1\n  2  |  10    |  1   |  0  |  1+0=1\n  3  |  11    |  1   |  1  |  1+1=2\n  4  | 100    |  2   |  0  |  1+0=1\n  5  | 101    |  2   |  1  |  1+1=2\n  6  | 110    |  3   |  0  |  2+0=2\n  7  | 111    |  3   |  1  |  2+1=3\n  8  |1000    |  4   |  0  |  1+0=1\n\nResult: [0,1,1,2,1,2,2,3,1]\n\nPATTERN: countBits doubles the pattern each power of 2:\n  [0] → [0,1] → [0,1,1,2] → [0,1,1,2,1,2,2,3] → ..."
+      },
+      "complexity_summary": {
+        "time": "O(n) — one O(1) operation per number",
+        "space": "O(n) — output array",
+        "vs_naive": "O(n) vs O(n×32) naive — same asymptotic, faster constant",
+        "two_recurrences": "i>>1: uses high bits. i&(i-1): uses Kernighan. Both O(n)."
+      },
+      "practice_problems": [
+        {
+          "id": "lc-338",
+          "title": "Counting Bits",
+          "difficulty": "Easy",
+          "pattern": "DP: countBits[i] = countBits[i>>1] + (i&1)",
+          "blind75": true
+        },
+        {
+          "id": "lc-191",
+          "title": "Number of 1 Bits (single value, compare approach)",
+          "difficulty": "Easy",
+          "pattern": "Kernighan — complement to Counting Bits",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M12-L4-TH-1",
+            "question": "In the DP recurrence `dp[i] = dp[i >> 1] + (i & 1)`, what do the two terms represent?",
+            "options": [
+              "dp[i>>1] is the length of i; i&1 checks if i is negative",
+              "`dp[i >> 1]`: the popcount of i with its LEAST SIGNIFICANT BIT REMOVED (i>>1 is i divided by 2, dropping the LSB); `(i & 1)`: the value of the LSB itself (0 or 1); the recurrence says: the number of 1-bits in i equals the number of 1-bits in (i without its LSB) plus whether the LSB itself is 1; this decomposes the bit-count of i into two independent parts — the LSB and the rest",
+              "dp[i>>1] is the maximum popcount; i&1 is a correction factor",
+              "Both terms are always equal for even numbers"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's comment: 'dp[i>>1]: popcount of i without its lowest bit; (i & 1): the lowest bit itself (0 or 1)' and the trace: dp[5]=dp[5>>1]+(5&1)=dp[2]+1=1+1=2; dp[4]=dp[4>>1]+(4&1)=dp[2]+0=1+0=1 — the recurrence correctly decomposes every number into its LSB and the remaining bits."
+          },
+          {
+            "id": "L2M12-L4-TH-2",
+            "question": "Why does the DP approach achieve O(n) while calling `hammingWeight` n times is O(n*32)?",
+            "options": [
+              "Both approaches are O(n); the difference is only practical, not asymptotic",
+              "The DP computes dp[i] from dp[i>>1] in O(1) — just one array lookup and one bitwise AND; computing n values costs exactly n operations = O(n); calling hammingWeight for each i costs O(32) per call in the worst case (naive) or O(k) with Brian Kernighan's — for 32-bit integers, worst case is still O(32); multiplied by n values: O(n*32) = O(n) technically, but the constant is 32x larger than the DP approach's constant of 1 operation per value",
+              "hammingWeight is O(n²); DP is O(n log n)",
+              "DP uses memoization to avoid recomputing the same values"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Naive: call hammingWeight for each i O(n * 32) = O(n); DP recurrence: O(n)' — both are technically O(n) for fixed 32-bit integers, but the DP eliminates the constant factor: 1 operation per value (array lookup + AND) vs up to 32 operations (naive bit check per bit position); the DP is 32x faster in practice."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M12-L4-LG-1",
+            "question": "Verify `countBits(5)` step by step. What is dp[3]?",
+            "options": [
+              "dp[3]=2 via dp[3>>1]+(3&1) = dp[1]+1 = 1+1 = 2 — 3=11 in binary has 2 set bits ✓",
+              "dp[3]=3 because 3 has 3 bits in its binary representation",
+              "dp[3]=1 because 3 is odd",
+              "dp[3]=dp[4]+1 by the recurrence"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution and the lesson's trace: 'dp[3]: dp[3>>1]+(3&1) = dp[1]+1 = 1+1 = 2'; 3 in binary is 11 which has 2 set bits; the recurrence correctly decomposes: 3>>1=1 (the upper bit), 3&1=1 (the lower bit); dp[1]=1, so dp[3]=1+1=2."
+          },
+          {
+            "id": "L2M12-L4-LG-2",
+            "question": "The lesson notes `dp[2k] = dp[k]` (even) and `dp[2k+1] = dp[k] + 1` (odd). Verify for k=4: dp[8] and dp[9].",
+            "options": [
+              "dp[8]=dp[4]=1 (even: 8=2*4, same popcount as 4=100); dp[9]=dp[4]+1=2 (odd: 9=2*4+1, one more bit than 4) — confirmed",
+              "dp[8]=2 and dp[9]=3",
+              "dp[8]=dp[9]=1 because both are close to a power of 2",
+              "The pattern only holds for k<4"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: countBits(9)[8]=1, countBits(9)[9]=2; 8=1000 (one set bit = dp[4]=1); 9=1001 (two set bits = dp[4]+1=2); the even/odd pattern generalises the recurrence: even numbers shift right (remove LSB=0, same popcount as half); odd numbers shift right (remove LSB=1, one more than half)."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M12-L4-SY-1",
+            "question": "In `countBits`, `const dp = new Array(n+1).fill(0)` initialises n+1 elements (indices 0 to n). Why n+1 and not n?",
+            "options": [
+              "n+1 elements are initialised to handle 1-indexed arrays",
+              "The problem asks for popcount values for ALL INTEGERS from 0 to n INCLUSIVE — that is n+1 values (0, 1, 2, ..., n); `new Array(n)` would give indices 0 to n-1, missing the value for index n; `new Array(n+1)` gives indices 0 to n, covering the full [0, n] range; the base case dp[0]=0 (0 has no set bits) is set by `.fill(0)`",
+              "n+1 is needed for the Brian Kernighan loop to terminate correctly",
+              "The extra element at index n stores the total sum of all popcounts"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Result array has n+1 entries for indices 0..n' — the output is an array where output[i] = popcount(i) for i in [0..n]; this requires n+1 entries; dp[0]=0 is the base case (0 has no set bits, covered by .fill(0)); the loop runs from i=1 to i=n inclusive, filling all n+1 positions."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M12-L4-CC-1",
+            "title": "Counting Bits",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the O(n) counting bits DP from this lesson.",
+            "requirements": [
+              "Implement `countBitsImpl(n)` matching the lesson's dp[i]=dp[i>>1]+(i&1) recurrence",
+              "Implement `countBitsV2Impl(n)` matching the dp[i]=dp[i&(i-1)]+1 alternative"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function countBitsImpl(n) {\n  // TODO: dp[i] = dp[i>>1] + (i&1); base case dp[0]=0\n}\n\nfunction countBitsV2Impl(n) {\n  // TODO: dp[i] = dp[i&(i-1)] + 1; same base case\n}"
+            },
+            "test_cases": [
+              {
+                "input": "JSON.stringify(countBitsImpl(5))",
+                "expected": "[0,1,1,2,1,2]",
+                "type": "visible"
+              },
+              {
+                "input": "JSON.stringify(countBitsV2Impl(5))",
+                "expected": "[0,1,1,2,1,2]",
+                "type": "visible"
+              },
+              {
+                "input": "countBitsImpl(9)[8]",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "countBitsImpl(9)[9]",
+                "expected": 2,
+                "type": "hidden"
+              },
+              {
+                "input": "JSON.stringify(countBitsImpl(2))",
+                "expected": "[0,1,1]",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function countBitsImpl(n) {\n  const dp = new Array(n+1).fill(0);\n  for (let i=1;i<=n;i++) dp[i]=dp[i>>1]+(i&1);\n  return dp;\n}\n\nfunction countBitsV2Impl(n) {\n  const dp = new Array(n+1).fill(0);\n  for (let i=1;i<=n;i++) dp[i]=dp[i&(i-1)]+1;\n  return dp;\n}"
+            },
+            "complexity_analysis": "O(n) time, O(n) space for the result array. O(1) additional space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "dp[0]=0 (base case, by fill(0)); loop i=1 to n; dp[i]=dp[i>>1]+(i&1)."
+              },
+              {
+                "level": 2,
+                "text": "i>>1 = i with LSB removed (same popcount minus the LSB); i&1 = the LSB value."
+              },
+              {
+                "level": 3,
+                "text": "Alternative: dp[i&(i-1)]+1 — i&(i-1) clears the lowest set bit; popcount is one more than that."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 5,
+      "title": "Reverse Bits",
+      "tag": null,
+      "objective": "Reverse the 32 bits of an unsigned integer in O(32) by extracting the LSB and building the reversed result bit by bit.",
+      "concepts": [
+        "Reverse bits: the bit at position k moves to position 31-k",
+        "Algorithm: extract LSB of n, shift result left, OR in the extracted bit",
+        "Repeat 32 times (fixed size for 32-bit integers)",
+        "n >>> 1: unsigned right shift extracts next bit without sign extension",
+        "result <<= 1: make room for the next bit",
+        "result |= (n & 1): insert the current LSB of n as LSB of result",
+        "O(32) = O(1): always exactly 32 iterations",
+        "Divide-and-conquer optimisation: reverse in groups for repeated calls"
+      ],
+      "explanation": "Reverse Bits (#190) reverses the 32-bit binary representation of a 32-bit unsigned integer. The bit at position k (from right, 0-indexed) should move to position 31-k. Algorithm: for each of 32 iterations, extract the current least significant bit of n (n & 1), shift the result left by 1 to make room, OR in the extracted bit, and then right-shift n by 1 to move to the next bit. After 32 iterations, result holds the reversed 32-bit value. The unsigned right shift n >>>= 1 ensures that negative inputs (where the MSB is 1) are handled correctly by filling the MSB with 0 instead of 1. The O(32) complexity means it is O(1) for fixed 32-bit integers, but O(b) for b-bit integers in general. A divide-and-conquer optimisation (swap halves, quarters, pairs, individual bits) reverses in O(log b) operations by swapping bit groups, but this is rarely needed in interviews.",
+      "analogy": "Reversing bits is like writing a word backward letter by letter. Read the original word from right to left, writing each letter at the beginning of the new word. The 'reading right to left' is the n >>> 1 operation (shifting the original right) and 'writing at the beginning' is the result <<= 1 combined with result |= (n & 1) (making room and placing the current bit).",
+      "code_example": {
+        "language": "javascript",
+        "code": "// REVERSE BITS (#190)\n// O(32) time, O(1) space\nfunction reverseBits(n) {\n    let result = 0;\n    for (let i = 0; i < 32; i++) {\n        result <<= 1;        // make room: shift result left by 1\n        result |= (n & 1);   // insert LSB of n as new LSB of result\n        n >>>= 1;            // unsigned right shift: move to next bit of n\n    }\n    return result >>> 0;     // ensure unsigned 32-bit result in JavaScript\n}\n\n// Explanation:\n// Each iteration: result = (result << 1) | (n & 1); n >>>=1;\n// Effectively: reads n from LSB to MSB and writes into result from LSB to MSB\n// This reverses the bit order\n\nconsole.log(reverseBits(0b00000010100101000001111010011100).toString(2));\n// Input:  00000010100101000001111010011100 = 43261596\n// Output: 00111001011110000010100101000000 = 964176192\nconsole.log(reverseBits(43261596)); // 964176192\n\n// TRACE for n=11 (0000...01011), 32-bit:\n// Only showing last 5 bits for clarity:\n// i=0: result=0, n&1=1: result=1(0001). n>>>=1: n=5(0101).\n// i=1: result=2(0010), n&1=1: result=3(0011). n>>>=1: n=2(0010).\n// i=2: result=6(0110), n&1=0: result=6(0110). n>>>=1: n=1(0001).\n// i=3: result=12(1100), n&1=1: result=13(1101). n>>>=1: n=0.\n// i=4..31: n=0, n&1=0: result just shifts left each time.\n// Final: 13 << 28 = 0xD0000000 (in full 32-bit)\n// 11 = 0b...01011 reversed = 0b11010... (the 5 bits reversed in 32-bit position)\n\n// DIVIDE AND CONQUER: swap halves, quarters, pairs, bits\nfunction reverseBits_opt(n) {\n    n = ((n & 0xFFFF0000) >>> 16) | ((n & 0x0000FFFF) << 16); // swap 16-bit halves\n    n = ((n & 0xFF00FF00) >>> 8)  | ((n & 0x00FF00FF) << 8);  // swap 8-bit quarters\n    n = ((n & 0xF0F0F0F0) >>> 4)  | ((n & 0x0F0F0F0F) << 4);  // swap 4-bit nibbles\n    n = ((n & 0xCCCCCCCC) >>> 2)  | ((n & 0x33333333) << 2);  // swap 2-bit pairs\n    n = ((n & 0xAAAAAAAA) >>> 1)  | ((n & 0x55555555) << 1);  // swap individual bits\n    return n >>> 0;\n}",
+        "explanation": "The divide-and-conquer optimisation reduces 32 iterations to 5 operations by reversing in groups. Each line swaps progressively smaller groups. This is O(log 32) = O(5) = O(1) but with smaller constant. It is shown here as an advanced technique; the iterative 32-loop solution is always acceptable in interviews."
+      },
+      "common_mistakes": [
+        "Using >> instead of >>> for shifting n — for negative inputs (where bit 31 is 1), >> would fill with 1s as n shifts right, incorrectly treating the sign bit as a payload bit; always use >>> for unsigned bit manipulation",
+        "Not appending >>> 0 to the result in JavaScript — for certain bit patterns, the JavaScript number may be interpreted as a negative signed integer; >>> 0 forces interpretation as unsigned 32-bit, which is correct for this problem",
+        "Stopping the loop early when n becomes 0 — even after n becomes 0, the remaining iterations are needed to shift the result to its correct position in the full 32-bit space"
+      ],
+      "interview_relevance": "Reverse Bits (#190) is Blind 75. It tests systematic bit manipulation: the pattern of reading bits from one end and writing to another. The unsigned right shift >>> is specifically tested (many candidates use >> and fail on negative inputs). The divide-and-conquer variant is a good follow-up that tests knowledge of bitmasks and symmetric operations.",
+      "mini_challenge": "Implement reverseBits and verify it returns 964176192 for 43261596. Trace the algorithm for n=8 (1000): what is the reversed 32-bit value? (It should be 0x10000000 = 268435456). Then implement the divide-and-conquer version and verify it gives the same answer. Time both implementations for 10 million calls and compare; which is faster and why?",
+      "flashcards": [
+        {
+          "front": "Reverse Bits: approach?",
+          "back": "Process 32 bits. For each bit (0 to 31): extract the lowest bit of n (n & 1), place it in the result at position (31-i) via left shift, then right-shift n by 1. result |= (n & 1) << (31 - i); n >>>= 1."
+        },
+        {
+          "front": "Reverse Bits: why use >>> (unsigned right shift) not >> (signed)?",
+          "back": ">> for negative n fills with 1s (sign extension). >>> fills with 0s. For bit reversal, we want to move bits right without introducing new 1-bits. Use >>> to treat n as an unsigned 32-bit integer."
+        },
+        {
+          "front": "Reverse Bits: what happens at the 32nd iteration (i=31)?",
+          "back": "result |= (n & 1) << 0. The last bit of n is placed at position 0 of result (the LSB of the reversed number). This correctly puts what was the MSB (bit 31 of original) at position 0 of result."
+        },
+        {
+          "front": "Reverse Bits: divide-and-conquer approach?",
+          "back": "Swap pairs, then groups of 4, then 8, then 16 bits. Use masks: 0x55555555 (odd/even pairs), 0x33333333 (nibbles), 0x0f0f0f0f (bytes), 0x00ff00ff (16-bit halves). O(log 32) = O(1) operations."
+        },
+        {
+          "front": "Reverse Bits: result data type?",
+          "back": "Result must be an UNSIGNED 32-bit integer. In JavaScript: use >>> 0 to convert to unsigned (n >>> 0). In Java: return result as int (Java ints are 32-bit two's complement, but the problem treats them as unsigned). In Python: mask with 0xFFFFFFFF."
+        },
+        {
+          "front": "Missing Number (#268): bit manipulation approach?",
+          "back": "XOR all indices 0..n with all values in nums. Missing number = result. n^(n-1)^...^1^0 ^ nums[0]^nums[1]^...^nums[n-1]. All pairs cancel; missing value remains. O(n) time O(1) space."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Reverse bits of 00000010100101000001111010011100. Reversed result's decimal value?",
+          "options": [
+            "964176192",
+            "43261596",
+            "00111001011110000010100101000000",
+            "all of the above represent the same answer"
+          ],
+          "answer": 3,
+          "explanation": "The binary reversal 00111001011110000010100101000000 = 964176192 in decimal. The original 00000010100101000001111010011100 = 43261596. These are the LeetCode example values."
+        },
+        {
+          "question": "In the bit-by-bit approach, after 32 iterations, n should equal?",
+          "options": [
+            "0 (all bits shifted out)",
+            "Original n (unchanged)",
+            "n/2^32",
+            "Undefined"
+          ],
+          "answer": 0,
+          "explanation": "Each iteration: n >>>= 1. After 32 iterations: all 32 bits have been shifted out. n = 0 (unsigned right-shift fills with 0s)."
+        },
+        {
+          "question": "Reverse bits of 0 (00...0)?",
+          "options": [
+            "0 (00...0)",
+            "2^32-1 (all 1s)",
+            "1 (000...01)",
+            "Undefined"
+          ],
+          "answer": 0,
+          "explanation": "All bits of 0 are 0. Reversing 0...0 gives 0...0 = 0. Result: 0."
+        },
+        {
+          "question": "Why use result |= (bit) instead of result += (bit) when building the reversed result?",
+          "options": [
+            "No difference — addition and OR are equivalent for 0/1 values",
+            "OR is safer — if bits overlap, addition would carry; OR just sets the bit",
+            "Addition is faster",
+            "|= is incorrect here"
+          ],
+          "answer": 1,
+          "explanation": "For setting individual bits: |= is idiomatic and safe. Addition works when no two set-bit positions overlap (which is guaranteed here since we set each of 32 unique positions once), but |= makes the intent clearer and is conventional."
+        }
+      ],
+      "visual_aid": {
+        "type": "bit_reversal_trace",
+        "description": "Reverse Bits step-by-step for small n=5 (00000101)",
+        "diagram": "Reverse bits of n=5 (00000101) as 8-bit example:\n\n  i=0: bit=(n&1)=1. result|=1<<7=10000000. n>>>=1 → n=00000010\n  i=1: bit=(n&1)=0. result|=0<<6. n>>>=1 → n=00000001\n  i=2: bit=(n&1)=1. result|=1<<5=10100000. n>>>=1 → n=00000000\n  i=3..7: bit=0. n remains 0. result unchanged.\n\n  Final result: 10100000 = 160 (8-bit reverse of 5)\n\nFOR 32-BIT (LeetCode):\n  n=43261596 = 00000010100101000001111010011100\n  Reversed:    00111001011110000010100101000000 = 964176192\n\nKEY: result |= (n&1) << (31-i)  ← places extracted bit at correct position\n     n >>>= 1                    ← unsigned shift, no sign extension"
+      },
+      "complexity_summary": {
+        "bit_by_bit": "O(32) = O(1) — always 32 iterations for 32-bit int",
+        "divide_and_conquer": "O(1) — 5 mask operations for 32-bit",
+        "space": "O(1) — only result variable",
+        "note": "O(32) = O(1) since word size is fixed"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-190",
+          "title": "Reverse Bits",
+          "difficulty": "Easy",
+          "pattern": "32 iterations: extract LSB, place at MSB position",
+          "blind75": true
+        },
+        {
+          "id": "lc-268",
+          "title": "Missing Number",
+          "difficulty": "Easy",
+          "pattern": "XOR 0..n with all elements — missing survives"
+        },
+        {
+          "id": "lc-371",
+          "title": "Sum of Two Integers (compare approach)",
+          "difficulty": "Medium",
+          "pattern": "Half-adder using XOR and AND",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M12-L5-TH-1",
+            "question": "In `reverseBits`, each iteration does `result <<= 1; result |= (n & 1); n >>>= 1`. What conceptual operation does each iteration perform?",
+            "options": [
+              "Each iteration doubles result and adds n",
+              "Each iteration READS THE CURRENT LSB OF n and WRITES IT AS THE CURRENT LSB OF result, then advances both: `n & 1` extracts n's LSB; `result <<= 1` shifts result left (making room at position 0 for the new bit); `result |= (n & 1)` places n's LSB at result's position 0; `n >>>= 1` discards that bit from n; after 32 iterations, n's original LSB is at result's position 31 (MSB), n's original MSB is at result's position 0 (LSB) — exactly reversed",
+              "Each iteration checks if n is prime",
+              "Each iteration appends n's MSB to result's MSB position"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's explanation: 'Each iteration: result=(result<<1)|(n&1); n>>>=1; Effectively: reads n from LSB to MSB and writes into result from LSB to MSB — this reverses the bit order' — n's bits are read LSB-first; result is built LSB-first; since result is ultimately reversed (first bit read = last bit in result at end of 32 iterations), the ordering is reversed."
+          },
+          {
+            "id": "L2M12-L5-TH-2",
+            "question": "Why is `return result >>> 0` needed at the end of `reverseBits`?",
+            "options": [
+              ">>> 0 reverses the result one more time to undo an unintended reversal",
+              "JavaScript bitwise operations return 32-bit SIGNED integers; if the high bit (bit 31) is set in result, JavaScript represents it as a negative number; `>>> 0` (unsigned right shift by 0) forces reinterpretation as an UNSIGNED 32-bit integer without changing any bits; this ensures the function returns a non-negative number matching the expected unsigned output (e.g., reverseBits(43261596)=964176192, which is positive and within unsigned 32-bit range)",
+              ">>> 0 shifts the result right by 0 positions, which has no effect",
+              ">>> 0 is needed to convert floating-point to integer"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code and note: 'return result >>> 0 // ensure unsigned 32-bit result in JavaScript' — JavaScript's bitwise operators work on signed 32-bit ints; a result with bit 31 set would be negative; `>>> 0` reinterprets the bit pattern as unsigned without moving any bits; confirmed: reverseBits(43261596)=964176192 (positive, not -sign)."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M12-L5-LG-1",
+            "question": "For `reverseBits(43261596)`, the output is 964176192. Verify that the binary representations are bit-reversed.",
+            "options": [
+              "Input:  00000010100101000001111010011100 (43261596); Output: 00111001011110000010100101000000 (964176192) — reading the input right-to-left gives the output left-to-right ✓",
+              "The output is the bitwise complement of the input",
+              "The output equals input rotated by 16 positions",
+              "Input and output have the same number of 1 bits"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution and the lesson's binary strings: input binary (32-bit) = 00000010100101000001111010011100; reversing each bit position: position 0 (LSB=0) goes to position 31, position 31 (MSB=0) goes to position 0; the output 00111001011110000010100101000000 is exactly the character-reversal of the 32-bit input string."
+          },
+          {
+            "id": "L2M12-L5-LG-2",
+            "question": "Why does the algorithm always iterate EXACTLY 32 times regardless of the input value?",
+            "options": [
+              "32 iterations are optimal for speed; fewer would also work",
+              "The problem defines 32-BIT UNSIGNED INTEGER reversal — the output must be the 32-bit reversal, including leading zeros that become trailing zeros after reversal; if n=1 (00000000000000000000000000000001), the reversed value is 10000000000000000000000000000000 = 2147483648 = 0x80000000; skipping leading-zero iterations would miss this; the constant 32 ensures ALL 32 bit positions are always processed",
+              "32 iterations are needed to handle negative inputs",
+              "The loop runs 32 times due to a JavaScript engine limitation"
+            ],
+            "answer": 1,
+            "explanation": "A 32-bit integer has exactly 32 bit positions; reversing position k to position 31-k requires processing all 32 positions; for n with leading zeros (like n=1), those leading 0s must become TRAILING 0s in the reversed output — they still occupy bit positions and affect the output value; skipping would produce an incorrect shorter result."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M12-L5-SY-1",
+            "question": "The divide-and-conquer `reverseBits_opt` swaps 16-bit halves, then 8-bit quarters, etc., ending with individual bits. Why does this work and what is the TIME COMPLEXITY?",
+            "options": [
+              "The divide-and-conquer approach is O(log 32) = O(5) — five swap levels",
+              "Each level reverses at a finer granularity: 16-bit halves swap → 8-bit quarters swap → 4-bit nibbles → 2-bit pairs → individual bits; each level uses fixed masks and two shifts — O(1) per level; 5 levels total (log₂32=5) → O(5) = O(1); same asymptotic as the 32-iteration approach but with different constant; the key advantage: for repeated calls (multiple queries), the 5-level structure can be precomputed or cached per byte chunk, enabling a 4-lookup table approach",
+              "Divide-and-conquer is O(32²) because each level processes all bits",
+              "The approach uses recursion, making it O(log n) where n is the input value"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Divide-and-conquer optimisation: reverse in groups for repeated calls' — 5 swap operations (one per level of log₂32=5), each O(1) with constant-time mask operations; total O(5)=O(1); in practice, the advantage is for repeated calls where a 256-entry lookup table (byte-level precomputation) reduces to 4 table lookups for a 32-bit integer."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M12-L5-CC-1",
+            "title": "Reverse Bits",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement Reverse Bits from this lesson.",
+            "requirements": [
+              "Implement `reverseBitsImpl(n)` matching the lesson's 32-iteration approach with >>> 0 return"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function reverseBitsImpl(n) {\n  // TODO: 32 iterations; result<<=1; result|=(n&1); n>>>=1; return result>>>0\n}"
+            },
+            "test_cases": [
+              {
+                "input": "reverseBitsImpl(43261596)",
+                "expected": 964176192,
+                "type": "visible"
+              },
+              {
+                "input": "reverseBitsImpl(0)",
+                "expected": 0,
+                "type": "visible"
+              },
+              {
+                "input": "reverseBitsImpl(1)",
+                "expected": 2147483648,
+                "type": "visible"
+              },
+              {
+                "input": "reverseBitsImpl(0xFFFFFFFF)",
+                "expected": 4294967295,
+                "type": "hidden"
+              },
+              {
+                "input": "reverseBitsImpl(964176192)",
+                "expected": 43261596,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function reverseBitsImpl(n) {\n  let result = 0;\n  for (let i = 0; i < 32; i++) {\n    result <<= 1;\n    result |= (n & 1);\n    n >>>= 1;\n  }\n  return result >>> 0;\n}"
+            },
+            "complexity_analysis": "O(32) = O(1) time. O(1) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "result<<=1 makes room at bit 0; result|=(n&1) inserts current LSB of n; n>>>=1 moves to next bit."
+              },
+              {
+                "level": 2,
+                "text": "Always exactly 32 iterations — 32-bit integers have 32 positions including leading zeros."
+              },
+              {
+                "level": 3,
+                "text": "return result>>>0 converts signed JavaScript int to unsigned 32-bit representation."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 6,
+      "title": "Sum Of Two Integers Without Plus",
+      "tag": null,
+      "objective": "Add two integers without using + or - by using XOR for the sum bits and AND+left-shift for the carry, iterating until no carry remains.",
+      "concepts": [
+        "XOR: sum of bits without carry (1+0=1, 0+1=1, 0+0=0, 1+1=0 with carry)",
+        "AND+shift: carry bits (1+1 generates carry into next position)",
+        "carry = (a & b) << 1: where both bits are 1, carry propagates left",
+        "Iterate: new a = a^b (sum without carry), new b = carry",
+        "Terminate: when carry = 0, a = final sum",
+        "Handles negative numbers: two's complement arithmetic works naturally",
+        "JavaScript 32-bit mask: AND with 0xFFFFFFFF to avoid infinite loops on negatives",
+        "O(max carry propagation distance) iterations, O(1) space"
+      ],
+      "explanation": "Sum of Two Integers (#371) adds a and b without using + or -. Binary addition works bit by bit: XOR gives the sum bit (without carry), AND+shift gives the carry bit propagating to the next position. Algorithm: compute sum = a XOR b (bit-by-bit addition ignoring carry). Compute carry = (a AND b) << 1 (bits where both are 1 generate carry into the next position). Set a = sum, b = carry. Repeat until carry is 0. When carry is 0, a contains the final sum. For positive integers, this terminates quickly. For negative numbers in JavaScript's 32-bit representation: if carry keeps propagating leftward and never reaches 0, mask a and b with 0xFFFFFFFF to keep within 32 bits, then convert to signed representation at the end using (result << 0) or ((result | 0)). The termination guarantee: each iteration, the carry 'absorbs' some bits into the carry position; the number of unresolved carry bits can never increase, so the algorithm always terminates.",
+      "analogy": "Adding without + is like adding in binary by hand. When you add 1+1 at any bit position, you write 0 and carry 1 to the left. XOR computes the 'write 0 or 1' at each position. AND+shift computes the 'carry 1 to the left'. You repeat: add the carry to the running sum, check for new carries, repeat until there is nothing left to carry.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// SUM OF TWO INTEGERS WITHOUT + OR - (#371)\n// O(number of carry propagations) time, O(1) space\nfunction getSum(a, b) {\n    // Mask to 32 bits to handle JavaScript's sign extension\n    const MASK = 0xFFFFFFFF;\n    const MAX  = 0x7FFFFFFF;\n\n    while (b !== 0) {\n        const carry = ((a & b) << 1) & MASK; // carries, masked to 32 bits\n        a = (a ^ b) & MASK;                   // sum without carry, masked\n        b = carry;\n    }\n\n    // Convert from unsigned 32-bit to signed if necessary\n    return a <= MAX ? a : ~(a ^ MASK);\n    // If a > MAX: it represents a negative number in two's complement\n    // ~(a ^ MASK) = ~(a ^ 0xFFFFFFFF) inverts the masking to get the negative value\n}\n\nconsole.log(getSum(1, 2));    // 3\nconsole.log(getSum(-2, 3));   // 1\nconsole.log(getSum(-1, -1));  // -2\nconsole.log(getSum(7, 0));    // 7\n\n// TRACE for a=5 (0101), b=3 (0011):\n// Iteration 1:\n//   a&b = 0101 & 0011 = 0001. carry = 0001<<1 = 0010.\n//   a^b = 0101 ^ 0011 = 0110.\n//   a=0110(6), b=0010.\n// Iteration 2:\n//   a&b = 0110 & 0010 = 0010. carry = 0010<<1 = 0100.\n//   a^b = 0110 ^ 0010 = 0100.\n//   a=0100(4), b=0100.\n// Iteration 3:\n//   a&b = 0100 & 0100 = 0100. carry = 0100<<1 = 1000.\n//   a^b = 0100 ^ 0100 = 0000.\n//   a=0000(0), b=1000.\n// Iteration 4:\n//   a&b = 0000 & 1000 = 0000. carry = 0.\n//   a^b = 0000 ^ 1000 = 1000.\n//   a=1000(8), b=0.\n// b=0: loop ends. a=8. ✓  (5+3=8)\n\n// WITHOUT THE MASK (naive, fails for negatives in JavaScript):\nfunction getSum_noMask(a, b) {\n    while (b) { [a, b] = [a ^ b, (a & b) << 1]; }\n    return a;\n}\n// Works for positive but loops forever for some negative inputs in JS\n// because JavaScript left shifts can produce numbers that never reach 0 carry",
+        "explanation": "The mask (0xFFFFFFFF) is essential in JavaScript because JavaScript numbers are 64-bit floats internally, but bitwise operators work on 32-bit integers. Without the mask, the carry could propagate into the higher bits of the JavaScript number and the loop would never terminate for negative inputs. The final conversion (~(a ^ MASK) for values > MAX) correctly converts from unsigned 32-bit to JavaScript's signed representation."
+      },
+      "common_mistakes": [
+        "Not masking carry and sum in JavaScript — JavaScript's integers are 32-bit for bitwise operations but stored as 64-bit floats; without masking with 0xFFFFFFFF, carry can propagate beyond bit 31 and the loop never terminates for negative inputs",
+        "Stopping after a fixed number of iterations instead of when carry is 0 — the number of iterations depends on the input values; always loop while b !== 0 (carry is non-zero)",
+        "Not converting the 32-bit unsigned result back to signed JavaScript integer — for negative results, the masked 32-bit value (e.g., 0xFFFFFFFE = 4294967294) must be converted to the signed representation (-2); the conversion ~(a ^ MASK) handles this"
+      ],
+      "interview_relevance": "Sum of Two Integers (#371) is Blind 75 and appears at companies like Google and Facebook that test bit manipulation depth. The algorithm is one of the most elegant in computer science: implementing arithmetic from its logical foundations. The JavaScript masking issue is a specific pitfall that tests knowledge of JavaScript's integer representation. Many candidates code the algorithm correctly but fail because of the 32-bit mask.",
+      "mini_challenge": "Implement getSum and verify it returns 3 for (1,2), 1 for (-2,3), -2 for (-1,-1). Trace the algorithm for a=5, b=3 step by step (as shown in the code). Then implement subtraction (a-b = a + (-b)) using only bitwise operations and your getSum function. Verify getSum(a, ~b+1) gives a-b for a=7, b=3 (should give 4) and a=3, b=7 (should give -4).",
+      "flashcards": [
+        {
+          "front": "Sum of Two Integers: how does binary addition work without +?",
+          "back": "XOR gives the SUM bits (without carry): a^b. AND shifted left gives the CARRY bits: (a&b)<<1. Repeat: new_a = a^b (sum without carry), new_b = (a&b)<<1 (carry). Continue until no carry (b===0). Return a."
+        },
+        {
+          "front": "Sum of Two Integers: why does XOR give sum bits?",
+          "back": "0^0=0 (0+0=0, no carry). 0^1=1 (0+1=1, no carry). 1^0=1 (1+0=1, no carry). 1^1=0 (1+1=2, sum bit is 0, carry is 1). XOR produces exactly the sum bit in each position, ignoring carries."
+        },
+        {
+          "front": "Sum of Two Integers: why does (a&b)<<1 give carry bits?",
+          "back": "Carry occurs only when BOTH bits are 1 (AND). The carry propagates to the NEXT position (<<1, shift left by 1). So (a & b) << 1 is the carry from this addition step."
+        },
+        {
+          "front": "Sum of Two Integers: termination condition?",
+          "back": "Loop terminates when b===0 (no more carry). At each step, the carry (b) decreases or stays — it cannot grow indefinitely since the total sum is bounded. For 32-bit: at most 32 iterations."
+        },
+        {
+          "front": "Sum of Two Integers in Python: why is extra masking needed?",
+          "back": "Python has arbitrary precision integers (no 32-bit overflow). Need to mask to 32 bits: a = (a^b) & 0xFFFFFFFF and b = ((carry) & 0xFFFFFFFF) << 1. Also check sign bit at end: if a >= 2^31: a = a - 2^32 (convert to signed)."
+        },
+        {
+          "front": "Half-adder vs Full-adder connection?",
+          "back": "This algorithm is a software half-adder (single-bit: sum=XOR, carry=AND). Full binary addition by repeating handles carry propagation (the CARRY OUT of each stage is carried INTO the next). XOR + AND + shift = binary adder in software."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "getSum(1, 3): first iteration? a=1(01), b=3(11).",
+          "options": [
+            "a=01^11=10=2, b=(01&11)<<1=(01)<<1=10=2",
+            "a=01^11=10=2, b=(01&11)<<1=10=2",
+            "a=4, b=0",
+            "Both A and B are identical — correct"
+          ],
+          "answer": 3,
+          "explanation": "a = 1^3 = 01^11 = 10 = 2. b = (1&3)<<1 = (01&11)<<1 = 01<<1 = 10 = 2. So a=2, b=2. Both A and B are the same answer."
+        },
+        {
+          "question": "getSum(1,3): second iteration: a=2(10), b=2(10).",
+          "options": [
+            "a=10^10=00=0, b=(10&10)<<1=10<<1=100=4",
+            "a=0, b=4. Continue: third iteration",
+            "Return 0 (early)",
+            "Both A and B are correct"
+          ],
+          "answer": 3,
+          "explanation": "a = 2^2 = 10^10 = 00 = 0. b = (2&2)<<1 = 10<<1 = 100 = 4. b≠0, continue."
+        },
+        {
+          "question": "getSum(1,3): third iteration: a=0, b=4.",
+          "options": [
+            "a=0^4=4, b=(0&4)<<1=0<<1=0. b=0 → RETURN a=4",
+            "a=4, b=0. Return 4 ✓",
+            "a=4, b=4",
+            "Both A and B are equivalent — correct"
+          ],
+          "answer": 3,
+          "explanation": "a=0^4=4. b=(0&4)<<1=0<<1=0. b=0 → loop ends. Return a=4. 1+3=4 ✓"
+        },
+        {
+          "question": "Why is getSum(-1, 1) tricky in Python but not Java/C++?",
+          "options": [
+            "Python doesn't support negative numbers",
+            "Java/C++ have fixed 32-bit integers that naturally overflow. Python has arbitrary precision — the carry can grow beyond 32 bits without masking.",
+            "XOR behaves differently for negative numbers",
+            "No difference"
+          ],
+          "answer": 1,
+          "explanation": "Java int is always 32-bit (wraps around). Python integers are unbounded — without masking with 0xFFFFFFFF, the carry bits keep growing. Must mask after each step and convert back to signed at the end."
+        }
+      ],
+      "visual_aid": {
+        "type": "binary_addition_trace",
+        "description": "getSum(1,3) traced as binary addition without +",
+        "diagram": "getSum(1, 3) — binary addition using XOR and AND:\n\n    1 = 001\n    3 = 011\n\nIteration 1:\n  sum bits (XOR):   001 ^ 011 = 010 = 2  (no carry yet)\n  carry bits (AND): 001 & 011 = 001 → shift left → 010 = 2\n  a=2, b=2\n\nIteration 2:\n  sum bits (XOR):   010 ^ 010 = 000 = 0\n  carry bits (AND): 010 & 010 = 010 → shift left → 100 = 4\n  a=0, b=4\n\nIteration 3:\n  sum bits (XOR):   000 ^ 100 = 100 = 4\n  carry bits (AND): 000 & 100 = 000 → shift left → 000 = 0\n  a=4, b=0 → DONE\n\nReturn 4 ✓ (1+3=4)\n\nHALF-ADDER ANALOGY:\n  Single bit: sum=A XOR B, carry=A AND B\n  Multi-bit: repeat, propagating carry leftward until no carry remains"
+      },
+      "complexity_summary": {
+        "time": "O(1) — at most 32 iterations for 32-bit integers",
+        "space": "O(1)",
+        "python_extra": "Mask with 0xFFFFFFFF each iteration; convert to signed at end",
+        "iterations": "Number of iterations = position of highest carry bit"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-371",
+          "title": "Sum of Two Integers",
+          "difficulty": "Medium",
+          "pattern": "XOR=sum bits, (a&b)<<1=carry, repeat until b=0",
+          "blind75": true
+        },
+        {
+          "id": "lc-136",
+          "title": "Single Number — compare XOR usage",
+          "difficulty": "Easy",
+          "pattern": "XOR for cancellation",
+          "blind75": true
+        },
+        {
+          "id": "lc-190",
+          "title": "Reverse Bits — compare bit extraction",
+          "difficulty": "Easy",
+          "pattern": "Bit extraction and placement",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M12-L6-TH-1",
+            "question": "In `getSum`, why is `& MASK` (0xFFFFFFFF) applied EVERY ITERATION to both the carry and the XOR sum?",
+            "options": [
+              "The mask prevents results from exceeding Number.MAX_VALUE",
+              "Without the mask, negative inputs in JavaScript can cause INFINITE LOOPS: JavaScript's left shift `<<` can produce values that, when XOR'd and shifted again, never converge to carry=0; the mask clamps all intermediate values to 32-bit range (0x00000000..0xFFFFFFFF); this ensures both carry and the running sum stay within 32-bit bounds; the carry computation `((a&b)<<1)&MASK` prevents carry bits from propagating beyond bit 31; without it, JavaScript's arbitrary-precision integers for negative values could cause the loop to never terminate",
+              "The mask converts signed to unsigned before each operation",
+              "The mask is only needed for inputs where a or b is negative"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'JavaScript 32-bit mask: AND with 0xFFFFFFFF to avoid infinite loops on negatives' and the code comment 'Works for positive but loops forever for some negative inputs in JS because JavaScript left shifts can produce numbers that never reach 0 carry' — the MASK constrains all intermediate values to 32-bit range, ensuring termination."
+          },
+          {
+            "id": "L2M12-L6-TH-2",
+            "question": "After the loop, why does `a > MAX ? ~(a ^ MASK) : a` convert the result to signed?",
+            "options": [
+              "The conversion is only needed for very large positive numbers",
+              "During the loop, results are maintained as 32-bit UNSIGNED values (masked to 0xFFFFFFFF range); if the true mathematical result is negative (e.g., -2 for getSum(-1,-1)), its two's complement bit pattern is 0xFFFFFFFE — which is > MAX (0x7FFFFFFF); `a > MAX` detects this case; `~(a ^ MASK)` inverts the masking: `a ^ MASK` XOR-flips all 32 bits back to two's complement position, then `~` inverts all bits — producing the correct JavaScript negative integer",
+              "The conversion applies MAX to clamp large positive results",
+              "a > MAX only occurs for overflow and returns -1 always"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code comment: 'If a > MAX: it represents a negative number in two's complement. ~(a ^ MASK) = ~(a ^ 0xFFFFFFFF) inverts the masking to get the negative value' — after masking, negative numbers appear as unsigned values > 0x7FFFFFFF; the conversion restores the JavaScript signed integer interpretation."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M12-L6-LG-1",
+            "question": "Trace `getSum(5, 3)`. What are the values of a and b after each iteration?",
+            "options": [
+              "Iter1: carry=(5&3)<<1=2, a=5^3=6; Iter2: carry=(6&2)<<1=4, a=6^2=4; Iter3: carry=(4&4)<<1=8, a=4^4=0; Iter4: carry=(0&8)<<1=0, a=0^8=8; b=0→loop ends; a=8 ✓",
+              "Iter1: a=5+3=8, b=0; loop ends immediately",
+              "Iter1: carry=8, a=2; Iter2: carry=4, a=6; result=10",
+              "The loop runs 8 iterations for inputs summing to 8"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution (4 iterations) and the lesson's exact trace: iter1: a&b=0001, carry=0010, a^b=0110 → (a=6,b=2); iter2: a&b=0010, carry=0100, a^b=0100 → (a=4,b=4); iter3: a&b=0100, carry=1000, a^b=0000 → (a=0,b=8); iter4: a&b=0000, carry=0000, a^b=1000 → (a=8,b=0); b=0 → return 8."
+          },
+          {
+            "id": "L2M12-L6-LG-2",
+            "question": "Why does `getSum(-1, -1)` return -2 correctly despite using only bitwise operations?",
+            "options": [
+              "The function cannot handle negative inputs; -2 is an accidental coincidence",
+              "-1 in 32-bit is 0xFFFFFFFF; -1 & -1 = 0xFFFFFFFF; carry=0xFFFFFFFF<<1=0xFFFFFFFE (masked); (-1)^(-1)=0x00000000; next: a=0xFFFFFFFE, b=0; loop ends; a=0xFFFFFFFE > 0x7FFFFFFF (MAX) → convert: ~(0xFFFFFFFE ^ 0xFFFFFFFF) = ~(0x00000001) = 0xFFFFFFFE... let me recalc: ~(a^MASK)=~(0xFFFFFFFE^0xFFFFFFFF)=~(0x00000001)=-2 ✓; confirmed by direct execution",
+              "-1+-1=-2 is only correct for 2's complement; JavaScript uses 1's complement",
+              "The function adds 1 internally to adjust for two's complement"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: getSum(-1,-1)=-2; -1=0xFFFFFFFF; after masking loop: a=0xFFFFFFFE (2's complement of -2), b=0; since 0xFFFFFFFE > 0x7FFFFFFF: ~(0xFFFFFFFE ^ 0xFFFFFFFF) = ~(0x00000001) = -2 in JavaScript; the two's complement arithmetic works naturally with the mask/unmask pattern."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M12-L6-SY-1",
+            "question": "Why does `getSum(7, 0)` terminate in the FIRST CHECK (before any iteration) rather than running through the loop?",
+            "options": [
+              "getSum always runs exactly 4 iterations",
+              "The while condition is `while (b !== 0)` — when b=0, the loop body NEVER EXECUTES; 7+0: b=0 immediately satisfies the exit condition; a=7 is returned directly (7 <= MAX=0x7FFFFFFF → return 7); this is the base case: adding 0 to any number returns the number unchanged — no carry is possible when one addend is 0, so no iterations are needed",
+              "b=0 causes a division by zero error that is caught",
+              "The loop runs once to verify that carry is 0 before returning"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: getSum(7,0)=7; while(b!==0) with b=0 → loop body never executes; a=7 is already the answer; 7 <= 0x7FFFFFFF → return 7; this validates the loop's termination condition: the algorithm terminates when all carry bits have propagated (carry=b=0)."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M12-L6-CC-1",
+            "title": "Sum of Two Integers Without Plus",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement Sum of Two Integers from this lesson.",
+            "requirements": [
+              "Implement `getSumImpl(a, b)` matching the lesson's XOR+carry loop with 32-bit MASK and signed conversion"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function getSumImpl(a, b) {\n  // TODO: MASK=0xFFFFFFFF, MAX=0x7FFFFFFF\n  // while b!==0: carry=((a&b)<<1)&MASK; a=(a^b)&MASK; b=carry\n  // convert: a<=MAX ? a : ~(a^MASK)\n}"
+            },
+            "test_cases": [
+              {
+                "input": "getSumImpl(1, 2)",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "getSumImpl(-2, 3)",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "getSumImpl(7, 0)",
+                "expected": 7,
+                "type": "visible"
+              },
+              {
+                "input": "getSumImpl(-1, -1)",
+                "expected": -2,
+                "type": "hidden"
+              },
+              {
+                "input": "getSumImpl(5, 3)",
+                "expected": 8,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function getSumImpl(a, b) {\n  const MASK = 0xFFFFFFFF;\n  const MAX  = 0x7FFFFFFF;\n  while (b !== 0) {\n    const carry = ((a & b) << 1) & MASK;\n    a = (a ^ b) & MASK;\n    b = carry;\n  }\n  return a <= MAX ? a : ~(a ^ MASK);\n}"
+            },
+            "complexity_analysis": "O(max carry propagation) iterations — at most 32 for 32-bit integers. O(1) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "XOR gives sum without carry; AND<<1 gives carry; iterate until carry=0."
+              },
+              {
+                "level": 2,
+                "text": "MASK=0xFFFFFFFF on BOTH carry and XOR prevents infinite loops on negative inputs."
+              },
+              {
+                "level": 3,
+                "text": "Final conversion: if a>MAX (0x7FFFFFFF), it's a masked negative; ~(a^MASK) un-masks to JavaScript signed int."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "module_summary": {
+    "total_lessons": 6,
+    "level": "L2",
+    "blind75_problems_in_module": 6,
+    "neetcode150_additional": 2,
+    "core_patterns": [
+      "Binary conversion: repeated ÷2 remainders (right-to-left); bit positions are powers of 2",
+      "Check/set/clear/toggle bit k: (n>>k)&1, n|(1<<k), n&~(1<<k), n^(1<<k)",
+      "XOR cancellation: n^n=0, n^0=n — all duplicates cancel, unique element survives",
+      "Brian Kernighan: n&(n-1) clears lowest set bit — count iterations = popcount",
+      "Power of Two: n>0 && (n&(n-1))===0 — exactly one set bit",
+      "Counting Bits DP: countBits[i] = countBits[i>>1] + (i&1) — O(n) for all 0..n",
+      "Alternative: countBits[i] = countBits[i&(i-1)] + 1 — uses Kernighan trick",
+      "Reverse Bits: result|=(n&1)<<(31-i); n>>>=1 — 32 iterations, unsigned shift",
+      "Sum Without +: XOR=sum-bits, (a&b)<<1=carry-bits, iterate until b=0",
+      "Missing Number XOR: XOR all indices 0..n with all array values — missing survives"
+    ],
+    "prerequisite_modules": [
+      "None for basics — standalone module"
+    ],
+    "unlocks_modules": [
+      "Bitmask DP (advanced patterns)",
+      "System design: bit arrays and bloom filters"
+    ],
+    "recommended_problem_order": [
+      "lc-136",
+      "lc-191",
+      "lc-338",
+      "lc-190",
+      "lc-268",
+      "lc-371"
+    ],
+    "spaced_review_target": "Re-solve 2–3 bit manipulation problems from this module 3 days after first solve to build pattern recall",
+    "module_difficulty": "Medium — basics (L1-L2) are learnable quickly; Counting Bits DP (L4), Reverse Bits (L5), and Sum Without + (L6) require careful implementation. Bit manipulation is tested at 20–30% of companies.",
+    "honest_time_estimate": "8-10 hours. Binary/operations (L1-L2): 2 hrs. Hamming weight (L3): 1.5 hrs. Counting Bits (L4): 1.5 hrs. Reverse Bits (L5): 2 hrs. Sum Without + (L6): 2 hrs.",
+    "key_xor_identities": "n^n=0 (cancellation), n^0=n (identity), commutative+associative. These three properties power: Single Number, Missing Number, and the sum-without-+ algorithm."
+  },
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "intermediate": "Lessons 1-5 (binary patterns, canonical bit ops, Brian Kernighan's, Counting Bits DP, Reverse Bits 32-iteration)",
+      "advanced": "Lesson 6 (Sum Without Plus — XOR+carry loop, 32-bit MASK for negatives, signed/unsigned conversion)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

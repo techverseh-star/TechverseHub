@@ -1,0 +1,1766 @@
+{
+  "module_id": "L2-M01",
+  "module_number": 1,
+  "title": "Dynamic Programming — Foundations",
+  "tag": "ADDED",
+  "is_optional_for_product_track": false,
+  "estimated_hours": "12–15 hours",
+  "prerequisites": [
+    "L1-M05",
+    "L1-M11"
+  ],
+  "learning_outcomes": [
+    "Identify overlapping subproblems and optimal substructure as the two conditions that make DP applicable",
+    "Convert any recursive brute force into a top-down memoised solution in under 5 minutes",
+    "Convert a memoised solution into a bottom-up tabulation with correct base cases and transition",
+    "Optimise bottom-up DP space from O(n) to O(1) when only the previous row or two values are needed",
+    "Solve Climbing Stairs and all Fibonacci-family problems using both memoisation and tabulation",
+    "Solve House Robber I and II using the skip-or-take DP recurrence and handle circular constraints"
+  ],
+  "notes": [
+    "ADDED — DP separated into its own opening module. Attempted too early in most bootcamps; needs dedicated focus before harder patterns."
+  ],
+  "spaced_review": "Re-solve 3 problems from L1 Capstone weak areas before starting Module 2",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "title": "What Is Dynamic Programming?",
+      "tag": "ADDED",
+      "objective": "Understand what dynamic programming is, identify the two conditions that make it applicable, and distinguish DP from divide-and-conquer and greedy approaches.",
+      "concepts": [
+        "Dynamic programming definition: optimal substructure + overlapping subproblems",
+        "Optimal substructure: optimal solution built from optimal sub-solutions",
+        "Overlapping subproblems: same subproblem solved repeatedly in naive recursion",
+        "DP vs divide-and-conquer: subproblems overlap (DP) vs are independent (D&C)",
+        "DP vs greedy: DP explores all options and caches; greedy makes one local choice",
+        "Two DP styles: top-down (memoisation) and bottom-up (tabulation)",
+        "The DP mental model: fill in a table of answers to subproblems",
+        "When NOT to use DP: no overlapping subproblems, greedy is provably optimal"
+      ],
+      "explanation": "Dynamic programming is an algorithmic technique for solving problems that have two properties: optimal substructure and overlapping subproblems. Optimal substructure means the optimal solution to the problem can be constructed from optimal solutions to its subproblems. For example, the shortest path from A to C through B uses the shortest path from A to B and the shortest path from B to C. Overlapping subproblems means the recursive breakdown of the problem recomputes the same subproblems multiple times. Fibonacci is the canonical example: fib(5) calls fib(4) and fib(3), fib(4) calls fib(3) and fib(2), fib(3) is computed twice. Without caching, this exponential blowup makes naive recursion impractical. DP solves this by computing each subproblem exactly once and storing the result for reuse. This converts exponential time to polynomial time. DP differs from divide-and-conquer (merge sort, binary search) where subproblems are independent and results do not overlap. DP differs from greedy where a single locally optimal choice is made at each step without exploring alternatives.",
+      "analogy": "Dynamic programming is like a student filling out a multiple-choice answer sheet where each question's answer depends on some previous questions. The naive approach would be to go back and re-solve previous questions every time you need them. DP is writing each answer on a sticky note the first time and referring to the note every time it is needed again. The sticky notes are your cache. The systematic order in which you fill them out is the key to correctness.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// THE PROBLEM DP SOLVES: naive recursion with overlapping subproblems\n\n// FIBONACCI — naive: O(2^n) time\nfunction fib_naive(n) {\n    if (n <= 1) return n;\n    return fib_naive(n-1) + fib_naive(n-2);\n    // fib(5) calls: fib(4),fib(3),fib(3),fib(2),fib(2),fib(2),fib(1)...\n    // fib(3) computed 2x, fib(2) computed 3x, fib(1) computed 5x\n    // Total calls: 2^n\n}\n\n// IDENTIFYING DP CONDITIONS:\n// 1. OPTIMAL SUBSTRUCTURE:\n//    fib(n) = fib(n-1) + fib(n-2)\n//    The optimal (correct) answer uses correct answers to smaller subproblems.\n\n// 2. OVERLAPPING SUBPROBLEMS:\n//    Call tree for fib(5):\n//                fib(5)\n//            fib(4)    fib(3)    <- fib(3) computed TWICE\n//        fib(3)  fib(2)  fib(2) fib(1)  <- fib(2) computed 3x\n//      fib(2) fib(1)\n//    Without caching: O(2^n)\n//    With caching: O(n) — each of fib(0)..fib(n) computed exactly once\n\n// CONTRAST: MERGE SORT — no overlapping subproblems\nfunction mergeSort(arr) {\n    // Subproblems: left half [0..mid] and right half [mid+1..n-1]\n    // These are DISJOINT — no element appears in both halves\n    // No subproblem is ever recomputed => no DP needed\n    // Time: O(n log n) regardless (divide-and-conquer)\n}\n\n// CONTRAST: GREEDY (Coin Change with specific denominations)\n// Greedy: always pick the largest coin that fits\n// Works for [1,5,10,25] (US coins) — PROVABLY optimal for these denominations\n// Fails for [1,3,4] with target 6: greedy picks 4+1+1=3 coins, DP finds 3+3=2 coins\n// When greedy fails -> DP is the correct approach\n\n// THE DP PROMISE:\n// Any problem with optimal substructure + overlapping subproblems\n// can be solved in polynomial time using DP\n// by replacing exponential re-computation with O(1) cache lookups",
+        "explanation": "The greedy failure on [1,3,4] with target 6 is the canonical demonstration of why DP is necessary. Greedy picks 4, then needs 2 more, but 2 is not achievable with denominations [1,3,4] optimally (1+1=2 coins, 3-1=not applicable). DP explores: 1+1+4=3 coins, 3+3=2 coins — finds the minimum. This is why Coin Change (#322, Level 2) requires DP."
+      },
+      "common_mistakes": [
+        "Applying DP to every recursive problem without checking for overlapping subproblems — problems like binary search and merge sort are recursive but have independent subproblems; memoising them adds overhead without benefit",
+        "Confusing DP with greedy — both solve optimisation problems but greedy commits to one choice per step while DP evaluates all choices; when in doubt, try greedy first and verify with a counterexample",
+        "Thinking DP always has polynomial time complexity — DP reduces exponential recursion to polynomial, but the polynomial depends on the number of distinct subproblems times the work per subproblem; for some problems this can still be very large"
+      ],
+      "interview_relevance": "Interviewers ask 'Why are you using DP here?' before accepting a DP solution. The answer must state both conditions: 'This problem has optimal substructure because the optimal solution at position n is built from optimal solutions at n-1 and n-2, and overlapping subproblems because the same positions are recomputed exponentially in the naive recursion.' Stating both conditions precisely signals genuine DP understanding.",
+      "mini_challenge": "For each of these problems, identify whether DP applies and state which condition(s) are present: (1) Find the nth Fibonacci number. (2) Sort an array of n integers. (3) Find the minimum number of coins to make change for amount k. (4) Find all permutations of an array. (5) Find the shortest path in an unweighted graph. For each, state: overlapping subproblems yes/no, optimal substructure yes/no, DP applicable yes/no.",
+      "flashcards": [
+        {
+          "front": "Two conditions required for DP to apply?",
+          "back": "1) OPTIMAL SUBSTRUCTURE: the optimal solution is built from optimal solutions to subproblems. 2) OVERLAPPING SUBPROBLEMS: the naive recursion recomputes the same subproblem multiple times. BOTH must be present."
+        },
+        {
+          "front": "Optimal substructure: example?",
+          "back": "Shortest path A→C through B = shortest(A→B) + shortest(B→C). The global optimum is built from local optima. Fibonacci: fib(n) = fib(n-1) + fib(n-2) — the correct answer depends on correct answers to smaller inputs."
+        },
+        {
+          "front": "Overlapping subproblems: what does it look like?",
+          "back": "In the fib(5) call tree, fib(3) is computed twice, fib(2) three times, fib(1) five times. Total calls: 2^n. With caching: each of fib(0)..fib(n) computed exactly once → O(n)."
+        },
+        {
+          "front": "DP vs Divide-and-Conquer: key difference?",
+          "back": "D&C (merge sort, binary search): subproblems are INDEPENDENT — left half and right half never overlap. DP: subproblems OVERLAP — fib(3) needed by both fib(4) and fib(5). Only overlapping subproblems benefit from caching."
+        },
+        {
+          "front": "DP vs Greedy: key difference?",
+          "back": "Greedy: commits to one locally optimal choice per step without reconsidering. DP: evaluates ALL choices, caches each subproblem's optimal answer. Greedy fails when local optimality ≠ global optimality (e.g., coins [1,3,4], target 6)."
+        },
+        {
+          "front": "Two DP implementation styles?",
+          "back": "TOP-DOWN (memoisation): start from the original problem, recurse down, cache on the way back. Natural to derive. BOTTOM-UP (tabulation): start from base cases, fill table iteratively upward. No recursion stack, often faster in practice."
+        },
+        {
+          "front": "Time complexity formula for any DP solution?",
+          "back": "O(unique subproblems × work per subproblem). Example: Fibonacci → O(n) unique subproblems × O(1) work each = O(n). Coin Change → O(amount) subproblems × O(coins) work each = O(amount × coins)."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Fibonacci: fib(5) naive recursion makes how many total calls?",
+          "options": [
+            "5",
+            "15",
+            "25",
+            "~32 (2^5)"
+          ],
+          "answer": 3,
+          "explanation": "Without caching: fib(n) makes 2^n calls approximately. fib(5) ≈ 2^5 = 32 calls. Many are redundant: fib(3) computed twice, fib(2) three times. With memoisation: exactly 11 calls (fib(0) through fib(5) once each, plus their two recursive calls)."
+        },
+        {
+          "question": "Merge sort has overlapping subproblems?",
+          "options": [
+            "Yes — it recursively divides the array",
+            "No — left half [0..mid] and right half [mid+1..n-1] are always disjoint",
+            "Yes — the merge step revisits elements",
+            "Depends on the input"
+          ],
+          "answer": 1,
+          "explanation": "Merge sort subproblems are INDEPENDENT — no element appears in both the left and right recursive calls. No subproblem is ever recomputed. Memoising merge sort adds overhead with no benefit."
+        },
+        {
+          "question": "Greedy coin change with [1,3,4], target=6. Greedy picks which coins?",
+          "options": [
+            "4+1+1 = 3 coins",
+            "3+3 = 2 coins",
+            "4+3 = 7 (overshoots)",
+            "1+1+1+1+1+1 = 6 coins"
+          ],
+          "answer": 0,
+          "explanation": "Greedy always picks the largest coin ≤ remaining: 4 (remaining=2), then 1 (remaining=1), then 1 = 3 coins. DP finds 3+3 = 2 coins. Greedy fails here → DP is needed."
+        },
+        {
+          "question": "DP converts exponential time to polynomial by?",
+          "options": [
+            "Sorting the subproblems",
+            "Computing each unique subproblem exactly once and caching its result",
+            "Using binary search instead of linear scan",
+            "Parallelising the recursive calls"
+          ],
+          "answer": 1,
+          "explanation": "Cache = compute once, reuse many times. Fibonacci without cache: 2^n calls. With cache: n unique subproblems, each computed once. O(2^n) → O(n) via caching."
+        }
+      ],
+      "visual_aid": {
+        "type": "call_tree",
+        "description": "Fibonacci call tree showing overlapping subproblems",
+        "diagram": "fib(5) CALL TREE — without memoisation:\n\n                    fib(5)\n                 /          \\\n            fib(4)           fib(3)  ← COMPUTED TWICE\n           /      \\         /      \\\n        fib(3)  fib(2)   fib(2)  fib(1)\n        /   \\   /   \\    /   \\\n      fib(2) fib(1) ...  ...  ...   ← fib(2) COMPUTED 3x\n\nUnique values needed:   fib(0) fib(1) fib(2) fib(3) fib(4) = 5 values\nCalls without cache:    ~32 (2^5)\nCalls WITH cache:       10 unique + base cases = O(n)\n\nDECISION TREE FOR DP:\n  Does the problem have optimal substructure?  YES ↓  NO → no DP\n  Does the naive recursion recompute subproblems? YES ↓  NO → D&C\n  Is greedy provably optimal?                    YES → greedy, else → DP"
+      },
+      "complexity_summary": {
+        "naive_fibonacci": {
+          "time": "O(2^n)",
+          "space": "O(n) call stack"
+        },
+        "memoised_fibonacci": {
+          "time": "O(n)",
+          "space": "O(n) cache + O(n) stack"
+        },
+        "dp_time_formula": "O(unique subproblems × work per subproblem)",
+        "when_dp_beats_greedy": "When local optimality ≠ global optimality (coins [1,3,4], etc.)"
+      },
+      "practice_problems": [
+        {
+          "id": "custom-dp1",
+          "title": "Classify 5 problems: DP applicable? (Fibonacci, sort, coin change, permutations, BFS shortest path)",
+          "difficulty": "Easy",
+          "pattern": "DP condition identification"
+        },
+        {
+          "id": "lc-70",
+          "title": "Climbing Stairs — first DP problem",
+          "difficulty": "Easy",
+          "pattern": "Fibonacci DP",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M1-TH-1",
+            "question": "What are the TWO CONDITIONS that must both be present for a problem to be solvable by dynamic programming?",
+            "options": [
+              "The problem must be sorted and have no duplicates",
+              "OPTIMAL SUBSTRUCTURE (the optimal solution to the whole problem is built from optimal solutions to smaller subproblems) AND OVERLAPPING SUBPROBLEMS (the same subproblem is solved repeatedly in naive recursion); both must hold simultaneously — optimal substructure alone (without overlap) describes divide-and-conquer; overlapping subproblems alone (without optimal structure) cannot guarantee a correct global solution",
+              "The input must be an array and the output must be a single number",
+              "The problem must involve maximisation or minimisation"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's exact concepts: 'Dynamic programming definition: optimal substructure + overlapping subproblems' — both conditions are required; merge sort has optimal substructure but independent (non-overlapping) subproblems so doesn't benefit from DP; some DP problems count ways rather than optimise, but they still need both structural properties."
+          },
+          {
+            "id": "L2M1-TH-2",
+            "question": "What is the KEY DIFFERENCE between DP and greedy algorithms, and when does greedy FAIL but DP succeeds?",
+            "options": [
+              "Greedy is always faster than DP; they produce the same results",
+              "GREEDY makes one locally-optimal choice at each step without reconsidering; DP EXPLORES ALL OPTIONS and caches results to find the globally optimal solution; greedy fails when the locally optimal choice doesn't lead to a global optimum — the lesson's example: for coins [1,3,4] and target 6, greedy picks 4+1+1=3 coins, while DP finds 3+3=2 coins; greedy is only correct when the greedy-choice property can be proven (e.g., US coins [1,5,10,25])",
+              "Greedy uses recursion; DP uses iteration",
+              "DP always runs in O(n²); greedy always runs in O(n)"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's contrast: 'DP vs greedy: DP explores all options and caches; greedy makes one local choice' and the concrete counterexample: 'Greedy fails for [1,3,4] with target 6: greedy picks 4+1+1=3 coins, DP finds 3+3=2 coins' — confirmed by direct execution of the greedy approach."
+          },
+          {
+            "id": "L2M1-TH-3",
+            "question": "Why does Fibonacci have OVERLAPPING SUBPROBLEMS, and what specific evidence from the call tree proves this?",
+            "options": [
+              "Fibonacci has no overlapping subproblems; each call computes a unique value",
+              "In the naive recursion call tree for fib(5): fib(3) is computed TWICE (once from fib(5)→fib(4)→fib(3), once from fib(5)→fib(3) directly); fib(2) is computed 3 times; fib(1) is computed 5 times; this exponential redundancy (2^n total calls for n) is the defining example of overlapping subproblems — the SAME subproblem with the SAME input is recomputed from scratch each time",
+              "Fibonacci overlaps because consecutive Fibonacci numbers share digits",
+              "Overlapping subproblems only apply to 2D DP problems"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's call tree: 'fib(3) computed 2x, fib(2) computed 3x, fib(1) computed 5x. Total calls: 2^n' — the call tree shows the same subproblems reappearing at multiple nodes; DP caches results so each of fib(0)..fib(n) is computed exactly once, reducing 2^n to O(n)."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M1-LG-1",
+            "question": "For coin change with denominations [1,3,4] and target 6, trace WHY greedy gives 3 coins but DP gives 2. What is DP's optimal solution?",
+            "options": [
+              "Greedy picks 4+1+1=3 coins; DP also gives 3 coins — they agree here",
+              "Greedy (largest coin first): picks 4 (remaining=2), picks 1 (remaining=1), picks 1 (remaining=0) → 3 coins; DP explores ALL combinations and finds 3+3=2 coins (both 3s), which is optimal; greedy missed this because after picking 4, it was committed to a path that required 2 more 1s, while DP found that starting with 3 instead of 4 enables an optimal 2-coin solution",
+              "DP gives 1 coin by using denomination 6",
+              "Greedy and DP always agree on coin change problems"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by the lesson's exact example: 'Fails for [1,3,4] with target 6: greedy picks 4+1+1=3 coins, DP finds 3+3=2 coins' — confirmed by direct execution of both approaches."
+          },
+          {
+            "id": "L2M1-LG-2",
+            "question": "Why does MERGE SORT not benefit from dynamic programming even though it recursively solves subproblems?",
+            "options": [
+              "Merge sort does benefit from DP; memoized merge sort is common",
+              "Merge sort's subproblems are completely disjoint with no benefit from caching",
+              "Merge sort doesn't use recursion, so DP doesn't apply",
+              "Merge sort has optimal substructure but NOT overlapping subproblems — its left half [0..mid] and right half [mid+1..n-1] are DISJOINT (no element appears in both); no subproblem is ever recomputed, so caching provides zero benefit; DP only helps when the SAME subproblem (same inputs) recurs multiple times, which merge sort explicitly avoids by design (divide-and-conquer, not DP)"
+            ],
+            "answer": 3,
+            "explanation": "Matching the lesson's contrast: 'DP vs divide-and-conquer: subproblems overlap (DP) vs are independent (D&C)' and the merge sort comment: 'These are DISJOINT — no element appears in both halves. No subproblem is ever recomputed => no DP needed' — merge sort has optimal substructure but lacks the overlapping subproblems property, making it a divide-and-conquer algorithm rather than a DP candidate."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M1-SY-1",
+            "question": "In `fib_naive`, `return fib_naive(n-1) + fib_naive(n-2)` makes TWO recursive calls. Why does this lead to exponential O(2^n) time?",
+            "options": [
+              "Two calls always gives O(n²), not O(2^n)",
+              "Each call to fib_naive makes two MORE calls, forming a BINARY CALL TREE of depth n; at each level the number of calls doubles — level 0 has 1 call, level 1 has 2, level 2 has 4, ..., level n has up to 2^n calls; without caching, the same subproblems (like fib(2)) are recomputed many times across different branches with no result sharing",
+              "O(2^n) only applies when n > 30; for small n it's O(n)",
+              "The two calls are sequential, not concurrent, so the time is additive not multiplicative"
+            ],
+            "answer": 1,
+            "explanation": "The binary call tree explains the exponential growth: each non-base-case call spawns two children; at depth n the tree has up to 2^n leaves; without memoization, no computed result is reused, so the total work is proportional to the number of nodes in this tree ≈ 2^n; memoization collapses this to O(n) by computing each fib(k) exactly once."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M1-CC-1",
+            "title": "DP Conditions Identifier and Fibonacci Comparison",
+            "difficulty": "Beginner-Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement functions that demonstrate the core DP concepts from this lesson.",
+            "requirements": [
+              "Implement `fibNaive(n)` matching the lesson's naive recursive Fibonacci (O(2^n), no caching)",
+              "Implement `coinChangeDP(coins, amount)` using memoization — return minimum coins (or Infinity if impossible)",
+              "Implement `greedyCoinChange(coins, amount)` that always picks the largest coin first",
+              "Verify for [1,3,4] target=6: greedyCoinChange returns 3 and coinChangeDP returns 2"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function fibNaive(n) {\n  // TODO: O(2^n) recursive fibonacci — no caching\n}\n\nfunction coinChangeDP(coins, amount, memo = new Map()) {\n  // TODO: memoised minimum coins\n}\n\nfunction greedyCoinChange(coins, amount) {\n  // TODO: always pick largest coin that fits, return coin count\n}"
+            },
+            "test_cases": [
+              {
+                "input": "fibNaive(6)",
+                "expected": 8,
+                "type": "visible"
+              },
+              {
+                "input": "coinChangeDP([1,2,5], 11)",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "greedyCoinChange([1,3,4], 6)",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "coinChangeDP([1,3,4], 6)",
+                "expected": 2,
+                "type": "hidden"
+              },
+              {
+                "input": "fibNaive(1)",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function fibNaive(n) {\n  if (n <= 1) return n;\n  return fibNaive(n-1) + fibNaive(n-2);\n}\n\nfunction coinChangeDP(coins, amount, memo = new Map()) {\n  if (amount === 0) return 0;\n  if (amount < 0) return Infinity;\n  if (memo.has(amount)) return memo.get(amount);\n  let min = Infinity;\n  for (const coin of coins) {\n    const sub = coinChangeDP(coins, amount - coin, memo);\n    if (sub !== Infinity) min = Math.min(min, 1 + sub);\n  }\n  memo.set(amount, min);\n  return min;\n}\n\nfunction greedyCoinChange(coins, amount) {\n  const sorted = [...coins].sort((a,b) => b-a);\n  let count = 0;\n  for (const c of sorted) while (amount >= c) { amount -= c; count++; }\n  return count;\n}"
+            },
+            "complexity_analysis": "fibNaive: O(2^n) time, O(n) call stack. coinChangeDP: O(amount * coins.length) time, O(amount) space. greedyCoinChange: O(coins.length + amount/min_coin) time, O(1) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "fibNaive: simply return fibNaive(n-1)+fibNaive(n-2) with base cases n<=1; no caching."
+              },
+              {
+                "level": 2,
+                "text": "coinChangeDP: check memo first; try each coin with amount-coin recursively; store and return minimum."
+              },
+              {
+                "level": 3,
+                "text": "greedyCoinChange: sort coins descending; for each coin use while(amount>=coin) to subtract and count."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 2,
+      "title": "Memoization — Top Down DP",
+      "tag": "ADDED",
+      "objective": "Convert any recursive brute force into a top-down memoised solution in under 5 minutes using the three-step memoisation template.",
+      "concepts": [
+        "Top-down DP: start from the original problem, recurse down, cache on the way back",
+        "Cache structure: Map keyed by subproblem parameters",
+        "Three-step template: check cache, compute recursively, store and return",
+        "Cache key design: single parameter -> integer key, multiple -> string or tuple",
+        "When cache is hit: O(1) return instead of exponential subtree",
+        "Time complexity: O(unique subproblems * work per subproblem)",
+        "Space complexity: O(unique subproblems) for cache + O(depth) for call stack",
+        "Practical advantage: natural to derive, mirrors the recursive thought process"
+      ],
+      "explanation": "Top-down DP (memoisation) is the most natural way to implement DP because it follows the same recursive structure as the brute force. The process: write the naive recursive solution, identify the subproblem parameters, add a cache (Map) keyed by those parameters. At the start of every function call, check the cache. If the result is already there, return it immediately. Otherwise compute it (via the same recursion), store it in the cache, and return it. This three-step pattern works for any problem with overlapping subproblems. The cache key is the complete set of parameters that uniquely identify a subproblem. For single-integer problems like Fibonacci, the key is just n. For 2D problems like grid paths, the key is a string like '${row},${col}'. The time complexity becomes O(unique subproblems) * O(work per subproblem) because each subproblem is computed exactly once. The space is O(unique subproblems) for the cache plus O(recursion depth) for the call stack.",
+      "analogy": "Memoisation is the lazy evaluation approach to DP. You only compute a subproblem when you actually need it — hence 'top-down'. When you need fib(10), you ask fib(9) and fib(8). fib(9) asks fib(8) and fib(7). The first time fib(8) is computed, the result is written on a Post-it note. The second time fib(8) is needed, you just read the Post-it note. You never compute any value more than once, but you also never compute values you do not need.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// THREE-STEP MEMOISATION TEMPLATE\n// Step 1: check cache\n// Step 2: compute recursively (same as brute force)\n// Step 3: store in cache and return\n\n// FIBONACCI with memoisation: O(n) time, O(n) space\nfunction fib(n, memo = new Map()) {\n    if (n <= 1) return n;                    // base case\n    if (memo.has(n)) return memo.get(n);     // STEP 1: cache hit\n    const result = fib(n-1, memo) + fib(n-2, memo); // STEP 2: compute\n    memo.set(n, result);                     // STEP 3: store\n    return result;\n}\n// fib(10): each of fib(0)..fib(10) computed exactly once -> 11 calls total\n// Without memo: 2^10 = 1024 calls\n\n// COIN CHANGE with memoisation: minimum coins to make amount\nfunction coinChange(coins, amount, memo = new Map()) {\n    if (amount === 0) return 0;              // base: no coins needed\n    if (amount < 0)  return Infinity;        // base: invalid\n    if (memo.has(amount)) return memo.get(amount); // cache hit\n\n    let minCoins = Infinity;\n    for (const coin of coins) {\n        // Try using this coin: remaining = amount - coin\n        const sub = coinChange(coins, amount - coin, memo);\n        if (sub !== Infinity) {\n            minCoins = Math.min(minCoins, 1 + sub);\n        }\n    }\n    memo.set(amount, minCoins);              // store\n    return minCoins;\n}\n// coinChange([1,2,5], 11) -> 3 (5+5+1)\n// Unique subproblems: amounts 0..11 = 12 subproblems\n// Work per subproblem: O(coins.length) = O(3)\n// Total: O(amount * coins.length) = O(11 * 3) = O(33)\n\n// 2D MEMOISATION: grid path counting\nfunction uniquePaths(m, n, memo = new Map()) {\n    const key = `${m},${n}`;\n    if (m === 1 || n === 1) return 1;        // base: only one path along edge\n    if (memo.has(key)) return memo.get(key); // cache hit\n    const result = uniquePaths(m-1, n, memo) + uniquePaths(m, n-1, memo);\n    memo.set(key, result);\n    return result;\n}\n// uniquePaths(3,7) -> 28\n// Unique subproblems: m*n = 21\n// Total: O(m*n)",
+        "explanation": "The 2D key design '${m},${n}' uses string concatenation as a composite key. An alternative is a nested Map (Map of Maps) or encoding as m * MAX_N + n if dimensions are bounded. String keys are the safest and most readable for interviews; performance is acceptable for typical DP dimensions."
+      },
+      "common_mistakes": [
+        "Placing the cache check after the recursive calls instead of before them — the cache check must be the first operation (after base cases) so previously computed results are returned immediately without recursing",
+        "Using a global cache variable when the function is tested multiple times — a global cache from a previous call with different input will return stale results; always pass the memo as a parameter with a default value or create it fresh inside a wrapper",
+        "Not returning the stored value after storing it — forgetting the final return after memo.set causes the function to return undefined; always store AND return in the same expression or on consecutive lines"
+      ],
+      "interview_relevance": "Top-down memoisation is often the first DP approach interviewers accept because it mirrors the recursive structure they expect. 'Derive the recurrence, add memoisation, state the time and space complexity' is the three-step interview answer for any DP problem. The time complexity statement O(unique subproblems * work per subproblem) is specifically expected.",
+      "mini_challenge": "Apply the three-step memoisation template to these three problems: (1) Count the number of ways to reach the nth stair taking 1 or 2 steps at a time. (2) Find the minimum number of coins to make amount k from a set of coin denominations (coinChange above). (3) Count unique paths from top-left to bottom-right in an m x n grid moving only right or down. For each: write the recurrence, add memoisation, state the number of unique subproblems and the time complexity.",
+      "flashcards": [
+        {
+          "front": "Three-step memoisation template?",
+          "back": "1) CHECK CACHE: if (memo.has(key)) return memo.get(key). 2) COMPUTE: same recursive formula as brute force. 3) STORE AND RETURN: memo.set(key, result); return result. This order is mandatory — check first, compute second, store third."
+        },
+        {
+          "front": "Cache check placement: before or after base cases?",
+          "back": "AFTER base cases, BEFORE recursive calls. Order: (1) base cases, (2) cache check, (3) compute recursively, (4) store and return. Base cases don't need caching (they return directly). Cache check prevents redundant recursion."
+        },
+        {
+          "front": "Cache key for multi-parameter subproblems?",
+          "back": "Use a composite key. Common approaches: string '${row},${col}', number row * MAX_COL + col (if bounded), or nested Map (Map of Maps). String keys are safest and most readable in interviews."
+        },
+        {
+          "front": "Top-down time complexity formula?",
+          "back": "O(unique subproblems × work per subproblem). Each unique subproblem computed exactly once. Work per subproblem = work done excluding recursive calls (just the combination step)."
+        },
+        {
+          "front": "Top-down space complexity?",
+          "back": "O(unique subproblems) for the cache + O(recursion depth) for the call stack. Both matter — deep recursion with large cache = O(n) + O(n) = O(n) total."
+        },
+        {
+          "front": "Global vs parameter-passed cache — which is safer?",
+          "back": "PARAMETER-PASSED (memo = new Map() as default argument) is safer. A global cache persists between test calls with different inputs → stale results. Parameter-passed creates a fresh cache per top-level call."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Memoised fib(10): how many total recursive calls are made?",
+          "options": [
+            "10",
+            "~20 (each unique fib called once, plus one extra call per level)",
+            "1024 (2^10)",
+            "2"
+          ],
+          "answer": 1,
+          "explanation": "fib(10) calls fib(9) and fib(8). fib(9) calls fib(8) (cache miss, computed) and fib(7). fib(8) is now cached → 1 lookup. Each of fib(0)..fib(10) computed exactly once = 11 computations, each making 2 recursive calls = ~22 total calls. O(n) total."
+        },
+        {
+          "question": "Where MUST the cache check go?",
+          "options": [
+            "After computing the result (to cache it before returning)",
+            "After base cases but before any recursive calls",
+            "At the very start before even checking base cases",
+            "After all recursive calls return"
+          ],
+          "answer": 1,
+          "explanation": "After base cases (which return directly), before recursive calls (which we want to skip if cached). If cache check is after recursive calls, we've already done the work — no benefit."
+        },
+        {
+          "question": "Coin Change memo: key for subproblem 'minimum coins for amount=7'?",
+          "options": [
+            "'7'",
+            "7 (integer)",
+            "Both work — 7 as integer is sufficient since amount is the only parameter",
+            "A tuple of (coins, amount)"
+          ],
+          "answer": 2,
+          "explanation": "Amount is the only variable — the coins array is fixed across all calls. A single integer key (7) or string '7' both work. Coins don't need to be in the key because they're always the same set."
+        },
+        {
+          "question": "uniquePaths(m, n): why use '${m},${n}' as the key instead of just m+n?",
+          "options": [
+            "String keys are required for Maps",
+            "m+n is ambiguous: (3,1) and (1,3) both give sum=4 but have different answers",
+            "m*n would overflow",
+            "No reason — m+n would work equally well"
+          ],
+          "answer": 1,
+          "explanation": "m+n collision: uniquePaths(3,1)=1 but uniquePaths(1,3)=1 (same here by symmetry but conceptually different paths). More critically, (2,2) and (1,3) both sum to 4 but have different answers (2 vs 1). The composite '${m},${n}' key is unambiguous."
+        }
+      ],
+      "visual_aid": {
+        "type": "memo_template",
+        "description": "Three-step memoisation template with fib example",
+        "diagram": "THREE-STEP MEMOISATION TEMPLATE:\n\nfunction solve(params, memo = new Map()) {\n    // BASE CASES (always first)\n    if (base_condition) return base_value;\n\n    // STEP 1: CHECK CACHE\n    const key = params;  // or composite key\n    if (memo.has(key)) return memo.get(key);  // ← O(1) instead of O(2^n)\n\n    // STEP 2: COMPUTE (same as brute force)\n    const result = solve(smaller_params_1, memo)\n                 + solve(smaller_params_2, memo);\n\n    // STEP 3: STORE AND RETURN\n    memo.set(key, result);\n    return result;\n}\n\nFIBONACCI EXECUTION TRACE (n=4):\n  fib(4): cache MISS → call fib(3), fib(2)\n    fib(3): cache MISS → call fib(2), fib(1)\n      fib(2): cache MISS → call fib(1), fib(0)\n        fib(1): base → return 1\n        fib(0): base → return 0\n      fib(2) stores 1, returns 1\n    fib(1): base → return 1\n    fib(3) stores 2, returns 2\n  fib(2): cache HIT → return 1  ← no recursion!\n  fib(4) stores 3, returns 3"
+      },
+      "complexity_summary": {
+        "memoised_fibonacci": {
+          "time": "O(n)",
+          "space": "O(n) cache + O(n) stack"
+        },
+        "memoised_coin_change": {
+          "time": "O(amount × coins)",
+          "space": "O(amount)"
+        },
+        "memoised_unique_paths": {
+          "time": "O(m×n)",
+          "space": "O(m×n)"
+        },
+        "formula": "Time = O(unique subproblems × work per subproblem)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-70",
+          "title": "Climbing Stairs",
+          "difficulty": "Easy",
+          "pattern": "Fibonacci memoisation",
+          "blind75": true
+        },
+        {
+          "id": "lc-322",
+          "title": "Coin Change",
+          "difficulty": "Medium",
+          "pattern": "1D DP memoisation — classic",
+          "blind75": true
+        },
+        {
+          "id": "lc-62",
+          "title": "Unique Paths",
+          "difficulty": "Medium",
+          "pattern": "2D memoisation with composite key",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M2-TH-1",
+            "question": "What are the THREE STEPS of the memoization template, and what is the purpose of each?",
+            "options": [
+              "Initialise table, fill bottom-up, read result — this describes tabulation not memoization",
+              "Step 1 CHECK CACHE: if this subproblem was already solved, return its cached result in O(1) instead of recomputing; Step 2 COMPUTE RECURSIVELY: use the same recurrence as the brute force (natural, mirrors the recursive thought); Step 3 STORE AND RETURN: before returning, cache the result so future calls to this subproblem hit Step 1 — together these three steps transform O(2^n) naive recursion into O(unique subproblems * work per subproblem)",
+              "Check input validity, recurse into subtrees, backtrack",
+              "Build the DP table, apply transitions, extract answer from table corner"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's exact template: 'Step 1: check cache. Step 2: compute recursively (same as brute force). Step 3: store in cache and return' — the three steps are annotated directly in the fib memoization code; the structure is always the same regardless of the specific problem."
+          },
+          {
+            "id": "L2M2-TH-2",
+            "question": "For `uniquePaths(m,n)`, why is the cache key `${m},${n}` (a string) rather than just `m` or `n` separately?",
+            "options": [
+              "String keys are always required in JavaScript Maps",
+              "The subproblem is IDENTIFIED by BOTH m AND n together — uniquePaths(2,3) and uniquePaths(3,2) are DIFFERENT subproblems (different grid sizes); keying on only one dimension would create CACHE COLLISIONS where different subproblems overwrite each other's results; the composite key `${m},${n}` ensures each unique (m,n) pair maps to exactly one cache entry",
+              "String keys are faster than integer keys in JavaScript Maps",
+              "The key must be a string because m and n could be 0"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Cache key design: single parameter → integer key, multiple → string or tuple' — when a subproblem has multiple parameters, the cache key must encode ALL parameters; using only one dimension would incorrectly treat (2,3) and (3,2) as the same subproblem."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M2-LG-1",
+            "question": "For `fib(10)` with memoization, the lesson claims 'each of fib(0)..fib(10) computed exactly once → 11 calls total'. Why is fib(7) computed only once?",
+            "options": [
+              "fib(7) is called multiple times but the redundant calls are fast due to caching",
+              "The first time fib(7) is encountered in the recursion, it computes and stores its result in the memo map; ALL SUBSEQUENT encounters find fib(7) already in the map (Step 1 cache hit) and return in O(1) without any further recursion; the cache ensures the exponential call tree collapses into a LINEAR chain of unique computations — each of fib(0)..fib(10) truly computed exactly once",
+              "fib(7) is never needed to compute fib(10)",
+              "The cache check prevents fib(7) from being called from fib(8) at all"
+            ],
+            "answer": 1,
+            "explanation": "The memoization guarantee: FIRST visit computes and caches; ALL SUBSEQUENT visits find the value in cache and return O(1); since fib(k) for any k is only truly computed once (subsequent encounters are cache hits), the total actual computations are exactly fib(0), fib(1), ..., fib(10) = 11."
+          },
+          {
+            "id": "L2M2-LG-2",
+            "question": "For `coinChange([1,2,5], amount=11)` with memoization, what is the time complexity and why?",
+            "options": [
+              "O(3) — one computation per coin denomination",
+              "O(amount * coins.length) = O(12 * 3) = O(36) — 12 unique subproblems (amounts 0..11), each requiring O(coins.length)=O(3) work to try all coins; the memo ensures each amount is processed at most once; confirmed by the lesson's comment: 'Unique subproblems: amounts 0..11 = 12 subproblems. Work per subproblem: O(coins.length) = O(3)'",
+              "O(2^11) — exponential in the amount",
+              "O(11) — linear in the amount only"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's exact comment: 'Unique subproblems: amounts 0..11 = 12 subproblems. Work per subproblem: O(coins.length) = O(3). Total: O(amount * coins.length) = O(11 * 3) = O(33)' — each distinct amount is one unique subproblem; for each, we try all coins; memoization ensures each amount is processed at most once."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M2-SY-1",
+            "question": "In `coinChange(coins, amount, memo = new Map())`, passing `memo` as a parameter with a default value is essential. Why would creating `memo` INSIDE the function body fail?",
+            "options": [
+              "Creating the map inside would cause JavaScript syntax errors",
+              "If `memo` were created INSIDE `coinChange`, every recursive call would create a FRESH empty map — cached values from parent calls would be invisible to sibling recursive calls; passing `memo` as a parameter means ALL recursive calls share the SAME map instance, so a cache entry set during one branch is visible from any other branch; the default value `= new Map()` handles the initial top-level call without requiring the caller to pass a map explicitly",
+              "The map must be a parameter to allow multiple concurrent calls",
+              "Passing memo as parameter makes it const, preventing accidental overwrites"
+            ],
+            "answer": 1,
+            "explanation": "The shared memo Map must persist across all recursive calls in a single computation; creating it inside would give each call its own empty map (isolation), defeating memoization; the parameter default `= new Map()` is idiomatic JavaScript: same-instance sharing for recursive calls, fresh instance for top-level calls."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M2-CC-1",
+            "title": "Memoization Template: Fibonacci, CoinChange, and UniquePaths",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement all three memoized solutions from this lesson.",
+            "requirements": [
+              "Implement `fibMemo(n, memo=new Map())` matching the lesson's three-step template exactly",
+              "Implement `coinChangeMemo(coins, amount, memo=new Map())` matching the lesson — returns Infinity if impossible",
+              "Implement `uniquePathsMemo(m, n, memo=new Map())` using composite string key"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function fibMemo(n, memo = new Map()) {\n  // TODO: three-step memoization template\n}\n\nfunction coinChangeMemo(coins, amount, memo = new Map()) {\n  // TODO: three-step; return Infinity if impossible\n}\n\nfunction uniquePathsMemo(m, n, memo = new Map()) {\n  // TODO: composite string key, base case m===1||n===1\n}"
+            },
+            "test_cases": [
+              {
+                "input": "fibMemo(10)",
+                "expected": 55,
+                "type": "visible"
+              },
+              {
+                "input": "coinChangeMemo([1,2,5], 11)",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "uniquePathsMemo(3, 7)",
+                "expected": 28,
+                "type": "visible"
+              },
+              {
+                "input": "fibMemo(0)",
+                "expected": 0,
+                "type": "hidden"
+              },
+              {
+                "input": "coinChangeMemo([2], 3) === Infinity",
+                "expected": true,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function fibMemo(n, memo = new Map()) {\n  if (n <= 1) return n;\n  if (memo.has(n)) return memo.get(n);\n  const result = fibMemo(n-1, memo) + fibMemo(n-2, memo);\n  memo.set(n, result);\n  return result;\n}\n\nfunction coinChangeMemo(coins, amount, memo = new Map()) {\n  if (amount === 0) return 0;\n  if (amount < 0) return Infinity;\n  if (memo.has(amount)) return memo.get(amount);\n  let min = Infinity;\n  for (const coin of coins) {\n    const sub = coinChangeMemo(coins, amount - coin, memo);\n    if (sub !== Infinity) min = Math.min(min, 1 + sub);\n  }\n  memo.set(amount, min);\n  return min;\n}\n\nfunction uniquePathsMemo(m, n, memo = new Map()) {\n  const key = `${m},${n}`;\n  if (m === 1 || n === 1) return 1;\n  if (memo.has(key)) return memo.get(key);\n  const result = uniquePathsMemo(m-1, n, memo) + uniquePathsMemo(m, n-1, memo);\n  memo.set(key, result);\n  return result;\n}"
+            },
+            "complexity_analysis": "fibMemo: O(n) time, O(n) space. coinChangeMemo: O(amount*coins.length) time, O(amount) space. uniquePathsMemo: O(m*n) time, O(m*n) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Three-step template: check cache (memo.has), compute (recurse), store (memo.set) — apply identically to all three functions."
+              },
+              {
+                "level": 2,
+                "text": "coinChangeMemo: try each coin with amount-coin; only update min if sub !== Infinity."
+              },
+              {
+                "level": 3,
+                "text": "uniquePathsMemo: key = `${m},${n}`; base case returns 1 when either dimension is 1; recurse on (m-1,n) + (m,n-1)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 3,
+      "title": "Tabulation — Bottom Up DP",
+      "tag": "ADDED",
+      "objective": "Convert any memoised solution into a bottom-up tabulation that eliminates recursion overhead, and identify when space optimisation reduces the DP table from O(n) to O(1).",
+      "concepts": [
+        "Bottom-up DP: fill a table from base cases up to the target",
+        "Table initialisation: set base case values before the loop",
+        "Transition order: must compute smaller subproblems before larger ones",
+        "Topological order: the computation order implied by the recurrence",
+        "Space optimisation: if only previous row/values needed, discard the rest",
+        "O(1) space: when recurrence only references a constant number of prior values",
+        "Advantages over top-down: no call stack, no recursion limit, often faster",
+        "Disadvantages: less intuitive to derive, must determine table fill order"
+      ],
+      "explanation": "Bottom-up DP (tabulation) fills a table iteratively starting from the base cases and building up to the answer. Instead of starting from the target problem and recursing down, you start from the smallest subproblems and work up. The process: create a dp array sized for all subproblems, initialise the base case positions, then fill the table in an order where each cell's required predecessors are already computed. For Fibonacci: dp[0] = 0, dp[1] = 1, then for i from 2 to n: dp[i] = dp[i-1] + dp[i-2]. The final answer is dp[n]. Bottom-up avoids recursion stack overhead and is often faster in practice due to better cache locality. Space optimisation: if dp[i] only depends on dp[i-1] and dp[i-2], you do not need the full array. Two variables suffice: prev2 and prev1, updated on each step. This reduces space from O(n) to O(1). The topological order of computation is the key insight: you must fill the table in an order where all dependencies of dp[i] are filled before dp[i] is computed.",
+      "analogy": "Bottom-up DP is the eager approach versus top-down's lazy approach. A student preparing for a cumulative exam fills in a study sheet starting from the most basic concepts and building up: first memorise individual formulas (base cases), then derive compound formulas from simpler ones (transitions), until all exam topics are covered. They do not wait to be asked a specific question; they pre-compute everything in the right order.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// FIBONACCI: top-down -> bottom-up conversion\n\n// Top-down (memo): natural but O(n) call stack\n// Bottom-up: iterative, O(n) space initially\nfunction fib_bottomUp(n) {\n    if (n <= 1) return n;\n    const dp = new Array(n + 1);\n    dp[0] = 0; dp[1] = 1;           // base cases\n    for (let i = 2; i <= n; i++) {\n        dp[i] = dp[i-1] + dp[i-2]; // transition\n    }\n    return dp[n];\n}\n// Space: O(n) for the dp array\n\n// SPACE OPTIMISED: O(1) — only two previous values needed\nfunction fib_optimal(n) {\n    if (n <= 1) return n;\n    let prev2 = 0, prev1 = 1;\n    for (let i = 2; i <= n; i++) {\n        const curr = prev1 + prev2;\n        prev2 = prev1;              // slide window\n        prev1 = curr;\n    }\n    return prev1;\n}\n// Space: O(1) — only two variables regardless of n\n\n// COIN CHANGE: top-down -> bottom-up\nfunction coinChange_bottomUp(coins, amount) {\n    // dp[i] = minimum coins to make amount i\n    const dp = new Array(amount + 1).fill(Infinity);\n    dp[0] = 0; // base case: 0 coins to make amount 0\n\n    for (let amt = 1; amt <= amount; amt++) {\n        for (const coin of coins) {\n            if (coin <= amt && dp[amt - coin] !== Infinity) {\n                dp[amt] = Math.min(dp[amt], 1 + dp[amt - coin]);\n            }\n        }\n    }\n    return dp[amount] === Infinity ? -1 : dp[amount];\n}\n// dp[1..amount] filled left to right\n// Each dp[amt] uses dp[amt-coin] which was filled earlier (amt-coin < amt)\n// This topological order is correct: smaller amounts before larger\n\nconsole.log(fib_optimal(10));                // 55\nconsole.log(coinChange_bottomUp([1,2,5], 11)); // 3 (5+5+1)\n\n// COMPARISON: top-down vs bottom-up for same problem\n// Top-down:   O(n) time, O(n) space (cache) + O(n) space (call stack)\n// Bottom-up:  O(n) time, O(n) space (table), no call stack\n// Optimised:  O(n) time, O(1) space, no call stack — best for 1D recurrence",
+        "explanation": "Coin Change initialises dp with Infinity (not -1 or 0) so that dp[amt - coin] + 1 correctly propagates: Infinity + 1 overflows in some languages. In JavaScript, Infinity + 1 = Infinity, which is safe. The guard if (dp[amt - coin] !== Infinity) prevents updating dp[amt] with an unreachable intermediate value. Always initialise unreachable states as Infinity (for minimisation) or -Infinity (for maximisation)."
+      },
+      "common_mistakes": [
+        "Filling the dp table in the wrong order — for a recurrence dp[i] = f(dp[i-1], dp[i-2]), fill left-to-right so smaller indices (dependencies) are filled before larger indices; filling right-to-left would use unfilled values",
+        "Initialising base cases incorrectly — the Infinity initialisation for Coin Change means dp[0] = 0 (base) and all others start as unreachable; if you initialise all to 0, the minimum will incorrectly be 0 for every amount",
+        "Forgetting to check for Infinity before returning — if dp[amount] is still Infinity after filling, the amount cannot be achieved; return -1 or 0 as appropriate for the problem"
+      ],
+      "interview_relevance": "Interviewers often ask 'can you convert this to bottom-up?' after a memoised solution. The conversion demonstrates that you understand the dependency structure, not just the recursive pattern. Space optimisation (O(n) -> O(1)) is specifically asked for at senior roles: 'can you reduce the space complexity?' The answer is always: 'if the recurrence only looks back a constant number of steps, a rolling variable suffices.'",
+      "mini_challenge": "Convert your memoised Climbing Stairs and Coin Change solutions to bottom-up tabulation. For Climbing Stairs, apply the space optimisation to achieve O(1) space. For Coin Change, verify the fill order is correct by tracing dp[0] through dp[6] for coins=[1,2,5] and amount=6. Then answer: can Coin Change be space-optimised to O(1)? Why or why not? (Hint: dp[amt] depends on dp[amt-coin] for each coin; the lookback distance varies, not fixed at 1 or 2.)",
+      "flashcards": [
+        {
+          "front": "Bottom-up DP: three steps?",
+          "back": "1) Create dp array of correct size and fill with sentinel (0, Infinity, etc.). 2) Initialise BASE CASE values in the array. 3) Fill dp in TOPOLOGICAL ORDER — smaller subproblems before larger. Return dp[target]."
+        },
+        {
+          "front": "Topological order in tabulation: what does it mean?",
+          "back": "Fill the table in an order where every dp[i]'s DEPENDENCIES are already filled before dp[i] is computed. For dp[i] = f(dp[i-1], dp[i-2]): fill left-to-right so i-1 and i-2 are always ready."
+        },
+        {
+          "front": "Space optimisation: when can you go from O(n) to O(1)?",
+          "back": "When the recurrence only references a CONSTANT number of previous values. dp[i] = f(dp[i-1], dp[i-2]) → 2 variables suffice. dp[i] = f(dp[j] for all j < i) → cannot reduce below O(n) because you need all previous values."
+        },
+        {
+          "front": "Coin Change bottom-up initialisation?",
+          "back": "dp = new Array(amount+1).fill(Infinity). dp[0] = 0 (0 coins to make 0). Fill left-to-right. For each amt from 1 to amount, for each coin: if coin ≤ amt and dp[amt-coin] ≠ Infinity: dp[amt] = min(dp[amt], 1 + dp[amt-coin])."
+        },
+        {
+          "front": "Bottom-up vs top-down: practical differences?",
+          "back": "Bottom-up: no call stack → no recursion limit, faster in practice (no function call overhead). Top-down: only computes needed subproblems (lazy), more natural to derive. Both have same asymptotic complexity."
+        },
+        {
+          "front": "Why initialise dp with Infinity for minimisation problems?",
+          "back": "Infinity represents 'unreachable/impossible'. When you take min(dp[amt], 1+dp[amt-coin]): if dp[amt-coin] is Infinity (unreachable), 1+Infinity=Infinity, and min(Infinity, Infinity)=Infinity — correctly leaves dp[amt] as unreachable."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Fibonacci bottom-up, n=5: dp=[0,1,?,?,?,?]. What is dp[2]?",
+          "options": [
+            "0",
+            "1",
+            "2",
+            "3"
+          ],
+          "answer": 1,
+          "explanation": "dp[2] = dp[1] + dp[0] = 1 + 0 = 1. Then dp[3]=dp[2]+dp[1]=1+1=2, dp[4]=2+1=3, dp[5]=3+2=5."
+        },
+        {
+          "question": "Coin Change: coins=[1,2,5], amount=6. What is dp[3]?",
+          "options": [
+            "2",
+            "3",
+            "1",
+            "Infinity"
+          ],
+          "answer": 0,
+          "explanation": "dp[0]=0. dp[1]=1 (one 1-coin). dp[2]=1 (one 2-coin). dp[3]=min(1+dp[2], 1+dp[1], 1+dp[-2]=skip) = min(1+1, 1+1) = 2. Two ways: 1+2 or 2+1 (same). dp[3]=2."
+        },
+        {
+          "question": "dp[i] = max(dp[i-1], dp[i-3]) + arr[i]. Can this be space-optimised to O(1)?",
+          "options": [
+            "Yes — only references 2 previous values",
+            "Yes — only references constant number of previous values (i-1 and i-3 = 2 values)",
+            "No — dp[i-3] requires keeping 3 previous values → O(3)=O(1) with 3 variables",
+            "No — depends on array size"
+          ],
+          "answer": 2,
+          "explanation": "Yes, O(1) space with 3 rolling variables (curr, prev1=dp[i-1], prev3=dp[i-3]). But need a window of size 3 not 2. Still O(1) since it's a constant number of variables regardless of n."
+        },
+        {
+          "question": "Bottom-up Fibonacci: why fill left-to-right (not right-to-left)?",
+          "options": [
+            "Arrays are accessed faster left-to-right",
+            "dp[i] depends on dp[i-1] and dp[i-2], which are at smaller indices — must be filled first",
+            "JavaScript evaluates loops left-to-right by default",
+            "No reason — both orders give correct results"
+          ],
+          "answer": 1,
+          "explanation": "Topological order: dp[i] needs dp[i-1] and dp[i-2]. If filling right-to-left, when computing dp[5] we'd need dp[4] and dp[3] — which haven't been computed yet. Left-to-right ensures dependencies are always ready."
+        }
+      ],
+      "visual_aid": {
+        "type": "table_fill",
+        "description": "Bottom-up DP table fill for Fibonacci and Coin Change",
+        "diagram": "FIBONACCI BOTTOM-UP (n=6):\n  Index: 0  1  2  3  4  5  6\n  dp:    0  1  1  2  3  5  8\n  Fill order: → (left to right)\n  dp[2]=dp[1]+dp[0]=1+0=1\n  dp[3]=dp[2]+dp[1]=1+1=2\n  ...\n  dp[6]=dp[5]+dp[4]=5+3=8 ✓\n\nCOIN CHANGE (coins=[1,2,5], amount=6):\n  Init: dp=[0, ∞, ∞, ∞, ∞, ∞, ∞]\n  amt=1: coin=1: dp[1]=min(∞,1+dp[0])=1\n         coin=2: 2>1 skip. coin=5: 5>1 skip.\n  amt=2: coin=1: dp[2]=min(∞,1+dp[1])=2\n         coin=2: dp[2]=min(2,1+dp[0])=1 ← better!\n  amt=3: coin=1→2+1=3? coin=2→1+1=2 better\n  dp=[0, 1, 1, 2, 2, 1, 2]\n  dp[6]=2 (two 3's? no: 5+1=2, or 2+2+2=3 — answer=2)\n  Wait: dp[5]=1 (one 5-coin). dp[6]=1+dp[1]=1+1=2 ✓\n\nSPACE OPTIMISATION (Fibonacci):\n  Before: dp[0..n] array → O(n)\n  After:  prev2=0, prev1=1, slide → O(1)\n  Only keep what you need!"
+      },
+      "complexity_summary": {
+        "fibonacci_bottomup": {
+          "time": "O(n)",
+          "space": "O(n) table or O(1) optimised"
+        },
+        "coin_change_bottomup": {
+          "time": "O(amount × coins)",
+          "space": "O(amount) — cannot optimise further"
+        },
+        "unique_paths_bottomup": {
+          "time": "O(m×n)",
+          "space": "O(m×n) or O(n) row optimised"
+        },
+        "space_opt_rule": "O(1) when recurrence uses constant lookback; O(n) when lookback varies"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-70",
+          "title": "Climbing Stairs — bottom-up + O(1) space",
+          "difficulty": "Easy",
+          "pattern": "Tabulation with space optimisation",
+          "blind75": true
+        },
+        {
+          "id": "lc-322",
+          "title": "Coin Change — bottom-up tabulation",
+          "difficulty": "Medium",
+          "pattern": "1D DP fill with Infinity sentinel",
+          "blind75": true
+        },
+        {
+          "id": "lc-746",
+          "title": "Min Cost Climbing Stairs",
+          "difficulty": "Easy",
+          "pattern": "Bottom-up with correct base cases",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M3-TH-1",
+            "question": "What is the critical difference between top-down memoization and bottom-up tabulation regarding CALL STACK usage?",
+            "options": [
+              "Both approaches use the same call stack depth; there is no practical difference",
+              "TOP-DOWN uses RECURSION, consuming O(depth) call stack space — for large n (e.g., n=100,000), deep recursion hits JavaScript's stack limit and throws a RangeError; BOTTOM-UP uses ITERATION with no recursive calls, consuming only constant loop variable space regardless of n; this makes tabulation robust for large inputs where memoization would overflow the stack",
+              "Top-down always has a smaller call stack than bottom-up",
+              "Stack overflow only occurs in infinite recursion, not in memoized DP"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Advantages over top-down: no call stack, no recursion limit, often faster' — memoization's recursive structure consumes O(n) call stack space for a depth-n recursion, causing stack overflows for large inputs; tabulation's iterative loops use constant stack space."
+          },
+          {
+            "id": "L2M3-TH-2",
+            "question": "What is SPACE OPTIMISATION in tabulation, and when is it applicable?",
+            "options": [
+              "Space optimisation always reduces DP to O(1) space",
+              "When the DP recurrence only references a CONSTANT NUMBER of prior values (e.g., dp[i] = f(dp[i-1], dp[i-2]) only needs two prior values), the full table can be replaced by just those few rolling variables — reducing from O(n) space to O(1); applicable whenever the 'window' of prior values needed is fixed and small; for 2D DP, space can be reduced from O(m*n) to O(n) (one row) but not to O(1)",
+              "Space optimisation eliminates the need for a DP table entirely and uses greedy",
+              "Space optimisation is applied by default in modern JavaScript engines"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Space optimisation: if only previous row/values needed, discard the rest' and 'O(1) space: when recurrence only references a constant number of prior values' — Fibonacci's dp[i]=dp[i-1]+dp[i-2] only needs two previous values, enabling the O(1) rolling-variable approach shown in `fib_optimal`."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M3-LG-1",
+            "question": "Trace `coinChange_bottomUp([1,2,5], 11)`. What are `dp[5]`, `dp[6]`, and `dp[11]`?",
+            "options": [
+              "dp[5]=5, dp[6]=4, dp[11]=11",
+              "dp[5]=1 (one 5-coin), dp[6]=2 (5+1), dp[11]=3 (5+5+1) — the table fills left to right, each dp[amt] taking the minimum over all coins of 1+dp[amt-coin]",
+              "dp[5]=5, dp[6]=3, dp[11]=11",
+              "dp[5]=1, dp[6]=3, dp[11]=2"
+            ],
+            "answer": 1,
+            "explanation": "Tracing: dp[5]=min(1+dp[4],1+dp[3],1+dp[0])=min(2,2,1)=1 (one 5-coin); dp[6]=min(1+dp[5],1+dp[4],1+dp[1])=min(2,2,6)=2 (5+1); dp[11]=min(1+dp[10],1+dp[9],1+dp[6])=min(3,3,3)=3 (5+5+1); confirmed by direct execution returning 3."
+          },
+          {
+            "id": "L2M3-LG-2",
+            "question": "In `fib_optimal`, the loop body is `const curr = prev1 + prev2; prev2 = prev1; prev1 = curr`. Why must `prev2 = prev1` happen BEFORE `prev1 = curr`?",
+            "options": [
+              "The order doesn't matter; both assignments are independent",
+              "If `prev1 = curr` happened first, then `prev2 = prev1` would set prev2 to the NEW curr value (not the old prev1); the old prev1 would be lost before being saved to prev2, making both variables hold the same wrong value; correct order: save old prev1 to prev2 FIRST, then update prev1 to curr",
+              "prev2 must be updated first due to JavaScript's left-to-right evaluation",
+              "prev1 = curr must come first to compute curr from the old values"
+            ],
+            "answer": 1,
+            "explanation": "The assignment order matters because `prev1` is both read (for prev2's new value) and written (with curr) in the same step; `prev2 = prev1` must read prev1's OLD value before it's overwritten; if prev1 were updated first, prev2 would incorrectly receive the new curr — the same save-before-overwrite discipline as linked list pointer manipulation."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M3-SY-1",
+            "question": "In `coinChange_bottomUp`, `new Array(amount + 1).fill(Infinity)` initialises all positions to Infinity, then `dp[0] = 0`. Why is Infinity the correct initial value rather than 0 or -1?",
+            "options": [
+              "Infinity is used because JavaScript requires non-null array values",
+              "Infinity represents 'not yet reachable / no valid solution found yet' — when taking Math.min(dp[amt], 1+dp[amt-coin]), an Infinity in dp[amt] means no valid solution found yet (any valid result replaces it correctly); using 0 would falsely indicate all amounts are free; dp[0]=0 is the only confirmed base case; the final check `dp[amount]===Infinity?-1:dp[amount]` converts still-Infinity results to -1 for the LeetCode format",
+              "Infinity is used as a sentinel that JavaScript converts to -1 automatically",
+              "0 is the correct initial value; Infinity would cause incorrect results"
+            ],
+            "answer": 1,
+            "explanation": "Infinity as the initial value serves as a 'not-reachable' sentinel: Math.min(Infinity, 1+valid) = 1+valid (correct update); Math.min(Infinity, Infinity) = Infinity (stays unreachable); the `dp[amount-coin] !== Infinity` guard prevents propagating infinity into invalid paths."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M3-CC-1",
+            "title": "Tabulation: Fibonacci Variants and CoinChange Bottom-Up",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement all three bottom-up DP solutions from this lesson.",
+            "requirements": [
+              "Implement `fibBottomUp(n)` using the O(n) table approach",
+              "Implement `fibOptimal(n)` using the O(1) rolling variables approach",
+              "Implement `coinChangeBottomUp(coins, amount)` matching the lesson's tabulation (return -1 if impossible)"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function fibBottomUp(n) {\n  // TODO: O(n) table, fill from base cases\n}\n\nfunction fibOptimal(n) {\n  // TODO: O(1) space, rolling prev2/prev1\n}\n\nfunction coinChangeBottomUp(coins, amount) {\n  // TODO: dp table filled left to right, return -1 if impossible\n}"
+            },
+            "test_cases": [
+              {
+                "input": "fibBottomUp(10)",
+                "expected": 55,
+                "type": "visible"
+              },
+              {
+                "input": "fibOptimal(10)",
+                "expected": 55,
+                "type": "visible"
+              },
+              {
+                "input": "coinChangeBottomUp([1,2,5], 11)",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "coinChangeBottomUp([2], 3)",
+                "expected": -1,
+                "type": "hidden"
+              },
+              {
+                "input": "fibOptimal(0)",
+                "expected": 0,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function fibBottomUp(n) {\n  if (n <= 1) return n;\n  const dp = new Array(n + 1);\n  dp[0] = 0; dp[1] = 1;\n  for (let i = 2; i <= n; i++) dp[i] = dp[i-1] + dp[i-2];\n  return dp[n];\n}\n\nfunction fibOptimal(n) {\n  if (n <= 1) return n;\n  let prev2 = 0, prev1 = 1;\n  for (let i = 2; i <= n; i++) {\n    const curr = prev1 + prev2;\n    prev2 = prev1;\n    prev1 = curr;\n  }\n  return prev1;\n}\n\nfunction coinChangeBottomUp(coins, amount) {\n  const dp = new Array(amount + 1).fill(Infinity);\n  dp[0] = 0;\n  for (let amt = 1; amt <= amount; amt++) {\n    for (const coin of coins) {\n      if (coin <= amt && dp[amt - coin] !== Infinity) {\n        dp[amt] = Math.min(dp[amt], 1 + dp[amt - coin]);\n      }\n    }\n  }\n  return dp[amount] === Infinity ? -1 : dp[amount];\n}"
+            },
+            "complexity_analysis": "fibBottomUp: O(n) time, O(n) space. fibOptimal: O(n) time, O(1) space. coinChangeBottomUp: O(amount*coins.length) time, O(amount) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "fibBottomUp: dp[0]=0, dp[1]=1; loop i from 2 to n setting dp[i]=dp[i-1]+dp[i-2]."
+              },
+              {
+                "level": 2,
+                "text": "fibOptimal: prev2=0, prev1=1; inside the loop: curr=prev1+prev2, then prev2=prev1 (BEFORE prev1=curr)."
+              },
+              {
+                "level": 3,
+                "text": "coinChangeBottomUp: initialise with Infinity, dp[0]=0; for each amount try all coins; guard with coin<=amt AND dp[amt-coin]!==Infinity."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 4,
+      "title": "Climbing Stairs And Fibonacci DP",
+      "tag": "ADDED",
+      "objective": "Solve Climbing Stairs and all Fibonacci-family DP problems using both memoisation and tabulation, and recognise the Fibonacci recurrence pattern in disguised forms.",
+      "concepts": [
+        "Climbing Stairs: dp[n] = dp[n-1] + dp[n-2], base dp[1]=1 dp[2]=2",
+        "Fibonacci family: any recurrence of form f(n) = f(n-1) + f(n-2)",
+        "Min Cost Climbing Stairs: choose which stair to leave from",
+        "Variable step sizes: dp[n] = sum of dp[n-k] for all valid k",
+        "Decode Ways: conditional transitions based on digit validity",
+        "Word Break: dictionary lookup as the transition condition",
+        "O(n) time, O(1) space for all 1D two-step recurrences",
+        "Recognition signal: 'ways to reach nth step' or 'nth term of sequence'"
+      ],
+      "explanation": "Climbing Stairs is the gateway DP problem. You can climb 1 or 2 steps at a time. How many distinct ways to reach the nth stair? The recurrence: to reach stair n, you either came from stair n-1 (one step) or stair n-2 (two steps). Total ways to reach n = ways to reach n-1 + ways to reach n-2. This is identical to Fibonacci. Base cases: dp[1] = 1 (one way: take one step), dp[2] = 2 (two ways: 1+1 or 2). The Fibonacci recurrence appears in many disguised forms: Min Cost Climbing Stairs (minimum cost instead of count), Decode Ways (count valid decodings of a digit string), Word Break (can a string be segmented into dictionary words), and any problem where you can arrive at state n from states n-1 and n-2. The recognition signal: 'how many ways' or 'minimum cost' to reach a target, where you can advance by 1 or 2 at each step.",
+      "analogy": "Climbing Stairs teaches you the DP pattern through the simplest possible problem. Once you see that 'ways to reach step n' depends on 'ways to reach step n-1' and 'ways to reach step n-2', you have identified the recurrence. Once you identify the recurrence, the memoisation or tabulation is mechanical. The entire craft of DP is recurrence identification. Climbing Stairs trains that identification reflex.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// CLIMBING STAIRS (#70) — O(n) time, O(1) space\nfunction climbStairs(n) {\n    if (n <= 2) return n;\n    let prev2 = 1, prev1 = 2; // dp[1]=1, dp[2]=2\n    for (let i = 3; i <= n; i++) {\n        const curr = prev1 + prev2;\n        prev2 = prev1;\n        prev1 = curr;\n    }\n    return prev1;\n}\n// climbStairs(4): 1,2,3,5 -> 5 ways\n// dp[3]=dp[2]+dp[1]=2+1=3, dp[4]=dp[3]+dp[2]=3+2=5\n\n// MIN COST CLIMBING STAIRS (#746) — choose which step to leave from\nfunction minCostClimbingStairs(cost) {\n    const n = cost.length;\n    const dp = new Array(n + 1).fill(0); // dp[n] = min cost to reach step n (top)\n    // dp[0]=0, dp[1]=0: can start at step 0 or 1 for free\n    for (let i = 2; i <= n; i++) {\n        // Come from step i-1 (pay cost[i-1]) or step i-2 (pay cost[i-2])\n        dp[i] = Math.min(dp[i-1] + cost[i-1], dp[i-2] + cost[i-2]);\n    }\n    return dp[n]; // cost to reach the top (beyond the last step)\n}\n// cost=[10,15,20]: dp=[0,0,10,15,20] -> dp[3] at top\n// dp[2]=min(0+10, 0+15)=10. dp[3]=min(10+15, 0+20)=20. Answer=20? No:\n// dp[3]=min(dp[2]+cost[2], dp[1]+cost[1])=min(10+20,0+15)=15\n\n// DECODE WAYS (#91) — conditional Fibonacci with char validation\nfunction numDecodings(s) {\n    const n = s.length;\n    if (s[0] === '0') return 0; // leading zero: no valid decoding\n    const dp = new Array(n + 1).fill(0);\n    dp[0] = 1; // empty string: 1 way\n    dp[1] = 1; // first char: 1 way (already checked non-zero)\n\n    for (let i = 2; i <= n; i++) {\n        // Single digit: s[i-1] is '1'-'9'\n        if (s[i-1] !== '0') dp[i] += dp[i-1];\n        // Two digits: s[i-2..i-1] is '10'-'26'\n        const twoDigit = Number(s.slice(i-2, i));\n        if (twoDigit >= 10 && twoDigit <= 26) dp[i] += dp[i-2];\n    }\n    return dp[n];\n}\n// '226': dp=[1,1,2,3] -> 3 ways: (2,2,6),(22,6),(2,26)\n// '06':  returns 0 immediately (leading zero)\n\nconsole.log(climbStairs(5));                     // 8\nconsole.log(minCostClimbingStairs([10,15,20]));  // 15\nconsole.log(numDecodings('226'));                 // 3",
+        "explanation": "Decode Ways has the Fibonacci structure but with conditional transitions: single-digit transition is valid only if the digit is not '0'; two-digit transition is valid only if the two-digit number is between 10 and 26. The conditional check on the transition is the mechanism that handles invalid character sequences. Every '0' in the input requires careful handling."
+      },
+      "common_mistakes": [
+        "Setting the base case dp[1] = 1 and dp[2] = 1 for Climbing Stairs instead of dp[1] = 1 and dp[2] = 2 — there is 1 way to reach step 1 (one single step), but 2 ways to reach step 2 (one step twice, or one two-step); verify with a small example before coding",
+        "Not handling the '0' edge cases in Decode Ways — '0' alone is not a valid encoding; a '0' can only appear as the second digit of '10' or '20'; s[i-1] === '0' disables the single-digit transition",
+        "Confusing the index offset in Min Cost Climbing Stairs — dp[n] represents the top floor above the last step; the transition uses cost[i-1] and cost[i-2] (0-indexed cost array vs 1-indexed dp array); off-by-one here is the most common bug"
+      ],
+      "interview_relevance": "Climbing Stairs (#70), Min Cost Climbing Stairs (#746), and Decode Ways (#91) are all Blind 75 / NeetCode 150 problems. They are the canonical 1D Fibonacci-family DP problems used as filters at every company. Being able to derive the recurrence without prompting, implement in O(n) time O(1) space, and handle the Decode Ways edge cases is the expected standard.",
+      "mini_challenge": "Implement all three functions above without looking at the code. Trace dp arrays manually for climbStairs(5) (answer: 8), minCostClimbingStairs([10,15,20]) (answer: 15), and numDecodings('226') (answer: 3). Then extend climbStairs to k steps: given you can take 1, 2, ..., or k steps at a time, find the number of ways to reach step n. The recurrence is dp[n] = sum of dp[n-1] through dp[n-k]. State the time and space complexity for this generalisation.",
+      "flashcards": [
+        {
+          "front": "Climbing Stairs recurrence and base cases?",
+          "back": "dp[n] = dp[n-1] + dp[n-2]. Base: dp[1] = 1 (one way: take 1 step), dp[2] = 2 (two ways: 1+1 or 2). Space-optimised: two rolling variables. O(n) time, O(1) space."
+        },
+        {
+          "front": "Min Cost Climbing Stairs: what is dp[i]?",
+          "back": "dp[i] = minimum cost to REACH step i (not to leave from it). dp[i] = min(dp[i-1] + cost[i-1], dp[i-2] + cost[i-2]). Base: dp[0]=0, dp[1]=0 (can start at step 0 or 1 for free). Return dp[n] (the top, beyond the last step)."
+        },
+        {
+          "front": "Decode Ways (#91): two transition types?",
+          "back": "Single-digit: if s[i-1] ≠ '0', dp[i] += dp[i-1] (one-char decode). Two-digit: if s[i-2..i-1] is 10–26, dp[i] += dp[i-2] (two-char decode). Both can apply simultaneously. Base: dp[0]=1 (empty string), dp[1]=1 (if s[0]≠'0')."
+        },
+        {
+          "front": "Fibonacci family recognition signal?",
+          "back": "'Ways to reach step n taking 1 or 2 steps' → classic Fibonacci. 'Minimum cost' → same recurrence with min() instead of +. 'Count valid decodings' → conditional Fibonacci. 'Can you segment string into dictionary words' → Fibonacci with set lookup."
+        },
+        {
+          "front": "Word Break (#139): how does it extend the Fibonacci pattern?",
+          "back": "dp[i] = can s[0..i-1] be segmented? For each j from 0 to i: if dp[j] is true AND s[j..i-1] is in the word dictionary → dp[i] = true. O(n² × lookup) time. Same 'arrive from a previous valid state' structure as Climbing Stairs."
+        },
+        {
+          "front": "Climbing Stairs with k steps: recurrence?",
+          "back": "dp[n] = sum of dp[n-1] + dp[n-2] + ... + dp[n-k]. Cannot space-optimise to O(1) — need k rolling values. Time: O(n×k), space: O(k) with rolling window or O(n) full array."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "climbStairs(4): dp[1]=1, dp[2]=2, dp[3]=?, dp[4]=?",
+          "options": [
+            "dp[3]=3, dp[4]=5",
+            "dp[3]=4, dp[4]=8",
+            "dp[3]=2, dp[4]=3",
+            "dp[3]=3, dp[4]=7"
+          ],
+          "answer": 0,
+          "explanation": "dp[3]=dp[2]+dp[1]=2+1=3. dp[4]=dp[3]+dp[2]=3+2=5. Fibonacci sequence: 1,2,3,5,8,13..."
+        },
+        {
+          "question": "minCostClimbingStairs([10,15,20]): dp[3] (the top) = ?",
+          "options": [
+            "10",
+            "15",
+            "20",
+            "25"
+          ],
+          "answer": 1,
+          "explanation": "dp[0]=0, dp[1]=0 (free start). dp[2]=min(dp[1]+cost[1], dp[0]+cost[0])=min(0+15,0+10)=10. dp[3]=min(dp[2]+cost[2], dp[1]+cost[1])=min(10+20,0+15)=15. Answer: 15 (start at step 1, pay 15, jump 2 to top)."
+        },
+        {
+          "question": "numDecodings('06'): answer?",
+          "options": [
+            "1",
+            "2",
+            "0",
+            "6"
+          ],
+          "answer": 2,
+          "explanation": "s[0]='0'. Return 0 immediately — '0' alone is not a valid character code (codes are 1-26). Leading zero = 0 decodings."
+        },
+        {
+          "question": "numDecodings('11'): answer?",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "0"
+          ],
+          "answer": 1,
+          "explanation": "Single-digit: '1'→A, '1'→A = 'AA'. Two-digit: '11'→K. Both valid. dp[0]=1, dp[1]=1 (first '1' is valid). dp[2]: single='1'≠0 → dp[2]+=dp[1]=1. Two-digit='11'=11 (10-26) → dp[2]+=dp[0]=1. dp[2]=2."
+        }
+      ],
+      "visual_aid": {
+        "type": "dp_trace",
+        "description": "Climbing Stairs and Decode Ways DP tables traced",
+        "diagram": "CLIMBING STAIRS n=5:\n  Index:  1   2   3   4   5\n  dp:     1   2   3   5   8\n  Ways:  (1) (11)(21) (121)(1211)\n              (2)  (12) (112)(1112)\n                   (111)(211) (2111)\n                        (22)  (1121)\n                              (122)\n                              (212)\n                              (221)\n                              (2111)? No wait: just count=8 ✓\n\nDECODE WAYS '226':\n  s:     2    2    6\n  idx:   0    1    2  (0-indexed string)\n  dp:   [1,   1,   2,  3]  (0-indexed dp, size n+1)\n  dp[0]=1 (empty)\n  dp[1]: s[0]='2'≠0 → dp[1]+=dp[0]=1. dp[1]=1\n  dp[2]: s[1]='2'≠0 → dp[2]+=dp[1]=1\n         s[0..1]='22'=22 (10-26) → dp[2]+=dp[0]=1. dp[2]=2\n  dp[3]: s[2]='6'≠0 → dp[3]+=dp[2]=2\n         s[1..2]='26'=26 (10-26) → dp[3]+=dp[1]=1. dp[3]=3 ✓\n  Decodings: (2,2,6)=BBF, (22,6)=VF, (2,26)=BZ"
+      },
+      "complexity_summary": {
+        "climbing_stairs": {
+          "time": "O(n)",
+          "space": "O(1) with rolling vars"
+        },
+        "min_cost_stairs": {
+          "time": "O(n)",
+          "space": "O(1) with rolling vars"
+        },
+        "decode_ways": {
+          "time": "O(n)",
+          "space": "O(n) or O(1) with 3 vars"
+        },
+        "word_break": {
+          "time": "O(n² × m) where m=avg word length",
+          "space": "O(n)"
+        },
+        "note": "Fibonacci family: all 1D, O(n) time. Key challenge is identifying the recurrence and handling edge cases."
+      },
+      "practice_problems": [
+        {
+          "id": "lc-70",
+          "title": "Climbing Stairs",
+          "difficulty": "Easy",
+          "pattern": "Fibonacci DP baseline",
+          "blind75": true
+        },
+        {
+          "id": "lc-746",
+          "title": "Min Cost Climbing Stairs",
+          "difficulty": "Easy",
+          "pattern": "Fibonacci DP with cost",
+          "blind75": true
+        },
+        {
+          "id": "lc-91",
+          "title": "Decode Ways",
+          "difficulty": "Medium",
+          "pattern": "Conditional Fibonacci — '0' edge cases",
+          "blind75": true
+        },
+        {
+          "id": "lc-139",
+          "title": "Word Break",
+          "difficulty": "Medium",
+          "pattern": "Fibonacci-family DP with set lookup",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M4-TH-1",
+            "question": "What RECOGNITION SIGNAL identifies a problem as belonging to the 'Fibonacci family' of DP problems?",
+            "options": [
+              "Any problem that involves integer arithmetic is a Fibonacci problem",
+              "The signal is 'ways to reach nth step' or 'nth term of a sequence defined by prior terms' — problems where the answer to subproblem n is computed by combining a FIXED NUMBER of prior answers (f(n) = f(n-1) + f(n-2) or similar); climbing stairs (how many ways to reach step n), Fibonacci itself, min-cost climbing stairs, and decode ways all share this 'combine previous results' structure",
+              "Any problem with base cases is a Fibonacci-family problem",
+              "Fibonacci-family problems always involve the digits 1 and 2 specifically"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: \"Recognition signal: 'ways to reach nth step' or 'nth term of sequence'\" — the Fibonacci family is characterized by recurrences of the form f(n) = f(n-1) + f(n-2) (or similar linear combinations of a fixed number of prior values), which all solve to O(n) time with O(1) space via rolling variables."
+          },
+          {
+            "id": "L2M4-TH-2",
+            "question": "In `numDecodings`, TWO distinct transition rules update `dp[i]`. What are they and what digits do they cover?",
+            "options": [
+              "One rule handles all digits; only one transition is needed",
+              "Single-digit rule: if `s[i-1] !== '0'` (current digit is 1-9, a valid single encoding), then `dp[i] += dp[i-1]` — the character at position i-1 can be decoded as a single letter; Two-digit rule: if `s.slice(i-2,i)` forms a number between 10 and 26 inclusive, then `dp[i] += dp[i-2]` — the two characters ending at i-1 can be decoded as a single letter (A=1..Z=26); both rules are applied independently and their contributions add",
+              "One rule for vowels and one for consonants",
+              "One rule for even positions and one for odd positions"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: 'Single digit: s[i-1] is 1-9 → dp[i]+=dp[i-1]' and 'Two digits: s[i-2..i-1] is 10-26 → dp[i]+=dp[i-2]' — the two rules are INDEPENDENT (both can apply simultaneously to the same position, e.g., '26' can be decoded as '2'+'6' or '26'); for '226': position 2 gets contributions from both the single '2' and the two-digit '22', giving dp[2]=2, then dp[3]=3."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M4-LG-1",
+            "question": "Trace `climbStairs(4)`: the lesson claims the answer is 5. List all five distinct ways to climb 4 stairs.",
+            "options": [
+              "There are 4 ways to climb 4 stairs; the lesson's claim of 5 is incorrect",
+              "The 5 ways: (1,1,1,1), (1,1,2), (1,2,1), (2,1,1), (2,2) — verified by the recurrence dp[4]=dp[3]+dp[2]=3+2=5 and the formula matches the call trace: dp[1]=1, dp[2]=2, dp[3]=3, dp[4]=5",
+              "There are 8 ways; the lesson's answer is for n=5 not n=4",
+              "The ways depend on whether steps are 1 or 2; only (1,1,1,1) and (2,2) exist"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: climbStairs(4)=5; the 5 distinct ordered sequences are: (1,1,1,1), (1,1,2), (1,2,1), (2,1,1), (2,2) — these are all ordered combinations of 1s and 2s summing to 4; the recurrence dp[4]=dp[3]+dp[2]=3+2=5 correctly counts these via the split: either the last step was a single-stair (dp[3]=3 ways to reach step 3) or a double-stair (dp[2]=2 ways to reach step 2)."
+          },
+          {
+            "id": "L2M4-LG-2",
+            "question": "Trace `minCostClimbingStairs([10,15,20])`. What does `dp[3]` (the answer for reaching the top) equal, and which stairs are climbed in the optimal path?",
+            "options": [
+              "dp[3]=20, optimal path: start at stair 0, climb to stair 2 (pay 20)",
+              "dp[3]=15 — the lesson traces: dp[2]=min(dp[1]+cost[1], dp[0]+cost[0])=min(0+15,0+10)=10; dp[3]=min(dp[2]+cost[2], dp[1]+cost[1])=min(10+20,0+15)=15; optimal path: start for free at stair 1, pay cost[1]=15, jump 2 stairs directly to the top — confirmed by direct execution",
+              "dp[3]=10, optimal path: start at stair 0, pay cost[0]=10, jump to stair 2, pay cost[2]=20 — wait that's 30",
+              "dp[3]=45, all costs are paid"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution returning 15 and matching the lesson's trace: dp[0]=0, dp[1]=0, dp[2]=min(0+15,0+10)=10, dp[3]=min(10+20,0+15)=min(30,15)=15; the optimal path skips stair 0 entirely and starts at stair 1, paying cost[1]=15 for a 2-step jump directly to the top (index 3 = beyond the last stair)."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M4-SY-1",
+            "question": "In `numDecodings`, the base cases are `dp[0] = 1` (empty string: 1 way) and `dp[1] = 1` (first char: 1 way). Why is `dp[0] = 1` rather than `dp[0] = 0`?",
+            "options": [
+              "dp[0] = 1 is a JavaScript convention for empty arrays",
+              "dp[0] = 1 represents the empty string having EXACTLY ONE valid decoding (the empty decoding) — this is a mathematical convention used as a base case to make the recurrence work correctly; when dp[i] adds dp[i-2] for the two-digit rule, dp[0] being 1 ensures that a two-digit number starting at position 0 correctly contributes 1 way (via the empty-string base case); dp[0]=0 would incorrectly eliminate all two-digit encodings starting from the beginning of the string",
+              "dp[0] = 1 means the empty string has 0 decodings",
+              "dp[0] should always be 0; the lesson has a bug here"
+            ],
+            "answer": 1,
+            "explanation": "The dp[0]=1 convention is standard in combinatorial DP: it represents 'there is exactly 1 way to decode an empty prefix' (do nothing); when i=2 and the two-digit rule fires, `dp[i] += dp[i-2] = dp[0] = 1` correctly adds 1 way for decoding the first two characters as a single letter; without this, two-digit encodings at the start of strings would contribute 0 instead of 1."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M4-CC-1",
+            "title": "Fibonacci-Family DP: ClimbStairs, MinCost, and Decode Ways",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the three Fibonacci-family DP problems from this lesson.",
+            "requirements": [
+              "Implement `climbStairsImpl(n)` matching the lesson's O(1)-space rolling approach",
+              "Implement `minCostClimbingStairsImpl(cost)` matching the lesson's tabulation exactly",
+              "Implement `numDecodingsImpl(s)` matching the lesson's conditional two-rule tabulation"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function climbStairsImpl(n) {\n  // TODO: O(1) space, rolling prev2/prev1\n}\n\nfunction minCostClimbingStairsImpl(cost) {\n  // TODO: dp table, come from i-1 or i-2, pay their cost\n}\n\nfunction numDecodingsImpl(s) {\n  // TODO: two-rule conditional tabulation\n}"
+            },
+            "test_cases": [
+              {
+                "input": "climbStairsImpl(5)",
+                "expected": 8,
+                "type": "visible"
+              },
+              {
+                "input": "minCostClimbingStairsImpl([10,15,20])",
+                "expected": 15,
+                "type": "visible"
+              },
+              {
+                "input": "numDecodingsImpl('226')",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "numDecodingsImpl('06')",
+                "expected": 0,
+                "type": "hidden"
+              },
+              {
+                "input": "climbStairsImpl(1)",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function climbStairsImpl(n) {\n  if (n <= 2) return n;\n  let prev2 = 1, prev1 = 2;\n  for (let i = 3; i <= n; i++) {\n    const curr = prev1 + prev2;\n    prev2 = prev1;\n    prev1 = curr;\n  }\n  return prev1;\n}\n\nfunction minCostClimbingStairsImpl(cost) {\n  const n = cost.length;\n  const dp = new Array(n + 1).fill(0);\n  for (let i = 2; i <= n; i++) {\n    dp[i] = Math.min(dp[i-1] + cost[i-1], dp[i-2] + cost[i-2]);\n  }\n  return dp[n];\n}\n\nfunction numDecodingsImpl(s) {\n  const n = s.length;\n  if (s[0] === '0') return 0;\n  const dp = new Array(n + 1).fill(0);\n  dp[0] = 1;\n  dp[1] = 1;\n  for (let i = 2; i <= n; i++) {\n    if (s[i-1] !== '0') dp[i] += dp[i-1];\n    const twoDigit = Number(s.slice(i-2, i));\n    if (twoDigit >= 10 && twoDigit <= 26) dp[i] += dp[i-2];\n  }\n  return dp[n];\n}"
+            },
+            "complexity_analysis": "climbStairsImpl: O(n) time, O(1) space. minCostClimbingStairsImpl: O(n) time, O(n) space (reducible to O(1)). numDecodingsImpl: O(n) time, O(n) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "climbStairsImpl: base cases n=1→1, n=2→2; rolling variables prev2=1, prev1=2; curr=prev1+prev2."
+              },
+              {
+                "level": 2,
+                "text": "minCostClimbingStairsImpl: dp[0]=dp[1]=0 (start free); for i from 2 to n: dp[i]=min(dp[i-1]+cost[i-1], dp[i-2]+cost[i-2])."
+              },
+              {
+                "level": 3,
+                "text": "numDecodingsImpl: two INDEPENDENT rules — single-digit if s[i-1]!='0' adds dp[i-1]; two-digit if 10<=Number(s.slice(i-2,i))<=26 adds dp[i-2]."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 5,
+      "title": "House Robber I And II",
+      "tag": "ADDED",
+      "objective": "Solve House Robber I using the skip-or-take recurrence and House Robber II using the circular constraint by running two linear DP passes.",
+      "concepts": [
+        "House Robber I: cannot rob adjacent houses, maximise total",
+        "Skip-or-take recurrence: dp[i] = max(dp[i-1], dp[i-2] + nums[i])",
+        "Decision at each house: rob this one (skip previous) or skip this one (keep previous max)",
+        "O(n) time, O(1) space with two rolling variables",
+        "House Robber II: houses arranged in a circle, first and last are adjacent",
+        "Circular constraint: cannot rob both first and last",
+        "Solution: run two linear passes, exclude first or exclude last, take max",
+        "Why two passes: avoiding first ensures last is always available and vice versa"
+      ],
+      "explanation": "House Robber I: given a row of houses with values, rob non-adjacent houses to maximise the total. At each house i, you make a binary choice: rob it (cannot rob i-1, best is dp[i-2] + nums[i]) or skip it (best is dp[i-1]). dp[i] = max(dp[i-1], dp[i-2] + nums[i]). Base cases: dp[0] = nums[0], dp[1] = max(nums[0], nums[1]). This can be space-optimised to two rolling variables since only the previous two values matter. House Robber II adds a circular constraint: houses are in a ring, so house 0 and house n-1 are adjacent. The constraint is: rob[0] + rob[n-1] cannot both be included. The elegant solution: if we decide upfront not to consider house 0, we can treat houses 1..n-1 as a linear problem. If we decide not to consider house n-1, we treat houses 0..n-2 as a linear problem. Run both linear passes and take the maximum. One of the two passes will always include the optimal solution because either the optimal solution includes house 0 (caught by pass 2 which excludes n-1) or it does not (caught by pass 1 which excludes house 0).",
+      "analogy": "House Robber is a thief's planning problem. At each house, the thief decides: is the reward from robbing this house plus the best total from two houses ago better than just taking the best total from one house ago? House Robber II adds a circular neighbourhood: if you rob the first house, the last house's alarm system activates. So you make two plans: one where you skip the first house and one where you skip the last, then choose the better plan.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// HOUSE ROBBER I (#198) — O(n) time, O(1) space\nfunction rob(nums) {\n    if (nums.length === 1) return nums[0];\n    let prev2 = nums[0];                         // dp[i-2]\n    let prev1 = Math.max(nums[0], nums[1]);      // dp[i-1]\n\n    for (let i = 2; i < nums.length; i++) {\n        const curr = Math.max(prev1, prev2 + nums[i]); // skip or rob\n        prev2 = prev1;\n        prev1 = curr;\n    }\n    return prev1;\n}\n// [2,7,9,3,1]: dp[0]=2, dp[1]=7, dp[2]=max(7,2+9)=11,\n//              dp[3]=max(11,7+3)=11, dp[4]=max(11,11+1)=12\n// Answer: 12 (rob houses 0,2,4: 2+9+1=12)\nconsole.log(rob([2,7,9,3,1])); // 12\n\n// HOUSE ROBBER II (#213) — circular array, O(n) time O(1) space\nfunction rob2(nums) {\n    if (nums.length === 1) return nums[0];\n    if (nums.length === 2) return Math.max(nums[0], nums[1]);\n\n    // Helper: linear rob on a subarray\n    function linearRob(arr) {\n        let prev2 = arr[0], prev1 = Math.max(arr[0], arr[1]);\n        for (let i = 2; i < arr.length; i++) {\n            const curr = Math.max(prev1, prev2 + arr[i]);\n            prev2 = prev1; prev1 = curr;\n        }\n        return prev1;\n    }\n\n    // Case 1: exclude last house (consider houses 0..n-2)\n    // Case 2: exclude first house (consider houses 1..n-1)\n    return Math.max(\n        linearRob(nums.slice(0, nums.length - 1)), // exclude last\n        linearRob(nums.slice(1))                    // exclude first\n    );\n}\n// [2,3,2]: exclude last -> [2,3]: max=3. exclude first -> [3,2]: max=3. Answer=3\n// [1,2,3,1]: exclude last -> [1,2,3]: max=4. exclude first -> [2,3,1]: max=3. Answer=4\nconsole.log(rob2([2,3,2]));    // 3\nconsole.log(rob2([1,2,3,1]));  // 4\n\n// HOUSE ROBBER III (trees) — preview of tree DP in Level 2\n// Each node can be robbed, but not its children\n// dp[node] = [rob this node, skip this node]\nfunction rob3(root) {\n    function dfs(node) {\n        if (!node) return [0, 0];\n        const [leftRob, leftSkip]   = dfs(node.left);\n        const [rightRob, rightSkip] = dfs(node.right);\n        // Rob this: skip both children\n        const robThis  = node.val + leftSkip + rightSkip;\n        // Skip this: take best from each child independently\n        const skipThis = Math.max(leftRob, leftSkip) + Math.max(rightRob, rightSkip);\n        return [robThis, skipThis];\n    }\n    return Math.max(...dfs(root));\n}",
+        "explanation": "House Robber III (tree) uses the same skip-or-take logic but on a tree structure. The DFS returns a pair [rob, skip] for each subtree. This is the 'tree DP' pattern where each recursive call returns multiple state values. It previews the interval DP and tree DP patterns in Level 2 Module 3."
+      },
+      "common_mistakes": [
+        "Initialising prev1 as nums[1] instead of max(nums[0], nums[1]) in House Robber I — the base case for the second house is the maximum of the first two houses, not just the second house",
+        "Running a single linear pass on houses 1..n-2 for House Robber II — excluding both the first and last house is too conservative; the correct solution runs two passes (exclude first, exclude last) and takes the maximum",
+        "Not handling the single and two-house edge cases in House Robber II — for n=1, return nums[0]; for n=2, return max(nums[0], nums[1]); without these guards, slice(0, n-1) and slice(1) on arrays of length 1-2 produce empty or single-element arrays that break the linear helper"
+      ],
+      "interview_relevance": "House Robber (#198) and House Robber II (#213) are both Blind 75 and NeetCode 150. They are among the most commonly asked 1D DP problems. The skip-or-take recurrence is the canonical 1D DP template that appears in dozens of variants. The circular constraint in House Robber II — solved by two independent linear passes — is specifically asked as a follow-up: 'How would you handle the circular case?'",
+      "mini_challenge": "Implement rob and rob2 from scratch without looking at the code above. Verify rob([2,7,9,3,1])=12 and rob2([1,2,3,1])=4. Then solve the follow-up: House Robber variant where you can rob at most k non-adjacent houses. This is no longer a simple linear recurrence; what is the dp state? (Hint: dp[i][j] = max value using first i houses with j robberies.) State the time and space complexity.",
+      "flashcards": [
+        {
+          "front": "House Robber I recurrence?",
+          "back": "dp[i] = max(dp[i-1], dp[i-2] + nums[i]). At house i: SKIP (take dp[i-1]) or ROB (pay price of not robbing i-1, get nums[i] + dp[i-2]). Base: dp[0]=nums[0], dp[1]=max(nums[0], nums[1])."
+        },
+        {
+          "front": "House Robber I: space optimisation?",
+          "back": "Only dp[i-1] and dp[i-2] needed → two rolling variables: prev2 = nums[0], prev1 = max(nums[0], nums[1]). At each step: curr = max(prev1, prev2 + nums[i]), then slide prev2=prev1, prev1=curr. O(1) space."
+        },
+        {
+          "front": "House Robber II: circular constraint — how to solve?",
+          "back": "Cannot rob both house 0 AND house n-1. Solution: run TWO linear rob passes. Pass 1: houses 0..n-2 (exclude last). Pass 2: houses 1..n-1 (exclude first). Return max of both. Each pass uses the same linear rob helper."
+        },
+        {
+          "front": "Why does two-pass solve House Robber II correctly?",
+          "back": "The optimal solution either includes house 0 (caught by Pass 2 which makes last house available) or doesn't include house 0 (caught by Pass 1 which includes last house). One of the two passes always covers the optimal case."
+        },
+        {
+          "front": "House Robber III (tree): what does the DFS return?",
+          "back": "A pair [rob, skip] for each subtree. rob = value if we rob this node (skip both children). skip = max(robChild, skipChild) for each child independently. Takes O(n) — single DFS, no repeated work."
+        },
+        {
+          "front": "Skip-or-take: what other problems use this recurrence?",
+          "back": "Any problem where you choose to take element i (which excludes element i-1) or skip it (keep previous best): House Robber variants, Maximum Alternating Subsequence, k-non-adjacent elements. The recurrence shape is always dp[i] = max(dp[i-1], dp[i-2] + value[i])."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "rob([2,7,9,3,1]): trace dp values. dp[2]=?",
+          "options": [
+            "9",
+            "11",
+            "7",
+            "2"
+          ],
+          "answer": 1,
+          "explanation": "dp[0]=2, dp[1]=max(2,7)=7. dp[2]=max(dp[1], dp[0]+nums[2])=max(7, 2+9)=max(7,11)=11. Robbing houses 0 and 2 gives 2+9=11."
+        },
+        {
+          "question": "rob([2,3,2]) for House Robber II (circular). Answer?",
+          "options": [
+            "2",
+            "3",
+            "4",
+            "5"
+          ],
+          "answer": 1,
+          "explanation": "Pass 1 (exclude last, houses[0..1]=[2,3]): max=3. Pass 2 (exclude first, houses[1..2]=[3,2]): max=3. max(3,3)=3. Cannot get 2+2=4 because houses 0 and 2 are adjacent in a circle."
+        },
+        {
+          "question": "rob([1,2,3,1]) for House Robber II. Answer?",
+          "options": [
+            "3",
+            "4",
+            "5",
+            "6"
+          ],
+          "answer": 1,
+          "explanation": "Pass 1 (houses[0..2]=[1,2,3]): dp[0]=1,dp[1]=2,dp[2]=max(2,1+3)=4. Pass 2 (houses[1..3]=[2,3,1]): dp[0]=2,dp[1]=3,dp[2]=max(3,2+1)=3. max(4,3)=4."
+        },
+        {
+          "question": "House Robber I: why is prev1 initialised to max(nums[0], nums[1]) not nums[1]?",
+          "options": [
+            "Because nums[1] might be 0",
+            "Because dp[1] represents the best answer using the first two houses — we can rob either one",
+            "Because the loop starts at index 2",
+            "To avoid negative values"
+          ],
+          "answer": 1,
+          "explanation": "dp[1] = maximum loot using houses 0 and 1 = max(nums[0], nums[1]). We can only rob one of them (they're adjacent). Taking nums[1] alone ignores the case where nums[0] > nums[1]."
+        }
+      ],
+      "visual_aid": {
+        "type": "dp_trace",
+        "description": "House Robber I and II traced with decision points",
+        "diagram": "HOUSE ROBBER I [2,7,9,3,1]:\n  House:  0   1   2   3   4\n  Value:  2   7   9   3   1\n  dp:     2   7  11  11  12\n  Decision at each:\n    dp[2]: rob(2) → prev2+9 = 2+9=11 vs skip(2) → 7. ROB wins (11)\n    dp[3]: rob(3) → 7+3=10 vs skip(3) → 11. SKIP wins (11)\n    dp[4]: rob(4) → 11+1=12 vs skip(4) → 11. ROB wins (12)\n  Optimal: rob houses 0,2,4 → 2+9+1=12 ✓\n\nHOUSE ROBBER II [2,3,2] (circular: house 0 adj to house 2):\n  Pass 1 — exclude last (houses 0,1 = [2,3]):\n    dp[0]=2, dp[1]=max(2,3)=3. Result=3\n  Pass 2 — exclude first (houses 1,2 = [3,2]):\n    dp[0]=3, dp[1]=max(3,2)=3. Result=3\n  max(3,3) = 3 ✓\n  (Cannot rob house 0 AND house 2 — they're neighbors in circle)"
+      },
+      "complexity_summary": {
+        "house_robber_I": {
+          "time": "O(n)",
+          "space": "O(1) with 2 rolling vars"
+        },
+        "house_robber_II": {
+          "time": "O(n)",
+          "space": "O(1) — two passes of linear rob"
+        },
+        "house_robber_III": {
+          "time": "O(n) nodes",
+          "space": "O(h) call stack"
+        },
+        "note": "Skip-or-take is the fundamental 1D DP pattern. Circular constraint → two independent linear passes."
+      },
+      "practice_problems": [
+        {
+          "id": "lc-198",
+          "title": "House Robber",
+          "difficulty": "Medium",
+          "pattern": "Skip-or-take recurrence O(1) space",
+          "blind75": true
+        },
+        {
+          "id": "lc-213",
+          "title": "House Robber II",
+          "difficulty": "Medium",
+          "pattern": "Circular → two linear passes",
+          "blind75": true
+        },
+        {
+          "id": "lc-337",
+          "title": "House Robber III",
+          "difficulty": "Medium",
+          "pattern": "Tree DP — DFS returns [rob, skip] pair"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M5-TH-1",
+            "question": "In House Robber I, the recurrence is `dp[i] = max(dp[i-1], dp[i-2] + nums[i])`. What do the two choices represent?",
+            "options": [
+              "The two choices represent robbing from the left or from the right",
+              "The two choices: SKIP house i (`dp[i-1]` — take whatever was optimal through house i-1, leaving house i unrobbed) or ROB house i (`dp[i-2] + nums[i]` — add nums[i] to the best solution two steps back, because robbing house i means the adjacent house i-1 must be skipped); the max of these two is the optimal decision at house i",
+              "The two choices represent odd and even indexed houses",
+              "dp[i-1] means rob the previous house; dp[i-2] means skip the previous house"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's exact concept: 'Decision at each house: rob this one (skip previous) or skip this one (keep previous max)' and 'skip-or-take recurrence: dp[i] = max(dp[i-1], dp[i-2] + nums[i])' — dp[i-1] is 'whatever was best without touching house i' (skip); dp[i-2]+nums[i] is 'take house i plus whatever was best two steps ago' (rob, which automatically skips i-1)."
+          },
+          {
+            "id": "L2M5-TH-2",
+            "question": "For House Robber II (circular arrangement), why are EXACTLY TWO linear DP passes sufficient to handle the circular constraint?",
+            "options": [
+              "Three passes are needed: one for each of the three cases",
+              "The circular constraint says houses 0 and n-1 cannot BOTH be robbed; this splits the problem into exactly TWO exhaustive cases: (1) house 0 is NOT robbed → valid to rob house n-1 → linear rob on [0..n-2]; (2) house n-1 is NOT robbed → valid to rob house 0 → linear rob on [1..n-1]; these two cases cover ALL valid configurations (any solution must exclude at least one of {0, n-1}), so the max of the two passes is optimal",
+              "Four passes are needed to handle all possible circle rotations",
+              "The circular constraint is automatically handled by the linear rob function without any modifications"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Circular constraint: cannot rob both first and last. Solution: run two linear passes, exclude first or exclude last, take max. Why two passes: avoiding first ensures last is always available and vice versa' — since houses 0 and n-1 are adjacent in a circle, at most one can be robbed; the two-pass approach exhaustively covers both sub-cases by fixing which boundary house is excluded."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M5-LG-1",
+            "question": "Trace `rob([2,7,9,3,1])`. What are `dp[0]`, `dp[1]`, `dp[2]`, `dp[3]`, `dp[4]`, and which houses are robbed in the optimal solution?",
+            "options": [
+              "dp: [2,7,9,10,11]; rob houses 0,2,4",
+              "dp[0]=2, dp[1]=max(2,7)=7, dp[2]=max(7,2+9)=11, dp[3]=max(11,7+3)=11, dp[4]=max(11,11+1)=12; optimal: rob houses 0,2,4 for 2+9+1=12 — confirmed by direct execution returning 12",
+              "dp: [2,7,11,10,13]; answer=13",
+              "dp[0]=2, dp[1]=7, dp[2]=11, dp[3]=14, dp[4]=15; answer=15"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: rob([2,7,9,3,1])=12; trace with rolling variables: prev2=nums[0]=2, prev1=max(2,7)=7; i=2: curr=max(7,2+9)=11, prev2=7,prev1=11; i=3: curr=max(11,7+3)=11, prev2=11,prev1=11; i=4: curr=max(11,11+1)=12; return 12; optimal path is houses 0+2+4 = 2+9+1=12."
+          },
+          {
+            "id": "L2M5-LG-2",
+            "question": "For `rob2([1,2,3,1])` (circular), what do the two linear rob passes return, and which wins?",
+            "options": [
+              "Pass 1 (exclude last): rob([1,2,3]) = 4. Pass 2 (exclude first): rob([2,3,1]) = 3. Max = 4",
+              "Pass 1 (exclude last, houses 0..2): rob([1,2,3])=4 (houses 0 and 2: 1+3=4); Pass 2 (exclude first, houses 1..3): rob([2,3,1])=3 (house 1: 2, or house 3: 1, or 2+1=3 — wait: rob([2,3,1]): prev2=2,prev1=max(2,3)=3; i=2: curr=max(3,2+1)=3 → 3); max(4,3)=4 — confirmed by direct execution returning 4",
+              "Both passes return 3; max = 3",
+              "Pass 1 returns 4, Pass 2 returns 4; max = 4 — but for different reasons"
+            ],
+            "answer": 0,
+            "explanation": "Confirmed by direct execution: rob2([1,2,3,1])=4; Pass 1 excludes house 3 (last), runs linearRob on [1,2,3]: rob houses 0 and 2 = 1+3=4; Pass 2 excludes house 0 (first), runs linearRob on [2,3,1]: prev2=2, prev1=max(2,3)=3; i=2: curr=max(3,2+1)=3 → returns 3; max(4,3)=4."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M5-SY-1",
+            "question": "In `rob`, `let prev2 = nums[0]; let prev1 = Math.max(nums[0], nums[1])`. Why does `prev1` use `Math.max` while `prev2` is just `nums[0]`?",
+            "options": [
+              "Both should be Math.max to handle negative values",
+              "prev2 represents dp[0] = nums[0] (the optimal solution considering ONLY house 0, which trivially is just nums[0]); prev1 represents dp[1] = max(nums[0], nums[1]) — the optimal solution considering houses 0 and 1, where the best choice is the larger of the two (you can only pick one of the adjacent houses 0 or 1); this sets up the correct initial rolling state for the loop starting at i=2",
+              "Math.max is only needed for prev1 due to array indexing requirements",
+              "prev2 = nums[0] means we always rob house 0; Math.max picks between houses"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's code: 'prev2 = nums[0] (dp[i-2]); prev1 = Math.max(nums[0], nums[1]) (dp[i-1])' — dp[0] is trivially nums[0] (rob the only house); dp[1] is max(nums[0],nums[1]) because you can rob either house 0 or house 1 (they're adjacent so you pick the better one); from i=2 onward the recurrence takes over."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M5-CC-1",
+            "title": "House Robber I and II",
+            "difficulty": "Intermediate-Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both House Robber variants from this lesson.",
+            "requirements": [
+              "Implement `robImpl(nums)` matching the lesson's O(1)-space skip-or-take approach",
+              "Implement `rob2Impl(nums)` matching the lesson's two-pass circular approach with linearRob helper",
+              "Verify: rob2Impl([2,3,2])=3 and rob2Impl([1,2,3,1])=4"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function robImpl(nums) {\n  // TODO: O(1) space, skip-or-take recurrence\n}\n\nfunction rob2Impl(nums) {\n  // TODO: two linear passes with linearRob helper\n}"
+            },
+            "test_cases": [
+              {
+                "input": "robImpl([2,7,9,3,1])",
+                "expected": 12,
+                "type": "visible"
+              },
+              {
+                "input": "rob2Impl([2,3,2])",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "rob2Impl([1,2,3,1])",
+                "expected": 4,
+                "type": "visible"
+              },
+              {
+                "input": "robImpl([1,2,3,1])",
+                "expected": 4,
+                "type": "hidden"
+              },
+              {
+                "input": "rob2Impl([1])",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function robImpl(nums) {\n  if (nums.length === 1) return nums[0];\n  let prev2 = nums[0];\n  let prev1 = Math.max(nums[0], nums[1]);\n  for (let i = 2; i < nums.length; i++) {\n    const curr = Math.max(prev1, prev2 + nums[i]);\n    prev2 = prev1;\n    prev1 = curr;\n  }\n  return prev1;\n}\n\nfunction rob2Impl(nums) {\n  if (nums.length === 1) return nums[0];\n  if (nums.length === 2) return Math.max(nums[0], nums[1]);\n  function linearRob(arr) {\n    let prev2 = arr[0], prev1 = Math.max(arr[0], arr[1]);\n    for (let i = 2; i < arr.length; i++) {\n      const curr = Math.max(prev1, prev2 + arr[i]);\n      prev2 = prev1; prev1 = curr;\n    }\n    return prev1;\n  }\n  return Math.max(\n    linearRob(nums.slice(0, nums.length - 1)),\n    linearRob(nums.slice(1))\n  );\n}"
+            },
+            "complexity_analysis": "robImpl: O(n) time, O(1) space. rob2Impl: O(n) time, O(n) space for slice copies (reducible to O(1) by passing indices).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "robImpl: base case n=1; prev2=nums[0], prev1=max(nums[0],nums[1]); loop from i=2 with curr=max(prev1,prev2+nums[i])."
+              },
+              {
+                "level": 2,
+                "text": "rob2Impl: define linearRob helper that runs House Robber I on any array."
+              },
+              {
+                "level": 3,
+                "text": "rob2Impl: return max(linearRob(nums.slice(0,n-1)), linearRob(nums.slice(1))) — exclude last OR exclude first."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 6,
+      "title": "Longest Palindromic Substring",
+      "tag": "ADDED",
+      "objective": "Find the longest palindromic substring in O(n²) using the expand-around-centre technique, and understand the difference between palindromic substring (contiguous) and palindromic subsequence (non-contiguous).",
+      "concepts": [
+        "Palindrome: reads the same forwards and backwards",
+        "Substring: contiguous characters; subsequence: characters in order but not necessarily contiguous",
+        "Expand-around-centre: O(n²) time O(1) space, simpler than DP table",
+        "Even-length palindromes: centred between two characters",
+        "Odd-length palindromes: centred on one character",
+        "2D DP table alternative: dp[i][j] = is s[i..j] a palindrome",
+        "Palindromic Substrings count: same centres, count each palindrome",
+        "Manacher's algorithm: O(n) but not asked in interviews"
+      ],
+      "explanation": "Longest Palindromic Substring has two clean approaches. The 2D DP approach: dp[i][j] = true if s[i..j] is a palindrome. Base cases: every single character is a palindrome (dp[i][i] = true), every two-character string is a palindrome if both chars are equal (dp[i][i+1] = s[i] === s[i+1]). Transition: dp[i][j] = (s[i] === s[j]) && dp[i+1][j-1]. Fill in order of increasing length. O(n²) time, O(n²) space. Expand-around-centre: for each character (and each pair of adjacent characters), expand outward as long as the palindrome condition holds. 2n-1 centres total (n single chars + n-1 adjacent pairs). O(n²) time, O(1) space. The expand approach is preferred in interviews because it is simpler to implement and uses O(1) space. The key distinction: substring problems (contiguous) use expand-around-centre or 2D DP. Subsequence problems (non-contiguous) require full 2D DP. Longest Palindromic Subsequence (not Substring) is a different problem requiring O(n²) DP.",
+      "analogy": "Expand-around-centre is like finding the largest circular ripple in a pond. Drop a stone at every possible centre point (each character and each gap between characters). Measure how far the ripple expands before it hits a discrepancy. The largest ripple across all centre points is the answer. You try all n centres simultaneously but each expansion is independent and costs at most O(n) total work across all centres.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// LONGEST PALINDROMIC SUBSTRING (#5) — expand-around-centre\n// O(n^2) time, O(1) space\nfunction longestPalindrome(s) {\n    let start = 0, maxLen = 1;\n\n    function expand(left, right) {\n        while (left >= 0 && right < s.length && s[left] === s[right]) {\n            if (right - left + 1 > maxLen) {\n                maxLen = right - left + 1;\n                start  = left;\n            }\n            left--; right++;\n        }\n    }\n\n    for (let i = 0; i < s.length; i++) {\n        expand(i, i);     // odd-length palindromes (centre at i)\n        expand(i, i+1);   // even-length palindromes (centre between i and i+1)\n    }\n    return s.slice(start, start + maxLen);\n}\nconsole.log(longestPalindrome('babad'));  // 'bab' or 'aba'\nconsole.log(longestPalindrome('cbbd'));   // 'bb'\n\n// PALINDROMIC SUBSTRINGS COUNT (#647) — count all palindromes\nfunction countSubstrings(s) {\n    let count = 0;\n    function expand(left, right) {\n        while (left >= 0 && right < s.length && s[left] === s[right]) {\n            count++; left--; right++;\n        }\n    }\n    for (let i = 0; i < s.length; i++) {\n        expand(i, i);   // odd\n        expand(i, i+1); // even\n    }\n    return count;\n}\nconsole.log(countSubstrings('abc'));  // 3 (a,b,c)\nconsole.log(countSubstrings('aaa'));  // 6 (a,a,a,aa,aa,aaa)\n\n// 2D DP APPROACH (for contrast) — O(n^2) time AND space\nfunction longestPalindrome_DP(s) {\n    const n = s.length;\n    const dp = Array.from({length:n}, () => new Array(n).fill(false));\n    let start = 0, maxLen = 1;\n\n    // Base: single chars\n    for (let i = 0; i < n; i++) dp[i][i] = true;\n    // Base: two chars\n    for (let i = 0; i < n-1; i++) {\n        if (s[i] === s[i+1]) { dp[i][i+1] = true; start = i; maxLen = 2; }\n    }\n    // Length 3 and above\n    for (let len = 3; len <= n; len++) {\n        for (let i = 0; i <= n - len; i++) {\n            const j = i + len - 1;\n            if (s[i] === s[j] && dp[i+1][j-1]) {\n                dp[i][j] = true;\n                if (len > maxLen) { maxLen = len; start = i; }\n            }\n        }\n    }\n    return s.slice(start, start + maxLen);\n}",
+        "explanation": "The expand-around-centre approach is O(n²) time O(1) space while 2D DP is O(n²) time O(n²) space. For interviews, always use expand-around-centre for palindromic substring problems. The 2D DP is shown here because it generalises to other 2D palindrome problems and because understanding the DP table structure is the foundation for interval DP in Module 3."
+      },
+      "common_mistakes": [
+        "Handling only odd-length palindromes and forgetting even-length — a string like 'abba' has its palindrome centred between the two 'b's (even-length centre); always call expand twice: expand(i,i) and expand(i,i+1)",
+        "Returning the palindrome string directly instead of tracking start and length — string concatenation inside the expand loop creates O(n²) extra strings; track start index and length, then slice once at the end",
+        "Confusing palindromic substring with palindromic subsequence — substring requires contiguous characters (expand-around-centre works); subsequence allows skipping characters (requires 2D DP with a different recurrence)"
+      ],
+      "interview_relevance": "Longest Palindromic Substring (#5) and Palindromic Substrings (#647) are both Blind 75 / NeetCode 150. They close out the Level 2 Module 1 with the expand-around-centre technique, which is a recognised pattern that interviewers test at the medium level. The follow-up 'what is the time and space complexity of both approaches and why would you choose one over the other?' is specifically asked.",
+      "mini_challenge": "Implement longestPalindrome using expand-around-centre. Verify 'babad' -> 'bab', 'cbbd' -> 'bb', 'a' -> 'a', 'ac' -> 'a'. Then implement countSubstrings and verify 'aaa' -> 6. Finally, implement Longest Palindromic Subsequence (LeetCode #516): given a string, find the longest palindromic subsequence length. This requires 2D DP: dp[i][j] = longest palindromic subsequence in s[i..j]. State the recurrence and time complexity. This previews the 2D DP patterns in Module 2.",
+      "flashcards": [
+        {
+          "front": "Expand-around-centre: how many centres for a string of length n?",
+          "back": "2n-1 centres: n centres for ODD-length palindromes (at each character), n-1 centres for EVEN-length palindromes (between each adjacent pair). Example: 'abc' → 5 centres: a, (a,b), b, (b,c), c."
+        },
+        {
+          "front": "Expand-around-centre: base call pattern?",
+          "back": "For each index i from 0 to n-1: expand(i, i) for odd-length palindromes. expand(i, i+1) for even-length palindromes. Total: 2n-1 expand calls. Each expand costs O(n) worst case → O(n²) total."
+        },
+        {
+          "front": "Substring vs subsequence — critical difference for palindromes?",
+          "back": "SUBSTRING: contiguous characters ('aba' in 'xabay'). Use expand-around-centre or 2D DP with len-order fill. SUBSEQUENCE: characters in order, gaps allowed ('aca' in 'xacbay'). MUST use 2D DP: dp[i][j] = longest palindromic subsequence in s[i..j]."
+        },
+        {
+          "front": "2D DP palindrome: fill order?",
+          "back": "Fill by INCREASING LENGTH (len from 1 to n). Never by row or column. Reason: dp[i][j] depends on dp[i+1][j-1] which is a shorter substring — must be filled before dp[i][j]."
+        },
+        {
+          "front": "Palindromic Substrings (#647): how to count?",
+          "back": "Same expand-around-centre as longest palindrome. count++ every time the while loop body executes (each successful expansion = one palindrome found). Two expand calls per centre → count includes all odd and even palindromes."
+        },
+        {
+          "front": "Expand-around-centre vs 2D DP: when to use which?",
+          "back": "Expand-around-centre: palindromic SUBSTRING problems — O(n²) time O(1) space. ALWAYS prefer this in interviews. 2D DP: palindromic SUBSEQUENCE problems or when you need the full DP table for other reasons. O(n²) time O(n²) space."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "longestPalindrome('cbbd'): which expand call finds 'bb'?",
+          "options": [
+            "expand(1, 1) — odd centre at index 1",
+            "expand(1, 2) — even centre between index 1 and 2",
+            "expand(2, 2) — odd centre at index 2",
+            "expand(0, 1) — even centre between index 0 and 1"
+          ],
+          "answer": 1,
+          "explanation": "'bb' is at indices 1-2. It's an EVEN-length palindrome centred BETWEEN index 1 and 2. expand(1, 2): s[1]='b'=s[2]='b' → expand. s[0]='c'≠s[3]='d' → stop. Found 'bb' (length 2)."
+        },
+        {
+          "question": "countSubstrings('aaa'): answer?",
+          "options": [
+            "3",
+            "4",
+            "6",
+            "9"
+          ],
+          "answer": 2,
+          "explanation": "Palindromes: 'a'(idx0), 'a'(idx1), 'a'(idx2) = 3 single-char. 'aa'(0-1), 'aa'(1-2) = 2 two-char. 'aaa'(0-2) = 1 three-char. Total = 6."
+        },
+        {
+          "question": "2D DP palindrome table: dp[i][j] depends on dp[i+1][j-1]. Fill order?",
+          "options": [
+            "Row by row, top to bottom",
+            "Column by column, left to right",
+            "By increasing substring LENGTH",
+            "Bottom to top, right to left"
+          ],
+          "answer": 2,
+          "explanation": "dp[i+1][j-1] covers a shorter substring (length j-i-1). Must be filled before dp[i][j] (length j-i+1). Fill by increasing length: first all length-1, then length-2, etc."
+        },
+        {
+          "question": "Longest Palindromic SUBSEQUENCE of 'bbbab'?",
+          "options": [
+            "'bbb' (3)",
+            "'bbbb' (4)",
+            "'bab' (3)",
+            "'bbab' (4)"
+          ],
+          "answer": 1,
+          "explanation": "'bbbb' — pick the three b's at indices 0,1,2 and the b at index 4 (skip the 'a'). Length 4. Subsequences allow gaps. This needs 2D DP: dp[i][j] = longest palindromic subsequence in s[i..j]."
+        }
+      ],
+      "visual_aid": {
+        "type": "expand_trace",
+        "description": "Expand-around-centre traced on 'babad'",
+        "diagram": "longestPalindrome('babad'):\nString: b  a  b  a  d\nIndex:  0  1  2  3  4\n\nODD centres (i=0 to 4):\n  expand(0,0): 'b' → expand: left=-1 stop. palindrome='b' len=1\n  expand(1,1): 'a' → expand: s[0]='b'=s[2]='b' → 'bab' len=3 ← candidate!\n               expand: s[-1] OOB stop. Best='bab'\n  expand(2,2): 'b' → expand: s[1]='a'=s[3]='a' → 'aba' len=3 ← also len=3\n               expand: s[0]='b'≠s[4]='d' stop.\n  expand(3,3): 'a' → expand: s[2]='b'≠s[4]='d' stop. len=1\n  expand(4,4): 'd' → expand: left=3 OOB would be fine but s[3]≠s[5] OOB stop\n\nEVEN centres (i=0 to 3):\n  expand(0,1): s[0]='b'≠s[1]='a' → stop immediately. len=0\n  expand(1,2): s[1]='a'≠s[2]='b' → stop. len=0\n  expand(2,3): s[2]='b'≠s[3]='a' → stop. len=0\n  expand(3,4): s[3]='a'≠s[4]='d' → stop. len=0\n\nResult: 'bab' (or 'aba' — either is valid, both length 3)"
+      },
+      "complexity_summary": {
+        "expand_around_centre": {
+          "time": "O(n²)",
+          "space": "O(1)"
+        },
+        "2d_dp_palindrome": {
+          "time": "O(n²)",
+          "space": "O(n²)"
+        },
+        "palindromic_substrings_count": {
+          "time": "O(n²)",
+          "space": "O(1)"
+        },
+        "palindromic_subsequence": {
+          "time": "O(n²)",
+          "space": "O(n²) or O(n) row-optimised"
+        },
+        "note": "For interviews: use expand-around-centre for substring (O(1) space). 2D DP only for subsequence."
+      },
+      "practice_problems": [
+        {
+          "id": "lc-5",
+          "title": "Longest Palindromic Substring",
+          "difficulty": "Medium",
+          "pattern": "Expand-around-centre O(n²) O(1)",
+          "blind75": true
+        },
+        {
+          "id": "lc-647",
+          "title": "Palindromic Substrings",
+          "difficulty": "Medium",
+          "pattern": "Expand-around-centre count++",
+          "blind75": true
+        },
+        {
+          "id": "lc-516",
+          "title": "Longest Palindromic Subsequence",
+          "difficulty": "Medium",
+          "pattern": "2D DP by increasing length — previews Module 2"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M6-TH-1",
+            "question": "Why does the EXPAND-AROUND-CENTRE approach require TWO separate calls — `expand(i, i)` and `expand(i, i+1)` — for each centre position i?",
+            "options": [
+              "Two calls are needed to handle the left and right halves independently",
+              "The two calls handle the two STRUCTURALLY DIFFERENT palindrome parity cases: `expand(i, i)` finds ODD-LENGTH palindromes centred ON character i (single character centre, e.g., 'aba' with centre 'b'); `expand(i, i+1)` finds EVEN-LENGTH palindromes centred BETWEEN characters i and i+1 (no single character centre, e.g., 'abba' centred between both 'b's); both must be checked at every position because either type can occur anywhere in the string",
+              "The two calls handle ASCII and Unicode characters separately",
+              "Only odd-length palindromes exist; the second call handles edge cases"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Even-length palindromes: centred between two characters. Odd-length palindromes: centred on one character' — these two cases require different initial (left, right) pairs; odd starts with left=right=i (same index), even starts with left=i, right=i+1 (adjacent indices); missing either call would fail to find palindromes of that parity."
+          },
+          {
+            "id": "L2M6-TH-2",
+            "question": "What is the key difference between PALINDROMIC SUBSTRING and PALINDROMIC SUBSEQUENCE, and what makes substring simpler?",
+            "options": [
+              "They are identical; substring and subsequence mean the same thing for palindromes",
+              "SUBSTRING requires CONTIGUOUS characters — the palindrome must occupy a consecutive block within the string; SUBSEQUENCE only requires characters to appear in ORDER but not necessarily consecutively (can skip characters); substring is simpler because it can be solved in O(n²) with O(1) space using expand-around-centre, while longest palindromic subsequence requires O(n²) time AND O(n²) space 2D DP; the substring version's contiguity constraint enables the expand approach",
+              "Substring means the full string; subsequence means a single character",
+              "Palindromic subsequence is always longer than palindromic substring"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Substring: contiguous characters; subsequence: characters in order but not necessarily contiguous' — the contiguity constraint of substrings enables the expand-around-centre approach (O(n²) time, O(1) space) because we can deterministically expand while maintaining contiguity; subsequences require 2D DP because any combination of non-adjacent characters must be considered."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M6-LG-1",
+            "question": "For `countSubstrings('aaa')`, the lesson claims the answer is 6. List all 6 palindromic substrings.",
+            "options": [
+              "3 palindromes: 'a', 'a', 'a' — only the three single characters",
+              "6 palindromes: 'a' (index 0), 'a' (index 1), 'a' (index 2), 'aa' (indices 0-1), 'aa' (indices 1-2), 'aaa' (indices 0-2) — the expand function counts each separately: odd centres at 0,1,2 give 1,3,1 palindromes; even centres at 0-1 and 1-2 give 1,1 palindromes; total=6",
+              "4 palindromes: 'a', 'a', 'aa', 'aaa'",
+              "9 palindromes: all 3² combinations of the three characters"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: countSubstrings('aaa')=6; the 6 are: positions [0,0]='a'✓, [1,1]='a'✓, [2,2]='a'✓ (odd, single chars), [0,1]='aa'✓, [1,2]='aa'✓ (even, pairs), [0,2]='aaa'✓ (odd, centred at 1); the expand function increments count for each palindrome it discovers while expanding."
+          },
+          {
+            "id": "L2M6-LG-2",
+            "question": "In the expand function for `longestPalindrome`, what is the condition `right - left + 1 > maxLen` checking, and what is stored when it's true?",
+            "options": [
+              "It checks whether the current palindrome is exactly as long as the longest found so far",
+              "It checks whether the CURRENT PALINDROME'S LENGTH (`right - left + 1`) EXCEEDS the currently recorded maximum (`maxLen`) — if so, a new longest palindrome has been found; both `maxLen` (the new length) and `start` (the left boundary `left`) are updated to record this new maximum; the actual substring is NOT extracted during expansion — it's extracted at the end via `s.slice(start, start + maxLen)` using the recorded start and maxLen",
+              "It checks whether the expansion has reached the edges of the string",
+              "right - left + 1 computes the number of unique characters, not the length"
+            ],
+            "answer": 1,
+            "explanation": "The expand function tracks the BEST palindrome seen by updating maxLen and start whenever a longer palindrome is found; `right - left + 1` is the current window length after successful expansion; the final `s.slice(start, start + maxLen)` extracts the actual string — this lazy extraction avoids copying substrings during the O(n²) expansion loops."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M6-SY-1",
+            "question": "In the 2D DP approach for `longestPalindrome_DP`, the outer loop is `for (let len = 3; len <= n; len++)`. Why does the loop start at `len = 3` rather than `len = 1` or `len = 2`?",
+            "options": [
+              "The loop starts at 3 because the first two lengths are handled as part of the loop",
+              "Lengths 1 and 2 are handled SEPARATELY as BASE CASES before the loop: 'for each i, dp[i][i]=true' (all single characters are palindromes) and 'if s[i]===s[i+1], dp[i][i+1]=true' (adjacent equal characters form palindromes); the dp[i+1][j-1] reference in the len≥3 loop requires that the inner substring s[i+1..j-1] was computed in a PREVIOUS iteration (smaller length); starting at 3 ensures dp[i+1][j-1] (length len-2 ≥ 1) was already filled in the base cases or earlier iterations",
+              "len=3 is chosen for performance; the algorithm still works from len=1",
+              "Palindromes of length 1 and 2 are trivially false in the DP table"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's 2D DP code structure: single-char and two-char palindromes are handled as explicit base cases (dp[i][i]=true and the two-char loop); the len≥3 transition `dp[i][j] = (s[i]===s[j] && dp[i+1][j-1])` references dp[i+1][j-1] which has length len-2; this must be filled first (in ascending length order), hence the loop starts at len=3 after the base cases."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M6-CC-1",
+            "title": "Palindrome Problems: Expand-Around-Centre and Count",
+            "difficulty": "Intermediate-Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the palindrome algorithms from this lesson.",
+            "requirements": [
+              "Implement `longestPalindromeImpl(s)` using the expand-around-centre approach (O(n²) time, O(1) space)",
+              "Implement `countSubstringsImpl(s)` counting all palindromic substrings",
+              "Implement `longestPalindromeDPImpl(s)` using the 2D DP table approach (O(n²) time and space)"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function longestPalindromeImpl(s) {\n  // TODO: expand-around-centre, track start and maxLen\n}\n\nfunction countSubstringsImpl(s) {\n  // TODO: expand-around-centre, count each palindrome found\n}\n\nfunction longestPalindromeDPImpl(s) {\n  // TODO: 2D DP table, base cases then len 3+\n}"
+            },
+            "test_cases": [
+              {
+                "input": "longestPalindromeImpl('babad').length",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "longestPalindromeImpl('cbbd')",
+                "expected": "bb",
+                "type": "visible"
+              },
+              {
+                "input": "countSubstringsImpl('aaa')",
+                "expected": 6,
+                "type": "visible"
+              },
+              {
+                "input": "countSubstringsImpl('abc')",
+                "expected": 3,
+                "type": "hidden"
+              },
+              {
+                "input": "longestPalindromeDPImpl('cbbd')",
+                "expected": "bb",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function longestPalindromeImpl(s) {\n  let start = 0, maxLen = 1;\n  function expand(l, r) {\n    while (l >= 0 && r < s.length && s[l] === s[r]) {\n      if (r - l + 1 > maxLen) { maxLen = r - l + 1; start = l; }\n      l--; r++;\n    }\n  }\n  for (let i = 0; i < s.length; i++) { expand(i, i); expand(i, i+1); }\n  return s.slice(start, start + maxLen);\n}\n\nfunction countSubstringsImpl(s) {\n  let count = 0;\n  function expand(l, r) {\n    while (l >= 0 && r < s.length && s[l] === s[r]) { count++; l--; r++; }\n  }\n  for (let i = 0; i < s.length; i++) { expand(i, i); expand(i, i+1); }\n  return count;\n}\n\nfunction longestPalindromeDPImpl(s) {\n  const n = s.length;\n  const dp = Array.from({length:n}, () => new Array(n).fill(false));\n  let start = 0, maxLen = 1;\n  for (let i = 0; i < n; i++) dp[i][i] = true;\n  for (let i = 0; i < n-1; i++) {\n    if (s[i] === s[i+1]) { dp[i][i+1] = true; start = i; maxLen = 2; }\n  }\n  for (let len = 3; len <= n; len++) {\n    for (let i = 0; i <= n - len; i++) {\n      const j = i + len - 1;\n      if (s[i] === s[j] && dp[i+1][j-1]) {\n        dp[i][j] = true;\n        if (len > maxLen) { maxLen = len; start = i; }\n      }\n    }\n  }\n  return s.slice(start, start + maxLen);\n}"
+            },
+            "complexity_analysis": "longestPalindromeImpl: O(n²) time, O(1) space. countSubstringsImpl: O(n²) time, O(1) space. longestPalindromeDPImpl: O(n²) time, O(n²) space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "Both expand-around-centre functions: call expand(i,i) for odd-length and expand(i,i+1) for even-length at each i; track maxLen/start or count inside expand."
+              },
+              {
+                "level": 2,
+                "text": "longestPalindromeImpl: inside expand, update start and maxLen when r-l+1>maxLen; return s.slice(start, start+maxLen)."
+              },
+              {
+                "level": 3,
+                "text": "longestPalindromeDPImpl: fill single-char then two-char base cases; outer loop by length from 3 to n; transition: dp[i][j] = s[i]===s[j] && dp[i+1][j-1]."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "module_summary": {
+    "total_lessons": 6,
+    "level": "L2",
+    "blind75_problems_unlocked": 9,
+    "neetcode150_additional": 3,
+    "core_patterns": [
+      "Two DP conditions: optimal substructure AND overlapping subproblems (BOTH required)",
+      "Three-step memoisation: check cache → compute recursively → store and return",
+      "Bottom-up tabulation: initialise base cases → fill in topological order → return dp[target]",
+      "Space optimisation: O(n) → O(1) when recurrence uses constant-number lookback",
+      "Fibonacci family recurrence: dp[n] = dp[n-1] + dp[n-2] and conditional variants",
+      "Skip-or-take recurrence: dp[i] = max(dp[i-1], dp[i-2] + value[i])",
+      "Circular constraint: two independent linear passes (exclude first OR exclude last)",
+      "Expand-around-centre: 2n-1 centres, odd and even palindromes, O(n²) O(1)",
+      "DP time formula: O(unique subproblems × work per subproblem)"
+    ],
+    "prerequisite_modules": [
+      "L1-M05 (recursion + memoisation intro)",
+      "L1-M11 (Blind 75 capstone)"
+    ],
+    "unlocks_modules": [
+      "L2-M02 (2D DP — grid paths, LCS)",
+      "L2-M03 (Interval DP)"
+    ],
+    "recommended_problem_order": [
+      "lc-70",
+      "lc-746",
+      "lc-198",
+      "lc-213",
+      "lc-91",
+      "lc-139",
+      "lc-322",
+      "lc-5",
+      "lc-647"
+    ],
+    "spaced_review_target": "Re-solve 3 problems from L1 capstone weak areas before Module 2",
+    "module_difficulty": "Medium — first DP module. The hardest part is identifying recurrences, not implementing them. Decode Ways (#91) edge cases trip most people.",
+    "honest_time_estimate": "12-15 hours. DP concepts (L1-L3): ~4 hrs. Fibonacci-family problems (L4): ~3 hrs. House Robber I+II (L5): ~3 hrs. Palindrome (L6): ~3 hrs.",
+    "key_insight": "DP is NOT about memorising formulas — it is about identifying the recursive structure, then mechanically applying memoisation (top-down) or tabulation (bottom-up). The recurrence identification is the skill; the implementation is the craft."
+  },
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 13,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 31,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 37,
+    "difficulty_spread": {
+      "beginner_intermediate": "Lessons 1-2 (DP concepts, memoization template)",
+      "intermediate": "Lessons 3-4 (tabulation, Fibonacci family including climb stairs, min cost, decode ways)",
+      "intermediate_advanced": "Lessons 5-6 (House Robber I/II circular constraint, longest palindromic substring expand-around-centre + 2D DP)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges, with hidden test cases used for final validation"
+  }
+}

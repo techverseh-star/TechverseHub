@@ -1,22 +1,29 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createSupabaseServiceClient } from "@/lib/supabase-server";
+import { guardAuthedRequest } from "@/lib/api-guard";
+import { fileSaveSchema } from "@/lib/validation";
 
 export async function POST(req: Request) {
   try {
-    const { user_id, file } = await req.json();
+    const guard = await guardAuthedRequest(req, {
+      rateLimitPrefix: "files",
+      limit: 60,
+      windowMs: 60_000,
+      schema: fileSaveSchema,
+    });
+    if (!guard.ok) return guard.response;
+    const { userId, data: { file } } = guard;
 
-    if (!user_id) return NextResponse.json({ error: "Missing user" });
+    const supabase = createSupabaseServiceClient();
+    if (!supabase) {
+      return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+    }
 
     const { error } = await supabase
       .from("files")
       .upsert(
         {
-          user_id,
+          user_id: userId,
           file_id: file.id,
           name: file.name,
           content: file.content,
@@ -26,10 +33,10 @@ export async function POST(req: Request) {
         { onConflict: "file_id" }
       );
 
-    if (error) return NextResponse.json({ error: error.message });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     return NextResponse.json({ success: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message });
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

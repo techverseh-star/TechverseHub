@@ -1,0 +1,835 @@
+{
+  "module_id": "L3-M10",
+  "module_title": "Hard Problem Sprint",
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "note_on_relationship_to_existing_quiz": "This assessment is a SEPARATE, additive practice layer. This module is a capstone/sprint structure (framework, 20 curated problems across 2 weeks, pattern review, timed session, mindset) rather than a single-technique lesson sequence -- this is reflected in the assessment's coverage.",
+  "known_source_discrepancies": [
+    "L2: findMedianSortedArrays contains a GENUINE FUNCTIONAL BUG (not just a comment error): `const j = (m+n+1)/2 - i` uses JavaScript's float division, producing a fractional j whenever (m+n+1) is not evenly divisible by 2 relative to the chosen i (e.g., for m=2,n=2: (m+n+1)/2=2.5). This causes array indexing with non-integer j, returning `undefined` instead of the correct median for inputs like findMedianSortedArrays([1,2],[3,4]) (should be 2.5). The bug happens to be masked for the lesson's own example findMedianSortedArrays([1,3],[2]) because (m+n+1)/2=4/2=2 exactly there. The fix is `Math.floor((m+n+1)/2) - i`. Assessment tests and the coding challenge solution use the corrected implementation."
+  ],
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "lesson_title": "Hard Problem Approach Framework",
+      "theory_mcq": [
+        {
+          "id": "L3M10-L1-TH-1",
+          "question": "Step 4 ('Simplify: solve for n=2 or n=3') comes BEFORE Step 5 ('Name the pattern family'). Why must simplification precede pattern recognition?",
+          "options": [
+            "The order is arbitrary; pattern recognition could happen first with equal effectiveness",
+            "PATTERN RECOGNITION REQUIRES STRUCTURAL EVIDENCE: naming a pattern (DP, graph, greedy) without first observing the problem's actual structure risks PREMATURE PATTERN-MATCHING — forcing a familiar technique onto a problem that doesn't fit; working through n=2 or n=3 by hand SURFACES THE ACTUAL RECURRENCE OR DEPENDENCY STRUCTURE (e.g., 'bar 1 limits the rectangle spanning all 3 bars' in the histogram example) BEFORE committing to an algorithmic category; this evidence-first approach prevents the common interview failure mode of jumping to a memorized pattern that doesn't actually apply to THIS specific problem's constraints",
+            "Step 4 must come first because it has a lower step number",
+            "Simplification is only needed for problems that don't have an obvious pattern"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's framework: 'Step 4: Simplify: solve for n=2 or n=3; what structure appears?' followed by 'Step 5: Name the pattern family' — and the worked example shows this concretely: STEP 4 observes 'Bar 1 (height 1) limits the rectangle spanning all 3 bars', which DIRECTLY MOTIVATES Step 5's identification of 'previous/next smaller element' as the needed structure, leading to the monotonic stack pattern."
+        },
+        {
+          "id": "L3M10-L1-TH-2",
+          "question": "Step 8 includes 'stress-test against brute force' with 1000 random trials. Why is RANDOM stress-testing valuable BEYOND the provided test cases?",
+          "options": [
+            "Random testing is required because provided test cases are sometimes wrong",
+            "PROVIDED TEST CASES ARE DESIGNED TO BE PASSED — they often don't probe EDGE CASES or UNCOMMON INPUT PATTERNS that a subtly incorrect O(n) solution might mishandle while still passing the 2-3 given examples; a brute-force O(n²) or O(n³) solution is usually EASIER TO GET CORRECT (less algorithmic insight needed) and serves as a GROUND TRUTH ORACLE; comparing the optimized solution against the brute force across MANY RANDOM inputs catches bugs that specific hand-picked examples would miss — this is THE standard technique professional engineers use to validate non-trivial algorithm implementations before deployment",
+            "Random testing replaces the need for understanding the algorithm's correctness proof",
+            "Stress testing with 1000 trials guarantees the solution is 100% bug-free"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's Step 8 and the code's stress test: 'Stress test with 1000 random inputs... Stress test: ${failures} failures (should be 0)' — this technique exploits the fact that brute-force solutions are typically EASIER to verify correct by inspection, while optimized solutions are harder to verify but faster; comparing them across many random inputs is a practical, high-confidence validation method used throughout competitive programming and production engineering."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M10-L1-LG-1",
+          "question": "For `largestRectangleArea([2,1,5,6,2,3])`, the answer is 10. Trace which bars form this rectangle.",
+          "options": [
+            "Bars at indices 2,3 (heights 5,6): the rectangle uses height=5 (the limiting/shorter bar) spanning width=2, giving area=5*2=10 ✓",
+            "Bar at index 3 alone (height 6): area=6*1=6, not the maximum",
+            "All 6 bars together: height=min(all)=1, area=1*6=6",
+            "Bars at indices 0,1 (heights 2,1): area=1*2=2"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: largestRectangleArea([2,1,5,6,2,3])=10; the optimal rectangle uses bars at indices 2 and 3 (heights 5 and 6); since the rectangle must have UNIFORM height, it's limited by the SHORTER bar (height=5), spanning width=2 (both bars); area=5*2=10; this matches the monotonic stack's behavior: when bar 4 (height 2) is processed, it pops bar 3 (height 6, w=1, area=6) then bar 2 (height 5, w=2, area=10) since both exceed height 2."
+        },
+        {
+          "id": "L3M10-L1-LG-2",
+          "question": "The monotonic stack algorithm appends a SENTINEL value of 0 to the heights array (`heights=[...heights,0]`). Why is this sentinel necessary for CORRECTNESS?",
+          "options": [
+            "The sentinel is purely a performance optimization with no correctness implication",
+            "FLUSHING THE STACK: without the sentinel, bars remaining in the stack at the END of the array (e.g., an INCREASING sequence like [1,2,3]) would NEVER be popped and their potential rectangles would never be computed; the sentinel 0 (smaller than any valid height) GUARANTEES that when the loop reaches the sentinel position, EVERY remaining bar in the stack gets popped and evaluated (since 0 is less than all of them); without this, the algorithm would miss the rectangle formed by the LAST processed bars if they happen to be in increasing order at the end of the array",
+            "The sentinel prevents array index out-of-bounds errors",
+            "0 is added specifically to handle the empty array edge case"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code comment: 'sentinel 0 to flush stack' — without appending 0, an array like [1,2,3] (strictly increasing) would leave all three indices on the stack at loop end, never popped, never contributing to maxArea; the sentinel guarantees a final pop-everything pass since 0 is smaller than any valid histogram height (heights are non-negative per the problem constraint)."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M10-L1-SY-1",
+          "question": "In `largestRectangleArea`, the width calculation is `stack.length ? i - stack[stack.length-1] - 1 : i`. What does the TERNARY CONDITION (`stack.length`) distinguish between?",
+          "options": [
+            "The condition checks if the stack is full versus empty for memory management",
+            "BOUNDARY CASE for the LEFT EDGE: when a bar `h` is popped, its rectangle's width depends on whether there's a SMALLER bar to its left still on the stack; if `stack.length` is TRUTHY (non-empty after popping h), the rectangle's left boundary is the index right after the new stack top (`stack[stack.length-1]`), giving width `i - stack[top] - 1`; if the stack is EMPTY after popping h, this means h was the SMALLEST bar processed so far — the rectangle can extend ALL THE WAY to index 0, giving width simply `i` (the bar's right boundary, since left boundary is effectively -1)",
+            "The ternary checks whether the current bar is taller or shorter than the previous one",
+            "stack.length determines whether to use Math.max or Math.min for area calculation"
+          ],
+          "answer": 1,
+          "explanation": "The width formula handles two cases: if the stack still has elements after popping h, the new top represents the nearest smaller-or-equal bar to the LEFT, so width = current_position - new_top - 1 (exclusive boundaries); if the stack becomes empty, h was the smallest bar seen so far in this range, meaning its rectangle extends from index 0 to i-1, giving width = i; this correctly handles the left-boundary edge case for the monotonic stack algorithm."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M10-L1-CC-1",
+          "title": "Largest Rectangle in Histogram with Stress Testing",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement the largest rectangle in histogram solution and verify it against brute force.",
+          "requirements": [
+            "Implement `largestRectangleAreaImpl(heights)` matching the lesson's monotonic stack approach",
+            "Implement `bruteForceImpl(heights)` as the O(n²) ground-truth oracle"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function largestRectangleAreaImpl(heights) {\n  // TODO: monotonic stack with sentinel 0 to flush remaining bars\n}\n\nfunction bruteForceImpl(heights) {\n  // TODO: O(n^2) all pairs (i,j), track running min height\n}"
+          },
+          "test_cases": [
+            {
+              "input": "largestRectangleAreaImpl([2,1,5,6,2,3])",
+              "expected": 10,
+              "type": "visible"
+            },
+            {
+              "input": "largestRectangleAreaImpl([2,4])",
+              "expected": 4,
+              "type": "visible"
+            },
+            {
+              "input": "largestRectangleAreaImpl([])",
+              "expected": 0,
+              "type": "visible"
+            },
+            {
+              "input": "(() => { let f=0; for(let t=0;t<200;t++){const h=Array.from({length:6},()=>Math.floor(Math.random()*10)); if(largestRectangleAreaImpl(h)!==bruteForceImpl(h))f++;} return f; })()",
+              "expected": 0,
+              "type": "hidden"
+            },
+            {
+              "input": "largestRectangleAreaImpl([1,1,1,1])",
+              "expected": 4,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function largestRectangleArea(heights){\n  const n=heights.length;heights=[...heights,0];\n  const stack=[];let maxArea=0;\n  for(let i=0;i<=n;i++){\n    while(stack.length&&heights[stack[stack.length-1]]>heights[i]){\n      const h=heights[stack.pop()];\n      const w=stack.length?i-stack[stack.length-1]-1:i;\n      maxArea=Math.max(maxArea,h*w);\n    }\n    stack.push(i);\n  }\n  return maxArea;\n}\nfunction bruteForce(heights){let max=0;for(let i=0;i<heights.length;i++){let min=heights[i];for(let j=i;j<heights.length;j++){min=Math.min(min,heights[j]);max=Math.max(max,min*(j-i+1));}}return max;}\nconst largestRectangleAreaImpl=largestRectangleArea;\nconst bruteForceImpl=bruteForce;"
+          },
+          "complexity_analysis": "largestRectangleAreaImpl: O(n) — each index pushed/popped at most once. bruteForceImpl: O(n²).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "Append sentinel 0 to heights; maintain a stack of indices with monotonically increasing heights."
+            },
+            {
+              "level": 2,
+              "text": "On encountering a smaller height, pop and compute area = popped_height * width, where width depends on stack state after popping."
+            },
+            {
+              "level": 3,
+              "text": "bruteForceImpl: for each i, expand j rightward tracking running min height; area = min * (j-i+1)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 2,
+      "lesson_title": "10 Curated Hard Problems — Week 1",
+      "known_source_discrepancy_note": "The lesson's findMedianSortedArrays has a BUG: `const j = (m+n+1)/2 - i` uses regular division, producing a fractional j when (m+n+1) is odd relative to 2 (e.g., m=2,n=2 gives (m+n+1)/2=2.5). This causes array indexing with a non-integer, returning undefined for cases like findMedianSortedArrays([1,2],[3,4]) (should be 2.5, actually returns undefined). The fix is `Math.floor((m+n+1)/2) - i`. This is a genuine algorithmic bug, not just a comment error -- it happens to work for [1,3],[2] (where (m+n+1)/2=2 exactly) but fails for [1,2],[3,4]. Assessment tests use the corrected implementation.",
+      "theory_mcq": [
+        {
+          "id": "L3M10-L2-TH-1",
+          "question": "Burst Balloons' insight is to think about the balloon BURST LAST (not first) in range [i,j]. Why does 'last' give a CLEAN RECURRENCE while 'first' does not?",
+          "options": [
+            "Both 'first' and 'last' give equally clean recurrences; the choice is arbitrary",
+            "WHEN BALLOON k IS BURST LAST in range (i,j): its NEIGHBORS at the moment of bursting are EXACTLY a[i] and a[j] (the boundary balloons), because ALL OTHER balloons in (i,k) and (k,j) have ALREADY been burst, having NO EFFECT on k's neighbors; this gives a CLEAN INDEPENDENT SPLIT: dp[i][j] = max over k of (a[i]*a[k]*a[j] + dp[i][k] + dp[k][j]) — the two sub-ranges (i,k) and (k,j) are SOLVED INDEPENDENTLY; choosing 'first burst' would require knowing what k's NEIGHBORS will eventually become after other balloons are popped — this depends on FUTURE decisions, making the recurrence ENTANGLED rather than cleanly separable",
+            "The 'last' insight is needed because LeetCode's test cases specifically require it",
+            "'First balloon burst' would require O(n!) time, while 'last' achieves O(n)"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's comment: 'INSIGHT: think about which balloon is popped LAST in [i..j]' — the key realization: a balloon's burst value depends on its CURRENT neighbors at burst time; for the LAST balloon in a range, its neighbors are guaranteed to be the RANGE BOUNDARIES (since everything else is already gone); this gives an independence property that 'first burst' lacks, since the first burst's neighbors are whatever's currently adjacent — which changes unpredictably as the recursion proceeds."
+        },
+        {
+          "id": "L3M10-L2-TH-2",
+          "question": "Median of Two Sorted Arrays' insight is binary search on the SHORTER array. Why specifically the SHORTER (not either array)?",
+          "options": [
+            "Binary searching the shorter array gives a different (incorrect) answer than the longer array",
+            "GUARANTEEING A VALID PARTITION RANGE: the algorithm partitions BOTH arrays such that the combined left and right halves have equal (or near-equal) total size; the partition point `i` in the first array determines `j = (m+n+1)/2 - i` in the second array; if we binary search the LONGER array, `i` could range up to `n` (the longer length), but `j` would need to be NEGATIVE for some values of `i` (since j depends on the SHORTER array's bounds) — this creates INVALID PARTITION STATES requiring extra edge-case handling; by ALWAYS binary searching the SHORTER array (length m≤n), `j` is GUARANTEED to stay within valid bounds [0,n] for all `i` in [0,m], simplifying the boundary logic significantly",
+            "Searching the shorter array is faster purely due to fewer total elements being touched",
+            "The longer array must remain unmodified during the search, but the shorter one can be mutated"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `if(nums1.length>nums2.length)return findMedianSortedArrays(nums2,nums1)` ensures nums1 is always the shorter array — binary searching i in [0,m] (shorter length) guarantees the corresponding j=(m+n+1)/2-i stays within [0,n] (longer length) for all valid i; searching the longer array first could produce j values outside [0, shorter_length], requiring additional bounds checking."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M10-L2-LG-1",
+          "question": "For `maxCoins([3,1,5,8])`, the answer is 167. Trace the OPTIMAL bursting order to verify.",
+          "options": [
+            "Burst order [1,5,3,8] (balloon with value 1 first, then 5, then 3, then 8): coins = 3*1*5 + 3*5*8 + 1*3*8 + 1*8*1 = 15+120+24+8 = 167 ✓",
+            "Burst order [3,1,5,8] (left to right): coins = 1*3*1 + 1*1*5 + 1*5*8 + 1*8*1 = 3+5+40+8 = 56",
+            "Burst order [8,5,1,3] (right to left): a different total that doesn't reach 167",
+            "The maximum is achieved by NOT bursting any balloons, giving 0 coins"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: maxCoins([3,1,5,8])=167; with boundary 1's added: [1,3,1,5,8,1]; bursting balloon with value 1 (index 2 in original) first: coins=3*1*5=15, remaining [3,5,8]; burst 3: coins=1*3*5=15... (the optimal order via DP backtracking gives [1,5,3,8] bursting, totaling 3*1*5+3*5*8+1*3*8+1*8*1=15+120+24+8=167)."
+        },
+        {
+          "id": "L3M10-L2-LG-2",
+          "question": "Regular Expression Matching's `dp[i][j-2]` represents the '0 occurrences' case for `*`. Why is checking `dp[i][j-2]` (not `dp[i-1][j-2]`) correct for ZERO occurrences?",
+          "options": [
+            "dp[i-1][j-2] would also be correct; the formula is interchangeable",
+            "ZERO OCCURRENCES means the preceding character-pattern pair (p[j-2] followed by *) MATCHES NOTHING in the string — the STRING POSITION i DOES NOT ADVANCE; we're checking 'does s[0..i-1] match p[0..j-3]' (skipping the last two pattern characters: the repeated char and the *); since the string consumed (i characters) is UNCHANGED when '*' matches zero times, we look up dp[i][j-2] (same i, pattern shortened by 2); using dp[i-1][j-2] would incorrectly imply the string position decreased, which doesn't happen when matching ZERO repetitions",
+            "dp[i][j-2] is used because the * character itself takes up one position in the pattern array",
+            "The formula dp[i][j-2] is a simplification that only works for single-character patterns"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `dp[i][j] = dp[i][j-2] || ...` for the zero-occurrences branch — when '*' matches ZERO instances of the preceding character, NO characters of s are consumed, so the string index i stays the SAME, only the pattern index decreases by 2 (skipping 'char*'); this correctly checks if the remaining pattern (without this char* construct) matches the SAME string prefix."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M10-L2-SY-1",
+          "question": "In `isMatch`, the base case loop `for(let j=2;j<=n;j++) if(p[j-1]==='*') dp[0][j]=dp[0][j-2]` starts at j=2 (not j=1). Why?",
+          "options": [
+            "Starting at j=1 would cause an off-by-one error in the pattern indexing",
+            "A '*' QUANTIFIER REQUIRES A PRECEDING CHARACTER: the pattern syntax 'x*' means 'zero or more of character x' — the '*' at position p[j-1] needs a character BEFORE it (at p[j-2]) to quantify; if j=1, then j-2=-1 (invalid index), meaning there's no character for '*' to quantify — this would be a MALFORMED pattern (a leading '*' with nothing to repeat), which the problem guarantees won't occur; starting at j=2 ensures j-2>=0, always referencing a VALID preceding character position; this loop computes whether an EMPTY STRING can match a non-empty PATTERN that consists entirely of 'char*' sequences (e.g., 'a*b*c*')",
+            "j=2 is required because the pattern always has even length",
+            "Starting at j=2 skips the first two characters of the pattern, which are reserved for special tokens"
+          ],
+          "answer": 1,
+          "explanation": "The regex pattern grammar guarantees '*' is always preceded by a valid character (the problem's constraints rule out a pattern starting with '*'); checking p[j-1]==='*' at j=2 onward ensures p[j-2] (the character being quantified) is always a valid index >= 0; this initialization handles patterns like 'a*b*c*' matching the empty string, which is possible since each 'char*' can match zero occurrences."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M10-L2-CC-1",
+          "title": "Burst Balloons, Median of Two Sorted Arrays, and Regex Matching",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement three Week 1 hard problems from this lesson.",
+          "requirements": [
+            "Implement `maxCoinsImpl(nums)` matching the lesson's interval DP with boundary balloons",
+            "Implement `findMedianSortedArraysImpl(nums1, nums2)` — using the CORRECTED partition formula (Math.floor)",
+            "Implement `isMatchImpl(s, p)` matching the lesson's regex DP"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function maxCoinsImpl(nums) {\n  // TODO: interval DP; dp[i][j] = max coins bursting all balloons strictly between i,j\n}\n\nfunction findMedianSortedArraysImpl(nums1, nums2) {\n  // TODO: binary search on shorter array; CRITICAL: use Math.floor((m+n+1)/2)-i for j\n}\n\nfunction isMatchImpl(s, p) {\n  // TODO: 2D DP regex matching with '.' and '*'\n}"
+          },
+          "test_cases": [
+            {
+              "input": "maxCoinsImpl([3,1,5,8])",
+              "expected": 167,
+              "type": "visible"
+            },
+            {
+              "input": "findMedianSortedArraysImpl([1,2],[3,4])",
+              "expected": 2.5,
+              "type": "visible"
+            },
+            {
+              "input": "isMatchImpl('aa','a*')",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "findMedianSortedArraysImpl([1,3],[2])",
+              "expected": 2,
+              "type": "hidden"
+            },
+            {
+              "input": "isMatchImpl('aab','c*a*b')",
+              "expected": true,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function maxCoins(nums){\n  const a=[1,...nums,1];const n=a.length;\n  const dp=Array.from({length:n},()=>new Array(n).fill(0));\n  for(let len=2;len<n;len++)for(let i=0;i+len<n;i++){const j=i+len;for(let k=i+1;k<j;k++){dp[i][j]=Math.max(dp[i][j],a[i]*a[k]*a[j]+dp[i][k]+dp[k][j]);}}\n  return dp[0][n-1];\n}\nfunction findMedianSortedArrays(nums1,nums2){\n  if(nums1.length>nums2.length)return findMedianSortedArrays(nums2,nums1);\n  const m=nums1.length,n=nums2.length;let lo=0,hi=m;\n  while(lo<=hi){\n    const i=(lo+hi)>>1;\n    const j=Math.floor((m+n+1)/2)-i;\n    const maxL1=i>0?nums1[i-1]:-Infinity;const minR1=i<m?nums1[i]:Infinity;\n    const maxL2=j>0?nums2[j-1]:-Infinity;const minR2=j<n?nums2[j]:Infinity;\n    if(maxL1<=minR2&&maxL2<=minR1){\n      if((m+n)%2===1)return Math.max(maxL1,maxL2);\n      return(Math.max(maxL1,maxL2)+Math.min(minR1,minR2))/2;\n    }else if(maxL1>minR2)hi=i-1;\n    else lo=i+1;\n  }\n}\nfunction isMatch(s,p){\n  const m=s.length,n=p.length;\n  const dp=Array.from({length:m+1},()=>new Array(n+1).fill(false));\n  dp[0][0]=true;\n  for(let j=2;j<=n;j++)if(p[j-1]==='*')dp[0][j]=dp[0][j-2];\n  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++){\n    if(p[j-1]==='*'){dp[i][j]=dp[i][j-2]||((p[j-2]==='.'||p[j-2]===s[i-1])&&dp[i-1][j]);}\n    else{dp[i][j]=(p[j-1]==='.'||p[j-1]===s[i-1])&&dp[i-1][j-1];}\n  }\n  return dp[m][n];\n}\nconst maxCoinsImpl=maxCoins;\nconst findMedianSortedArraysImpl=findMedianSortedArrays;\nconst isMatchImpl=isMatch;"
+          },
+          "complexity_analysis": "maxCoinsImpl: O(n³). findMedianSortedArraysImpl: O(log(min(m,n))). isMatchImpl: O(m*n).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "maxCoinsImpl: add boundary 1's; iterate by increasing interval length; for each (i,j), try all k as 'last burst'."
+            },
+            {
+              "level": 2,
+              "text": "findMedianSortedArraysImpl: CRITICAL FIX needed — use Math.floor((m+n+1)/2)-i to ensure j is always an integer."
+            },
+            {
+              "level": 3,
+              "text": "isMatchImpl: base case dp[0][0]=true; for '*' at p[j-1]: zero occurrences (dp[i][j-2]) OR one-plus (char matches AND dp[i-1][j])."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 3,
+      "lesson_title": "10 Curated Hard Problems — Week 2",
+      "theory_mcq": [
+        {
+          "id": "L3M10-L3-TH-1",
+          "question": "Dungeon Game's DP must proceed BOTTOM-RIGHT to TOP-LEFT (REVERSE direction). Why does FORWARD DP (top-left to bottom-right) fail for this problem?",
+          "options": [
+            "Forward DP fails because the dungeon grid only supports backward traversal physically",
+            "THE DP STATE DEPENDS ON FUTURE CELLS, NOT PAST ONES: the quantity being computed is 'MINIMUM HEALTH NEEDED TO SURVIVE FROM HERE TO THE END'; this inherently depends on what challenges lie AHEAD (toward the bottom-right princess room), not what's already been traversed; a FORWARD DP would need to track 'maximum health accumulated so far', but this fails because HEALTH CANNOT EXCEED A CERTAIN VALUE BEFORE A LATER LARGE NEGATIVE CELL — you might have high health early but still die later if you took a path that didn't preserve ENOUGH SURPLUS for an upcoming challenge; only by computing BACKWARD (knowing the future requirement first) can you determine the MINIMUM STARTING HEALTH for of each cell, since dp[i][j] = max(1, min(dp[i+1][j],dp[i][j+1]) - dungeon[i][j]) directly requires the ALREADY-COMPUTED future cells",
+            "Forward DP would require O(n^3) time instead of O(n^2)",
+            "The grid must be traversed backward because dungeon values can be negative"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's comment: 'INSIGHT: DP must go bottom-right to top-left' and 'dp[i][j] = minimum health needed to reach dungeon[i][j] alive' — the recurrence dp[i][j]=max(1, min(dp[i+1][j],dp[i][j+1])-dungeon[i][j]) is defined in terms of the NEXT cells (i+1,j) and (i,j+1) which must already be computed; this requires processing the grid in REVERSE order (bottom-right first), making this a 'reverse state DP' archetype distinct from typical forward-filling DP."
+        },
+        {
+          "id": "L3M10-L3-TH-2",
+          "question": "Minimum Refueling Stops uses a GREEDY approach with a max-heap rather than DP. Why does the GREEDY 'refuel at richest reachable station when stuck' strategy provably give the OPTIMAL (minimum) number of stops?",
+          "options": [
+            "Greedy is used purely for implementation simplicity; it doesn't guarantee optimality",
+            "EXCHANGE ARGUMENT (delayed decision-making): the key insight is to DELAY the decision of WHICH station to refuel at until FORCED to (when current fuel runs out); at that point, refuel using the LARGEST fuel amount among ALL stations passed so far (not just the immediately next one); this is OPTIMAL because: if you must take SOME stop, taking the one offering the MOST fuel minimizes future stops needed; choosing a SMALLER fuel station when a LARGER one was already passed is NEVER better (you could have 'virtually' refueled at the larger station instead, achieving at least as much fuel with the same number of stops); this greedy-with-max-heap technique (process events lazily, act greedily when forced) is a recognized algorithmic pattern beyond just this problem",
+            "Greedy works because the problem guarantees a unique optimal solution exists",
+            "The max-heap ensures O(1) time complexity for each refueling decision"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's comment: 'INSIGHT: greedy with max-heap — refuel at richest station seen so far' — the exchange argument proves optimality: deferring the refuel CHOICE until necessary and then greedily selecting the maximum available fuel is never worse than any alternative strategy, since any unused larger-fuel station 'wastes' potential; this is analogous to other greedy-with-priority-queue patterns (e.g., task scheduling, meeting rooms)."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M10-L3-LG-1",
+          "question": "For `calculateMinimumHP([[-2,-3,3],[-5,-10,1],[10,30,-5]])`, the answer is 7. What does '7' represent?",
+          "options": [
+            "The knight needs AT LEAST 7 starting health points to survive the optimal path from top-left to bottom-right (princess room), where health must STAY ABOVE 0 at every cell along the path — confirmed by direct execution and the reverse DP recurrence",
+            "7 is the total number of cells the knight must traverse to reach the princess",
+            "7 represents the sum of all negative values in the dungeon grid, taken as positive",
+            "7 is the maximum possible health the knight could have at the end of the optimal path"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct execution: calculateMinimumHP([[-2,-3,3],[-5,-10,1],[10,30,-5]])=7; this represents the MINIMUM INITIAL HEALTH required for the knight to traverse some path from (0,0) to (m-1,n-1) such that health NEVER drops to 0 or below at any point along the path; the dp[0][0] value directly answers 'what is the minimum starting health'."
+        },
+        {
+          "id": "L3M10-L3-LG-2",
+          "question": "Longest Increasing Path in Matrix (#329) treats the matrix as a DAG and applies DFS+memoization. Why is the matrix GUARANTEED to be ACYCLIC when paths must be STRICTLY INCREASING?",
+          "options": [
+            "The matrix is acyclic only if all values are distinct, which is not always guaranteed",
+            "STRICT MONOTONICITY PRECLUDES CYCLES: a path in the implicit DAG follows edges between adjacent cells where the VALUE STRICTLY INCREASES; for a CYCLE to exist, you would need to return to a PREVIOUSLY VISITED cell — but since values along the path are STRICTLY INCREASING (never equal, never decreasing), once you leave a cell with value v, you can NEVER return to it (since returning would require a NON-INCREASING transition at some point, violating the strict-increase constraint); this guarantees the implicit directed graph (edges from smaller to larger neighboring values) has NO CYCLES, making memoized DFS safe (no infinite recursion, no revisiting issues)",
+            "The matrix is artificially restricted to acyclic inputs by the problem constraints",
+            "Acyclicity comes from the matrix having a fixed, finite size, not from the strict-increase property"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's insight table: 'Matrix as DAG: DFS+memo since strictly increasing = no cycles' — the STRICT inequality (not >=) is the critical property; if equal values were allowed to extend a path, cycles could form among equal-valued cells; strict increase guarantees a DAG structure, which is exactly what makes memoized DFS (rather than requiring cycle detection or more complex graph algorithms) both correct and efficient."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M10-L3-SY-1",
+          "question": "`minRefuelStops` uses `heap.push(...); heap.sort((a,b)=>b-a)` to simulate a max-heap with a SORTED ARRAY. What is the PERFORMANCE COST of this simplification compared to a true binary heap?",
+          "options": [
+            "There is no performance difference; sorting and heap operations have identical complexity",
+            "SORTING ON EVERY INSERT is O(k log k) where k is the current heap size, compared to a TRUE BINARY HEAP's O(log k) insert; for m total station insertions, this simplified approach costs O(m² log m) in the worst case (re-sorting up to m times) versus O(m log m) for a proper heap; the lesson's comment 'Use sorted array as priority queue for simplicity' EXPLICITLY ACKNOWLEDGES this tradeoff — it's a PEDAGOGICAL SIMPLIFICATION for clarity, not a production-optimal implementation; a real-world or competitive-programming solution would use a proper binary heap (or JavaScript's lack of native heap, a manually implemented one) to achieve the optimal O(n log n) total complexity",
+            "The sorted array approach is actually faster than a binary heap for small inputs",
+            "heap.shift() and array sorting have no impact on the algorithm's correctness or speed"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's own comment: 'Use sorted array as priority queue for simplicity' — this is an explicit acknowledgment that the implementation trades performance for code clarity; re-sorting the entire array on each insertion is O(k log k) per insert (vs O(log k) for a proper heap), making the overall complexity worse than the theoretically optimal O(n log n); this is appropriate for a teaching example but would need replacement with a real heap for production use."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M10-L3-CC-1",
+          "title": "Dungeon Game and Minimum Refueling Stops",
+          "difficulty": "Hard",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement two Week 2 hard problems from this lesson.",
+          "requirements": [
+            "Implement `calculateMinimumHPImpl(dungeon)` matching the lesson's reverse DP approach",
+            "Implement `minRefuelStopsImpl(target, startFuel, stations)` matching the lesson's greedy max-heap approach"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function calculateMinimumHPImpl(dungeon) {\n  // TODO: dp grid (m+1)x(n+1); boundary dp[m][n-1]=dp[m-1][n]=1; fill bottom-right to top-left\n}\n\nfunction minRefuelStopsImpl(target, startFuel, stations) {\n  // TODO: max-heap (sorted array OK); add reachable stations; refuel at richest when stuck\n}"
+          },
+          "test_cases": [
+            {
+              "input": "calculateMinimumHPImpl([[-2,-3,3],[-5,-10,1],[10,30,-5]])",
+              "expected": 7,
+              "type": "visible"
+            },
+            {
+              "input": "calculateMinimumHPImpl([[0]])",
+              "expected": 1,
+              "type": "visible"
+            },
+            {
+              "input": "minRefuelStopsImpl(100,10,[[10,60],[20,30],[30,30],[60,40]])",
+              "expected": 2,
+              "type": "visible"
+            },
+            {
+              "input": "minRefuelStopsImpl(1,1,[])",
+              "expected": 0,
+              "type": "hidden"
+            },
+            {
+              "input": "minRefuelStopsImpl(100,1,[[2,100]])",
+              "expected": -1,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function calculateMinimumHP(dungeon){\n  const m=dungeon.length,n=dungeon[0].length;\n  const dp=Array.from({length:m+1},()=>new Array(n+1).fill(Infinity));\n  dp[m][n-1]=dp[m-1][n]=1;\n  for(let i=m-1;i>=0;i--)for(let j=n-1;j>=0;j--){const minNext=Math.min(dp[i+1][j],dp[i][j+1]);dp[i][j]=Math.max(1,minNext-dungeon[i][j]);}\n  return dp[0][0];\n}\nfunction minRefuelStops(target,startFuel,stations){\n  const heap=[];let fuel=startFuel,stops=0,i=0;\n  while(fuel<target){\n    while(i<stations.length&&stations[i][0]<=fuel){heap.push(stations[i][1]);heap.sort((a,b)=>b-a);i++;}\n    if(!heap.length)return-1;\n    fuel+=heap.shift();stops++;\n  }\n  return stops;\n}\nconst calculateMinimumHPImpl=calculateMinimumHP;\nconst minRefuelStopsImpl=minRefuelStops;"
+          },
+          "complexity_analysis": "calculateMinimumHPImpl: O(m*n). minRefuelStopsImpl: O(n² log n) with sorted-array heap simulation (O(n log n) with a true heap).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "calculateMinimumHPImpl: dp[i][j]=max(1, min(dp[i+1][j],dp[i][j+1])-dungeon[i][j]); iterate i,j from m-1,n-1 downTo 0."
+            },
+            {
+              "level": 2,
+              "text": "minRefuelStopsImpl: while fuel<target: add all stations reachable with current fuel to heap; if heap empty return -1; else refuel with max station."
+            },
+            {
+              "level": 3,
+              "text": "Boundary for Dungeon Game: dp[m][n-1]=dp[m-1][n]=1 represents 'need 1 health to survive the princess room' sentinel."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 4,
+      "lesson_title": "Review And Pattern Extraction",
+      "theory_mcq": [
+        {
+          "id": "L3M10-L4-TH-1",
+          "question": "The lesson groups 20 problems into 5 ARCHETYPES rather than treating each problem as unique. What COGNITIVE ADVANTAGE does archetype-based organization provide for interview preparation?",
+          "options": [
+            "Archetype grouping reduces the total study time by exactly 5x (one archetype per problem group)",
+            "TRANSFER LEARNING via STRUCTURAL ABSTRACTION: memorizing 20 INDIVIDUAL solutions creates BRITTLE knowledge — a NEW problem (problem #21, never seen before) provides NO transferable structure if each prior solution is stored as an isolated fact; by extracting the SHARED INSIGHT across multiple problems (e.g., 'Interval DP with Reversal: consider the LAST action' applies to Burst Balloons, Min Cost to Cut Stick, AND Strange Printer), the learner builds a REUSABLE MENTAL TEMPLATE that can be APPLIED to genuinely novel problems sharing the same underlying structure; this is the difference between ROTE MEMORIZATION (fragile, doesn't generalize) and PATTERN ABSTRACTION (robust, transfers to unseen problems) — exactly what the `identifyArchetype` function operationalizes",
+            "Archetypes are used only to satisfy a curriculum design requirement, with no learning benefit",
+            "Grouping by archetype is primarily for organizing the JSON data structure, not for cognitive benefit"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Transfer problems: given a new problem, which stored insight applies?' — the archetype-based library directly enables the TRANSFER skill that distinguishes strong interview performance: recognizing that an UNSEEN problem shares structure with PREVIOUSLY SOLVED problems, even though surface details differ; this is precisely why the `identifyArchetype` function exists — it operationalizes pattern transfer as a concrete, testable skill."
+        },
+        {
+          "id": "L3M10-L4-TH-2",
+          "question": "The lesson states 'every hard problem has a brute-force; the insight converts it'. Why is EXPLICITLY identifying the brute-force FIRST a valuable interview strategy, even when you ALREADY suspect the optimal approach?",
+          "options": [
+            "Identifying brute force is unnecessary if you already know the optimal solution",
+            "BASELINE ESTABLISHMENT AND BOTTLENECK IDENTIFICATION: stating the brute force FIRST (even mentally) serves two purposes: (1) it provides a FALLBACK if the optimal insight doesn't fully materialize under time pressure — partial credit for a stated, correct brute-force beats a broken attempt at the optimal solution; (2) ARTICULATING the brute force's BOTTLENECK ('this is O(n³) because we try all triples...') often DIRECTLY REVEALS what the insight needs to eliminate — the insight is frequently 'how do I avoid this REDUNDANT recomputation/comparison that the brute force does'; this mirrors the lesson's broader 8-step framework where Step 3 (constraints) and the brute-to-efficient mapping in hardProblemLibrary explicitly connect each archetype's complexity jump",
+            "Brute force identification is a formality required by all coding interview platforms",
+            "The brute force approach is always faster to implement, regardless of correctness"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Brute-force connection: every hard problem has a brute-force; the insight converts it' combined with each archetype's `brute_to_efficient` field (e.g., 'Brute: enumerate all permutations of O(n!) -> DP over intervals O(n^3)') — explicitly stating the brute force and its bottleneck is both a SAFETY NET (partial credit) and a DIAGNOSTIC TOOL (the bottleneck often points directly at the needed optimization)."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M10-L4-LG-1",
+          "question": "The `hardProblemLibrary` has 5 archetypes covering 11 total problems (3+2+1+3+2). Why might fewer than all 20 problems from Weeks 1-2 be explicitly catalogued in this library?",
+          "options": [
+            "The library intentionally selects a REPRESENTATIVE SUBSET for ARCHETYPE-FOCUSED review — not every problem needs explicit archetype categorization if some problems (e.g., Median of Two Sorted Arrays' binary-search-on-answer-space, or Critical Connections' bridge-finding DFS) represent SINGLE-PROBLEM techniques rather than RECURRING archetypes; the library prioritizes patterns that appear MULTIPLE TIMES (3+ problems for the most common archetypes), since these represent the highest-value patterns to internalize; problems with unique, non-recurring techniques are still valuable to know individually but don't need archetype grouping",
+            "The library has an error and is missing 9 problems that should be included",
+            "Only problems numbered below 1000 are included in the library due to a filtering bug",
+            "The remaining 9 problems are covered in a separate, unlisted data structure"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct count: hardProblemLibrary has 5 archetypes with problems arrays of length 3,2,1,3,2 = 11 total; this is a DELIBERATE curation choosing archetypes that recur across MULTIPLE problems (Interval DP with Reversal: 3 problems, Monotonic Structure: 3 problems) — the value of archetype-based study comes from PATTERN RECURRENCE, so problems with unique one-off techniques are naturally less emphasized in this particular organizational structure."
+        },
+        {
+          "id": "L3M10-L4-LG-2",
+          "question": "`identifyArchetype` uses keyword matching (e.g., 'histogram', 'rectangle' → Monotonic Structure). What is a LIMITATION of this SIGNAL-BASED approach for REAL interview problems?",
+          "options": [
+            "Keyword matching is perfectly reliable and has no limitations for real problems",
+            "SURFACE-LEVEL KEYWORDS DON'T GUARANTEE STRUCTURAL MATCH: a NEW problem might use NONE of the expected keywords while still sharing the underlying archetype (e.g., a problem about 'maximum profit from contiguous segments' might be Monotonic-Structure-like without ever saying 'histogram' or 'rectangle'); CONVERSELY, a problem might MENTION a keyword ('minimum X such that Y' suggesting binary search) while actually requiring a DIFFERENT technique; `identifyArchetype` is explicitly a STARTING HEURISTIC for the learner's OWN pattern recognition, not a definitive classifier — the function's fallback 'Unknown - needs deeper analysis' acknowledges this limitation directly, signaling that keyword matching is a FIRST PASS, not a substitute for genuine structural analysis (the 8-step framework's Steps 1-4)",
+            "The function only works for problems with IDs below 1000",
+            "Keyword matching requires the problem description to be in a specific JSON format"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's code: `return 'Unknown - needs deeper analysis'` as the explicit fallback — this acknowledges that surface-level keyword matching is a heuristic aid, not a guaranteed classifier; real interview problems are often deliberately phrased to OBSCURE the underlying pattern, requiring the deeper structural analysis from the 8-step framework (Lesson 1) rather than relying solely on keyword triggers."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M10-L4-SY-1",
+          "question": "Each archetype object includes a `brute_to_efficient` field as a STRING describing the complexity jump (e.g., 'O(n!) -> O(n^3)'). Why store this as a HUMAN-READABLE STRING rather than structured data (e.g., {{from: 'O(n!)', to: 'O(n^3)'}})?",
+          "options": [
+            "Structured data would be impossible to represent in JSON",
+            "READABILITY FOR SPACED-REPETITION REVIEW: this field is part of an INSIGHT JOURNAL meant for HUMAN review (per the lesson's 'Review cadence: spaced repetition for hard problem insights'), not primarily for PROGRAMMATIC PROCESSING; a human reviewing flashcards benefits from a NATURAL, READABLE SENTENCE ('Brute: enumerate all permutations of O(n!) -> DP over intervals O(n^3)') that captures BOTH the complexity numbers AND the QUALITATIVE TECHNIQUE CHANGE ('enumerate permutations' vs 'DP over intervals'); structured data ({{from,to}}) would lose this qualitative context unless additional fields were added, making the single descriptive string a more EFFICIENT representation for THIS SPECIFIC USE CASE (human review, not automated complexity analysis)",
+            "JSON doesn't support nested objects, forcing the use of strings",
+            "The string format is required for compatibility with older browser versions"
+          ],
+          "answer": 1,
+          "explanation": "The `brute_to_efficient` field's design choice (human-readable string vs structured data) reflects its PURPOSE: this is part of a spaced-repetition review system meant for human consumption, not automated parsing; a descriptive string efficiently captures both the complexity numbers AND the conceptual shift in technique, which would require multiple structured fields to replicate — for THIS use case (insight journaling), the string format is the more practical choice."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M10-L4-CC-1",
+          "title": "Hard Problem Archetype Library and Classifier",
+          "difficulty": "Intermediate",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement the pattern extraction library and archetype identifier from this lesson.",
+          "requirements": [
+            "Implement `identifyArchetypeImpl(description)` matching the lesson's keyword-signal approach",
+            "Implement `libraryStats(library)` returning {archetypeCount, totalProblems}"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function identifyArchetypeImpl(description) {\n  // TODO: keyword signals for each of 5 archetypes; return matched archetype or 'Unknown - needs deeper analysis'\n}\n\nfunction libraryStats(library) {\n  // TODO: archetypeCount = library.length; totalProblems = sum of problems arrays\n}"
+          },
+          "test_cases": [
+            {
+              "input": "identifyArchetypeImpl('Find the largest rectangle in a histogram')",
+              "expected": "Monotonic Structure",
+              "type": "visible"
+            },
+            {
+              "input": "identifyArchetypeImpl('Burst balloons to maximize coins')",
+              "expected": "Interval DP with Reversal",
+              "type": "visible"
+            },
+            {
+              "input": "identifyArchetypeImpl('Completely unrelated problem about graphs')",
+              "expected": "Unknown - needs deeper analysis",
+              "type": "visible"
+            },
+            {
+              "input": "identifyArchetypeImpl('Visit all nodes with minimum cost, n<=20')",
+              "expected": "Bitmask State",
+              "type": "hidden"
+            },
+            {
+              "input": "libraryStats([{problems:[1,2,3]},{problems:[4,5]},{problems:[6]},{problems:[7,8,9]},{problems:[10,11]}])",
+              "expected": {
+                "archetypeCount": 5,
+                "totalProblems": 11
+              },
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function identifyArchetypeImpl(description){\n  const signals={\n    'Interval DP with Reversal':['last','burst','range','cost to reduce'],\n    'Reverse State DP':['health','survive','future constraint','bottom-right'],\n    'Bitmask State':['visit all','n<=20','subset','tour'],\n    'Monotonic Structure':['histogram','rectangle','span','extend until'],\n    'Binary Search on Answer':['k-th','minimum x such that y','count pairs'],\n  };\n  for(const[arch,words]of Object.entries(signals)){\n    if(words.some(w=>description.toLowerCase().includes(w)))return arch;\n  }\n  return'Unknown - needs deeper analysis';\n}\n\nfunction libraryStats(library){\n  return{\n    archetypeCount:library.length,\n    totalProblems:library.reduce((s,a)=>s+a.problems.length,0)\n  };\n}"
+          },
+          "complexity_analysis": "identifyArchetypeImpl: O(|description| * archetypes * keywords). libraryStats: O(archetypes).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "identifyArchetypeImpl: check each archetype's keyword list against the lowercased description; return first match."
+            },
+            {
+              "level": 2,
+              "text": "Fallback: return 'Unknown - needs deeper analysis' if no keywords match."
+            },
+            {
+              "level": 3,
+              "text": "libraryStats: archetypeCount=library.length; totalProblems=sum of each archetype's problems.length."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 5,
+      "lesson_title": "Time-Pressure Hard Problem Session",
+      "theory_mcq": [
+        {
+          "id": "L3M10-L5-TH-1",
+          "question": "The scorecard includes 'Communication' as a SEPARATE criterion from 'Code' and 'Pattern'. Why does a SENIOR interview specifically evaluate communication AS DISTINCT from correctness?",
+          "options": [
+            "Communication is evaluated only as a tiebreaker when code quality is identical between candidates",
+            "SIGNALING THOUGHT PROCESS UNDER UNCERTAINTY: for HARD problems (where even strong candidates may not reach a fully working solution), the INTERVIEWER'S PRIMARY SIGNAL becomes HOW the candidate REASONS through difficulty, not just WHETHER they reach the answer; the 'no >90s silence' rule specifically targets the failure mode where a candidate goes quiet and the interviewer LOSES VISIBILITY into whether the candidate is making progress, stuck, or has given up; communication reveals SYSTEMATIC THINKING (applying the 8-step framework explicitly) versus RANDOM FLAILING, which is PARTICULARLY IMPORTANT for senior roles where the engineer will need to communicate technical reasoning to teammates, not just produce correct code in isolation",
+            "Communication scoring exists purely to test the candidate's English language proficiency",
+            "The criterion is included only to pad the scorecard to exactly 5 items"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's criteria: 'Communication: 8-step framework applied, no >90s silence' — for genuinely hard problems where a perfect solution isn't guaranteed even for strong candidates, the INTERVIEWER needs alternative signal beyond pure correctness; verbalized reasoning shows systematic problem-solving capability, which is especially relevant for senior roles requiring collaborative technical communication."
+        },
+        {
+          "id": "L3M10-L5-TH-2",
+          "question": "The lesson states '40-minute hard is acceptable: a working solution in 40 minutes is a pass' within a 45-minute session. Why leave only 5 MINUTES of buffer rather than designing for full utilization?",
+          "options": [
+            "5 minutes is leftover time with no specific purpose",
+            "BUFFER FOR TESTING AND EDGE-CASE VALIDATION (Step 8): the 8-step framework's FINAL step explicitly requires 'testing with given examples, edge cases, and stress-testing'; a solution that COMPILES but hasn't been TESTED is INCOMPLETE per the framework's own standards; the 5-minute buffer ensures there's DEDICATED TIME for this final verification step, preventing the common failure mode of writing code until the buzzer with ZERO testing — which often means submitting code with UNCAUGHT bugs that a 2-minute test pass would have revealed; this reflects the SAME engineering discipline as the lesson's earlier 'stress-test against brute force' technique, scaled down to interview time constraints",
+            "5 minutes is required by interview platform software to save and submit code",
+            "The buffer exists to allow time for the interviewer to ask unrelated questions"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's timing breakdown: 'framework: 10-15 min, implementation: 20-25 min, testing: 5-10 min' and the broader framework's 'Step 8: Test with given examples, edge cases, and stress-test' — the buffer time isn't wasted slack but DEDICATED TIME for the verification step that the 8-step framework explicitly requires, preventing the common interview failure of submitting untested code."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M10-L5-LG-1",
+          "question": "`isLevel3HardCertified` requires the LAST TWO sessions (not any two, not a running average) to both score >=4. Why specifically the MOST RECENT consecutive pair?",
+          "options": [
+            "RECENCY AND CONSISTENCY SIGNAL: requiring the LAST TWO (not 'best 2 of N' or an average across all sessions) ensures the certification reflects CURRENT, CONSISTENT capability — not a single lucky high score averaged with many poor ones, and not a historical peak that may no longer represent the candidate's CURRENT skill level; consecutive recent success demonstrates the skill is STABLE and REPEATABLE (not a one-off fluke), which is a stronger signal of genuine readiness than any single high score; this design choice mirrors how many certification/licensing systems require demonstrating CURRENT competence rather than crediting past achievement indefinitely",
+            "The 'last two' requirement is a technical limitation of the sessions array data structure",
+            "Any two scores >=4 anywhere in the history would also satisfy certification under a different implementation",
+            "Requiring exactly two sessions (not one or three) is an arbitrary choice with no rationale"
+          ],
+          "answer": 0,
+          "explanation": "Matching the lesson's code: `const recent2 = sessions.slice(-2); return recent2.length===2 && recent2.every(s=>s.score>=4)` — the slice(-2) specifically takes the LAST two sessions chronologically; this design ensures certification reflects CURRENT consistent performance rather than a historical best-case or lucky outlier, similar to how many professional certifications require demonstrating recent competence rather than crediting a single past achievement."
+        },
+        {
+          "id": "L3M10-L5-LG-2",
+          "question": "The `stuckProtocol` recommends 'try n=2 or n=3 to find structure' as a recovery step. How does this connect to Lesson 1's 8-step framework?",
+          "options": [
+            "Stuck Protocol Step 2 directly INVOKES Lesson 1's Step 4 ('Simplify: solve for n=2 or n=3') as a RECOVERY MECHANISM: when stuck DURING a timed session, the protocol doesn't introduce a NEW technique — it INSTRUCTS the candidate to RETURN to a framework step they may have RUSHED PAST under time pressure; this demonstrates that the 8-step framework isn't just a LINEAR checklist completed once, but a TOOLKIT that can be RE-APPLIED at any point when progress stalls; the connection shows DELIBERATE curriculum design: the SAME concrete technique (simplify to small n) appears BOTH as a proactive framework step AND as a reactive stuck-protocol recovery action",
+            "The stuck protocol is unrelated to the 8-step framework; they were designed independently",
+            "n=2/n=3 simplification only works during the stuck protocol, not during normal framework application",
+            "The stuck protocol REPLACES the 8-step framework when time pressure becomes severe"
+          ],
+          "answer": 0,
+          "explanation": "Matching Lesson 1's 'Step 4: Simplify: solve for n=2 or n=3' and Lesson 5's stuckProtocol: 'Try n=2 or n=3 to find structure' — this is the SAME technique appearing in two contexts: as a proactive, scheduled step in the systematic framework, AND as a reactive recovery tool when stuck; this demonstrates the framework's techniques are GENERALLY APPLICABLE tools, not single-use checklist items, reinforcing the lesson's emphasis on returning to fundamentals when progress stalls."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M10-L5-SY-1",
+          "question": "`recommendedProblems` includes an `archetype` field for each problem (e.g., 'Tree DP', 'Monotonic Deque'). How does this connect to Lesson 4's `hardProblemLibrary`?",
+          "options": [
+            "The two structures are entirely independent and serve unrelated purposes",
+            "CROSS-LESSON DATA CONSISTENCY for PRACTICE SELECTION: `recommendedProblems`' archetype field uses the SAME categorization vocabulary as Lesson 4's `hardProblemLibrary` archetypes (though covering a DIFFERENT, complementary problem set); this allows a learner to DELIBERATELY PRACTICE problems from an archetype they identified as WEAK during Lesson 4's review; the shared vocabulary means a function like 'give me practice problems for archetype X' could query EITHER data structure (or both combined) using a consistent key — this is a deliberate CURRICULUM DESIGN choice enabling TARGETED, ARCHETYPE-DRIVEN practice rather than random problem selection",
+            "The archetype field in recommendedProblems is purely decorative with no functional purpose",
+            "recommendedProblems must use DIFFERENT archetype names than hardProblemLibrary to avoid duplication"
+          ],
+          "answer": 1,
+          "explanation": "Both Lesson 4's hardProblemLibrary and Lesson 5's recommendedProblems use archetype labels as an organizing principle (though Lesson 5 introduces NEW archetypes like 'Tree DP', 'Monotonic Deque' for the practice session pool, complementary to but not identical with Lesson 4's 5 core archetypes); this consistent vocabulary across lessons enables learners to connect their pattern-recognition practice (Lesson 4) with their timed-session practice problems (Lesson 5) via the same conceptual categories."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M10-L5-CC-1",
+          "title": "Hard Session Scorecard and Certification Tracker",
+          "difficulty": "Intermediate",
+          "project_style": "freeCodeCamp-style applied mini-project",
+          "problem_statement": "Implement the hard problem session scorecard and certification logic from this lesson.",
+          "requirements": [
+            "Implement `computeScore(criteria)` summing criteria scores and returning {total, passed}",
+            "Implement `isLevel3HardCertifiedImpl(sessions)` matching the lesson's last-two-consecutive logic"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "function computeScore(criteria) {\n  // criteria: array of {name, score} objects, each score 0 or 1\n  // TODO: total = sum of scores; passed = total >= 4\n}\n\nfunction isLevel3HardCertifiedImpl(sessions) {\n  // sessions: array of {score} objects\n  // TODO: last 2 sessions must exist and both have score >= 4\n}"
+          },
+          "test_cases": [
+            {
+              "input": "computeScore([{name:'Pattern',score:1},{name:'Code',score:1},{name:'Tests',score:1},{name:'Complexity',score:1},{name:'Communication',score:0}])",
+              "expected": {
+                "total": 4,
+                "passed": true
+              },
+              "type": "visible"
+            },
+            {
+              "input": "isLevel3HardCertifiedImpl([{score:4},{score:5}])",
+              "expected": true,
+              "type": "visible"
+            },
+            {
+              "input": "isLevel3HardCertifiedImpl([{score:3},{score:5}])",
+              "expected": false,
+              "type": "visible"
+            },
+            {
+              "input": "isLevel3HardCertifiedImpl([{score:5}])",
+              "expected": false,
+              "type": "hidden"
+            },
+            {
+              "input": "isLevel3HardCertifiedImpl([{score:5},{score:3},{score:4},{score:5}])",
+              "expected": true,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "function computeScore(criteria){\n  const total=criteria.reduce((s,c)=>s+c.score,0);\n  return{total,passed:total>=4};\n}\n\nfunction isLevel3HardCertifiedImpl(sessions){\n  const recent2=sessions.slice(-2);\n  return recent2.length===2&&recent2.every(s=>s.score>=4);\n}"
+          },
+          "complexity_analysis": "computeScore: O(criteria.length). isLevel3HardCertifiedImpl: O(1) (slice of fixed size 2).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "computeScore: sum all .score values; passed = total >= 4 (the lesson's passMark)."
+            },
+            {
+              "level": 2,
+              "text": "isLevel3HardCertifiedImpl: use sessions.slice(-2) to get the last two sessions chronologically."
+            },
+            {
+              "level": 3,
+              "text": "Certification requires BOTH conditions: exactly 2 sessions exist in the slice AND both have score >= 4."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lesson_number": 6,
+      "lesson_title": "Hard Problem Mindset",
+      "theory_mcq": [
+        {
+          "id": "L3M10-L6-TH-1",
+          "question": "The lesson distinguishes 'I don't know this yet' from 'I can't do this'. What COGNITIVE/BEHAVIORAL DIFFERENCE does this reframing produce DURING an actual problem-solving session?",
+          "options": [
+            "The reframing is purely motivational with no effect on actual problem-solving behavior",
+            "GROWTH MINDSET ENABLES CONTINUED EXPLORATION; FIXED MINDSET TRIGGERS SHUTDOWN: 'I can't do this' is a TERMINAL, FIXED-TRAIT judgment that implies further effort is FUTILE — this COGNITIVELY JUSTIFIES giving up, leading to PASSIVE silence or premature abandonment (the 'catastrophising' pattern the lesson explicitly names); 'I don't know this YET' is an INCOMPLETE-STATE judgment that implies the gap is CLOSABLE through further effort or different exploration — this keeps the BEHAVIORAL OPTION of continuing to probe (try n=2, code partial solutions, ask clarifying questions) PSYCHOLOGICALLY AVAILABLE; the reframing isn't just positive thinking — it directly determines WHETHER the candidate continues the PRODUCTIVE STRUGGLE the lesson values, or DISENGAGES from the problem entirely",
+            "Both phrasings produce identical behavior; the difference is only in how confident the speaker sounds",
+            "The reframing is only relevant for problems the candidate has previously failed to solve"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concepts: \"Growth mindset: 'I don't know this yet' vs 'I can't do this'\" and 'Catastrophising: the cognitive pattern that shuts down problem-solving' — this is grounded in established psychological research on growth vs fixed mindset (Dweck): the LINGUISTIC framing of a challenge as TEMPORARY-GAP versus PERMANENT-LIMITATION measurably affects whether a person continues effortful engagement or disengages, which directly impacts whether 'productive struggle' (the lesson's valued behavior) continues or terminates prematurely."
+        },
+        {
+          "id": "L3M10-L6-TH-2",
+          "question": "The lesson states hard problems in interviews are 'expected to be attempted, not necessarily solved'. How does this CALIBRATION claim change OPTIMAL CANDIDATE STRATEGY compared to assuming a full solution is required?",
+          "options": [
+            "If full solution is required: optimal strategy is to GUESS quickly and move to the next problem if stuck",
+            "RESOURCE ALLOCATION SHIFTS FROM 'REACH THE ANSWER' TO 'DEMONSTRATE PROCESS': if a candidate (incorrectly) believes ONLY a fully correct, optimal solution earns credit, they may RUSH through reasoning (skipping the 8-step framework's early steps) to MAXIMIZE CODING TIME, or PANIC and produce DISORGANIZED code when the optimal insight doesn't come quickly; understanding that ATTEMPTS are valued (per 'Partial credit: a correct brute force with stated O(?) is better than nothing') REBALANCES strategy toward: spending ADEQUATE time on Steps 1-6 (even if this 'costs' implementation time), explicitly STATING a brute force EVEN IF an optimal solution isn't found, and MAINTAINING COMMUNICATION throughout rather than going silent while struggling internally — this calibration directly supports the framework's recommended time allocation (10-15 min framework, not rushed)",
+            "The calibration claim has no practical effect on strategy; the optimal approach is identical either way",
+            "Knowing hard problems aren't always solved means candidates should refuse to attempt them and explain why instead"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concepts: 'Interview calibration: hard problems in interviews are expected to be attempted, not necessarily solved' and 'Partial credit: a correct brute force with stated O(?) is better than nothing' — this calibration directly justifies the framework's time allocation (dedicating 10-15 minutes to understanding/pattern-recognition rather than rushing to code) and the stuck protocol's emphasis on STATING what's known rather than silent struggle, since the EXPECTED bar isn't 'always reach optimal' but 'demonstrate systematic, communicated problem-solving'."
+        }
+      ],
+      "logic_mcq": [
+        {
+          "id": "L3M10-L6-LG-1",
+          "question": "Module 10's `module10_problems` lists 9 NC150 problems (5 from Week 1, 4 from Week 2 explicitly tagged). Why might NOT ALL 20 curated problems be NC150-tagged?",
+          "options": [
+            "NC150 (NeetCode 150) is a SPECIFIC CURATED LIST with its OWN selection criteria distinct from this module's 'hard problem sprint' curriculum; this module's 20 problems were selected for PEDAGOGICAL VALUE (teaching specific non-obvious insights and archetypes), while NeetCode 150 selects problems based on DIFFERENT criteria (interview frequency, broad pattern coverage across difficulty levels); the OVERLAP (9 problems appearing in both lists) represents problems valuable by BOTH standards, while the remaining 11 problems in this module's curriculum may be PEDAGOGICALLY VALUABLE (illustrating specific hard-problem techniques) WITHOUT being among NeetCode's SPECIFIC 150 selections — the two lists serve RELATED but NOT IDENTICAL purposes",
+            "The remaining 11 problems are NC150 problems that were simply forgotten from the list due to an oversight",
+            "NC150 only includes problems with IDs below 200, explaining the exclusion",
+            "All 20 problems ARE NC150 problems; the count of 9 is an error in the source"
+          ],
+          "answer": 0,
+          "explanation": "Confirmed by direct count: module10_problems lists exactly 9 entries (5 tagged 'Week 1', 4 tagged 'Week 2'), all nc150:true; this module's 20 curated hard problems (Lessons 2-3) were selected for teaching SPECIFIC non-obvious insights across archetypes, which is a DIFFERENT selection criterion than NeetCode 150's broader interview-frequency-based curation; the partial overlap (9/20) reflects these related-but-distinct purposes."
+        },
+        {
+          "id": "L3M10-L6-LG-2",
+          "question": "Module 10 represents a CAPSTONE/SPRINT structure (framework → practice → review → timed session → mindset) rather than a typical concept-by-concept lesson sequence. Why is this STRUCTURAL DEPARTURE appropriate for Level 3's CONCLUDING module?",
+          "options": [
+            "INTEGRATION OVER INTRODUCTION: Level 3's earlier modules (M01-M09) each introduced SPECIFIC algorithmic techniques (hard DP, segment trees, advanced graphs, etc.); by the FINAL module, the learner has ACCUMULATED substantial technique knowledge but may LACK the INTEGRATED SKILL of APPLYING the right technique UNDER REALISTIC CONSTRAINTS (time pressure, ambiguous problem statements, psychological pressure); the sprint structure (systematic framework → volume practice → pattern consolidation → timed simulation → mindset training) deliberately shifts from TEACHING NEW CONTENT to CONSOLIDATING AND OPERATIONALIZING existing knowledge — this mirrors how PROFESSIONAL TRAINING (e.g., medical residency, pilot training) often concludes with INTEGRATED SIMULATION exercises rather than additional isolated technique lessons",
+            "The structural departure is accidental and inconsistent with the rest of the curriculum design",
+            "Capstone modules are required by educational platform regulations regardless of pedagogical fit",
+            "The sprint structure was chosen arbitrarily without connection to the preceding modules' content"
+          ],
+          "answer": 0,
+          "explanation": "The module's 6-lesson arc (framework → Week 1 practice → Week 2 practice → pattern review → timed simulation → mindset) represents a deliberate shift from TECHNIQUE ACQUISITION (the focus of L3-M01 through L3-M09) to TECHNIQUE INTEGRATION AND APPLICATION; this structural choice is pedagogically sound for a CONCLUDING module, mirroring how expert training in many fields culminates in INTEGRATED PRACTICE rather than continued isolated skill introduction."
+        }
+      ],
+      "syntax_mcq": [
+        {
+          "id": "L3M10-L6-SY-1",
+          "question": "`reflectionQuestions` includes 'Schedule a resolve date: 3 days for hint problems, 7 days for independent solves'. Why would a HINT-ASSISTED solve warrant a SHORTER review interval than an INDEPENDENT solve?",
+          "options": [
+            "SPACED REPETITION CALIBRATED TO RETENTION RISK: if a problem required a HINT to solve, the underlying insight was NOT FULLY INTERNALIZED through independent reasoning — this knowledge is MORE FRAGILE and at HIGHER RISK of being forgotten or not properly understood; a SHORTER review interval (3 days) provides REINFORCEMENT before the partially-learned insight decays from memory; conversely, a problem solved INDEPENDENTLY (without hints) demonstrates the insight was GENUINELY GRASPED through the candidate's own reasoning process, making it MORE LIKELY to be retained longer, justifying a LONGER interval (7 days) before the next review touchpoint — this mirrors established SPACED REPETITION research where DIFFICULTY OF INITIAL ACQUISITION predicts FORGETTING RATE",
+            "The interval difference is arbitrary and could be swapped without consequence",
+            "3 days vs 7 days reflects which problems are 'easier' based on their LeetCode difficulty rating",
+            "Hint-assisted problems require shorter intervals because hints are time-limited resources that expire"
+          ],
+          "answer": 1,
+          "explanation": "Matching the lesson's concept: 'Schedule a resolve date: 3 days for hint problems, 7 days for independent solves' — this directly applies SPACED REPETITION principles: insights that required EXTERNAL ASSISTANCE (hints) to discover are at HIGHER RISK of incomplete internalization and faster forgetting, warranting MORE FREQUENT reinforcement (shorter interval); independently-derived insights, having been GENUINELY PROCESSED through the candidate's own reasoning, are typically retained longer, justifying the LONGER 7-day interval before re-testing."
+        }
+      ],
+      "coding_challenges": [
+        {
+          "id": "L3M10-L6-CC-1",
+          "title": "Mindset Tracker and Module 10 Summary",
+          "difficulty": "Intermediate",
+          "project_style": "freeCodeCamp-style capstone — synthesizes all 6 lessons",
+          "problem_statement": "Implement the review-scheduling logic and module summary from this lesson.",
+          "requirements": [
+            "Implement `scheduleResolveDate(solveType, solvedDate)` returning the resolve date as a string 'YYYY-MM-DD'",
+            "Implement `module10Summary()` returning {total, nc150}"
+          ],
+          "starter_code": {
+            "language": "javascript",
+            "code": "const MODULE10 = [\n  {id:312,title:'Burst Balloons',nc150:true},{id:4,title:'Median of Two Sorted Arrays',nc150:true},\n  {id:84,title:'Largest Rectangle in Histogram',nc150:true},{id:297,title:'Serialize and Deserialize Tree',nc150:true},\n  {id:76,title:'Minimum Window Substring',nc150:true},{id:72,title:'Edit Distance',nc150:true},\n  {id:132,title:'Palindrome Partitioning II',nc150:true},{id:329,title:'Longest Increasing Path in Matrix',nc150:true},\n  {id:847,title:'Shortest Path Visiting All Nodes',nc150:true},\n];\n\nfunction scheduleResolveDate(solveType, solvedDate) {\n  // solveType: 'hint' (3 days) or 'independent' (7 days)\n  // solvedDate: 'YYYY-MM-DD' string\n  // TODO: add days, return 'YYYY-MM-DD'\n}\n\nfunction module10Summary() {\n  // TODO: total and nc150 count\n}"
+          },
+          "test_cases": [
+            {
+              "input": "scheduleResolveDate('hint', '2026-01-01')",
+              "expected": "2026-01-04",
+              "type": "visible"
+            },
+            {
+              "input": "scheduleResolveDate('independent', '2026-01-01')",
+              "expected": "2026-01-08",
+              "type": "visible"
+            },
+            {
+              "input": "module10Summary().nc150",
+              "expected": 9,
+              "type": "visible"
+            },
+            {
+              "input": "scheduleResolveDate('hint', '2026-01-30')",
+              "expected": "2026-02-02",
+              "type": "hidden"
+            },
+            {
+              "input": "module10Summary().total",
+              "expected": 9,
+              "type": "hidden"
+            }
+          ],
+          "solution": {
+            "language": "javascript",
+            "code": "const MODULE10=[{id:312,title:'Burst Balloons',nc150:true},{id:4,title:'Median of Two Sorted Arrays',nc150:true},{id:84,title:'Largest Rectangle in Histogram',nc150:true},{id:297,title:'Serialize and Deserialize Tree',nc150:true},{id:76,title:'Minimum Window Substring',nc150:true},{id:72,title:'Edit Distance',nc150:true},{id:132,title:'Palindrome Partitioning II',nc150:true},{id:329,title:'Longest Increasing Path in Matrix',nc150:true},{id:847,title:'Shortest Path Visiting All Nodes',nc150:true}];\n\nfunction scheduleResolveDate(solveType,solvedDate){\n  const days=solveType==='hint'?3:7;\n  const d=new Date(solvedDate+'T00:00:00Z');\n  d.setUTCDate(d.getUTCDate()+days);\n  return d.toISOString().slice(0,10);\n}\n\nfunction module10Summary(){\n  return{total:MODULE10.length,nc150:MODULE10.filter(p=>p.nc150).length};\n}"
+          },
+          "complexity_analysis": "scheduleResolveDate: O(1). module10Summary: O(n).",
+          "hints": [
+            {
+              "level": 1,
+              "text": "scheduleResolveDate: hint→3 days, independent→7 days; use Date object with UTC methods to avoid timezone issues."
+            },
+            {
+              "level": 2,
+              "text": "Parse solvedDate as UTC midnight ('T00:00:00Z' suffix) to avoid local-timezone date shifting."
+            },
+            {
+              "level": 3,
+              "text": "module10Summary: total=MODULE10.length; nc150=filter(p=>p.nc150).length (all 9 are nc150:true in this dataset)."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "framework": "Lesson 1 (8-step hard problem framework applied to Largest Rectangle in Histogram, with brute-force stress testing)",
+      "hard_practice": "Lessons 2-3 (20 curated hard problems: Burst Balloons, Median of Two Sorted Arrays, Regex Matching, Dungeon Game, Min Refueling Stops, plus 15 more catalogued)",
+      "meta_skills": "Lessons 4-6 (archetype-based pattern library, timed-session scorecard/certification logic, growth-mindset and spaced-repetition review scheduling)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges"
+  }
+}

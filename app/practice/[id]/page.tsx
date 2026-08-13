@@ -9,15 +9,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase, PracticeProblem, TestCase } from "@/lib/supabase";
 import { Play, Send, Lightbulb, ArrowLeft, ArrowRight, Loader2, Target, CheckCircle } from "lucide-react";
+import { PageSpinner } from "@/components/ui/page-spinner";
 import dynamic from "next/dynamic";
 import { getProblemById } from "@/lib/api";
+import { useAuth } from "@/components/AuthProvider";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
 export default function ProblemPage() {
   const router = useRouter();
   const params = useParams();
-  const [user, setUser] = useState<any>(null);
+  const { user, session, loading: authLoading } = useAuth();
   const [problem, setProblem] = useState<PracticeProblem | null>(null);
   const [allProblems, setAllProblems] = useState<any[]>([]);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
@@ -34,16 +36,11 @@ export default function ProblemPage() {
   const [totalProblems, setTotalProblems] = useState(0);
 
   useEffect(() => {
-    async function loadUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/auth/login");
-        return;
-      }
-      setUser(user);
+    if (authLoading) return;
+    if (!user) {
+      router.push("/auth/login");
     }
-    loadUser();
-  }, [router]);
+  }, [authLoading, user, router]);
 
   useEffect(() => {
     if (!user || !params.id) return;
@@ -51,7 +48,15 @@ export default function ProblemPage() {
     async function loadProblem() {
       setLoading(true);
 
-      const problemData = await getProblemById(params.id as string);
+      // These four requests are independent of each other, so fire them
+      // concurrently instead of awaiting one at a time - that turns ~4
+      // sequential round trips into the latency of the slowest single one.
+      const [problemData, testResult, allProblemsResult, submissionResult] = await Promise.all([
+        getProblemById(params.id as string),
+        supabase.from("testcases").select("*").eq("problem_id", params.id),
+        supabase.from("practice_problems").select("id, language, difficulty").order("id"),
+        supabase.from("submissions").select("problem_id, status").eq("user_id", user.id),
+      ]);
 
       if (!problemData) {
         setLoading(false);
@@ -63,20 +68,9 @@ export default function ProblemPage() {
       // Set starter code or default
       setCode(problemData.language === "python" ? "def solution():\n    pass" : "function solution() {\n    \n}");
 
-      const { data: testData } = await supabase
-        .from("testcases")
-        .select("*")
-        .eq("problem_id", params.id);
-
-      const { data: allProblemsData } = await supabase
-        .from("practice_problems")
-        .select("id, language, difficulty")
-        .order("id");
-
-      const { data: submissionData } = await supabase
-        .from("submissions")
-        .select("problem_id, status")
-        .eq("user_id", user.id);
+      const testData = testResult.data;
+      const allProblemsData = allProblemsResult.data;
+      const submissionData = submissionResult.data;
 
       if (allProblemsData) {
         const sameLangProblems = allProblemsData.filter(p => p.language === problemData.language);
@@ -115,7 +109,10 @@ export default function ProblemPage() {
       const sampleTestCases = testCases.filter(tc => !tc.hidden);
       const response = await fetch("/api/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           code,
           language: problem?.language || "javascript",
@@ -151,7 +148,10 @@ export default function ProblemPage() {
       for (const testCase of testCases) {
         const response = await fetch("/api/run", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
           body: JSON.stringify({
             code,
             language: problem.language,
@@ -208,7 +208,10 @@ export default function ProblemPage() {
     try {
       const response = await fetch("/api/ai/groq", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           task: "practice_hint",
           problem: problem?.description,
@@ -231,7 +234,10 @@ export default function ProblemPage() {
     try {
       const response = await fetch("/api/ai/groq", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           task: "practice_solution",
           problem: problem?.description,
@@ -266,9 +272,9 @@ export default function ProblemPage() {
 
   const getDifficultyStyles = (difficulty: string) => {
     switch (difficulty) {
-      case "Easy": return "bg-green-500/10 text-green-500 border-green-500/20";
-      case "Medium": return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
-      case "Hard": return "bg-red-500/10 text-red-500 border-red-500/20";
+      case "Easy": return "bg-emerald-500/10 text-emerald-500 border-emerald-500/30";
+      case "Medium": return "bg-amber-500/10 text-amber-500 border-amber-500/30";
+      case "Hard": return "bg-rose-500/10 text-rose-500 border-rose-500/30";
       default: return "";
     }
   };
@@ -289,12 +295,7 @@ export default function ProblemPage() {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading problem...</p>
-          </div>
-        </div>
+        <PageSpinner label="Loading problem..." />
       </div>
     );
   }
@@ -304,14 +305,16 @@ export default function ProblemPage() {
       <div className="min-h-screen bg-background">
         <Navbar />
         <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
-          <h1 className="text-2xl font-bold mb-4">Problem Not Found</h1>
-          <p className="text-muted-foreground mb-8">The problem you are looking for does not exist.</p>
-          <Link href="/practice">
-            <Button>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Practice
-            </Button>
-          </Link>
+          <div className="glass-card rounded-2xl p-10 text-center max-w-md">
+            <h1 className="text-2xl font-bold mb-3">Problem Not Found</h1>
+            <p className="text-muted-foreground mb-8">The problem you are looking for does not exist.</p>
+            <Link href="/practice">
+              <Button className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Practice
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -322,190 +325,192 @@ export default function ProblemPage() {
   const currentIdx = getCurrentIndex();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <Link href={`/practice?lang=${problem.language}`} className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" />
-              Back to {problem.language} problems
-            </Link>
-            <div className="flex items-center gap-2 text-sm">
-              <Target className="h-4 w-4 text-primary" />
-              <span className="text-muted-foreground">
-                <span className="text-foreground font-medium">{solvedCount}</span>/{totalProblems} solved
-              </span>
-            </div>
-          </div>
+      <div className="relative flex-1 overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] bg-primary/10 rounded-full blur-[120px] -z-10 opacity-50" />
 
-          <div className="flex items-start justify-between flex-wrap gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm text-muted-foreground">Problem {currentIdx + 1} of {totalProblems}</span>
-              </div>
-              <h1 className="text-3xl font-bold mb-3">{problem.title}</h1>
-              <div className="flex items-center gap-3">
-                <Badge className={getDifficultyStyles(problem.difficulty)}>
-                  {problem.difficulty}
-                </Badge>
-                <Badge className={getLanguageColor(problem.language)}>
-                  {problem.language}
-                </Badge>
-                <Badge variant="secondary">
-                  Attempts: {attempts}
-                </Badge>
+        <div className="container mx-auto px-4 py-10 max-w-6xl">
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+              <Link href="/practice" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Practice
+              </Link>
+              <div className="flex items-center gap-2 text-sm bg-secondary/40 border border-border/50 rounded-full px-3 py-1.5">
+                <Target className="h-4 w-4 text-primary" />
+                <span className="text-muted-foreground">
+                  <span className="text-foreground font-semibold">{solvedCount}</span>/{totalProblems} solved
+                </span>
               </div>
             </div>
-            {solved && (
-              <div className="flex items-center gap-2 text-green-500 bg-green-500/10 px-4 py-2 rounded-lg">
-                <CheckCircle className="h-5 w-5" />
-                <span className="font-medium">Solved</span>
-              </div>
-            )}
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Problem Description</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-wrap text-muted-foreground">{problem.description}</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Examples</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="code-block">
-                  <pre className="text-sm whitespace-pre-wrap">{problem.examples}</pre>
+            <div className="flex items-start justify-between flex-wrap gap-4">
+              <div>
+                <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+                  Problem {currentIdx + 1} of {totalProblems}
+                </span>
+                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mt-1 mb-4">{problem.title}</h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className={`font-medium tracking-wide ${getDifficultyStyles(problem.difficulty)}`}>
+                    {problem.difficulty}
+                  </Badge>
+                  <Badge variant="outline" className={`font-medium ${getLanguageColor(problem.language)}`}>
+                    {problem.language}
+                  </Badge>
+                  <Badge variant="outline" className="text-muted-foreground border-border/60">
+                    Attempts: {attempts}
+                  </Badge>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              {solved && (
+                <div className="flex items-center gap-2 text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-xl shrink-0">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="font-medium">Solved</span>
+                </div>
+              )}
+            </div>
+          </div>
 
-            {(hint || hintLoading) && (
-              <Card className="border-yellow-500/30 bg-yellow-500/5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div className="space-y-6">
+              <Card className="glass-card rounded-2xl overflow-hidden">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-yellow-500">
-                    <Lightbulb className="h-5 w-5" />
-                    {showingSolution ? "Solution" : "Hint"}
-                  </CardTitle>
+                  <CardTitle className="text-lg">Problem Description</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {hintLoading ? (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Getting help...
-                    </div>
-                  ) : (
-                    <p className="whitespace-pre-wrap">{hint}</p>
-                  )}
+                  <p className="whitespace-pre-wrap text-muted-foreground leading-relaxed">{problem.description}</p>
                 </CardContent>
               </Card>
+
+              <Card className="glass-card rounded-2xl overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="text-lg">Examples</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="code-block border border-border/50">
+                    <pre className="text-sm whitespace-pre-wrap">{problem.examples}</pre>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {(hint || hintLoading) && (
+                <Card className="rounded-2xl border-amber-500/30 bg-amber-500/5 overflow-hidden">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-amber-500 text-lg">
+                      <Lightbulb className="h-5 w-5" />
+                      {showingSolution ? "Solution" : "Hint"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {hintLoading ? (
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Getting help...
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">{hint}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            <div className="space-y-6 lg:sticky lg:top-24">
+              <Card className="glass-card rounded-2xl overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="text-lg">Your Solution</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="border border-border/50 rounded-xl overflow-hidden shadow-sm">
+                    <MonacoEditor
+                      height="400px"
+                      language={problem.language === "python" ? "python" : "javascript"}
+                      value={code}
+                      onChange={(value) => setCode(value || "")}
+                      theme="vs-dark"
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: 14,
+                        padding: { top: 16, bottom: 16 },
+                        scrollBeyondLastLine: false,
+                      }}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleRunCode} disabled={running} variant="outline" className="flex-1 gap-2">
+                      {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                      Run
+                    </Button>
+                    <Button onClick={handleSubmit} disabled={running} className="flex-1 gap-2">
+                      {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Submit
+                    </Button>
+                  </div>
+                  <div className={`rounded-xl p-4 border transition-colors ${
+                    output?.includes("passed!")
+                      ? "bg-emerald-500/10 border-emerald-500/20"
+                      : output && output.toLowerCase().includes("error")
+                        ? "bg-rose-500/10 border-rose-500/20"
+                        : "bg-secondary/40 border-border/50"
+                  }`}>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Output</p>
+                    <pre className="text-sm whitespace-pre-wrap font-mono min-h-[60px]">
+                      {output || "Click 'Run' to test your code or 'Submit' to check all test cases..."}
+                    </pre>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="glass-card rounded-2xl overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="text-lg">Sample Test Cases</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {testCases.filter(tc => !tc.hidden).map((tc, idx) => (
+                      <div key={idx} className="code-block border border-border/50">
+                        <p className="text-xs text-muted-foreground mb-1">Input:</p>
+                        <pre className="text-sm mb-2">{tc.input}</pre>
+                        <p className="text-xs text-muted-foreground mb-1">Expected:</p>
+                        <pre className="text-sm">{tc.output}</pre>
+                      </div>
+                    ))}
+                    {testCases.length === 0 && <p className="text-sm text-muted-foreground">No test cases available.</p>}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <div className="mt-10 flex items-center justify-between border-t border-border/50 pt-6">
+            {prevProblem ? (
+              <Link href={`/practice/${prevProblem.id}`}>
+                <Button variant="outline" className="gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Previous Problem
+                </Button>
+              </Link>
+            ) : (
+              <div />
+            )}
+
+            {nextProblem ? (
+              <Link href={`/practice/${nextProblem.id}`}>
+                <Button className="gap-2">
+                  Next Problem
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/practice">
+                <Button className="gap-2">
+                  Back to Practice
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
             )}
           </div>
-
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Your Solution</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="border rounded-lg overflow-hidden">
-                  <MonacoEditor
-                    height="400px"
-                    language={problem.language === "python" ? "python" : "javascript"}
-                    value={code}
-                    onChange={(value) => setCode(value || "")}
-                    theme="vs-dark"
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: 14,
-                      padding: { top: 16, bottom: 16 },
-                      scrollBeyondLastLine: false,
-                    }}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleRunCode} disabled={running} variant="outline" className="flex-1">
-                    {running ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Play className="h-4 w-4 mr-2" />
-                    )}
-                    Run
-                  </Button>
-                  <Button onClick={handleSubmit} disabled={running} className="flex-1">
-                    {running ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4 mr-2" />
-                    )}
-                    Submit
-                  </Button>
-                </div>
-                <div className={`rounded-lg p-4 ${output?.includes("passed!") ? "bg-green-500/10 border border-green-500/20" : "bg-secondary/50"}`}>
-                  <p className="text-sm font-medium mb-2">Output:</p>
-                  <pre className="text-sm whitespace-pre-wrap font-mono min-h-[60px]">
-                    {output || "Click 'Run' to test your code or 'Submit' to check all test cases..."}
-                  </pre>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Sample Test Cases</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {testCases.filter(tc => !tc.hidden).map((tc, idx) => (
-                    <div key={idx} className="code-block">
-                      <p className="text-xs text-muted-foreground mb-1">Input:</p>
-                      <pre className="text-sm mb-2">{tc.input}</pre>
-                      <p className="text-xs text-muted-foreground mb-1">Expected:</p>
-                      <pre className="text-sm">{tc.output}</pre>
-                    </div>
-                  ))}
-                  {testCases.length === 0 && <p className="text-sm text-muted-foreground">No test cases available.</p>}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        <div className="mt-8 flex items-center justify-between border-t pt-6">
-          {prevProblem ? (
-            <Link href={`/practice/${prevProblem.id}`}>
-              <Button variant="outline" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Previous Problem
-              </Button>
-            </Link>
-          ) : (
-            <div />
-          )}
-
-          {nextProblem ? (
-            <Link href={`/practice/${nextProblem.id}`}>
-              <Button className="gap-2">
-                Next Problem
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          ) : (
-            <Link href={`/practice?lang=${problem.language}`}>
-              <Button className="gap-2">
-                Back to All Problems
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          )}
         </div>
       </div>
     </div>

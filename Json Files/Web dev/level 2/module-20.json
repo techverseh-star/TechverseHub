@@ -1,0 +1,825 @@
+{
+  "levelId": "level-2",
+  "moduleId": "module-20",
+  "title": "Authentication Systems",
+  "shortTitle": "Authentication Systems",
+  "difficulty": "advanced",
+  "estimatedDuration": "18-22 hours",
+  "xpReward": 1700,
+  "description": "Go beyond Module 9's username/password authentication into the systems real production applications actually use: OAuth 2.0 login via Google and GitHub, refresh token rotation, role-based access control, multi-factor authentication, and the security best practices and architecture that distinguish a genuinely production-grade auth system from a working demo.",
+  "moduleGoal": {
+    "primary": "Implement OAuth 2.0 login with real third-party providers, and build refresh token rotation for long-lived, genuinely secure sessions.",
+    "secondary": "Build role-based access control for genuinely multi-role applications, add multi-factor authentication as a deliberate additional layer, and apply Module 9's security-thinking framework to a complete, production-grade authentication architecture.",
+    "outcomeStatement": "By the end of this module, you will be able to build the kind of authentication system real production applications actually run \u2014 OAuth login, rotating refresh tokens, layered roles and permissions, and optional MFA \u2014 understanding precisely what each piece adds on top of Module 9's foundation, and why."
+  },
+  "prerequisites": [
+    "module-1", "module-2", "module-3", "module-4", "module-5",
+    "module-6", "module-7", "module-8", "module-9", "module-10",
+    "module-11", "module-12", "module-13", "module-14", "module-15",
+    "module-16", "module-17", "module-18", "module-19"
+  ],
+  "skillsUnlocked": [
+    "OAuth 2.0 Integration",
+    "Refresh Token Rotation",
+    "Role-Based Access Control",
+    "Multi-Factor Authentication",
+    "Auth Security Best Practices",
+    "Production Auth Architecture"
+  ],
+  "lessons": [
+    {
+      "lessonId": "lesson-1",
+      "order": 1,
+      "title": "OAuth 2.0 \u2014 Google And GitHub Login",
+      "shortTitle": "OAuth 2.0 Login",
+      "estimatedDuration": "90-115 minutes",
+      "xpReward": 150,
+      "nextLessonId": "lesson-2",
+      "prevLessonId": null,
+      "prerequisites": [],
+      "lessonGoal": "Understand OAuth 2.0's delegation model precisely, and implement 'Sign in with Google/GitHub' without ever handling a user's actual third-party password.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "Authenticating Without Ever Seeing A Password At All",
+          "content": "Every authentication mechanism Module 9 taught \u2014 password hashing, JWTs, sessions \u2014 assumed YOUR application collects and verifies a user's password directly. OAuth 2.0 is a genuinely different model: it lets a user prove their identity through a THIRD-PARTY provider (Google, GitHub) that they already trust and have an account with, WITHOUT your application ever seeing, handling, or storing that user's actual Google or GitHub password at all. Your application instead receives a token, issued by the third-party provider, confirming 'this user successfully authenticated with us, and here's some basic profile information about them' \u2014 your own backend then uses that confirmation to establish its own session or JWT (Module 9's existing mechanisms), but the actual password verification happened entirely on Google's or GitHub's servers, never yours."
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Hotel Accepting A Government-Issued ID, Not Asking For Your Bank PIN",
+          "content": "Module 9's password-based login is like a hotel asking you to provide your bank account PIN directly to prove who you are \u2014 the hotel would have to handle and trust itself with extremely sensitive information it has no genuine need to ever possess. OAuth is like that same hotel instead asking for a government-issued ID: you show your ID (you log into Google), the ID-issuing authority's trustworthiness vouches for who you are (Google confirms your identity to the hotel), and the hotel never touches your bank PIN at all, yet still gets exactly what it actually needs \u2014 confident, verified proof of your identity. The 'ID' in this analogy is the OAuth token Google issues after you log in directly with Google, which your application then accepts as sufficient proof, without ever needing or wanting your actual Google password."
+        },
+        {
+          "type": "structure",
+          "title": "The OAuth 2.0 Authorization Code Flow",
+          "content": "1. User clicks 'Sign in with Google' on your application; your backend redirects them to Google's own login page, with a URL specifying your application's registered client ID and what information you're requesting access to\n\n2. User logs in DIRECTLY with Google (your application never sees this step at all) and approves sharing their basic profile with your application\n\n3. Google redirects the user BACK to your application's specified callback URL, with a temporary authorization code attached\n\n4. Your BACKEND exchanges that temporary code for an actual access token, in a server-to-server request that also includes your application's secret client key (never exposed to the browser, exactly Module 10, lesson 6's environment-variable discipline)\n\n5. Your backend uses that access token to fetch the user's basic profile (name, email) from Google's API, then creates or finds a corresponding user record in YOUR OWN database, and issues YOUR OWN JWT or session (Module 9's existing mechanisms) for that user, exactly as if they'd logged in with a password"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why Step 4's Code-For-Token Exchange Must Happen Server-To-Server, Never In The Browser",
+          "content": "This is the single most important security detail in this entire flow, directly extending Module 9's trust-boundary discipline: the temporary authorization code from step 3 is exchanged for an actual access token using your application's CLIENT SECRET \u2014 a genuinely sensitive credential that, exactly like Module 9's JWT_SECRET, must NEVER be exposed to the browser or any client-side code at all. This is precisely why step 4 happens on your BACKEND specifically, in a direct server-to-server request to Google's token endpoint, rather than the browser itself performing this exchange \u2014 if the client secret were embedded in frontend JavaScript, anyone inspecting your application's code could extract it and impersonate your application entirely, exactly the kind of secret-exposure risk Module 10, lesson 6 warned against generally, now appearing in its most consequential form: a leaked OAuth client secret could let an attacker request access tokens on your application's behalf for ANY user who's ever authorized it."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Complete Google OAuth Callback Handler, Directly Extending Module 9's Login Flow",
+          "content": "This builds the actual server-side callback handler completing steps 3 through 5, directly connecting OAuth's identity confirmation to Module 9's existing JWT issuance:",
+          "code": "import jwt from 'jsonwebtoken';\n\napp.get('/auth/google/callback', async (req, res, next) => {\n  try {\n    const { code } = req.query; // the temporary authorization code\n\n    // STEP 4 - server-to-server exchange, using the client secret,\n    // NEVER exposed to the browser at any point\n    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n      body: new URLSearchParams({\n        code: code as string,\n        client_id: process.env.GOOGLE_CLIENT_ID!,\n        client_secret: process.env.GOOGLE_CLIENT_SECRET!, // genuinely\n          // private - read from env, exactly Module 10 lesson 6's rule\n        redirect_uri: process.env.GOOGLE_REDIRECT_URI!,\n        grant_type: 'authorization_code'\n      })\n    });\n\n    const { access_token } = await tokenResponse.json();\n\n    // STEP 5a - fetch the user's basic Google profile\n    const profileResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {\n      headers: { Authorization: `Bearer ${access_token}` }\n    });\n    const profile = await profileResponse.json();\n\n    // STEP 5b - find or create a corresponding user in YOUR database\n    let user = await usersCollection.findOne({ googleId: profile.id });\n    if (!user) {\n      const result = await usersCollection.insertOne({\n        googleId: profile.id,\n        email: profile.email,\n        name: profile.name\n      });\n      user = { _id: result.insertedId, email: profile.email, name: profile.name };\n    }\n\n    // STEP 5c - issue YOUR OWN JWT, exactly Module 9's existing mechanism\n    const appToken = jwt.sign(\n      { userId: user._id.toString(), email: user.email },\n      process.env.JWT_SECRET!,\n      { expiresIn: '1h' }\n    );\n\n    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${appToken}`);\n  } catch (err) {\n    next(err);\n  }\n});",
+          "explanation": "Notice the function's final steps (5b, 5c) are EXACTLY Module 9's existing login logic \u2014 find or create a user, issue a JWT \u2014 with the only genuinely new piece being WHERE the user's verified identity actually came from: instead of bcrypt.compare() verifying a submitted password (Module 9, lesson 3), Google's own token exchange and profile lookup provide that verification instead. This directly demonstrates this lesson's central architectural point: OAuth REPLACES the credential-verification step specifically, while everything downstream (creating your own user record, issuing your own session/JWT) remains exactly Module 9's existing, already-understood mechanism."
+        },
+        {
+          "type": "realUsage",
+          "title": "Why Real Applications Offer OAuth Login Alongside Or Instead Of Passwords",
+          "content": "Real applications overwhelmingly offer 'Sign in with Google/GitHub/etc.' specifically because it removes genuine friction (no new password to create or remember) and genuine risk (your application never stores a password that could be compromised in a breach, since it was never collected in the first place) for the substantial portion of users who already have an account with a major provider. Real applications commonly support BOTH OAuth and Module 9's traditional password-based signup together, letting users choose whichever they prefer, with the application's own database simply tracking which authentication METHOD each specific user account actually used (a googleId field present, versus a hashedPassword field present, as this lesson's codeLesson's schema implicitly demonstrates)."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common OAuth Implementation Mistakes",
+          "content": "1. Performing the code-for-token exchange (step 4) directly in frontend JavaScript rather than on the backend, which would require exposing the client secret to the browser \u2014 exactly the serious, severe mistake this lesson's internalWorking section warned against specifically.\n\n2. Forgetting to handle the case where a user's email from Google already exists in your database under a DIFFERENT authentication method (a previously password-based account with the same email), potentially creating a confusing duplicate account or a genuine account-takeover risk if not handled deliberately.\n\n3. Trusting the OAuth provider's profile data without verifying its actual structure matches what your code expects, repeating Module 17, lesson 1's 'read the actual API documentation, don't assume' lesson, now applied specifically to an OAuth provider's profile endpoint.\n\n4. Storing the OAuth access token long-term as if it were your own application's session credential, rather than using it only briefly (to fetch the user's profile once) and then issuing your OWN JWT or session for all subsequent authentication, exactly this lesson's codeLesson's actual structure.\n\n5. Hardcoding the redirect_uri or client credentials directly in code rather than environment variables, repeating Module 10, lesson 6's exact warning now specifically for OAuth-related secrets."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "OAuth Replaces One Specific Step, Not The Entire Authentication Architecture",
+          "content": "This lesson's central architectural insight is recognizing OAuth as a REPLACEMENT for exactly one specific piece of Module 9's authentication flow \u2014 the credential-verification step \u2014 while everything else (your own user model, your own session/JWT issuance, your own protected-route middleware from Module 9, lesson 6) remains genuinely unchanged. This is precisely the same kind of precise, scoped understanding this curriculum has built repeatedly: recognizing exactly WHAT a new tool or technique changes, and exactly what it leaves untouched, rather than assuming an entire system must be rebuilt from scratch simply because one new piece (OAuth, in this case) has been introduced. A developer who's internalized Module 9's authentication architecture deeply can adopt OAuth as a focused, well-understood addition, rather than experiencing it as an entirely separate, unrelated authentication paradigm."
+        },
+        {
+          "type": "debugging",
+          "title": "Diagnosing OAuth Flow Failures At Each Specific Step",
+          "content": "If an OAuth login flow fails, identifying exactly WHICH of this lesson's five steps actually failed is the right first diagnostic move: a failure before ever reaching your callback route suggests a misconfigured redirect URI or client ID on the provider's own developer console; a failure during the token exchange (step 4) suggests a mismatched or incorrect client secret; a failure fetching the profile (step 5a) suggests an invalid or expired access token; and a failure in your own user-creation or JWT-issuance logic (step 5b/5c) is genuinely just Module 9's existing debugging discipline, applied to code that happens to run after an OAuth-specific beginning. Logging the actual response at each step temporarily, rather than assuming where the failure occurred, directly applies Module 10, lesson 7's systematic, layer-by-layer debugging sequence to this specific, multi-step external integration."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp1-1",
+          "type": "multiple_choice",
+          "question": "What does OAuth 2.0 fundamentally let an application avoid, compared to Module 9's traditional password-based authentication?",
+          "options": [
+            "OAuth eliminates the need for any user identification at all",
+            "OAuth lets an application verify a user's identity through a trusted third-party provider, without ever collecting, seeing, or storing that user's actual password for that third-party account",
+            "OAuth requires an application to store passwords in an even more secure way",
+            "OAuth only works for applications with no database at all"
+          ],
+          "correctAnswer": 1,
+          "explanation": "OAuth's core benefit is that an application can verify identity through a trusted provider without ever handling that user's actual password for the third-party account."
+        },
+        {
+          "id": "cp1-2",
+          "type": "scenario",
+          "question": "A developer implements the OAuth authorization-code-for-token exchange directly in frontend JavaScript, including the application's client secret in that frontend code. What serious risk does this create?",
+          "options": [
+            "No risk; client secrets are designed to be used in frontend code",
+            "Anyone inspecting the deployed frontend code could extract the client secret and potentially request access tokens on the application's behalf, exactly the kind of severe secret-exposure risk Module 10's environment-variable lesson warned against",
+            "This would only affect the specific user currently logged in",
+            "Frontend JavaScript cannot make this kind of request at all"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Exposing the client secret in frontend code lets anyone inspecting the deployed application extract it, creating a severe risk of an attacker impersonating the application itself."
+        },
+        {
+          "id": "cp1-3",
+          "type": "multiple_choice",
+          "question": "What does OAuth actually replace in Module 9's existing authentication architecture, and what remains unchanged?",
+          "options": [
+            "OAuth replaces the entire authentication system, requiring everything to be rebuilt from scratch",
+            "OAuth replaces specifically the credential-verification step; an application's own user model, JWT/session issuance, and protected-route middleware all remain unchanged, exactly as Module 9 built them",
+            "OAuth has no relationship to anything taught in Module 9",
+            "OAuth eliminates the need for an application to maintain its own user database at all"
+          ],
+          "correctAnswer": 1,
+          "explanation": "OAuth specifically replaces the credential-verification step in an authentication flow, while the rest of the architecture (user model, session/JWT issuance, protected routes) remains exactly as Module 9 established."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch1-build-an-oauth-callback-handler",
+        "title": "Build A Complete GitHub OAuth Callback Handler",
+        "description": "Build a GitHub OAuth callback route performing the server-to-server code-for-token exchange, fetching the user's GitHub profile, finding-or-creating a corresponding user record, and issuing an application JWT.",
+        "starterCode": "import jwt from 'jsonwebtoken';\n\napp.get('/auth/github/callback', async (req, res, next) => {\n  try {\n    const { code } = req.query;\n\n    // TODO: exchange code for an access token via a POST to\n    // 'https://github.com/login/oauth/access_token', using\n    // client_id and client_secret from environment variables\n\n    // TODO: fetch the user's profile from\n    // 'https://api.github.com/user' using the access token\n\n    // TODO: find or create a corresponding user in usersCollection,\n    // keyed by githubId\n\n    // TODO: issue an application JWT and redirect to the frontend\n    // with the token attached\n  } catch (err) {\n    next(err);\n  }\n});",
+        "solutionExample": "import jwt from 'jsonwebtoken';\n\napp.get('/auth/github/callback', async (req, res, next) => {\n  try {\n    const { code } = req.query;\n\n    const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },\n      body: JSON.stringify({\n        code,\n        client_id: process.env.GITHUB_CLIENT_ID,\n        client_secret: process.env.GITHUB_CLIENT_SECRET\n      })\n    });\n    const { access_token } = await tokenResponse.json();\n\n    const profileResponse = await fetch('https://api.github.com/user', {\n      headers: { Authorization: `Bearer ${access_token}` }\n    });\n    const profile = await profileResponse.json();\n\n    let user = await usersCollection.findOne({ githubId: profile.id });\n    if (!user) {\n      const result = await usersCollection.insertOne({\n        githubId: profile.id,\n        email: profile.email,\n        name: profile.name\n      });\n      user = { _id: result.insertedId, email: profile.email, name: profile.name };\n    }\n\n    const appToken = jwt.sign(\n      { userId: user._id.toString(), email: user.email },\n      process.env.JWT_SECRET!,\n      { expiresIn: '1h' }\n    );\n\n    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${appToken}`);\n  } catch (err) {\n    next(err);\n  }\n});",
+        "validationRules": [
+          "The token exchange must use client_id and client_secret read from environment variables, never hardcoded",
+          "The token exchange must happen entirely server-side within this route handler, never delegated to frontend code",
+          "Must find or create a user keyed by a githubId field, not assuming a record always already exists",
+          "Must issue an application-specific JWT using the existing JWT_SECRET, exactly Module 9's mechanism, not a token from GitHub itself"
+        ],
+        "hints": [
+          "GitHub's token endpoint expects client_id, client_secret, and code in the request body, similar in structure to this lesson's Google example",
+          "The final JWT issuance step should look identical in substance to Module 9's own login route - only the credential-verification step before it differs",
+          "Redirect to the frontend with the token attached as a query parameter, letting frontend code then store it appropriately"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-2",
+      "order": 2,
+      "title": "Refresh Token Rotation",
+      "shortTitle": "Refresh Token Rotation",
+      "estimatedDuration": "85-110 minutes",
+      "xpReward": 150,
+      "nextLessonId": "lesson-3",
+      "prevLessonId": "lesson-1",
+      "prerequisites": ["lesson-1"],
+      "lessonGoal": "Implement refresh token rotation, solving the genuine tension between short-lived JWTs' security and the poor UX of forcing frequent re-logins.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "Resolving A Genuine Tension Module 9 Left Unaddressed",
+          "content": "Module 9, lesson 4 set JWTs to expire after a relatively short window (1 hour), specifically to limit the damage a stolen token could cause. But this creates a genuine, real tension: a short-lived token is more secure, but forces a user to log in again frequently, which is genuinely poor user experience for any real application. Refresh token rotation resolves this directly: alongside a SHORT-LIVED access token (Module 9's existing JWT, used for actual API requests), the server also issues a LONG-LIVED refresh token, stored securely, used SPECIFICALLY to obtain a new access token once the short-lived one expires \u2014 without requiring the user to re-enter their credentials at all, while still keeping each individual access token's exposure window genuinely short."
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Short-Term Visitor Badge, Renewable Without Re-Registering At The Front Desk",
+          "content": "Module 9's original JWT is like a visitor badge that expires after exactly one hour, requiring you to go back to the front desk and show ID again every single hour, all day \u2014 secure, but genuinely tedious for a legitimate visitor staying much longer. Refresh token rotation is like ALSO receiving a separate, longer-lived 'renewal pass' alongside that hourly badge: when your hourly badge expires, you show the renewal pass (not your original ID again) to a SPECIFIC renewal desk, and receive a fresh hourly badge, without needing to go through the full original identity check again. The renewal pass itself eventually expires too (after days or weeks, not hours), at which point you genuinely do need to re-verify your identity from scratch \u2014 but for the vast majority of a normal visit, the renewal pass alone keeps you continuously, conveniently badged without ever requiring repeated full identity checks."
+        },
+        {
+          "type": "structure",
+          "title": "Issuing And Using Both Token Types",
+          "content": "Issuing both tokens at login, directly extending Module 9's existing login route:\n\nfunction issueTokens(userId: string) {\n  const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET!, { expiresIn: '15m' });\n  const refreshToken = jwt.sign({ userId }, process.env.REFRESH_SECRET!, { expiresIn: '7d' });\n  return { accessToken, refreshToken };\n}\n\napp.post('/login', async (req, res, next) => {\n  // ... Module 9's existing credential verification ...\n  const { accessToken, refreshToken } = issueTokens(user._id.toString());\n  await refreshTokensCollection.insertOne({ userId: user._id, refreshToken, revoked: false });\n  res.json({ success: true, data: { accessToken, refreshToken } });\n});\n\nUsing the refresh token to obtain a new access token once the old one expires:\n\napp.post('/refresh', async (req, res, next) => {\n  try {\n    const { refreshToken } = req.body;\n    const stored = await refreshTokensCollection.findOne({ refreshToken, revoked: false });\n    if (!stored) {\n      return res.status(401).json({ success: false, error: 'Invalid refresh token' });\n    }\n\n    const decoded = jwt.verify(refreshToken, process.env.REFRESH_SECRET!) as { userId: string };\n\n    // ROTATION - the old refresh token is revoked and a genuinely NEW\n    // one is issued, rather than reusing the same refresh token indefinitely\n    await refreshTokensCollection.updateOne({ refreshToken }, { $set: { revoked: true } });\n    const tokens = issueTokens(decoded.userId);\n    await refreshTokensCollection.insertOne({ userId: decoded.userId, refreshToken: tokens.refreshToken, revoked: false });\n\n    res.json({ success: true, data: tokens });\n  } catch (err) {\n    res.status(401).json({ success: false, error: 'Invalid or expired refresh token' });\n  }\n});"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why ROTATION Specifically (Not Just A Long-Lived Refresh Token) Provides Genuine Security Value",
+          "content": "This is the single most important detail distinguishing genuine refresh token ROTATION from a naive 'just use one long-lived refresh token forever' approach: every time a refresh token is used to obtain a new access token, the OLD refresh token is immediately revoked (marked unusable) and a genuinely NEW refresh token is issued in its place. This provides a specific, valuable security property: if a refresh token is ever stolen and used by an attacker, the LEGITIMATE user's next genuine refresh attempt will fail (since their own copy of that now-revoked refresh token no longer works), immediately signaling something is wrong \u2014 and many real systems specifically use this exact signal (a revoked-but-still-attempted-to-be-used refresh token, detected when the legitimate user's own next request fails unexpectedly) to detect and respond to exactly this kind of theft, rather than a stolen, never-rotated refresh token simply remaining silently, indefinitely valid for whoever currently possesses it, attacker or not."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Complete Frontend Flow Handling Automatic Token Refresh Transparently",
+          "content": "This builds the frontend half of this lesson's flow, directly extending Module 10, lesson 2's centralized API client with automatic, transparent token refreshing:",
+          "code": "let accessToken: string | null = null;\nlet refreshToken: string | null = null;\n\nasync function apiRequest(url: string, options: RequestInit = {}) {\n  const response = await fetch(url, {\n    ...options,\n    headers: { ...options.headers, Authorization: `Bearer ${accessToken}` }\n  });\n\n  if (response.status === 401) {\n    // Access token likely expired - attempt a transparent refresh\n    // BEFORE giving up and forcing the user to log in again\n    const refreshResponse = await fetch('/refresh', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ refreshToken })\n    });\n\n    if (!refreshResponse.ok) {\n      // The refresh token itself is invalid/expired too - NOW the user\n      // genuinely must log in again, exactly Module 9 lesson 9's pattern\n      accessToken = null;\n      refreshToken = null;\n      throw new Error('Session expired - please log in again');\n    }\n\n    const { data } = await refreshResponse.json();\n    accessToken = data.accessToken;\n    refreshToken = data.refreshToken; // the NEW, rotated refresh token\n\n    // Retry the ORIGINAL request, now with the fresh access token\n    return fetch(url, {\n      ...options,\n      headers: { ...options.headers, Authorization: `Bearer ${accessToken}` }\n    });\n  }\n\n  return response;\n}",
+          "explanation": "This function transparently handles the most common real-world case \u2014 an access token expiring mid-session \u2014 entirely invisibly to the rest of the application: any component calling apiRequest() never needs to know or care whether a request succeeded on the first try or required a behind-the-scenes refresh first. Critically, refreshToken is updated to the NEW, rotated value returned from /refresh, exactly per this lesson's internalWorking section \u2014 the original refresh token is never reused again after this point, with every subsequent refresh attempt requiring whatever the MOST RECENT rotation issued, directly implementing the genuine security property this lesson's rotation mechanism is built around."
+        },
+        {
+          "type": "realUsage",
+          "title": "How Real Production Applications Structure Token Lifetimes And Rotation",
+          "content": "Real production applications commonly use exactly this two-token pattern, with access tokens typically lasting minutes to a couple hours and refresh tokens lasting days to weeks, with rotation applied on every single refresh exactly as this lesson demonstrated. Many real systems also implement 'refresh token family' tracking \u2014 if a revoked refresh token is ever presented again after rotation (a strong signal of exactly the theft scenario this lesson's internalWorking section described), the ENTIRE chain of tokens descended from that original login session can be immediately, proactively revoked, not just the one specific stolen token, providing a more aggressive, comprehensive response to detected token theft than this lesson's simpler version implements."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common Refresh Token Mistakes",
+          "content": "1. Using a single, long-lived refresh token indefinitely without ever rotating it, losing the specific theft-detection benefit this lesson's internalWorking section described \u2014 a stolen, never-rotated refresh token remains silently valid for as long as it hasn't naturally expired.\n\n2. Storing refresh tokens insecurely on the client (in regular, JavaScript-accessible storage rather than an httpOnly cookie, Module 9, lesson 5's exact distinction), exposing them to the same cross-site-scripting risk that lesson warned against for session cookies generally.\n\n3. Forgetting to revoke the OLD refresh token immediately upon rotation, briefly leaving both the old and new refresh tokens simultaneously valid, narrowing but not eliminating the security window this lesson's rotation is meant to close entirely.\n\n4. Using the SAME secret key for signing both access tokens and refresh tokens, rather than two genuinely separate secrets (REFRESH_SECRET distinct from JWT_SECRET) \u2014 using separate secrets means a compromise of one token type's signing key doesn't automatically compromise the other.\n\n5. Not handling the case where a refresh attempt itself fails (the refresh token has also expired, or was already revoked), forgetting that this specific failure means the user genuinely must log in again from scratch, exactly as this lesson's codeLesson's error path demonstrated."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "Resolving A Genuine Security-Versus-UX Tradeoff With An Added Mechanism, Not A Compromise",
+          "content": "This lesson's two-token pattern is a genuinely elegant resolution to a tension that, on its surface, looks like it requires choosing between security (short-lived tokens) and user experience (avoiding frequent re-logins) \u2014 rather than compromising on either, refresh token rotation adds a SEPARATE mechanism specifically designed to satisfy both requirements simultaneously: the access token stays genuinely short-lived (preserving security), while the refresh token's rotation provides a secure, automated path to renewal (preserving good UX). Recognizing when an apparent either-or tradeoff can instead be resolved by introducing a genuinely new, well-designed mechanism \u2014 rather than simply picking the lesser evil between two unsatisfying options \u2014 is a valuable, transferable engineering instinct well beyond authentication specifically."
+        },
+        {
+          "type": "debugging",
+          "title": "Testing Refresh Token Rotation's Actual Security Behavior, Not Just Its Happy Path",
+          "content": "The single most important test for this lesson's content: deliberately use a refresh token TWICE in a row (simulating exactly the theft scenario where both a legitimate user and an attacker might attempt to use the same stolen token) and confirm the SECOND attempt correctly fails with 401, since the first use should have already revoked that specific refresh token per this lesson's rotation logic. A refresh-rotation implementation that's only ever been tested with a single, successful refresh per token has never actually verified the one behavior this entire lesson's security argument depends on \u2014 exactly the adversarial, beyond-the-happy-path testing discipline Module 9's original authentication lessons established generally, now applied specifically to this lesson's rotation mechanism."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp2-1",
+          "type": "multiple_choice",
+          "question": "What genuine tension does refresh token rotation resolve, relative to Module 9's original single-JWT approach?",
+          "options": [
+            "There is no real tension; Module 9's approach was already fully sufficient",
+            "The tension between keeping access tokens short-lived for security (limiting a stolen token's exposure window) and avoiding the poor user experience of forcing frequent re-logins, resolved by adding a separate, longer-lived refresh token for transparent renewal",
+            "Refresh tokens eliminate the need for any token expiration at all",
+            "Refresh token rotation only applies to OAuth-based authentication, never password-based"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Refresh token rotation resolves the tension between short-lived access tokens (for security) and avoiding frequent re-logins (for good UX) by introducing a separate, longer-lived refresh token used specifically for transparent renewal."
+        },
+        {
+          "id": "cp2-2",
+          "type": "scenario",
+          "question": "A stolen refresh token is used by an attacker, and shortly afterward, the legitimate user's own application also attempts to use what it believes is the same, still-valid refresh token. With genuine rotation correctly implemented, what happens?",
+          "options": [
+            "Both the attacker and the legitimate user succeed using the same token",
+            "Whichever one uses the token FIRST succeeds and receives a newly-rotated token; the second attempt (using the now-revoked original token) fails with 401, providing a detectable signal that something is wrong",
+            "The system cannot detect or respond to this situation in any way",
+            "Refresh tokens cannot be stolen under any circumstances"
+          ],
+          "correctAnswer": 1,
+          "explanation": "With genuine rotation, the first use of a refresh token immediately revokes it; a subsequent attempt to reuse that same token fails, providing a detectable signal of potential token theft."
+        },
+        {
+          "id": "cp2-3",
+          "type": "multiple_choice",
+          "question": "Why does this lesson recommend using a genuinely separate secret key (REFRESH_SECRET) for signing refresh tokens, distinct from the access token's JWT_SECRET?",
+          "options": [
+            "Using separate secrets has no real benefit and is purely a stylistic choice",
+            "Using separate secrets means a compromise of one token type's signing key does not automatically compromise the other token type as well",
+            "JWTs technically cannot be signed with more than one secret across an entire application",
+            "Refresh tokens cannot use the JWT format at all"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Separate secrets for access and refresh tokens limit the impact of a single secret's compromise, preventing one leaked key from automatically compromising both token types simultaneously."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch2-build-refresh-rotation",
+        "title": "Build A Complete Refresh Token Rotation Endpoint With Theft Detection Testing",
+        "description": "Build a /refresh endpoint implementing genuine rotation (revoking the old token, issuing a new one), then write a test scenario demonstrating that using the same refresh token twice in a row correctly fails on the second attempt.",
+        "starterCode": "import jwt from 'jsonwebtoken';\n\nfunction issueTokens(userId: string) {\n  const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET!, { expiresIn: '15m' });\n  const refreshToken = jwt.sign({ userId }, process.env.REFRESH_SECRET!, { expiresIn: '7d' });\n  return { accessToken, refreshToken };\n}\n\n// TODO: build POST /refresh - look up the refresh token (must not be\n// revoked), verify it, revoke the OLD token, issue and store a NEW one\n\n// TODO: write a test scenario (as comments) demonstrating using the\n// same refresh token twice - the second attempt must fail with 401",
+        "solutionExample": "import jwt from 'jsonwebtoken';\n\nfunction issueTokens(userId: string) {\n  const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET!, { expiresIn: '15m' });\n  const refreshToken = jwt.sign({ userId }, process.env.REFRESH_SECRET!, { expiresIn: '7d' });\n  return { accessToken, refreshToken };\n}\n\napp.post('/refresh', async (req, res, next) => {\n  try {\n    const { refreshToken } = req.body;\n\n    const stored = await refreshTokensCollection.findOne({ refreshToken, revoked: false });\n    if (!stored) {\n      return res.status(401).json({ success: false, error: 'Invalid refresh token' });\n    }\n\n    const decoded = jwt.verify(refreshToken, process.env.REFRESH_SECRET!) as { userId: string };\n\n    await refreshTokensCollection.updateOne({ refreshToken }, { $set: { revoked: true } });\n\n    const tokens = issueTokens(decoded.userId);\n    await refreshTokensCollection.insertOne({\n      userId: decoded.userId,\n      refreshToken: tokens.refreshToken,\n      revoked: false\n    });\n\n    res.json({ success: true, data: tokens });\n  } catch (err) {\n    res.status(401).json({ success: false, error: 'Invalid or expired refresh token' });\n  }\n});\n\n// TEST SCENARIO:\n// 1. Call POST /refresh with refreshToken=A -> succeeds, returns new\n//    refreshToken=B, and token A is now marked revoked in the database.\n// 2. Call POST /refresh AGAIN with the original refreshToken=A ->\n//    FAILS with 401, since findOne({ refreshToken: A, revoked: false })\n//    now finds nothing, correctly detecting the reuse attempt.",
+        "validationRules": [
+          "Must look up the refresh token with revoked: false specifically, not just any matching token",
+          "Must revoke the old token BEFORE or as part of issuing the new one, never leaving both simultaneously valid for longer than necessary",
+          "Must respond 401 for any invalid, expired, or already-revoked refresh token",
+          "The test scenario must demonstrate the SAME token used twice, with the second attempt explicitly failing"
+        ],
+        "hints": [
+          "The database query's revoked: false condition is what makes a revoked token's reuse attempt correctly fail to find a match",
+          "Issue and store the new refresh token only after successfully revoking the old one, keeping the window where both could be valid as short as possible",
+          "Your test scenario should explicitly walk through both calls, stating the expected result of each"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-3",
+      "order": 3,
+      "title": "Role-Based Access Control",
+      "shortTitle": "Role-Based Access Control",
+      "estimatedDuration": "85-110 minutes",
+      "xpReward": 150,
+      "nextLessonId": "lesson-4",
+      "prevLessonId": "lesson-2",
+      "prerequisites": ["lesson-2"],
+      "lessonGoal": "Build a genuine, multi-role permission system with granular permissions per role, directly extending Module 9's single requireRole check into a production-grade RBAC architecture.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "From One Role Check To A Genuine Permission System",
+          "content": "Module 9, lesson 2's requireRole(role) middleware checked for exactly ONE specific role string. Real applications typically need genuinely MULTIPLE roles (admin, editor, viewer, and potentially many more), each with its own specific, granular set of PERMISSIONS (an editor can create and edit posts but not delete users; an admin can do both) \u2014 Role-Based Access Control (RBAC) formalizes this into a genuine system: roles are collections of specific permissions, a user is assigned one or more roles, and authorization checks verify whether a user's roles collectively grant a SPECIFIC permission needed for a specific action, rather than checking for one single, hardcoded role string per protected route."
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Building's Keycard System With Genuinely Different Access Levels, Not One Single Master Key",
+          "content": "Module 9's single requireRole check is like a building with exactly one type of restricted door, requiring exactly one type of special key \u2014 functional for a simple building, but it doesn't scale to a genuinely complex building with many different kinds of restricted areas (the server room, the executive floor, the supply closet), each reasonably requiring DIFFERENT specific access, not simply 'has the one special key or doesn't.' RBAC is the building's full keycard system: each keycard (role) is actually programmed with a specific SET of door-access permissions, and any specific door checks not 'does this person have THE special key' but 'does this person's keycard include access to THIS specific door' \u2014 letting the same overall keycard infrastructure support genuinely fine-grained, role-specific access across an arbitrarily complex building, rather than one single binary special-key check."
+        },
+        {
+          "type": "structure",
+          "title": "Building A Genuine Permission System",
+          "content": "Defining roles as collections of specific permissions:\n\nconst ROLE_PERMISSIONS: Record<string, string[]> = {\n  viewer: ['posts:read'],\n  editor: ['posts:read', 'posts:create', 'posts:update'],\n  admin: ['posts:read', 'posts:create', 'posts:update', 'posts:delete', 'users:manage']\n};\n\nfunction hasPermission(userRole: string, permission: string): boolean {\n  return ROLE_PERMISSIONS[userRole]?.includes(permission) ?? false;\n}\n\nA middleware checking for a SPECIFIC permission, rather than Module 9's hardcoded role string:\n\nfunction requirePermission(permission: string) {\n  return (req: Request, res: Response, next: NextFunction) => {\n    if (!hasPermission(req.userRole, permission)) {\n      return res.status(403).json({ success: false, error: 'Insufficient permissions' });\n    }\n    next();\n  };\n}\n\napp.delete('/posts/:id', requireAuth, requirePermission('posts:delete'), deletePost);\napp.post('/users/:id/promote', requireAuth, requirePermission('users:manage'), promoteUser);"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why Checking Permissions, Not Roles, Directly At Each Route Is The Genuine Architectural Improvement",
+          "content": "This is the central insight distinguishing genuine RBAC from Module 9's simpler approach: each protected route checks for a SPECIFIC PERMISSION ('posts:delete'), not a specific ROLE ('admin') \u2014 the mapping from roles to permissions lives in exactly ONE place (ROLE_PERMISSIONS), completely separate from every individual route's own logic. This separation provides a genuinely valuable, practical benefit: if a business decision later grants editors permission to also delete posts, this requires changing exactly ONE line (adding 'posts:delete' to editor's permission array), with ZERO changes needed to the deletePost route or its middleware at all \u2014 directly contrasted against Module 9's original approach, where a hardcoded requireRole('admin') check would require finding and individually updating every single route that needed this exact change, a genuinely more error-prone, harder-to-maintain approach as a real application's role and permission requirements inevitably evolve over time."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Complete RBAC System Supporting Multiple Roles Per User And Granular Permission Composition",
+          "content": "This extends the basic pattern to support users with MULTIPLE roles simultaneously (a genuinely common real requirement), and demonstrates the practical payoff of changing a permission assignment without touching any route code:",
+          "code": "const ROLE_PERMISSIONS: Record<string, string[]> = {\n  viewer: ['posts:read'],\n  editor: ['posts:read', 'posts:create', 'posts:update'],\n  moderator: ['posts:read', 'posts:update', 'comments:delete'],\n  admin: ['posts:read', 'posts:create', 'posts:update', 'posts:delete', 'users:manage', 'comments:delete']\n};\n\n// A user can hold MULTIPLE roles - permissions are the UNION of all\n// their roles' individual permission sets\nfunction getUserPermissions(roles: string[]): Set<string> {\n  const permissions = new Set<string>();\n  for (const role of roles) {\n    for (const permission of ROLE_PERMISSIONS[role] ?? []) {\n      permissions.add(permission);\n    }\n  }\n  return permissions;\n}\n\nfunction requirePermission(permission: string) {\n  return (req: Request, res: Response, next: NextFunction) => {\n    const userPermissions = getUserPermissions(req.userRoles); // array,\n                                                                  // not a\n                                                                  // single role\n    if (!userPermissions.has(permission)) {\n      return res.status(403).json({ success: false, error: 'Insufficient permissions' });\n    }\n    next();\n  };\n}\n\n// A user who is BOTH an editor AND a moderator correctly gains access\n// to comments:delete (from moderator) WHILE retaining posts:create\n// (from editor) - the union of both roles' permissions, automatically\napp.delete('/comments/:id', requireAuth, requirePermission('comments:delete'), deleteComment);\n\n// Later, granting editors comments:delete too requires ONLY this one\n// line changing - zero route or middleware code needs to change at all\n// editor: ['posts:read', 'posts:create', 'posts:update', 'comments:delete']",
+          "explanation": "getUserPermissions's union-of-all-roles approach directly supports the genuinely common real requirement of a user holding multiple roles simultaneously \u2014 a user who's both an editor and a moderator correctly gains the COMBINED permissions of both roles, neither role's permissions overriding or excluding the other's. The final comment demonstrates this lesson's central architectural payoff concretely: a real business change (editors should now also be able to delete comments) is implemented by editing exactly one line in ROLE_PERMISSIONS, with the deleteComment route, its middleware, and every other part of the application completely untouched \u2014 precisely the maintainability benefit this lesson's internalWorking section described."
+        },
+        {
+          "type": "realUsage",
+          "title": "How Real, Larger Applications Structure RBAC At Scale",
+          "content": "Real applications with genuinely complex permission requirements commonly store role-to-permission mappings in a DATABASE rather than a hardcoded object (as this lesson's simplified examples show), specifically so permissions can be adjusted by an administrator through an actual UI, without requiring a code deployment for every permission change \u2014 directly extending this lesson's core architectural separation (permissions live separately from route logic) one step further (permissions live separately from the CODEBASE entirely). Many real systems also support custom, organization-specific roles beyond a fixed, hardcoded set, letting different customers of the same software define their own role names and permission combinations, while the underlying requirePermission-style middleware checking logic remains completely unchanged regardless of how flexible or customer-specific the actual role definitions become."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common RBAC Mistakes",
+          "content": "1. Continuing to hardcode role checks directly in route definitions (requireRole('admin')) even after building a permission system, missing this lesson's entire architectural benefit of checking permissions rather than roles directly.\n\n2. Forgetting that a user can legitimately hold multiple roles, and building a system that only supports exactly one role per user, artificially constraining genuinely common real-world permission requirements.\n\n3. Defining permission strings inconsistently across different parts of an application ('postDelete' in one place, 'posts:delete' in another), making it harder to audit and maintain the full set of meaningful, distinct permissions an application actually uses.\n\n4. Forgetting that requirePermission still depends on requireAuth running first (exactly Module 9, lesson 6's middleware-ordering discipline), since req.userRoles must already be populated before any permission check can meaningfully run.\n\n5. Granting an overly broad role (admin) to a user who genuinely only needs one or two specific permissions, rather than defining a more narrowly-scoped role matching their actual, genuine needs \u2014 directly the same least-privilege principle Module 18, lesson 5's tiered rate limiting and Module 9's authorization lessons both modeled generally."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "Separating WHAT Permissions Exist From WHO Holds Them, A Specific Instance Of Depending On Abstractions",
+          "content": "This lesson's RBAC architecture is a specific, concrete instance of Module 18, lesson 3's Repository pattern principle \u2014 depending on an abstraction (a permission string, like 'posts:delete') rather than a concrete, specific implementation detail (a particular role's exact name) \u2014 now applied to authorization instead of data access. Just as the Repository pattern let a Service swap database implementations without changing its own code, this lesson's permission-based middleware lets an application's actual role-to-permission MAPPING evolve freely (new roles, changed permission assignments) without ever touching the route-level code that simply asks 'does this user have permission X', exactly the same separation-of-concerns benefit, now demonstrated in a genuinely different architectural context."
+        },
+        {
+          "type": "debugging",
+          "title": "Auditing An Application's Complete Permission Matrix",
+          "content": "A genuinely valuable verification habit for any RBAC system: construct a complete table listing every role down one side and every distinct permission across the top, filling in exactly which roles have which permissions, then manually confirming this matches the application's actual, intended business requirements \u2014 directly extending Module 9, lesson 10's security-thinking audit discipline specifically to permission completeness and correctness. This kind of explicit, exhaustive audit often reveals genuine gaps (a role that's missing a permission it should reasonably have, or one that's been granted a permission it genuinely shouldn't have) far more reliably than testing individual routes one at a time without ever stepping back to view the complete, overall permission landscape."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp3-1",
+          "type": "multiple_choice",
+          "question": "What is the central architectural improvement RBAC's permission-checking middleware provides, compared to Module 9's hardcoded role-checking middleware?",
+          "options": [
+            "There is no real difference between the two approaches",
+            "Routes check for a specific PERMISSION rather than a specific ROLE, with the role-to-permission mapping living in one separate, centralized place - meaning a business change to which roles have which permissions requires no changes to any route or middleware code",
+            "RBAC eliminates the need for any authentication at all",
+            "RBAC only supports exactly one role per user, never multiple roles"
+          ],
+          "correctAnswer": 1,
+          "explanation": "RBAC's key improvement is checking for specific permissions rather than hardcoded roles, with the role-to-permission mapping centralized separately, allowing permission changes without touching route-level code."
+        },
+        {
+          "id": "cp3-2",
+          "type": "scenario",
+          "question": "A business decision grants editors permission to also delete comments, a permission they previously lacked. With this lesson's RBAC architecture correctly implemented, what change is required?",
+          "options": [
+            "Every route in the application that involves comments must be individually found and updated",
+            "Exactly one change - adding 'comments:delete' to the editor role's permission array in the centralized ROLE_PERMISSIONS mapping - with zero changes needed to any route or middleware code",
+            "The entire authentication system must be rebuilt from scratch",
+            "This kind of permission change is impossible without redeploying the entire application's route definitions"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Since permissions are checked against a centralized mapping rather than hardcoded per-route, granting a new permission to a role requires only updating that one centralized mapping, with no route-level changes needed."
+        },
+        {
+          "id": "cp3-3",
+          "type": "multiple_choice",
+          "question": "Why does this lesson's getUserPermissions function compute the UNION of all a user's roles' permissions, rather than supporting only a single role per user?",
+          "options": [
+            "Union-based permission combination has no real benefit over single-role systems",
+            "Users can legitimately hold multiple roles simultaneously in real applications, and computing the union ensures they correctly retain all permissions from every role they hold, rather than being artificially restricted to just one",
+            "This approach only works for exactly two roles, never more",
+            "Union-based permissions are slower than single-role checks with no other benefit"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Supporting multiple roles per user with union-based permission combination correctly reflects genuine real-world requirements, where a user might legitimately hold several roles simultaneously, each contributing its own permissions."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch3-build-a-permission-system",
+        "title": "Build A Complete Multi-Role Permission System",
+        "description": "Build a ROLE_PERMISSIONS mapping for 'support' (tickets:read, tickets:respond), 'manager' (tickets:read, tickets:respond, tickets:close, agents:manage), and 'admin' (all of the above plus billing:manage), a getUserPermissions function supporting multiple roles, and a requirePermission middleware, then apply it to 3 routes of varying sensitivity.",
+        "starterCode": "// TODO: define ROLE_PERMISSIONS for support, manager, and admin roles\n// as described\n\n// TODO: write getUserPermissions(roles: string[]) returning the union\n// of all permissions across the given roles\n\n// TODO: write requirePermission(permission) middleware\n\n// TODO: apply it to: GET /tickets (tickets:read), POST /tickets/:id/close\n// (tickets:close), and POST /billing/refund (billing:manage)",
+        "solutionExample": "const ROLE_PERMISSIONS: Record<string, string[]> = {\n  support: ['tickets:read', 'tickets:respond'],\n  manager: ['tickets:read', 'tickets:respond', 'tickets:close', 'agents:manage'],\n  admin: ['tickets:read', 'tickets:respond', 'tickets:close', 'agents:manage', 'billing:manage']\n};\n\nfunction getUserPermissions(roles: string[]): Set<string> {\n  const permissions = new Set<string>();\n  for (const role of roles) {\n    for (const permission of ROLE_PERMISSIONS[role] ?? []) {\n      permissions.add(permission);\n    }\n  }\n  return permissions;\n}\n\nfunction requirePermission(permission: string) {\n  return (req: Request, res: Response, next: NextFunction) => {\n    const userPermissions = getUserPermissions(req.userRoles);\n    if (!userPermissions.has(permission)) {\n      return res.status(403).json({ success: false, error: 'Insufficient permissions' });\n    }\n    next();\n  };\n}\n\napp.get('/tickets', requireAuth, requirePermission('tickets:read'), getTickets);\napp.post('/tickets/:id/close', requireAuth, requirePermission('tickets:close'), closeTicket);\napp.post('/billing/refund', requireAuth, requirePermission('billing:manage'), processRefund);",
+        "validationRules": [
+          "ROLE_PERMISSIONS must correctly define all three roles with exactly the specified permissions",
+          "getUserPermissions must correctly compute the union of permissions across multiple roles, using a Set to avoid duplicates",
+          "requirePermission must check req.userRoles (an array), not a single role string",
+          "Each of the 3 routes must use requireAuth before requirePermission, and check the permission matching its actual sensitivity"
+        ],
+        "hints": [
+          "A support agent who is ALSO somehow assigned the manager role should correctly gain manager's additional permissions too, via the union",
+          "requireAuth must always run before requirePermission, since the permission check depends on req.userRoles already being populated",
+          "Match each route's required permission directly to its actual real-world sensitivity, exactly as the role definitions specify"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-4",
+      "order": 4,
+      "title": "Multi-Factor Authentication",
+      "shortTitle": "Multi-Factor Authentication",
+      "estimatedDuration": "90-115 minutes",
+      "xpReward": 160,
+      "nextLessonId": "lesson-5",
+      "prevLessonId": "lesson-3",
+      "prerequisites": ["lesson-3"],
+      "lessonGoal": "Implement TOTP-based multi-factor authentication as a genuine second, independent verification layer, understanding precisely what it adds beyond Module 9's password-only verification.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "A Second, Genuinely Independent Layer Of Proof",
+          "content": "Every authentication mechanism this curriculum has built so far \u2014 passwords (Module 9), OAuth (lesson 1) \u2014 relies on exactly ONE category of proof: something the user KNOWS (a password) or something a trusted provider VOUCHES for. Multi-factor authentication (MFA) adds a genuinely SEPARATE, independent category of proof: something the user HAS (commonly, a time-based code generated by an app on their phone) \u2014 requiring BOTH factors together means an attacker who's somehow obtained a user's password (through a breach, a phishing attack, or any other means) still cannot successfully log in without ALSO possessing that second, genuinely independent factor."
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Bank Vault Requiring Both A Combination AND A Physical Key, Held By Different People",
+          "content": "Module 9's password-only authentication is like a bank vault that opens with a single combination \u2014 if that one combination is ever compromised (overheard, written down somewhere insecure, guessed), the vault is genuinely, fully compromised, since nothing else stands in the way. MFA is like a vault deliberately requiring BOTH a combination AND a separate, physical key, with the genuine security benefit coming specifically from these being TWO INDEPENDENT factors: someone who's learned the combination through eavesdropping still cannot open the vault without ALSO physically possessing the separate key, and vice versa. The TIME-BASED code this lesson implements is specifically the 'physical key' factor \u2014 something the legitimate user genuinely possesses (their phone, running an authenticator app), independent of and unrelated to whatever they happen to know (their password)."
+        },
+        {
+          "type": "structure",
+          "title": "Implementing TOTP-Based MFA",
+          "content": "After installing a TOTP library (otplib, or similar), generating a secret and enrolling a user in MFA:\n\nimport { authenticator } from 'otplib';\n\napp.post('/mfa/setup', requireAuth, async (req, res, next) => {\n  try {\n    const secret = authenticator.generateSecret();\n    await usersCollection.updateOne(\n      { _id: new ObjectId(req.userId) },\n      { $set: { mfaSecret: secret, mfaEnabled: false } } // not yet\n        // enabled until the user confirms they've genuinely set it up\n    );\n\n    const qrCodeUrl = authenticator.keyuri(req.userEmail, 'MyApp', secret);\n    res.json({ success: true, data: { qrCodeUrl, secret } });\n  } catch (err) {\n    next(err);\n  }\n});\n\nVerifying a code and finalizing MFA enrollment:\n\napp.post('/mfa/verify-setup', requireAuth, async (req, res, next) => {\n  const { code } = req.body;\n  const user = await usersCollection.findOne({ _id: new ObjectId(req.userId) });\n\n  const isValid = authenticator.verify({ token: code, secret: user.mfaSecret });\n  if (!isValid) {\n    return res.status(400).json({ success: false, error: 'Invalid code' });\n  }\n\n  await usersCollection.updateOne({ _id: new ObjectId(req.userId) }, { $set: { mfaEnabled: true } });\n  res.json({ success: true });\n});"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why MFA Verification Must Be A Genuinely Separate Step From Password Verification, Not Combined",
+          "content": "This is the single most important architectural detail: a complete MFA-enabled login flow has TWO genuinely distinct steps, not one combined check \u2014 step 1 verifies the password (Module 9's existing bcrypt.compare()), and ONLY IF that succeeds does step 2 separately verify the TOTP code. This separation matters specifically because it preserves each factor's INDEPENDENCE: if both checks happened simultaneously, in one combined database query or comparison, it would become harder to reason precisely about which specific factor failed, and harder to correctly implement features like 'temporarily allow login with just a backup code if the user has lost access to their authenticator app' (a genuinely common real account-recovery need) without that exception accidentally weakening the password check itself. Keeping the steps genuinely sequential and separate \u2014 password verified completely first, MFA code verified completely afterward, as its own distinct stage \u2014 mirrors Module 9, lesson 2's authentication-versus-authorization separation directly, just applied to two sequential authentication factors instead of authentication-then-authorization."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Complete Two-Stage Login Flow Combining Password And MFA Verification",
+          "content": "This builds the complete, real login flow, directly extending Module 9's existing login route with this lesson's genuinely separate second stage:",
+          "code": "import bcrypt from 'bcrypt';\nimport { authenticator } from 'otplib';\nimport jwt from 'jsonwebtoken';\n\napp.post('/login', async (req, res, next) => {\n  try {\n    const { email, password, mfaCode } = req.body;\n\n    // STAGE 1 - password verification, exactly Module 9's existing logic\n    const user = await usersCollection.findOne({ email });\n    if (!user) {\n      return res.status(401).json({ success: false, error: 'Invalid credentials' });\n    }\n\n    const passwordValid = await bcrypt.compare(password, user.password);\n    if (!passwordValid) {\n      return res.status(401).json({ success: false, error: 'Invalid credentials' });\n    }\n\n    // STAGE 2 - a GENUINELY SEPARATE check, only reached if stage 1\n    // already succeeded completely\n    if (user.mfaEnabled) {\n      if (!mfaCode) {\n        // password was correct, but MFA is required and no code was\n        // provided yet - tell the client specifically to prompt for one\n        return res.status(401).json({ success: false, error: 'MFA code required', mfaRequired: true });\n      }\n\n      const mfaValid = authenticator.verify({ token: mfaCode, secret: user.mfaSecret });\n      if (!mfaValid) {\n        return res.status(401).json({ success: false, error: 'Invalid MFA code' });\n      }\n    }\n\n    // Both stages passed (or MFA wasn't enabled for this user at all)\n    const token = jwt.sign({ userId: user._id.toString() }, process.env.JWT_SECRET!, { expiresIn: '1h' });\n    res.json({ success: true, data: { token } });\n  } catch (err) {\n    next(err);\n  }\n});",
+          "explanation": "Notice stage 2 is reached ONLY if stage 1 has already, completely succeeded \u2014 a wrong password still produces exactly Module 9's original 'Invalid credentials' response, never even reaching the MFA check at all, regardless of whether MFA is enabled for that account. The mfaRequired: true flag in the 'no code provided' response is a deliberate, specific signal letting the frontend distinguish 'you need to also provide an MFA code' from a genuine authentication failure \u2014 directly enabling a real two-step login UI (password first, then a second screen prompting for the MFA code specifically) without conflating these two genuinely different situations into one undifferentiated error response."
+        },
+        {
+          "type": "realUsage",
+          "title": "Where Real Applications Apply MFA, And The Account-Recovery Considerations It Introduces",
+          "content": "Real applications commonly offer MFA as an optional, user-enabled security enhancement (exactly this lesson's mfaEnabled flag) for accounts where the user specifically wants additional protection, and sometimes REQUIRE it unconditionally for accounts with particularly high-value access (administrative accounts, financial systems). Real MFA implementations also need a genuine answer for account recovery \u2014 what happens when a legitimate user loses their phone and can no longer generate valid codes \u2014 commonly through one-time backup codes generated and shown ONCE during MFA setup (which the user is instructed to store securely elsewhere), or through a separate, more rigorous identity-verification process for account recovery specifically, since MFA's entire security benefit would otherwise be undermined by an easily-bypassed recovery mechanism."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common MFA Implementation Mistakes",
+          "content": "1. Combining password and MFA verification into one single check rather than two genuinely separate, sequential stages, making it harder to reason about which specific factor failed and harder to correctly implement recovery exceptions later.\n\n2. Storing the MFA secret in plaintext without any additional protection, when this secret is itself a genuinely sensitive credential \u2014 if leaked, an attacker could generate valid-looking TOTP codes for that specific account indefinitely.\n\n3. Allowing an MFA code to be reused multiple times within its valid time window, rather than tracking and rejecting already-used codes \u2014 a genuinely subtle gap, since TOTP codes remain technically valid for a short window, and a stolen, still-valid code could otherwise be reused by an attacker during that window.\n\n4. Providing no account-recovery mechanism at all for users who lose access to their MFA device, leaving them genuinely, permanently locked out of their own account with no reasonable path back in.\n\n5. Forgetting that mfaEnabled being false for a given user means stage 2 should be completely skipped, not failed \u2014 MFA is an optional ADDITIONAL layer for users who've enabled it, not a universally-required check that breaks login for every account that hasn't set it up."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "Genuine Factor Independence As MFA's Entire Security Value",
+          "content": "This lesson's central argument \u2014 that MFA's actual security value comes specifically from its second factor being GENUINELY INDEPENDENT of the first \u2014 is worth holding onto precisely: if a 'second factor' could somehow be derived from or compromised by the exact same breach that exposed the first factor (a password), it would provide little genuine additional security at all, regardless of how official or sophisticated it appears. This is precisely why TOTP codes (generated by a separate device, from a separately-stored secret, using a separate algorithm) provide genuine, meaningful security value, while a notionally 'second factor' that's actually derivable from the same compromised system wouldn't \u2014 the same kind of precise, mechanism-level scrutiny this curriculum has applied to distinguishing genuine security guarantees from merely superficially similar-looking mechanisms throughout Module 9 and this entire module."
+        },
+        {
+          "type": "debugging",
+          "title": "Testing MFA's Genuine Two-Stage Independence",
+          "content": "The most important verification for this lesson's content: deliberately test with a CORRECT password and an INCORRECT MFA code, confirming login genuinely fails at stage 2 specifically (not stage 1), and separately test with an INCORRECT password and what would otherwise be a correct MFA code, confirming login fails at stage 1 before MFA is ever even checked \u2014 directly verifying that both stages are genuinely independent, sequential checks rather than somehow combined or order-dependent in an unintended way. A login flow only ever tested with both factors simultaneously correct has never actually verified this lesson's central two-stage architecture is genuinely working as intended."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp4-1",
+          "type": "multiple_choice",
+          "question": "What genuine security property does MFA provide, beyond Module 9's password-only authentication?",
+          "options": [
+            "MFA makes passwords themselves unnecessary",
+            "MFA requires a SECOND, genuinely independent factor of proof (something the user has, like a phone-generated code) in addition to the password, meaning an attacker who has obtained the password alone still cannot successfully log in",
+            "MFA only works for OAuth-based authentication, never password-based",
+            "MFA eliminates the need for any backend verification at all"
+          ],
+          "correctAnswer": 1,
+          "explanation": "MFA's genuine security value comes from requiring a second, independent factor beyond the password, meaning a compromised password alone is insufficient for an attacker to successfully authenticate."
+        },
+        {
+          "id": "cp4-2",
+          "type": "scenario",
+          "question": "A login attempt provides an INCORRECT password but what would otherwise be a valid MFA code. With this lesson's two-stage architecture correctly implemented, what happens?",
+          "options": [
+            "Login succeeds, since the MFA code is valid",
+            "Login fails at stage 1 (password verification) before the MFA code is ever even checked, since stage 2 is only reached if stage 1 has already, completely succeeded",
+            "The system crashes due to this combination of inputs",
+            "MFA codes can be used to bypass password verification entirely"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Since stage 2 (MFA verification) is only reached after stage 1 (password verification) has already succeeded, an incorrect password causes login to fail immediately, with the MFA code never even being checked."
+        },
+        {
+          "id": "cp4-3",
+          "type": "multiple_choice",
+          "question": "Why does this lesson emphasize that MFA's second factor must be GENUINELY INDEPENDENT of the first factor (the password)?",
+          "options": [
+            "Independence between factors has no real bearing on MFA's actual security value",
+            "If a 'second factor' could somehow be derived from or compromised by the same breach that exposed the password, it would provide little genuine additional security, regardless of how official it appears",
+            "MFA factors are always completely unrelated regardless of implementation",
+            "This independence only matters for OAuth-based systems, never password-based ones"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Genuine independence between factors is what gives MFA its actual security value; a second factor that could be compromised by the same breach as the first would provide little real additional protection."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch4-two-stage-mfa-login",
+        "title": "Build A Complete Two-Stage Login Flow With Correct MFA Independence",
+        "description": "Build a login route implementing genuinely separate password and MFA verification stages, correctly handling the case where MFA is required but no code was provided, and write two specific test scenarios verifying each stage's independence.",
+        "starterCode": "import bcrypt from 'bcrypt';\nimport { authenticator } from 'otplib';\nimport jwt from 'jsonwebtoken';\n\n// TODO: build POST /login with two genuinely separate stages:\n// Stage 1 - password verification (exactly Module 9's pattern)\n// Stage 2 - if user.mfaEnabled, separately verify mfaCode, handling\n// the case where mfaCode is missing with a distinct mfaRequired flag\n\n// TODO: write two test scenarios as comments:\n// 1. Correct password, incorrect MFA code\n// 2. Incorrect password, valid-looking MFA code",
+        "solutionExample": "import bcrypt from 'bcrypt';\nimport { authenticator } from 'otplib';\nimport jwt from 'jsonwebtoken';\n\napp.post('/login', async (req, res, next) => {\n  try {\n    const { email, password, mfaCode } = req.body;\n\n    const user = await usersCollection.findOne({ email });\n    if (!user) {\n      return res.status(401).json({ success: false, error: 'Invalid credentials' });\n    }\n\n    const passwordValid = await bcrypt.compare(password, user.password);\n    if (!passwordValid) {\n      return res.status(401).json({ success: false, error: 'Invalid credentials' });\n    }\n\n    if (user.mfaEnabled) {\n      if (!mfaCode) {\n        return res.status(401).json({ success: false, error: 'MFA code required', mfaRequired: true });\n      }\n      const mfaValid = authenticator.verify({ token: mfaCode, secret: user.mfaSecret });\n      if (!mfaValid) {\n        return res.status(401).json({ success: false, error: 'Invalid MFA code' });\n      }\n    }\n\n    const token = jwt.sign({ userId: user._id.toString() }, process.env.JWT_SECRET!, { expiresIn: '1h' });\n    res.json({ success: true, data: { token } });\n  } catch (err) {\n    next(err);\n  }\n});\n\n// TEST SCENARIO 1: Correct password, incorrect MFA code\n// Expected: fails at stage 2 with 'Invalid MFA code', since stage 1\n// (password) genuinely succeeded first.\n\n// TEST SCENARIO 2: Incorrect password, valid-looking MFA code\n// Expected: fails at stage 1 with 'Invalid credentials', since the\n// MFA check is never even reached - password verification happens\n// completely first and independently.",
+        "validationRules": [
+          "Stage 1 (password) must complete fully before stage 2 (MFA) is ever checked",
+          "Must respond with a distinct mfaRequired flag when MFA is enabled but no code was provided",
+          "Must use a generic, consistent 'Invalid credentials' message for password failures, exactly Module 9's email-enumeration-prevention pattern",
+          "Both test scenarios must correctly identify which specific stage causes the failure in each case"
+        ],
+        "hints": [
+          "Structure the route so stage 2's code is physically unreachable until stage 1's checks have already returned successfully",
+          "mfaRequired: true should only appear when the password was correct AND mfaEnabled is true AND no code was provided - a specific, narrow case",
+          "Your test scenarios should explicitly state which stage causes each scenario's failure, demonstrating genuine stage independence"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-5",
+      "order": 5,
+      "title": "Auth Security Best Practices",
+      "shortTitle": "Auth Security Best Practices",
+      "estimatedDuration": "85-110 minutes",
+      "xpReward": 160,
+      "nextLessonId": "lesson-6",
+      "prevLessonId": "lesson-4",
+      "prerequisites": ["lesson-4"],
+      "lessonGoal": "Consolidate this module's OAuth, refresh token, RBAC, and MFA mechanisms with a focused set of additional security practices: secure cookie flags, CSRF protection, and security headers, into one hardened, complete auth surface.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "The Remaining Gaps Between 'Implemented' And 'Genuinely Hardened'",
+          "content": "Lessons 1 through 4 each built a genuine, working mechanism \u2014 OAuth login, refresh rotation, RBAC, MFA. This lesson addresses the remaining, often-overlooked security details that distinguish an authentication SURFACE that's merely functionally complete from one that's genuinely hardened against real attack patterns: secure cookie attributes (extending Module 9, lesson 5's httpOnly into the complete, modern set of cookie security flags), CSRF (Cross-Site Request Forgery) protection \u2014 a genuinely distinct attack class from anything Module 9 covered \u2014 and security headers that harden a browser's own default behavior around your specific application."
+        },
+        {
+          "type": "mentalModel",
+          "title": "Locking The Front Door (Done), Now Securing The Windows And Mail Slot Too",
+          "content": "Lessons 1 through 4 secured the building's actual front door thoroughly \u2014 genuinely strong locks (OAuth, MFA), a proper key-renewal process (refresh rotation), and a sophisticated keycard system for internal areas (RBAC). This lesson is the remaining, easily-overlooked physical security review: are the windows (cookie security flags) also properly secured, not just the front door? Is there a mail slot (CSRF) that could let someone slip a forged, illegitimate instruction into the building, appearing to come from a trusted source, even with the front door itself perfectly secure? Are the building's general posted signage and visible security measures (HTTP security headers) deterring casual opportunistic attempts, not just the sophisticated ones the front door's strong locks already handle? A building with a flawless front door but an unlocked window is still genuinely vulnerable."
+        },
+        {
+          "type": "structure",
+          "title": "Secure Cookies, CSRF Protection, And Security Headers",
+          "content": "The complete set of secure cookie attributes, extending Module 9, lesson 5's httpOnly:\n\napp.use(session({\n  secret: process.env.SESSION_SECRET,\n  cookie: {\n    httpOnly: true,      // Module 9's original flag - no JS access\n    secure: true,        // cookie ONLY sent over HTTPS, never plain HTTP\n    sameSite: 'strict',  // cookie NOT sent on cross-site requests at\n                           // all - this is CSRF protection's first line\n    maxAge: 60 * 60 * 1000\n  }\n}));\n\nCSRF token verification for state-changing requests (a genuinely additional layer, beyond sameSite alone, for older browsers or specific scenarios):\n\nimport csrf from 'csurf';\nconst csrfProtection = csrf({ cookie: true });\n\napp.get('/form', csrfProtection, (req, res) => {\n  res.json({ csrfToken: req.csrfToken() }); // sent to the frontend,\n                                               // included in the NEXT\n                                               // state-changing request\n});\n\napp.post('/transfer-funds', csrfProtection, transferFundsHandler); // the\n  // request must include the matching CSRF token, or it's rejected\n\nSecurity headers, using a dedicated middleware:\n\nimport helmet from 'helmet';\napp.use(helmet()); // sets several security-related headers automatically"
+        },
+        {
+          "type": "internalWorking",
+          "title": "What CSRF Actually Is, And Why It's Genuinely Different From Anything Module 9 Covered",
+          "content": "CSRF is a genuinely distinct attack: a malicious website tricks a victim's browser into sending a request to YOUR application, using the victim's OWN, currently-valid session cookie (which the browser automatically attaches to any request to your domain, regardless of which site actually triggered that request) \u2014 the victim never knowingly authorizes this request, but because their browser automatically includes their valid session cookie, your server might otherwise process it as if the victim genuinely intended it. This is fundamentally different from Module 9's authentication concerns (proving WHO is making a request) \u2014 CSRF specifically concerns whether a request, even from a GENUINELY authenticated user's own browser, was actually something THAT USER intended to do, versus something a malicious site tricked their browser into sending without their knowledge. sameSite: 'strict' directly prevents the cookie from being sent on cross-site requests at all (closing most of this attack), while an explicit CSRF token (a value the malicious site has no way to know or guess) provides defense-in-depth (Module 7, lesson 6) for cases sameSite alone might not fully cover."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Complete, Hardened Authentication Setup Combining Every Layer",
+          "content": "This shows a genuinely complete, hardened setup, combining secure cookies, CSRF protection, and security headers into one application's actual configuration:",
+          "code": "import express from 'express';\nimport session from 'express-session';\nimport helmet from 'helmet';\nimport csrf from 'csurf';\n\nconst app = express();\n\n// Security headers - applied broadly, early, to every response\napp.use(helmet());\n\n// Secure session cookies\napp.use(session({\n  secret: process.env.SESSION_SECRET!,\n  cookie: {\n    httpOnly: true,\n    secure: process.env.NODE_ENV === 'production', // HTTPS-only in\n      // production specifically; local development often uses plain HTTP\n    sameSite: 'strict',\n    maxAge: 60 * 60 * 1000\n  }\n}));\n\nconst csrfProtection = csrf({ cookie: true });\n\n// CSRF protection applied specifically to state-changing routes,\n// not blanket-applied to every single route in the application\napp.post('/transfer-funds', csrfProtection, requireAuth, transferFundsHandler);\napp.post('/change-password', csrfProtection, requireAuth, changePasswordHandler);\n\n// A read-only route genuinely doesn't need CSRF protection at all,\n// since CSRF specifically concerns unintended STATE CHANGES, not reads\napp.get('/profile', requireAuth, getProfileHandler);",
+          "explanation": "secure: process.env.NODE_ENV === 'production' directly applies Module 10, lesson 6's environment-specific configuration discipline to a security setting specifically: requiring HTTPS-only cookies in production (where HTTPS is genuinely available) while still permitting local HTTP development without that strict requirement blocking ordinary local testing. CSRF protection is applied specifically to STATE-CHANGING routes (transferring funds, changing a password) rather than blanket-applied everywhere, directly reflecting this lesson's internalWorking section's precise definition: CSRF concerns unintended actions, not unintended reads, so a read-only profile-viewing route genuinely doesn't need this specific protection, exactly the same precise, scoped application of a security mechanism this curriculum has modeled throughout (Module 18's tiered rate limiting, Module 9's role-specific authorization)."
+        },
+        {
+          "type": "realUsage",
+          "title": "How Real Production Applications Apply This Complete Security Layer",
+          "content": "Real production applications apply helmet (or an equivalent security-headers middleware) globally, by default, specifically because it sets several genuinely valuable, broadly-applicable security headers with minimal configuration required \u2014 a sensible, low-cost default that nearly every real application benefits from. Real applications using JWTs stored in memory or localStorage rather than cookies (Module 9, lesson 9's tradeoff) are actually LESS susceptible to CSRF specifically (since CSRF exploits a browser's automatic cookie-attachment behavior, which doesn't apply to a token a frontend must explicitly attach itself), but remain susceptible to other risks (Module 9, lesson 5's cross-site-scripting concern for non-httpOnly storage) \u2014 directly the kind of genuine, situational tradeoff-awareness this curriculum has built throughout, recognizing that different authentication storage mechanisms carry genuinely different risk profiles, not a single universally safest option."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common Mistakes In Applying This Lesson's Security Layer",
+          "content": "1. Forgetting secure: true on cookies in production, allowing a session cookie to potentially be transmitted over plain, unencrypted HTTP, where it could be intercepted in transit.\n\n2. Applying CSRF protection blanket-wide to every single route, including genuinely read-only ones, adding unnecessary friction and complexity where this lesson's precise, state-change-specific scoping would have sufficed.\n\n3. Assuming sameSite: 'strict' alone provides complete CSRF protection in every situation, without considering whether an explicit CSRF token might still be genuinely warranted for particularly sensitive operations as defense-in-depth.\n\n4. Applying helmet() or equivalent security headers inconsistently, or forgetting them entirely on a real, deployed application, missing a broadly beneficial, low-cost security improvement this lesson specifically recommends as a near-default.\n\n5. Confusing CSRF protection with authentication or authorization entirely, when CSRF specifically addresses a genuinely distinct concern (was this request actually intended by the authenticated user) that exists independently of whether that user is correctly authenticated and authorized in every other respect."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "Defense-In-Depth, One Final Time, Applied To The Complete Authentication Surface",
+          "content": "This lesson's combination of secure cookies, CSRF protection, and security headers is this module's most concrete demonstration yet of Module 7, lesson 6's defense-in-depth principle: no single one of these mechanisms alone provides complete protection, but layered together, each addressing a genuinely distinct, specific risk, they collectively harden an authentication surface considerably more than any single measure could alone. This same layered, multiple-genuinely-distinct-defenses philosophy has now appeared throughout this entire module \u2014 OAuth plus your own session/JWT issuance, refresh tokens plus rotation, RBAC's permission granularity, MFA's genuinely independent second factor \u2014 with this lesson's final additions completing the full, hardened picture this module's six lessons collectively build toward."
+        },
+        {
+          "type": "debugging",
+          "title": "Verifying This Lesson's Security Layer Is Genuinely Active",
+          "content": "Directly inspecting response headers (via the Network tab, Module 4's enduring habit) confirms whether helmet's security headers are genuinely present on actual responses, rather than assuming they're active simply because the middleware was added to the codebase. Directly inspecting a session cookie's actual flags (Module 9, lesson 5's DevTools Application-tab habit) confirms whether secure, httpOnly, and sameSite are genuinely set as configured, rather than assuming configuration code necessarily, correctly translated into the actual, observable cookie behavior \u2014 the same 'verify directly, don't assume from the code alone' discipline this curriculum has emphasized since its very first debugging lessons, now applied to this module's final, complete security configuration."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp5-1",
+          "type": "multiple_choice",
+          "question": "What is CSRF, and how is it genuinely different from the authentication concerns Module 9 covered?",
+          "options": [
+            "CSRF is identical to Module 9's authentication concerns, with no real difference",
+            "CSRF tricks a victim's browser into sending an unintended, state-changing request using their own valid session cookie, exploiting whether a request was genuinely intended by the user, distinct from authentication's concern with WHO is making a request",
+            "CSRF only affects applications that don't use cookies at all",
+            "CSRF is a method for stealing a user's actual password directly"
+          ],
+          "correctAnswer": 1,
+          "explanation": "CSRF exploits a browser's automatic cookie attachment to send unintended requests using a victim's valid session, a genuinely distinct concern from authentication's focus on verifying who is making a request."
+        },
+        {
+          "id": "cp5-2",
+          "type": "scenario",
+          "question": "A developer applies CSRF protection middleware to every single route in an application, including a read-only GET /profile route that only displays information. According to this lesson, what is the issue with this approach?",
+          "options": [
+            "There is no issue; CSRF protection should always be applied to every route uniformly",
+            "CSRF specifically concerns unintended STATE CHANGES, not reads; applying it to a genuinely read-only route adds unnecessary friction and complexity without addressing any actual risk that route presents",
+            "CSRF protection cannot technically be applied to GET routes at all",
+            "This approach makes the read-only route significantly faster"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Since CSRF specifically addresses unintended state-changing actions, applying this protection to a genuinely read-only route adds unnecessary overhead without addressing any actual risk that route presents."
+        },
+        {
+          "id": "cp5-3",
+          "type": "multiple_choice",
+          "question": "Why does this lesson recommend verifying security configuration (cookie flags, response headers) directly via browser tools, rather than assuming correctness from the configuration code alone?",
+          "options": [
+            "Configuration code is always guaranteed to translate correctly into actual runtime behavior",
+            "Directly inspecting actual, observable behavior confirms whether the intended security configuration genuinely took effect, rather than assuming it did simply because the relevant code exists in the codebase",
+            "Browser tools cannot actually be used to inspect cookies or headers",
+            "This verification is only relevant during initial development, never after deployment"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Directly verifying actual, observable runtime behavior confirms security configuration genuinely took effect, rather than assuming correctness purely from the presence of configuration code, the same verify-don't-assume discipline emphasized throughout this curriculum."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch5-harden-an-application-configuration",
+        "title": "Apply A Complete, Correctly-Scoped Security Configuration",
+        "description": "Configure secure session cookies (environment-aware secure flag, httpOnly, sameSite), apply helmet globally, and apply CSRF protection specifically to a 'change email' route while correctly leaving a read-only 'view orders' route unprotected by CSRF.",
+        "starterCode": "import express from 'express';\nimport session from 'express-session';\nimport helmet from 'helmet';\nimport csrf from 'csurf';\n\nconst app = express();\n\n// TODO: apply helmet globally\n\n// TODO: configure session with httpOnly, environment-aware secure,\n// and sameSite: 'strict'\n\n// TODO: apply CSRF protection specifically to POST /change-email\n// TODO: leave GET /orders unprotected by CSRF (it's read-only)",
+        "solutionExample": "import express from 'express';\nimport session from 'express-session';\nimport helmet from 'helmet';\nimport csrf from 'csurf';\n\nconst app = express();\n\napp.use(helmet());\n\napp.use(session({\n  secret: process.env.SESSION_SECRET!,\n  cookie: {\n    httpOnly: true,\n    secure: process.env.NODE_ENV === 'production',\n    sameSite: 'strict',\n    maxAge: 60 * 60 * 1000\n  }\n}));\n\nconst csrfProtection = csrf({ cookie: true });\n\napp.post('/change-email', csrfProtection, requireAuth, changeEmailHandler);\napp.get('/orders', requireAuth, getOrdersHandler);",
+        "validationRules": [
+          "helmet() must be applied globally, near the start of the middleware chain",
+          "Session cookie must set httpOnly: true, sameSite: 'strict', and an environment-aware secure flag",
+          "CSRF protection must be applied to POST /change-email specifically",
+          "GET /orders must NOT have CSRF protection applied, correctly reflecting its read-only nature"
+        ],
+        "hints": [
+          "secure should be set based on process.env.NODE_ENV, true in production, not necessarily true in local development",
+          "Only state-changing routes (like changing an email) need CSRF protection - read-only routes genuinely don't",
+          "helmet() should be applied early in the middleware chain so its headers apply broadly to all subsequent responses"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-6",
+      "order": 6,
+      "title": "Production Auth Architecture",
+      "shortTitle": "Production Auth Architecture",
+      "estimatedDuration": "80-100 minutes",
+      "xpReward": 180,
+      "nextLessonId": null,
+      "prevLessonId": "lesson-5",
+      "prerequisites": ["lesson-5"],
+      "lessonGoal": "Synthesize OAuth, refresh rotation, RBAC, MFA, and hardening practices into one complete, production-grade authentication architecture, and apply Module 9's security-thinking framework one final time at this module's full, combined scope.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "Closing The Loop: From Five Mechanisms To One Complete Architecture",
+          "content": "Lesson 1 added OAuth as an alternative credential-verification method; lesson 2 solved the security-versus-UX token-lifetime tension; lesson 3 formalized fine-grained authorization; lesson 4 added a genuinely independent second factor; lesson 5 hardened the remaining surface (cookies, CSRF, headers). This closing lesson does what every module's final lesson in this curriculum has done since Module 1: synthesize all five into ONE complete, coherent production authentication architecture, and extend Module 9, lesson 10's five-check security-thinking framework to cover this module's genuinely expanded scope \u2014 not replacing that original framework, but applying its same adversarial discipline to five entirely new mechanisms."
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Complete, Modern Security System, Not Five Separate Add-Ons Bolted Together",
+          "content": "Module 9, lesson 10 compared security review to a building inspector adopting a burglar's adversarial perspective. This closing lesson is that same inspector reviewing a building that's been substantially upgraded since the original review: a proper visitor-badge renewal system (refresh rotation) instead of requiring guests to re-register hourly, a sophisticated keycard system with genuinely granular access levels (RBAC) instead of one master key, an additional physical-key requirement for especially sensitive areas (MFA), reinforced windows and a secured mail slot (lesson 5's hardening) \u2014 and the inspector's job is confirming these five upgrades work together as ONE COHERENT system, not as five separate, individually-installed features that happen to coexist without any genuine, deliberate integration between them."
+        },
+        {
+          "type": "structure",
+          "title": "The Five Recurring Checks, Extended To This Module's Full Scope",
+          "content": "1. Credential-Verification Method Correctness (lesson 1) \u2014 if OAuth is used, does the code-for-token exchange happen exclusively server-side, with the client secret never exposed, and does the application correctly issue its OWN session/JWT afterward rather than relying on the provider's token long-term?\n\n2. Token Lifecycle Integrity (lesson 2) \u2014 are access tokens genuinely short-lived, are refresh tokens genuinely rotated on every use (verified via actual reuse-attempt testing, not just code review), and are the two token types signed with genuinely separate secrets?\n\n3. Permission Granularity And Correctness (lesson 3) \u2014 do protected routes check specific permissions rather than hardcoded roles, and does an explicit permission-matrix audit confirm every role has exactly the access it should, no more and no less?\n\n4. Genuine Multi-Factor Independence (lesson 4) \u2014 where MFA is implemented, are password and MFA verification genuinely separate, sequential stages, verified via the specific cross-stage failure tests lesson 4 described?\n\n5. Complete Surface Hardening (lesson 5) \u2014 are secure cookie flags, CSRF protection, and security headers all verified as ACTUALLY active via direct inspection, not merely present in configuration code?"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why Integration Testing Across All Five Mechanisms Reveals Risks No Single Mechanism's Own Test Would",
+          "content": "This lesson's distinguishing insight is that testing each of the five mechanisms IN ISOLATION (exactly as each individual lesson's own debugging section recommended) is necessary but not sufficient \u2014 genuine production risk often emerges specifically at the INTERACTIONS between mechanisms. Does refresh token rotation correctly interact with RBAC (does a newly-rotated access token still carry the correct, current role information, or could it carry stale permissions)? Does MFA correctly apply to OAuth-authenticated users too, or did its implementation assume every user always has a locally-stored password to check first? Does CSRF protection correctly account for the refresh endpoint specifically, given that endpoint itself performs a genuinely state-changing operation (rotating a token)? These cross-mechanism questions are precisely the kind of integration risk that five separate, individually-passing test suites would never surface on their own, requiring this lesson's genuinely combined, whole-system review specifically."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Complete, Honest Production Auth Review Surfacing A Genuine Cross-Mechanism Gap",
+          "content": "Applying all 5 checks, with particular attention to cross-mechanism interactions, to a hypothetical SaaS application's complete authentication system:",
+          "code": "// PRODUCTION AUTH REVIEW - SaaS Application\n\n// CHECK 1 - OAuth correctness: CONFIRMED - Google OAuth's code-for-token\n// exchange happens entirely server-side, client secret read from env,\n// and the app issues its own JWT afterward rather than storing Google's\n// access token long-term.\n\n// CHECK 2 - Token lifecycle: CONFIRMED via direct testing - reusing a\n// refresh token a second time correctly fails with 401, verifying\n// genuine rotation, not just code review of the rotation logic.\n\n// CHECK 3 - Permission granularity: FOUND a genuine gap during the\n// permission-matrix audit - the 'support' role was accidentally granted\n// 'billing:manage' permission, which should be admin-only. This was\n// never caught by individual route testing, only by the explicit,\n// exhaustive matrix audit lesson 3 recommended.\n// FINDING: Remove 'billing:manage' from the support role immediately.\n\n// CHECK 4 - MFA independence: FOUND a genuine CROSS-MECHANISM gap -\n// MFA verification assumes every user has a locally-stored password to\n// check first (stage 1), but OAuth-authenticated users have NO local\n// password at all. MFA-enabled OAuth users are currently being silently\n// SKIPPED past MFA entirely, since stage 1's password check fails to\n// even apply meaningfully to them.\n// FINDING: MFA's stage 1 must be adapted to recognize OAuth-authenticated\n// users (who've already proven identity via lesson 1's flow) and proceed\n// directly to stage 2's MFA check for them specifically, rather than\n// either failing or silently skipping MFA for this entire user category.\n\n// CHECK 5 - Surface hardening: CONFIRMED via direct header inspection -\n// helmet's headers are genuinely present, and CSRF protection is\n// correctly applied to /refresh specifically (since it's a genuinely\n// state-changing endpoint), not just to obviously sensitive routes.\n\n// VERDICT: Checks 1, 2, and 5 passed with genuine verification. Check 3\n// found a real permission gap. Check 4 found a genuine CROSS-MECHANISM\n// integration gap (OAuth + MFA interaction) that no single mechanism's\n// own isolated testing would ever have revealed.",
+          "explanation": "Check 4's finding is this lesson's most important demonstration: lesson 1 (OAuth) and lesson 4 (MFA) were each individually correct and individually well-tested, yet their INTERACTION contained a genuine, serious gap \u2014 OAuth users silently bypassing a security feature they believed was protecting their account. This is precisely the kind of risk this lesson's internalWorking section described: invisible to any single mechanism's own isolated test suite, surfacing only when the complete, combined system is deliberately reviewed for cross-mechanism interactions specifically."
+        },
+        {
+          "type": "realUsage",
+          "title": "How Real Production Teams Conduct This Kind Of Integrated Auth Review",
+          "content": "Real production teams with mature security practices conduct exactly this kind of integrated, whole-system authentication review \u2014 often as a dedicated security audit or penetration test specifically focused on auth, precisely because individual feature teams building OAuth, MFA, and RBAC somewhat independently (a genuinely common real organizational pattern) can each ship correct, well-tested code that nonetheless interacts in ways no single team fully anticipated. Real organizations specifically value this lesson's cross-mechanism review because authentication architecture, more than almost any other system component, tends to accumulate features incrementally over a real application's lifetime, making integration gaps between features added at DIFFERENT times a genuinely common, recurring real-world risk."
+        },
+        {
+          "type": "failureCases",
+          "title": "What Happens Without This Kind Of Integrated Review",
+          "content": "Authentication systems reviewed only mechanism-by-mechanism, never as a genuinely integrated whole, accumulate exactly the kind of invisible cross-mechanism gaps this lesson's codeLesson demonstrated \u2014 OAuth and MFA silently failing to interact correctly, refresh rotation potentially carrying stale role information, CSRF protection applied inconsistently across endpoints added at different times by different people. These gaps are all genuinely fixable once discovered, but \u2014 echoing this curriculum's consistent argument about deferred-correction cost, now at its highest stakes yet \u2014 an authentication architecture's cross-mechanism gap, discovered only after real attackers exploit it rather than through this lesson's deliberate review, carries consequences considerably more severe than almost any other category of bug this curriculum has discussed."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "Fundamentals Are Still The Real Curriculum, At This Curriculum's Highest-Stakes Synthesis Yet",
+          "content": "This module's closing lesson extends Module 9, lesson 10's adversarial security-thinking framework to its most architecturally complete form in this entire curriculum: every individual mechanism this module taught is itself a direct, well-understood extension of Module 9's foundational concepts (OAuth replaces credential verification; refresh rotation extends token issuance; RBAC formalizes authorization; MFA adds a second, independent factor; lesson 5 hardens the remaining surface), and this closing lesson's genuinely new contribution is the discipline of reviewing their COMBINED, integrated behavior, not just each one's individual correctness. A developer who's internalized this whole-system, cross-mechanism reviewing habit \u2014 rather than only verifying each individual security feature in isolation \u2014 carries forward the single most valuable, transferable security discipline this entire curriculum has built, directly applicable to any future authentication system's inevitable future feature additions."
+        },
+        {
+          "type": "debugging",
+          "title": "Conducting This Integrated Review On Your Own Module 20 Coding Challenges",
+          "content": "The most direct way to internalize this lesson is to revisit every coding challenge built throughout this module \u2014 the OAuth callback, the refresh rotation endpoint, the permission system, the two-stage MFA login, the hardened configuration \u2014 and deliberately consider their INTERACTIONS, not just each one's individual correctness: would your MFA implementation correctly handle a user who authenticated via OAuth rather than a local password? Would your RBAC permissions survive a refresh token rotation correctly, with the new access token carrying accurate, current role information? Would your CSRF protection correctly cover your own refresh endpoint specifically? Actively searching for this kind of cross-mechanism gap in your own work, rather than only confirming each mechanism passes its own isolated lesson's checkpoint, is precisely what converts this entire module from five separate techniques into one genuine, integrated production authentication architecture."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp6-1",
+          "type": "multiple_choice",
+          "question": "What is this lesson's central, distinguishing argument about reviewing a complete authentication system?",
+          "options": [
+            "Testing each individual mechanism (OAuth, refresh rotation, RBAC, MFA, hardening) in isolation is fully sufficient, with no further review needed",
+            "Testing each mechanism in isolation is necessary but not sufficient; genuine production risk often emerges specifically at the INTERACTIONS between mechanisms, requiring a deliberate, combined, cross-mechanism review",
+            "Only the most recently added mechanism ever needs to be reviewed",
+            "Authentication mechanisms never genuinely interact with each other in any meaningful way"
+          ],
+          "correctAnswer": 1,
+          "explanation": "This lesson argues that isolated testing of each mechanism is necessary but insufficient, since genuine risk often emerges at the interactions between mechanisms, requiring deliberate, combined review."
+        },
+        {
+          "id": "cp6-2",
+          "type": "scenario",
+          "question": "A review finds that MFA-enabled users who authenticate via OAuth are being silently skipped past MFA entirely, because MFA's verification logic assumes every user has a locally-stored password to check first. What does this finding demonstrate?",
+          "options": [
+            "This finding proves OAuth itself is fundamentally broken",
+            "A genuine cross-mechanism integration gap between two individually-correct mechanisms (OAuth and MFA), invisible to either mechanism's own isolated testing, only discoverable through this lesson's deliberate, combined review",
+            "This finding proves MFA itself is fundamentally broken",
+            "This kind of gap is impossible to actually occur in any real system"
+          ],
+          "correctAnswer": 1,
+          "explanation": "This finding demonstrates a genuine cross-mechanism gap where two individually-correct, individually-tested mechanisms fail to interact correctly, exactly the kind of risk this lesson's combined review process is designed to surface."
+        },
+        {
+          "id": "cp6-3",
+          "type": "multiple_choice",
+          "question": "What is this lesson's final argument about why authentication architecture is particularly prone to this kind of cross-mechanism integration gap?",
+          "options": [
+            "Authentication architecture is no more prone to this risk than any other part of an application",
+            "Authentication architecture tends to accumulate features incrementally over a real application's lifetime, often built by different people or teams at different times, making integration gaps between features added at different points a genuinely common, recurring real-world risk",
+            "Cross-mechanism gaps only occur in applications with fewer than 2 authentication mechanisms",
+            "This risk only applies to applications that don't use any third-party authentication providers"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Authentication architecture's tendency to accumulate features incrementally, often built by different people at different times, makes cross-mechanism integration gaps a genuinely common and recurring real-world risk specifically in this domain."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch6-integrated-auth-architecture-review",
+        "title": "Conduct A Complete, Integrated Production Auth Review",
+        "description": "Using this lesson's 5-point framework, conduct a genuine review of either your own Module 20 coding challenges or a hypothetical combined system, explicitly identifying at least one genuine CROSS-MECHANISM gap (not just an isolated, single-mechanism issue) and its fix.",
+        "starterCode": "## Production Auth Architecture Review\n\n### 1. OAuth correctness:\n\n\n### 2. Token lifecycle integrity:\n\n\n### 3. Permission granularity:\n\n\n### 4. MFA independence:\n\n\n### 5. Surface hardening:\n\n\n## Cross-mechanism gap identified (required):\n\n\n## Fix for the cross-mechanism gap:\n",
+        "solutionExample": "## Production Auth Architecture Review\n\n### 1. OAuth correctness:\nConfirmed my lesson 1 GitHub callback handler performs the token\nexchange entirely server-side, with client_secret read from env.\n\n### 2. Token lifecycle integrity:\nConfirmed my lesson 2 refresh endpoint correctly rejects a reused\nrefresh token on its second use attempt, verified via direct testing.\n\n### 3. Permission granularity:\nAudited my lesson 3 ROLE_PERMISSIONS matrix - confirmed support,\nmanager, and admin each have exactly their intended permissions,\nwith no accidental over-grants.\n\n### 4. MFA independence:\nConfirmed my lesson 4 login route correctly separates password and\nMFA verification into two sequential stages.\n\n### 5. Surface hardening:\nConfirmed my lesson 5 configuration applies helmet globally and\nCSRF protection specifically to state-changing routes only.\n\n## Cross-mechanism gap identified:\nMy lesson 4 MFA login flow assumes every user has a usersCollection\nrecord with a hashedPassword field to check via bcrypt.compare(). If\na user authenticated via my lesson 1 OAuth flow instead, they would\nhave no such password field at all, and bcrypt.compare() would either\nerror or behave unpredictably against a missing/undefined value -\nMFA would never correctly apply to OAuth-authenticated users.\n\n## Fix for the cross-mechanism gap:\nThe login flow needs to branch based on the user's actual\nauthentication method (check for a googleId/githubId field versus a\nhashedPassword field) - for OAuth-originated users, skip password\nverification entirely (since OAuth already proved their identity in\na separate flow) and proceed directly to stage 2's MFA check if\nmfaEnabled is true for that user.",
+        "validationRules": [
+          "Must address all 5 checks from this lesson explicitly",
+          "Must identify a genuine CROSS-MECHANISM gap specifically, not merely an isolated, single-mechanism issue already covered by an earlier lesson's own checkpoint",
+          "The identified gap must involve a genuine interaction between at least two of this module's five mechanisms",
+          "Must include a specific, concrete fix for the identified cross-mechanism gap"
+        ],
+        "hints": [
+          "Think specifically about interactions BETWEEN mechanisms, not just whether each one individually works - this is the entire point of this lesson",
+          "The OAuth-and-MFA interaction this lesson's own codeLesson demonstrated is a strong, realistic candidate if you're unsure where to look in your own work",
+          "Your fix should specifically address the INTERACTION gap, not just restate one mechanism's existing, already-correct behavior in isolation"
+        ]
+      }
+    }
+
+
+
+
+
+  ],
+  "finalModuleProject": {
+    "projectId": "module-20-final-project",
+    "title": "Build A Complete, Integrated Production Authentication System",
+    "xpReward": 450,
+    "estimatedTime": "180-210 minutes",
+    "goal": "Synthesize everything from all 6 lessons \u2014 OAuth login, refresh token rotation, role-based access control, multi-factor authentication, and security hardening \u2014 into one genuinely integrated authentication system, then conduct lesson 6's full cross-mechanism review against your own work, deliberately surfacing and fixing at least one real interaction gap.",
+    "description": "Build a complete authentication system for a small team-collaboration application: OAuth login via at least one provider alongside traditional password-based signup, refresh token rotation with verified theft-detection behavior, a multi-role permission system (at minimum: member, lead, admin) protecting at least 3 routes of varying sensitivity, optional MFA that correctly applies to BOTH password-based and OAuth-based users, and a hardened configuration (secure cookies, CSRF protection on state-changing routes, security headers). Conclude with a complete, honest, integrated 5-check review explicitly identifying and fixing at least one genuine cross-mechanism gap \u2014 not merely confirming each mechanism works in isolation.",
+    "requirements": [
+      {
+        "id": "req-1",
+        "requirement": "A working OAuth login flow (Google or GitHub) with the token exchange happening entirely server-side, alongside a traditional password-based signup/login path",
+        "required": true
+      },
+      {
+        "id": "req-2",
+        "requirement": "Refresh token rotation with genuinely verified theft-detection behavior (a second use of the same refresh token must fail)",
+        "required": true
+      },
+      {
+        "id": "req-3",
+        "requirement": "A multi-role permission system with at least 3 roles, applied via permission-checking (not hardcoded role-checking) middleware across at least 3 routes",
+        "required": true
+      },
+      {
+        "id": "req-4",
+        "requirement": "Optional MFA that correctly applies to users regardless of whether they authenticated via password or OAuth",
+        "required": true
+      },
+      {
+        "id": "req-5",
+        "requirement": "A hardened configuration: secure/httpOnly/sameSite cookies, CSRF protection on state-changing routes specifically, and global security headers",
+        "required": true
+      },
+      {
+        "id": "req-6",
+        "requirement": "A complete, honest, integrated review explicitly identifying and fixing at least one genuine cross-mechanism gap between two or more of this module's mechanisms",
+        "required": true
+      }
+    ],
+    "submissionType": "code",
+    "rubric": [
+      {
+        "criterion": "OAuth flow is correctly and securely implemented, coexisting properly with password-based authentication",
+        "points": 20
+      },
+      {
+        "criterion": "Refresh token rotation is correctly implemented with genuinely verified theft-detection behavior",
+        "points": 20
+      },
+      {
+        "criterion": "Permission system correctly uses permission-based (not role-hardcoded) checks across appropriately varied routes",
+        "points": 15
+      },
+      {
+        "criterion": "MFA correctly and verifiably applies to both authentication paths (password and OAuth)",
+        "points": 20
+      },
+      {
+        "criterion": "Security hardening (cookies, CSRF, headers) is correctly and appropriately scoped",
+        "points": 10
+      },
+      {
+        "criterion": "The final integrated review genuinely identifies and resolves a real cross-mechanism gap, not just isolated, single-mechanism confirmations",
+        "points": 15
+      }
+    ],
+    "totalPoints": 100,
+    "certificateUnlockCondition": "Score 70 or above on the rubric and complete all 6 lesson coding challenges."
+  }
+}

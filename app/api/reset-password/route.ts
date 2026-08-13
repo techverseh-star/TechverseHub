@@ -1,20 +1,26 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createSupabaseServiceClient } from "@/lib/supabase-server";
+import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
+import { resetPasswordSchema } from "@/lib/validation";
 
 export async function POST(req: Request) {
   try {
-    const { token, password, checkOnly } = await req.json();
+    const ip = getClientIp(req);
+    const { ok, retryAfterSec } = rateLimit(`reset-password:${ip}`, 10, 60_000);
+    if (!ok) return rateLimitResponse(retryAfterSec);
 
-    if (!token) {
+    const parsed = resetPasswordSchema.safeParse(await req.json());
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing token" },
+        { error: parsed.error.issues[0]?.message || "Invalid request" },
         { status: 400 }
       );
+    }
+    const { token, password, checkOnly } = parsed.data;
+
+    const supabase = createSupabaseServiceClient();
+    if (!supabase) {
+      return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
     }
 
     // 1️⃣ Lookup token
@@ -32,12 +38,17 @@ export async function POST(req: Request) {
     }
 
     // 2️⃣ Check expiry
-    // Ensure expires_at is treated as UTC if it doesn't have a timezone offset
-    const expiresAtString = resetRow.expires_at.endsWith("Z")
-      ? resetRow.expires_at
-      : `${resetRow.expires_at}Z`;
+    // Ensure expires_at is treated as UTC if it doesn't have a timezone
+    // indicator. PostgREST can return timestamptz either Z-suffixed or in
+    // +00:00 offset notation - the old `endsWith("Z")` check treated the
+    // offset form as "missing" and appended a Z, producing an unparseable
+    // string like "...+00:00Z" (Invalid Date), which made expiry checks
+    // silently always pass. Detect any timezone indicator, not just "Z".
+    const hasTimezone = /(Z|[+-]\d{2}:?\d{2})$/.test(resetRow.expires_at);
+    const expiresAtString = hasTimezone ? resetRow.expires_at : `${resetRow.expires_at}Z`;
+    const expiresAt = new Date(expiresAtString);
 
-    if (new Date(expiresAtString) < new Date()) {
+    if (isNaN(expiresAt.getTime()) || expiresAt < new Date()) {
       return NextResponse.json(
         { valid: false, error: "Token expired" },
         { status: 400 }

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { PracticeProblem } from "@/lib/supabase";
 
 interface DailyChallengesProps {
-    dailyChallenges: PracticeProblem[];
+    dailyChallenges: Pick<PracticeProblem, "id" | "title" | "difficulty" | "language">[];
     completedChallenges: Set<string>;
 }
 
@@ -33,6 +33,13 @@ export function DailyChallenges({ dailyChallenges, completedChallenges }: DailyC
                 </div>
             </CardHeader>
             <CardContent className="space-y-3">
+                {dailyChallenges.length === 0 && (
+                    <div className="text-center py-10 border border-dashed border-border/60 rounded-xl bg-card/20">
+                        <Target className="h-8 w-8 text-muted-foreground/50 mx-auto mb-3" />
+                        <p className="font-medium mb-1">No challenges yet</p>
+                        <p className="text-muted-foreground text-sm">Check back soon for new daily challenges.</p>
+                    </div>
+                )}
                 {dailyChallenges.map((challenge) => {
                     const isCompleted = completedChallenges.has(challenge.id);
                     return (

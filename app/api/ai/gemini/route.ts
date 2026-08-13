@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { guardAuthedRequest } from "@/lib/api-guard";
+import { geminiRequestSchema } from "@/lib/validation";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(request: NextRequest) {
   try {
-    const { task, content, topic } = await request.json();
+    const guard = await guardAuthedRequest(request, {
+      rateLimitPrefix: "ai",
+      limit: 20,
+      windowMs: 60_000,
+      schema: geminiRequestSchema,
+    });
+    if (!guard.ok) return guard.response;
+    const { task, content, topic } = guard.data;
 
     let prompt = "";
 

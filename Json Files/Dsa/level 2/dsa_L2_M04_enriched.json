@@ -1,0 +1,1680 @@
+{
+  "module_id": "L2-M04",
+  "module_number": 4,
+  "title": "Backtracking — Foundations",
+  "tag": "UPDATED",
+  "is_optional_for_product_track": false,
+  "estimated_hours": "12–14 hours",
+  "prerequisites": [
+    "L1-M05",
+    "L1-M07",
+    "L2-M01"
+  ],
+  "learning_outcomes": [
+    "Apply the backtracking framework (choose, explore, unchoose) to any combinatorial problem",
+    "Solve Subsets I and II using start-index progression with duplicate skipping",
+    "Solve Permutations using a used-array to track which elements are available",
+    "Solve Combination Sum I and II with start-index and deduplication logic",
+    "Solve Letter Combinations of a Phone Number using a phone map and recursive DFS",
+    "Solve Palindrome Partitioning by combining backtracking with a palindrome validity check"
+  ],
+  "notes": [
+    "UPDATED — Backtracking split into two modules (Foundations + Hard Patterns). Six lessons was insufficient for a topic that rivals DP in interview difficulty."
+  ],
+  "spaced_review": "Re-solve 3 DP problems from Modules 1–3 from scratch",
+  "lessons": [
+    {
+      "lesson_number": 1,
+      "title": "Backtracking Framework And Decision Tree Mental Model",
+      "tag": "UPDATED",
+      "objective": "Understand the backtracking pattern as a DFS on a decision tree, apply the choose-explore-unchoose template to any combinatorial problem, and know when backtracking is the correct approach.",
+      "concepts": [
+        "Backtracking: explore all possibilities by building solutions incrementally and abandoning invalid paths",
+        "Decision tree: each node is a partial solution, each edge is a choice",
+        "Choose: make a decision and add it to the current path",
+        "Explore: recurse into the subtree of that decision",
+        "Unchoose: undo the decision (backtrack) before trying the next option",
+        "Base case: current path is a complete solution or invalid path",
+        "Pruning: abandon a path early when it cannot lead to a valid solution",
+        "Time complexity: O(N * 2^N) to O(N!) depending on the problem structure"
+      ],
+      "explanation": "Backtracking is a systematic method for exploring all possible solutions to a combinatorial problem. It builds solutions incrementally, one element at a time, and abandons a partial solution (backtracks) as soon as it determines that this path cannot possibly lead to a valid complete solution. The mental model is a decision tree: the root is an empty solution, each level adds one more choice, and the leaves are complete solutions. DFS traverses this tree. The choose-explore-unchoose template is the direct implementation of this mental model. Choose: add the current decision to the working path. Explore: recurse to make the next decision. Unchoose: remove the last decision from the path before trying alternatives. The path modification must be undone precisely (undo exactly what was done) or subsequent explorations will see corrupted state. Pruning exits the recursion early when a path violates constraints, dramatically reducing the search space for many problems. Backtracking applies when: you need all solutions (enumeration), you need one solution satisfying constraints (search), or you need to count solutions without DP being applicable.",
+      "analogy": "Backtracking is like solving a maze by exploring every path depth-first. When you hit a dead end, you retrace your steps to the last junction and try the next unexplored path. The 'choose' is entering a corridor. The 'explore' is following that corridor to its conclusion. The 'unchoose' is retracing back to the junction when the corridor is a dead end. The key discipline: when you retrace, your state must be exactly as it was before you entered the corridor. If you left marks on the wall while exploring, you must erase them on the way back.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// BACKTRACKING TEMPLATE\n// The three-step pattern: choose -> explore -> unchoose\n\nfunction backtrack(candidates, path, result, start, /* other state */) {\n    // BASE CASE: complete solution or invalid path\n    if (/* solution complete */) {\n        result.push([...path]); // copy path: arrays are references!\n        return;\n    }\n\n    for (let i = start; i < candidates.length; i++) {\n        // PRUNING: skip if this candidate cannot lead to a solution\n        if (/* pruning condition */) continue;\n\n        // CHOOSE: add candidate to path\n        path.push(candidates[i]);\n\n        // EXPLORE: recurse with updated state\n        backtrack(candidates, path, result, i + 1 /* or i */, /* updated state */);\n\n        // UNCHOOSE: remove candidate from path (backtrack)\n        path.pop();\n    }\n}\n\n// WHY [...path] NOT path in result.push:\n// path is a reference to a mutable array\n// After backtracking, path will be modified by subsequent calls\n// result.push(path) would store a reference that ends up empty\n// result.push([...path]) creates an independent copy at this moment\n\n// BACKTRACKING vs DP vs DFS:\n// DFS (graphs/trees): visit each node once, O(V+E)\n// Backtracking: visit each node potentially many times, builds solutions\n// DP: overlapping subproblems, cache results\n// Backtracking is used when:\n//   - All solutions needed (not just optimal)\n//   - No overlapping subproblems (or too expensive to cache)\n//   - Constraint satisfaction (pruning makes it practical)\n\n// COMPLEXITY:\n// Subsets: O(n * 2^n) — 2^n subsets, each takes O(n) to copy\n// Permutations: O(n * n!) — n! permutations, each takes O(n) to copy\n// Combination Sum: O(n * 2^t/m) where t=target, m=min coin — exponential\n// Pruning can dramatically reduce practical runtime even with exponential bounds",
+        "explanation": "The [...path] copy in result.push is the single most important implementation detail in backtracking. Every candidate who has ever gotten a backtracking problem wrong in an interview has either forgotten this copy or confused themselves about when to copy. The rule: whenever you want to record the current path as a complete solution, make a copy of it immediately."
+      },
+      "common_mistakes": [
+        "Pushing path directly instead of [...path] or path.slice() — result.push(path) stores a reference to the same array; after backtracking finishes, all results point to the same empty array; always push a copy",
+        "Forgetting the unchoose step — path.pop() must always be called after the recursive call, in every branch; a missing pop means the path grows indefinitely and all recursive calls see corrupted state",
+        "Not pruning — backtracking without pruning visits every possible path in the decision tree; adding pruning conditions (e.g., skip when sum exceeds target) can reduce O(2^n) to O(2^(n/2)) or better for many problems"
+      ],
+      "interview_relevance": "The backtracking framework appears in 8+ Blind 75 / NeetCode 150 problems across Modules 4 and 5. Interviewers evaluate three things: (1) correct choose-explore-unchoose structure, (2) [...path] copy discipline, (3) pruning that demonstrates understanding of the search space. Any interview that asks 'generate all...' or 'find all valid...' is a backtracking problem. Identifying this in under 60 seconds is the target skill.",
+      "mini_challenge": "Without looking at any solution, apply the backtracking template to generate all binary strings of length n. For n=3, the output should be ['000','001','010','011','100','101','110','111']. The candidates are [0,1], the path builds character by character, and the base case is path.length === n. Implement this, verify the output for n=3, then state the time complexity and why the [...path] copy is or is not needed for this specific problem.",
+      "flashcards": [
+        {
+          "front": "Backtracking three-step template?",
+          "back": "CHOOSE: add current decision to path. EXPLORE: recurse into subtree. UNCHOOSE: remove decision from path (restore state). ALL three steps must be present. Missing unchoose corrupts all subsequent explorations."
+        },
+        {
+          "front": "Why result.push([...path]) not result.push(path)?",
+          "back": "path is a mutable array (reference). After backtracking, path gets modified by subsequent calls. Pushing the reference means all result entries eventually point to the same (empty) array. [...path] creates an independent snapshot at that moment."
+        },
+        {
+          "front": "When is backtracking the right approach?",
+          "back": "When you need: ALL solutions (not just optimal), constraint satisfaction with pruning, or enumeration of combinations/permutations/subsets. If overlapping subproblems exist → DP instead. If a single optimal answer suffices → Greedy."
+        },
+        {
+          "front": "Backtracking time complexity — general?",
+          "back": "O(branch_factor^depth × work_per_leaf). Subsets: O(2^n × n) — 2 choices per element, n depth. Permutations: O(n! × n). Combination Sum: O(2^(target/min_coin) × depth). Pruning reduces practical runtime but not the worst-case bound."
+        },
+        {
+          "front": "Decision tree mental model?",
+          "back": "Root = empty solution. Each edge = one choice. Each node = partial solution. Leaves = complete solutions (valid or dead ends). Backtracking = DFS on this tree. Pruning = cut subtrees that cannot contain valid solutions."
+        },
+        {
+          "front": "Backtracking vs DFS vs DP — when to use each?",
+          "back": "DFS (graphs): visit each node once O(V+E), no state restoration. Backtracking: enumerate solutions, restore state on return, exponential. DP: optimal/count when subproblems overlap, polynomial. All three use recursion — the STATE RESTORATION is what makes backtracking distinct."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "result.push(path) vs result.push([...path]) — what does the wrong version produce?",
+          "options": [
+            "A runtime error",
+            "All entries in result end up being the same empty array after backtracking completes",
+            "Only the first entry is wrong",
+            "The same correct result — both work"
+          ],
+          "answer": 1,
+          "explanation": "result.push(path) stores a reference to the same array. After backtracking finishes, path has been fully unwound (popped) back to []. All entries in result now point to []. Always push a copy: [...path] or path.slice()."
+        },
+        {
+          "question": "The backtracking template has choose-explore-unchoose. If unchoose is missing, what happens?",
+          "options": [
+            "Only the first valid solution is returned",
+            "The path grows indefinitely — each recursive call sees the path from all previous calls",
+            "A stack overflow occurs immediately",
+            "Results are duplicated"
+          ],
+          "answer": 1,
+          "explanation": "Without path.pop(), the path keeps all previous choices. When the next iteration of the for loop runs, it sees the path from the previous branch still attached. State is corrupted — subsequent calls make choices on top of stale state."
+        },
+        {
+          "question": "Backtracking is preferred over DP when?",
+          "options": [
+            "The problem asks for the minimum or maximum value",
+            "You need ALL valid solutions, not just a count or optimum",
+            "The input is sorted",
+            "The time complexity must be polynomial"
+          ],
+          "answer": 1,
+          "explanation": "DP finds the optimal answer or count efficiently. Backtracking enumerates all solutions. When ALL solutions are needed (e.g., all valid combinations, all permutations), backtracking is correct. DP can't enumerate all solutions efficiently in general."
+        },
+        {
+          "question": "For subsets of n elements, the decision tree has how many leaves?",
+          "options": [
+            "n",
+            "n²",
+            "2^n",
+            "n!"
+          ],
+          "answer": 2,
+          "explanation": "Each element is either included or excluded → 2 choices per element → 2^n total subsets (leaves). Including empty set and full set."
+        }
+      ],
+      "visual_aid": {
+        "type": "decision_tree",
+        "description": "Backtracking decision tree for subsets of [1,2,3]",
+        "diagram": "DECISION TREE for subsets([1,2,3]):\n\n                []\n           /         \\\n        +1               skip1\n        [1]               []\n      /    \\           /      \\\n    +2    skip2      +2      skip2\n   [1,2]  [1]      [2]       []\n   /  \\   /  \\     /  \\      / \\\n  +3 skip +3 skip +3 skip  +3 skip\n[1,2,3][1,2][1,3][1][2,3][2] [3] []\n\nAll 8 leaves = all 8 subsets ✓\n\nBACKTRACKING EXECUTION:\n  backtrack(0,[]):\n    RECORD []\n    i=0: push 1 → backtrack(1,[1]):\n           RECORD [1]\n           i=1: push 2 → backtrack(2,[1,2]):\n                  RECORD [1,2]\n                  i=2: push 3 → backtrack(3,[1,2,3]):\n                         RECORD [1,2,3]\n                       pop 3\n                pop 2\n           i=2: push 3 → backtrack(3,[1,3]):\n                  RECORD [1,3]\n                pop 3\n        pop 1  ← UNCHOOSE\n    i=1: push 2 → ... (and so on)"
+      },
+      "complexity_summary": {
+        "subsets": "O(2^n × n) — 2^n subsets, O(n) to copy each",
+        "permutations": "O(n! × n) — n! permutations, O(n) to copy each",
+        "combination_sum": "O(2^(target/min) × depth) — exponential, pruning helps",
+        "key_rule": "result.push([...path]) ALWAYS — never push reference to mutable path"
+      },
+      "practice_problems": [
+        {
+          "id": "custom-bt1",
+          "title": "Generate all binary strings of length n — backtracking warmup",
+          "difficulty": "Easy",
+          "pattern": "Choose-explore-unchoose template"
+        },
+        {
+          "id": "lc-78",
+          "title": "Subsets — first real backtracking problem",
+          "difficulty": "Medium",
+          "pattern": "Start-index progression",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M4-L1-TH-1",
+            "question": "What are the THREE STEPS of the backtracking template, and what does each accomplish?",
+            "options": [
+              "Sort, filter, collect — the three phases of any combinatorial problem",
+              "CHOOSE: add a candidate to the current path (make a decision); EXPLORE: recurse into the subtree of that decision (with the updated state); UNCHOOSE: undo the decision after returning (restore state for the next candidate); together these three steps systematically explore every branch of the decision tree and restore the path to its pre-choice state before trying the next option",
+              "Initialise, validate, store — the three stages of solution building",
+              "Push, recurse, return — the three operations performed on the result array"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's exact template: 'Choose: make a decision and add it to the current path. Explore: recurse into the subtree of that decision. Unchoose: undo the decision (backtrack) before trying the next option' — the three-step pattern is the universal backtracking structure applied identically in subsets, permutations, and combination problems."
+          },
+          {
+            "id": "L2M4-L1-TH-2",
+            "question": "Why does `result.push([...path])` use the SPREAD OPERATOR rather than `result.push(path)` directly?",
+            "options": [
+              "The spread operator is required by JavaScript's Array.push() method",
+              "`path` is a REFERENCE to a mutable array — after backtracking, subsequent recursive calls will modify path (pushing and popping elements); `result.push(path)` would store this reference, so all stored 'solutions' would eventually reflect the same final (empty) state of path; `result.push([...path])` creates an INDEPENDENT SHALLOW COPY at the exact moment the base case is reached, capturing the current contents permanently regardless of future path modifications",
+              "The spread operator sorts the path before storing it",
+              "Both are equivalent; the spread is only used for performance optimization"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's explicit warning: 'path is a reference to a mutable array. After backtracking, path will be modified by subsequent calls. result.push(path) would store a reference that ends up empty. result.push([...path]) creates an independent copy at this moment' — this is the most common backtracking bug for beginners."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M4-L1-LG-1",
+            "question": "What is PRUNING in backtracking, and why can it dramatically reduce practical runtime while the worst-case bound remains exponential?",
+            "options": [
+              "Pruning eliminates duplicate results from the output; it has no effect on runtime",
+              "Pruning is ABANDONING A PATH EARLY when it cannot possibly lead to a valid solution — for example, stopping when the current sum exceeds the target in Combination Sum; it reduces the PRACTICAL number of nodes explored in the decision tree (potentially orders of magnitude), but the theoretical worst case remains exponential because in adversarial inputs no pruning may trigger; the same algorithm with different inputs may explore very different fractions of the tree",
+              "Pruning converts exponential backtracking to polynomial time",
+              "Pruning only applies to sorted inputs; unsorted inputs cannot be pruned"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Pruning: abandon a path early when it cannot lead to a valid solution' — the lesson notes that 'Pruning can dramatically reduce practical runtime even with exponential bounds'; examples like breaking on candidates[i] > remaining only work because the array is sorted, but they can eliminate entire subtrees early."
+          },
+          {
+            "id": "L2M4-L1-LG-2",
+            "question": "How does backtracking differ from DFS on a graph/tree, and when is backtracking the right choice over DP?",
+            "options": [
+              "Backtracking and graph DFS are identical; both visit each node exactly once",
+              "Graph/tree DFS visits each NODE ONCE (O(V+E)); backtracking may visit conceptual nodes MANY TIMES while building solutions, and the 'nodes' are partial solutions (not fixed graph nodes); backtracking is preferred over DP when: ALL solutions are needed (not just one optimal), there are NO OVERLAPPING SUBPROBLEMS (or the state space is too large to cache), or CONSTRAINT SATISFACTION requires pruning of invalid partial states",
+              "Backtracking uses BFS internally; DFS uses a stack",
+              "DP is always strictly better than backtracking and should always be preferred"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's comparison: 'DFS (graphs/trees): visit each node once, O(V+E). Backtracking: visit each node potentially many times, builds solutions. DP: overlapping subproblems, cache results. Backtracking is used when: All solutions needed, No overlapping subproblems, Constraint satisfaction (pruning makes it practical)' — the key distinguishing factor is whether all solutions are needed vs. just the optimal."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M4-L1-SY-1",
+            "question": "The template passes `start` as a parameter to the backtrack function. What is the PURPOSE of this start index, and which backtracking problems use it vs. which don't?",
+            "options": [
+              "start is always 0 and is passed only for JavaScript compatibility",
+              "The `start` index prevents BACKWARD REFERENCES: it ensures that recursion only considers candidates at indices >= start, preventing the same combination from being generated in different orders (e.g., [1,2] and [2,1] being counted as different); subsets and combination problems use start because order doesn't matter (combinations); permutation problems do NOT use start because every element must be eligible at every position (order matters, tracked via a `used` array instead)",
+              "start is only used when the input is sorted",
+              "start prevents going into infinite recursion when the same element is repeatedly selected"
+            ],
+            "answer": 1,
+            "explanation": "The start index is the fundamental mechanism for generating COMBINATIONS (order doesn't matter) — it ensures each subset/combination is generated exactly once by only looking forward; PERMUTATIONS need every element available at every position (order matters), so they use a `used` boolean array instead; this distinction appears in every lesson in this module."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M4-L1-CC-1",
+            "title": "Backtracking Template: Generic Subset and Pruned Search",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement the backtracking template from this lesson as utility functions.",
+            "requirements": [
+              "Implement `generateSubsets(nums)` using the backtracking template (choose/explore/unchoose), collecting path at every node",
+              "Implement `countLeafNodes(n)` returning the number of leaf nodes in a decision tree of depth n where each level has 2 choices (to verify the 2^n complexity claim)",
+              "Implement `findWithPruning(candidates, target)` returning all subsets that sum exactly to target, with pruning when sum exceeds target (candidates must be pre-sorted)"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function generateSubsets(nums) {\n  // TODO: backtrack template — collect path at EVERY node\n}\n\nfunction countLeafNodes(n) {\n  // TODO: return 2^n (mathematical formula OK)\n}\n\nfunction findWithPruning(candidates, target) {\n  // TODO: backtrack, prune when sum > target (candidates sorted ascending)\n}"
+            },
+            "test_cases": [
+              {
+                "input": "generateSubsets([1,2,3]).length",
+                "expected": 8,
+                "type": "visible"
+              },
+              {
+                "input": "generateSubsets([]).length",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "countLeafNodes(3)",
+                "expected": 8,
+                "type": "visible"
+              },
+              {
+                "input": "findWithPruning([1,2,3,4,5], 6).sort().toString()",
+                "expected": "1,2,3,1,5,2,4",
+                "type": "hidden"
+              },
+              {
+                "input": "generateSubsets([1,2]).sort((a,b)=>a.length-b.length).map(s=>s.join()).join('|')",
+                "expected": "|1|2|1,2",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function generateSubsets(nums) {\n  const result = [];\n  function backtrack(start, path) {\n    result.push([...path]);\n    for (let i = start; i < nums.length; i++) {\n      path.push(nums[i]);\n      backtrack(i+1, path);\n      path.pop();\n    }\n  }\n  backtrack(0, []);\n  return result;\n}\n\nfunction countLeafNodes(n) {\n  return Math.pow(2, n);\n}\n\nfunction findWithPruning(candidates, target) {\n  const result = [];\n  function backtrack(start, remaining, path) {\n    if (remaining === 0) { result.push([...path]); return; }\n    for (let i = start; i < candidates.length; i++) {\n      if (candidates[i] > remaining) break;\n      path.push(candidates[i]);\n      backtrack(i+1, remaining - candidates[i], path);\n      path.pop();\n    }\n  }\n  backtrack(0, target, []);\n  return result;\n}"
+            },
+            "complexity_analysis": "generateSubsets: O(n*2^n) time, O(n) path depth. countLeafNodes: O(1). findWithPruning: O(n*2^n) worst case, substantially better with pruning.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "generateSubsets: push [...path] at the START of backtrack (before the loop) to collect every partial path including empty."
+              },
+              {
+                "level": 2,
+                "text": "findWithPruning: pruning condition is candidates[i]>remaining → break (valid because candidates is sorted ascending)."
+              },
+              {
+                "level": 3,
+                "text": "The [...path] spread is critical — without it, all stored results would reference the same mutable array and end up empty after backtracking."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 2,
+      "title": "Subsets I And II",
+      "tag": null,
+      "objective": "Generate all subsets of a unique array using start-index backtracking, and extend to duplicates by sorting and skipping repeated candidates at the same recursion depth.",
+      "concepts": [
+        "Subsets I: all subsets of a set with unique elements",
+        "Start index: ensures each subset is generated once (no backward references)",
+        "Add path to result at EVERY node, not just leaves",
+        "O(n * 2^n) time: 2^n subsets, each O(n) to copy",
+        "Subsets II: input may contain duplicates, output must be unique subsets",
+        "Deduplication: sort array first, skip nums[i]==nums[i-1] when i > start",
+        "Why sort: groups identical elements so skipping is simple",
+        "Why i > start: same element as first choice at this level is different from same element as subsequent choice"
+      ],
+      "explanation": "Subsets I (#78): generate all 2^n subsets of an array of n unique integers. Unlike Combination Sum where we only record complete solutions at leaves, every node in the decision tree is a valid subset (including the empty set). The backtracking: add the current path to results at every call. Then iterate from start to n, adding one more element and recursing. The start index prevents backward choices: once we move past index i, we never include indices 0..i-1 again. This ensures each unique subset is generated exactly once. Subsets II (#90): same problem but the input may contain duplicates. Sort the array first. In the backtracking loop, skip element i if nums[i] == nums[i-1] AND i > start. The condition i > start is critical: it allows nums[i] to be the first choice at the current level (i == start), but prevents it from being a repeated choice at the same level after nums[i-1] was already tried and those subtrees fully explored.",
+      "analogy": "Subsets I is like choosing items from a menu where each item appears once. For each item, you either include it or skip it. The start index prevents ordering conflicts: once you decide not to include pasta, you cannot later include it in a subset that comes earlier in your list. Subsets II is the same menu but with duplicate items. Sorting groups the duplicates. The deduplication rule prevents ordering the same two pasta dishes when they are identical.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// SUBSETS I (#78) — all subsets of unique array\nfunction subsets(nums) {\n    const result = [];\n    function backtrack(start, path) {\n        result.push([...path]); // add subset at EVERY node (including empty)\n        for (let i = start; i < nums.length; i++) {\n            path.push(nums[i]);          // choose\n            backtrack(i + 1, path);      // explore (i+1: no duplicates, forward only)\n            path.pop();                  // unchoose\n        }\n    }\n    backtrack(0, []);\n    return result;\n}\n// nums=[1,2,3]: subsets=[[], [1], [1,2], [1,2,3], [1,3], [2], [2,3], [3]]\nconsole.log(subsets([1,2,3])); // 8 subsets (2^3)\n\n// SUBSETS II (#90) — duplicates in input, unique subsets in output\nfunction subsetsWithDup(nums) {\n    nums.sort((a, b) => a - b); // SORT FIRST: groups duplicates\n    const result = [];\n    function backtrack(start, path) {\n        result.push([...path]);\n        for (let i = start; i < nums.length; i++) {\n            // SKIP DUPLICATES at the same level:\n            // If nums[i] == nums[i-1] and i > start:\n            //   nums[i-1] was already tried as the first choice at this level\n            //   All subsets starting with nums[i-1] are already in result\n            //   Trying nums[i] (same value) again would create duplicates\n            if (i > start && nums[i] === nums[i-1]) continue;\n            path.push(nums[i]);\n            backtrack(i + 1, path);\n            path.pop();\n        }\n    }\n    backtrack(0, []);\n    return result;\n}\n// nums=[1,2,2]: unique subsets: [],[1],[1,2],[1,2,2],[2],[2,2]\nconsole.log(subsetsWithDup([1,2,2]));\n// 6 subsets (not 8, because [1,2] would appear twice without deduplication)\n\n// WHY i > start (not i > 0):\n// nums=[2,2,2], start=0:\n//   i=0: choose 2, recurse with start=1\n//   i=1: nums[1]=2==nums[0]=2 BUT i=1 == start=0? NO, i=1 > start=0\n//         SKIP: [2] subsets already covered by i=0\n//   Result at depth 1: just [2] (not three copies of [2])\n// If condition were i > 0:\n//   At a deeper level with start=1, i=1: i=1 > 0 but i=1==start=1, so SKIP\n//   This incorrectly skips the FIRST occurrence at this level\n//   [2,2] would be skipped, missing a valid subset",
+        "explanation": "The condition i > start (not i > 0) is the most commonly misunderstood detail in Subsets II. It allows the first element at each recursion level to be used even if it is the same value as a previous element at an outer level. Without this, valid subsets like [2,2] would be incorrectly skipped when the 2 at position 1 is the first choice at its recursion level."
+      },
+      "common_mistakes": [
+        "Not adding the path at every node in Subsets I — adding only at leaves misses subsets like [] and [1]; the result.push([...path]) must be the first line of the backtrack function, before the for loop",
+        "Using i > 0 instead of i > start in Subsets II — this incorrectly skips the first occurrence of a duplicate at a deeper level; always use i > start",
+        "Not sorting the array before applying deduplication in Subsets II — the skip condition nums[i] === nums[i-1] only correctly identifies duplicates when equal elements are adjacent; sorting groups them"
+      ],
+      "interview_relevance": "Subsets (#78) and Subsets II (#90) are NeetCode 150. They are the warmup problems for backtracking and are specifically used to test whether a candidate knows the start-index pattern and deduplication. The follow-up 'How would you handle duplicate elements?' is asked after every Subsets I solution. The answer (sort + i > start skip) is the expected response.",
+      "mini_challenge": "Implement subsets and verify it returns 8 subsets for [1,2,3]. Implement subsetsWithDup and verify it returns 6 subsets for [1,2,2]: [],[1],[1,2],[1,2,2],[2],[2,2]. Then trace through subsetsWithDup([2,2,2]) and verify it returns exactly 4 subsets: [],[2],[2,2],[2,2,2]. Confirm the i > start condition allows [2,2] and [2,2,2] while preventing duplicates.",
+      "flashcards": [
+        {
+          "front": "Subsets I: where do you add path to result?",
+          "back": "At EVERY call to backtrack — the FIRST line, before the for loop. This captures the empty set (at the root call) and every intermediate subset. Only adding at leaves misses all non-leaf subsets."
+        },
+        {
+          "front": "Subsets I: why does recursing with i+1 (not i) prevent duplicates?",
+          "back": "i+1 ensures we only look at elements AFTER the current index. We never go backwards. So [1,2] is generated (1 chosen first, then 2) but never [2,1] (which would require going back to 1 after choosing 2). Each ordered subset is generated exactly once."
+        },
+        {
+          "front": "Subsets II: two steps for deduplication?",
+          "back": "1) SORT the array first (groups duplicates adjacently). 2) In the loop: skip if i > start AND nums[i] == nums[i-1]. This prevents the same value from being the first choice at the same level more than once."
+        },
+        {
+          "front": "Subsets II: why i > start not i > 0?",
+          "back": "i > 0 would skip the FIRST occurrence of a duplicate at deeper levels. Example: nums=[2,2,2]. At depth 2 with start=1: i=1 is the first choice (i=1=start=1, so i>start is false → allowed). i > 0 would incorrectly skip i=1 there, missing [2,2] and [2,2,2]."
+        },
+        {
+          "front": "2^n subsets for n elements: how many subsets does [1,2,2] produce without dedup?",
+          "back": "8 (2^3 with indices). With dedup (treating both 2s as identical): 6. The duplicate 2 at index 1 and 2 produces: [], [1], [1,2], [1,2,2], [2], [2,2]. Without dedup: [1,2] and [1,2] (from idx 0,1 and idx 0,2) would both appear."
+        },
+        {
+          "front": "Subsets vs Permutations: which uses start index and which uses used-array?",
+          "back": "SUBSETS: start index — moves forward only (order doesn't matter, avoid backward choices). PERMUTATIONS: used-array — can use any position (order matters, all orderings needed). Using start-index for permutations would miss many orderings."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "subsets([1,2,3]): how many results are in the output?",
+          "options": [
+            "6",
+            "8",
+            "3",
+            "7"
+          ],
+          "answer": 1,
+          "explanation": "2^3 = 8 subsets: [], [1], [2], [3], [1,2], [1,3], [2,3], [1,2,3]. One for each combination of include/exclude per element."
+        },
+        {
+          "question": "subsetsWithDup([1,2,2]): which would be INCORRECTLY added without deduplication?",
+          "options": [
+            "[1,2] twice (from index 1 and index 2)",
+            "[2,2,2] (impossible since only two 2s)",
+            "[1,1] (impossible since only one 1)",
+            "[2] only once"
+          ],
+          "answer": 0,
+          "explanation": "Without dedup: [1, nums[1]=2] and [1, nums[2]=2] are both generated — same subset [1,2] twice. The skip condition prevents the second 2 from being the first choice at the same level as the first 2."
+        },
+        {
+          "question": "subsetsWithDup([2,2,2]): how many unique subsets?",
+          "options": [
+            "8",
+            "6",
+            "4",
+            "3"
+          ],
+          "answer": 2,
+          "explanation": "[], [2], [2,2], [2,2,2] = 4 unique subsets. The three 2s are indistinguishable, so the subset is determined only by how many 2s are included (0, 1, 2, or 3)."
+        },
+        {
+          "question": "In Subsets I, if you only add to result at LEAVES (when i reaches nums.length), what's missing?",
+          "options": [
+            "Nothing — leaves are all valid subsets",
+            "All subsets shorter than nums.length: [], [1], [2], [1,2], etc.",
+            "Only the empty set []",
+            "Only subsets of length n"
+          ],
+          "answer": 1,
+          "explanation": "In Subsets I, every node (not just leaves) represents a valid subset. Adding only at leaves captures only the full n-length subset [1,2,...,n]. Adding at every backtrack call captures all 2^n subsets."
+        }
+      ],
+      "visual_aid": {
+        "type": "backtrack_trace",
+        "description": "Subsets I and II compared for [1,2,2]",
+        "diagram": "SUBSETS I [1,2,2] — WITHOUT dedup (8 results, with duplicates):\n  [], [1], [1,2(idx1)], [1,2(idx1),2(idx2)], [1,2(idx2)],\n  [2(idx1)], [2(idx1),2(idx2)], [2(idx2)]\n  = [] [1] [1,2] [1,2,2] [1,2] [2] [2,2] [2]  ← [1,2] and [2] duplicated!\n\nSUBSETS II [1,2,2] — WITH sort+dedup (6 unique results):\n  backtrack(0,[]):\n    RECORD []\n    i=0 (val=1): push 1\n      backtrack(1,[1]):\n        RECORD [1]\n        i=1 (val=2): push 2\n          backtrack(2,[1,2]):\n            RECORD [1,2]\n            i=2 (val=2): i>start(2>2? NO) → push 2\n              backtrack(3,[1,2,2]): RECORD [1,2,2]. return.\n            pop 2\n          pop 2\n        i=2 (val=2): i>start(2>1 YES), nums[2]=nums[1]=2 → SKIP ✓\n      pop 1\n    i=1 (val=2): push 2\n      backtrack(2,[2]):\n        RECORD [2]\n        i=2 (val=2): i>start(2>2? NO) → push 2\n          RECORD [2,2]\n        pop 2\n      pop 2\n    i=2 (val=2): i>start(2>0 YES), nums[2]=nums[1]=2 → SKIP ✓\n  6 results: [], [1], [1,2], [1,2,2], [2], [2,2] ✓"
+      },
+      "complexity_summary": {
+        "subsets_I_time": "O(n × 2^n)",
+        "subsets_I_space": "O(n) call stack + O(n × 2^n) output",
+        "subsets_II_time": "O(n × 2^n) — same, pruning removes duplicates",
+        "dedup_conditions": "Sort + (i > start AND nums[i] == nums[i-1])"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-78",
+          "title": "Subsets",
+          "difficulty": "Medium",
+          "pattern": "Backtracking — add at every node, start+1",
+          "blind75": true
+        },
+        {
+          "id": "lc-90",
+          "title": "Subsets II",
+          "difficulty": "Medium",
+          "pattern": "Backtracking — sort + i>start dedup",
+          "blind75": true
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M4-L2-TH-1",
+            "question": "In `subsets`, the result is collected at EVERY NODE of the recursion (not just leaves). Why?",
+            "options": [
+              "Collecting at every node is a bug; results should only be at leaves",
+              "EVERY NODE of the decision tree represents a valid PARTIAL SUBSET — the empty set (root), single-element sets (depth 1), two-element sets (depth 2), etc.; since ALL subsets are required (not just maximal ones), we push [...path] immediately upon entering backtrack BEFORE the loop, capturing each subset at the moment it is complete (before adding more elements); collecting only at leaves would miss all non-maximal subsets",
+              "Every node is collected for performance; we filter later",
+              "Collecting at every node automatically avoids duplicates"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Add path to result at EVERY node, not just leaves' — subsets include the empty set and all intermediate combinations, not just those of maximum length; this contrasts with combination sum and permutations where only leaf nodes (complete solutions) are collected."
+          },
+          {
+            "id": "L2M4-L2-TH-2",
+            "question": "In `subsetsWithDup`, the deduplication condition is `i > start && nums[i] === nums[i-1]`. Why is the check `i > start` rather than `i > 0`?",
+            "options": [
+              "i > 0 would also work correctly; i > start is just a micro-optimization",
+              "`i > start` ensures we skip a duplicate ONLY IF IT IS NOT THE FIRST ELEMENT chosen at this recursion depth: when `i === start`, nums[i] is the FIRST element being considered at this level (it's the legitimate first choice even if it equals nums[i-1] from a previous level); when `i > start`, nums[i-1] was already tried as a first choice at THIS level and all its subsets are in the result — trying nums[i] (same value) again would duplicate them; using `i > 0` would incorrectly skip legitimate first choices at deeper recursion levels",
+              "i > start prevents array index out of bounds",
+              "The condition should use i >= start; using > causes off-by-one errors"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's explanation: 'If condition were i > 0: At a deeper level with start=1, i=1: i=1 > 0 but i=1==start=1, so SKIP. This incorrectly skips the FIRST occurrence at this level. [2,2] would be skipped, missing a valid subset' — the `i > start` condition correctly distinguishes between duplicate first-choices (always allowed) and duplicate non-first choices (always skipped)."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M4-L2-LG-1",
+            "question": "For `subsets([1,2,3])`, the lesson claims 8 subsets (2^3). List all 8 and explain why there are exactly 2^n subsets for n distinct elements.",
+            "options": [
+              "There are 6 subsets; the empty set is not counted",
+              "8 subsets: [], [1], [2], [3], [1,2], [1,3], [2,3], [1,2,3] — confirmed by direct execution; there are exactly 2^n because for each of the n elements, there are EXACTLY TWO INDEPENDENT CHOICES: include or exclude; these 2 choices are independent across all n elements, giving 2*2*...*2 = 2^n total combinations",
+              "There are 7 subsets: the empty set exists but is often excluded",
+              "There are 2^n subsets only when elements are in sorted order"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution returning 8 subsets; the 2^n count comes from the binary inclusion/exclusion decision for each element — each element contributes an independent factor of 2 to the total count; backtracking systematically explores all 2^n branches of this binary decision tree."
+          },
+          {
+            "id": "L2M4-L2-LG-2",
+            "question": "For `subsetsWithDup([1,2,2])`, explain why only 6 subsets are generated rather than 8, and which 2 are eliminated.",
+            "options": [
+              "7 subsets are generated; only 1 duplicate is eliminated",
+              "Without deduplication, [1,2] would appear TWICE (once selecting the first '2' and once selecting the second '2') and [2] would appear twice; the deduplication skips the second occurrence of '2' at each recursion depth, eliminating these 2 duplicate subsets; the 6 unique subsets are: [], [1], [1,2], [1,2,2], [2], [2,2] — confirmed by direct execution returning 6",
+              "5 subsets are generated; three duplicates are eliminated",
+              "All 8 subsets are generated; the lesson's claim of 6 is incorrect"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: subsetsWithDup([1,2,2]) returns 6 unique subsets; without deduplication, the two '2' elements would create duplicate subsets [2] and [1,2] (one for each '2'), adding 2 extras to get 8; the `i > start && nums[i] === nums[i-1]` skip eliminates exactly these 2 duplicates."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M4-L2-SY-1",
+            "question": "In `subsets`, `backtrack(i + 1, path)` is called with `i + 1` (not `i`). What would happen if `i` were used instead?",
+            "options": [
+              "Using i instead of i+1 would generate fewer subsets",
+              "Using `i` instead of `i+1` would allow the SAME ELEMENT to be selected AGAIN on the next recursive call — backtrack(i, path) explores a subtree that starts from index i (the element just added), enabling it to be re-added; this creates combinations with REPEATED ELEMENTS from the same index (like [1,1,1,1,1...]) and would cause INFINITE RECURSION since the start index never advances; i+1 correctly advances past the just-used element to prevent reuse",
+              "Using i would prevent the empty set from being generated",
+              "Using i is correct for unbounded combination sum; i+1 is correct only for subsets"
+            ],
+            "answer": 1,
+            "explanation": "In subsets, each element should be used AT MOST ONCE (0/1 selection); passing `i+1` advances past the current element, preventing it from being selected again in the same path; passing `i` would allow element re-selection (the unbounded case used in Combination Sum I); for subsets specifically, this would cause infinite recursion since backtrack could keep selecting the same element indefinitely."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M4-L2-CC-1",
+            "title": "Subsets I and II",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both Subsets variants from this lesson.",
+            "requirements": [
+              "Implement `subsetsImpl(nums)` matching the lesson's Subsets I (unique elements, collect at every node)",
+              "Implement `subsetsWithDupImpl(nums)` matching the lesson's Subsets II (sort + skip duplicates with i>start guard)"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function subsetsImpl(nums) {\n  // TODO: collect at every node, forward-only with start index\n}\n\nfunction subsetsWithDupImpl(nums) {\n  // TODO: sort first, skip i>start && nums[i]===nums[i-1]\n}"
+            },
+            "test_cases": [
+              {
+                "input": "subsetsImpl([1,2,3]).length",
+                "expected": 8,
+                "type": "visible"
+              },
+              {
+                "input": "subsetsWithDupImpl([1,2,2]).length",
+                "expected": 6,
+                "type": "visible"
+              },
+              {
+                "input": "subsetsImpl([]).length",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "subsetsWithDupImpl([4,4,4,1,4]).length",
+                "expected": 10,
+                "type": "hidden"
+              },
+              {
+                "input": "subsetsImpl([0]).length",
+                "expected": 2,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function subsetsImpl(nums) {\n  const result = [];\n  function backtrack(start, path) {\n    result.push([...path]);\n    for (let i = start; i < nums.length; i++) {\n      path.push(nums[i]); backtrack(i+1, path); path.pop();\n    }\n  }\n  backtrack(0, []);\n  return result;\n}\n\nfunction subsetsWithDupImpl(nums) {\n  nums.sort((a,b) => a-b);\n  const result = [];\n  function backtrack(start, path) {\n    result.push([...path]);\n    for (let i = start; i < nums.length; i++) {\n      if (i > start && nums[i] === nums[i-1]) continue;\n      path.push(nums[i]); backtrack(i+1, path); path.pop();\n    }\n  }\n  backtrack(0, []);\n  return result;\n}"
+            },
+            "complexity_analysis": "subsetsImpl: O(n*2^n) time, O(n) space. subsetsWithDupImpl: O(n*2^n) time worst case (unique elements), O(n) space + O(n log n) for sort.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "subsetsImpl: push [...path] at the top of backtrack (before the loop); recurse with i+1 to prevent element reuse."
+              },
+              {
+                "level": 2,
+                "text": "subsetsWithDupImpl: sort nums first; inside loop add guard: if(i>start && nums[i]===nums[i-1]) continue."
+              },
+              {
+                "level": 3,
+                "text": "The i>start condition (not i>0) is critical — it allows the first element at any depth even if it equals the element from the previous position."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 3,
+      "title": "Permutations",
+      "tag": null,
+      "objective": "Generate all permutations of a unique array using a boolean used-array to track available elements, and extend to permutations with duplicates using sorting and skip logic.",
+      "concepts": [
+        "Permutations I: all orderings of n unique elements",
+        "Used array: tracks which elements are currently in the path",
+        "No start index needed: permutations can use any unused element",
+        "Base case: path.length === nums.length",
+        "O(n * n!) time: n! permutations, each O(n) to copy",
+        "Permutations II: duplicates in input, unique permutations only",
+        "Deduplication: sort + skip nums[i]==nums[i-1] when !used[i-1]",
+        "Why !used[i-1]: ensures consistent ordering of duplicate elements"
+      ],
+      "explanation": "Permutations I (#46): generate all n! orderings of a unique array. Unlike subsets where a start index prevents backward choices, permutations can use any unused element at each position. Track which elements are currently in the path with a boolean used array. At each recursive call, iterate all elements and skip those already used. Base case: when path contains all n elements, record it. Permutations II (#47): the input may contain duplicates. Sort first. Skip nums[i] if: (1) used[i] is already true (same as Permutations I), or (2) i > 0 AND nums[i] === nums[i-1] AND !used[i-1]. Condition (2) prevents generating duplicate permutations: if we have two identical elements a[i-1] and a[i], we should always use a[i-1] before a[i] within any permutation. The !used[i-1] check enforces this: only use a[i] when a[i-1] has NOT already been used at a previous level (meaning we are in the 'a[i] comes before a[i-1]' branch, which we want to skip to avoid duplicates).",
+      "analogy": "Permutations are like arranging books on a shelf where every book must be placed. The used array is a bookshelf where you mark each spot as occupied. At each position in the arrangement, you try every unoccupied book. When the shelf is full, you have one permutation. Permutations II has duplicate books (identical covers): you need a rule to avoid treating the two copies as producing distinct arrangements when they are actually the same.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// PERMUTATIONS I (#46) — all orderings of unique array\nfunction permute(nums) {\n    const result = [];\n    const used = new Array(nums.length).fill(false);\n\n    function backtrack(path) {\n        if (path.length === nums.length) {\n            result.push([...path]);\n            return;\n        }\n        for (let i = 0; i < nums.length; i++) {\n            if (used[i]) continue; // skip: already in path\n            used[i] = true;        // choose\n            path.push(nums[i]);\n            backtrack(path);        // explore\n            path.pop();             // unchoose\n            used[i] = false;\n        }\n    }\n    backtrack([]);\n    return result;\n}\nconsole.log(permute([1,2,3])); // 6 permutations\n\n// PERMUTATIONS II (#47) — duplicates in input, unique permutations\nfunction permuteUnique(nums) {\n    nums.sort((a, b) => a - b); // sort to group duplicates\n    const result = [];\n    const used = new Array(nums.length).fill(false);\n\n    function backtrack(path) {\n        if (path.length === nums.length) {\n            result.push([...path]);\n            return;\n        }\n        for (let i = 0; i < nums.length; i++) {\n            if (used[i]) continue;\n            // DEDUPLICATION for permutations:\n            // Skip nums[i] if it equals nums[i-1] and nums[i-1] is NOT used\n            // This means: we're in the branch where nums[i-1] hasn't been picked yet\n            // at this level, so picking nums[i] now (identical value) would duplicate\n            if (i > 0 && nums[i] === nums[i-1] && !used[i-1]) continue;\n            used[i] = true;\n            path.push(nums[i]);\n            backtrack(path);\n            path.pop();\n            used[i] = false;\n        }\n    }\n    backtrack([]);\n    return result;\n}\n// nums=[1,1,2]: unique permutations: [1,1,2],[1,2,1],[2,1,1]\nconsole.log(permuteUnique([1,1,2])); // 3 permutations (not 6)\n\n// WHY !used[i-1] (not used[i-1]):\n// Consider [1a, 1b, 2] where 1a and 1b are identical.\n// We want to always pick 1a before 1b (canonical ordering).\n// Skip picking 1b at position k if 1a is NOT yet in the path at positions 0..k-1\n// !used[i-1] = 1a is not used = we haven't committed to having 1a before 1b\n// So: if we are about to pick 1b without 1a being used, skip it.\n// This enforces: 1a must always appear before 1b in any valid generation.",
+        "explanation": "The !used[i-1] condition can be tricky to derive. Think of it as a canonical ordering rule: for any two identical elements, always pick the left one before the right one. The skip fires when: nums[i] == nums[i-1] (they are identical) AND !used[i-1] (the left one is not in the path yet). This means we are in a branch where we are about to pick the right duplicate first — skip it. Only allow the right duplicate to be picked if the left one is already in the path."
+      },
+      "common_mistakes": [
+        "Using start index (like Subsets) instead of a used array for Permutations — permutations can use any element at any position; the start index prevents this; only the used array correctly allows all orderings",
+        "Using used[i-1] instead of !used[i-1] in Permutations II — these are opposite conditions; !used[i-1] skips picking the right duplicate when the left one is not yet used; reversing this would produce wrong deduplication",
+        "Forgetting to reset used[i] = false after the recursive call — the unchoose step must include both path.pop() and used[i] = false; missing the reset causes future iterations to incorrectly see elements as already used"
+      ],
+      "interview_relevance": "Permutations (#46) and Permutations II (#47) are NeetCode 150. The used-array pattern is the canonical permutation backtracking technique. The Permutations II deduplication condition (!used[i-1]) is specifically tested and is the most subtle detail in all of foundational backtracking. Being able to derive and explain it demonstrates mastery beyond memorisation.",
+      "mini_challenge": "Implement permute and verify it produces 6 permutations for [1,2,3]. Implement permuteUnique and verify it produces exactly 3 permutations for [1,1,2]: [1,1,2], [1,2,1], [2,1,1]. Trace the backtracking tree for [1,1,2] manually and show exactly where the !used[i-1] condition fires and which branches are pruned. Then solve Next Permutation (LeetCode #31) — find the next lexicographically greater permutation in-place. This does not use backtracking but tests understanding of permutation ordering.",
+      "flashcards": [
+        {
+          "front": "Permutations I: how does the used-array work?",
+          "back": "used[i]=true means element i is currently in the path. Before adding element i: check !used[i]. After recursion, reset used[i]=false. This prevents reusing the same position in a single permutation while allowing it in different permutations."
+        },
+        {
+          "front": "Permutations I: why no start index?",
+          "back": "Permutations can include any element at any position. A start index would prevent using elements that appear earlier in the array — missing orderings like [2,1,3] after [1,2,3]. The used-array tracks availability without limiting which elements are considered."
+        },
+        {
+          "front": "Permutations II: dedup condition?",
+          "back": "Skip nums[i] if: (1) used[i] (already in path), OR (2) i>0 AND nums[i]==nums[i-1] AND !used[i-1]. Condition 2 enforces: always use the left duplicate before the right duplicate. Prevents [1b,1a,2] when [1a,1b,2] already generated."
+        },
+        {
+          "front": "Permutations II: why !used[i-1] (not used[i-1])?",
+          "back": "!used[i-1] = the LEFT duplicate is NOT in the path yet. If we're about to add the RIGHT duplicate (nums[i]) without the LEFT duplicate (nums[i-1]) being used, this branch would generate the same permutation as one where left was first. Skip it. ONLY add the right duplicate after the left is already in the path."
+        },
+        {
+          "front": "Unchoose for permutations: what two things must be reset?",
+          "back": "1) path.pop() — remove the element from the current path. 2) used[i] = false — mark it available again for other branches. Missing used[i]=false means subsequent iterations see it as still in use and skip it incorrectly."
+        },
+        {
+          "front": "Permutations count for n elements: n! permutations. For [1,1,2]: how many unique?",
+          "back": "3!/2! = 3. Dividing by 2! accounts for the 2 identical 1s. The 3 unique permutations: [1,1,2], [1,2,1], [2,1,1]. The dedup condition in the code achieves the same count without enumeration."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "permute([1,2,3]): total permutations?",
+          "options": [
+            "6",
+            "8",
+            "3",
+            "9"
+          ],
+          "answer": 0,
+          "explanation": "3! = 6. All orderings of 3 distinct elements: [1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]."
+        },
+        {
+          "question": "permuteUnique([1,1,2]): why is [1b,1a,2] NOT generated?",
+          "options": [
+            "Because 1b is at a higher index than 1a",
+            "Condition: i>0 AND nums[i]==nums[i-1] AND !used[i-1] — when adding 1b (i=1) without 1a (i=0) being used, skip",
+            "Because [1b,1a,2] would equal [1a,1b,2] which is already in results",
+            "Both B and C are correct"
+          ],
+          "answer": 3,
+          "explanation": "Both B and C: the condition fires (B) precisely to prevent the duplicate (C). When we're about to pick 1b without 1a being used, we know this branch produces the same values as the branch where 1a was picked first — so we skip it."
+        },
+        {
+          "question": "In Permutations I, used[i]=false is reset after the recursive call. What if this reset is forgotten?",
+          "options": [
+            "No effect — used[] is per-call",
+            "Element i is permanently marked 'used' after first use, so only permutations starting with element 0 are generated",
+            "Element i stays marked for ALL remaining iterations in the current level AND all deeper levels",
+            "Stack overflow"
+          ],
+          "answer": 2,
+          "explanation": "used[] is shared (closure). Without reset, after trying element i in position k, subsequent iterations at level k see used[i]=true and skip it. Subsequent recursive calls also skip it. Effectively i is removed from the pool permanently — correct permutations requiring i are missed."
+        },
+        {
+          "question": "permuteUnique([1,1,2]): at the root level, which elements are valid first choices?",
+          "options": [
+            "All three: 1a, 1b, 2",
+            "Only 1a and 2 — 1b is skipped by dedup",
+            "Only 1a — 1b and 2 are deduplicated",
+            "Only 2 — 1s are duplicates"
+          ],
+          "answer": 1,
+          "explanation": "At root (no element in path yet): i=0 (1a): used[0]=false → valid. i=1 (1b): used[1]=false BUT nums[1]=nums[0]=1 AND !used[0] → SKIP (dedup). i=2 (2): used[2]=false → valid. Two valid first choices: 1a and 2."
+        }
+      ],
+      "visual_aid": {
+        "type": "permutation_tree",
+        "description": "Permutations of [1,2,3] showing used-array state",
+        "diagram": "permute([1,2,3]) — used-array tracking:\n\nDepth 0 (path=[]):\n  Try i=0(1): used=[T,F,F], path=[1]\n    Depth 1: Try i=0: used[0]=T SKIP. Try i=1(2): used=[T,T,F], path=[1,2]\n      Depth 2: Try i=0,1: SKIP. Try i=2(3): path=[1,2,3] → RECORD ✓\n              pop 3, used[2]=F\n             pop 2, used[1]=F\n    Depth 1: Try i=2(3): used=[T,F,T], path=[1,3]\n      Depth 2: Try i=1(2): path=[1,3,2] → RECORD ✓\n             pop 2, pop 3, used[2]=F\n  pop 1, used[0]=F\n  Try i=1(2): used=[F,T,F], path=[2]\n    → generates [2,1,3] and [2,3,1]\n  pop 2, used[1]=F\n  Try i=2(3): used=[F,F,T], path=[3]\n    → generates [3,1,2] and [3,2,1]\n\nTotal: 6 permutations ✓\n\nKEY RESET: after each pop(), used[i]=false\n           missing this = element i gone forever"
+      },
+      "complexity_summary": {
+        "permutations_I_time": "O(n × n!)",
+        "permutations_II_time": "O(n × unique_permutations) ≤ O(n × n!)",
+        "space": "O(n) path + O(n) used array + O(n) call stack",
+        "dedup_rule": "Sort + skip when i>0 AND nums[i]==nums[i-1] AND !used[i-1]"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-46",
+          "title": "Permutations",
+          "difficulty": "Medium",
+          "pattern": "Backtracking — used-array, no start index",
+          "blind75": true
+        },
+        {
+          "id": "lc-47",
+          "title": "Permutations II",
+          "difficulty": "Medium",
+          "pattern": "Backtracking — sort + !used[i-1] dedup",
+          "blind75": true
+        },
+        {
+          "id": "lc-31",
+          "title": "Next Permutation",
+          "difficulty": "Medium",
+          "pattern": "Two-pointer in-place (not backtracking)"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M4-L3-TH-1",
+            "question": "Why do permutations use a `used` BOOLEAN ARRAY rather than a `start` index?",
+            "options": [
+              "Boolean arrays are faster than integer start indices in JavaScript",
+              "In PERMUTATIONS, ORDER MATTERS and every element can appear at every position — there's no concept of 'forward only'; for example, [3,1,2] and [1,2,3] are both valid orderings of [1,2,3]; the `used` array tracks which elements are CURRENTLY IN THE PATH regardless of position, allowing any unused element to be chosen next; a `start` index would prevent earlier elements from being chosen after later ones, incorrectly generating only combinations not permutations",
+              "start indices cannot be used with duplicate elements",
+              "The used array is only needed for Permutations II; Permutations I could use start"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'No start index needed: permutations can use any unused element' — the fundamental difference between combinations (order doesn't matter → use start index) and permutations (order matters → use used array); with a start index, [2,1] could never be generated if 1 appears before 2 in the input."
+          },
+          {
+            "id": "L2M4-L3-TH-2",
+            "question": "In `permuteUnique`, the skip condition is `i > 0 && nums[i] === nums[i-1] && !used[i-1]`. Why is `!used[i-1]` the correct condition (not `used[i-1]`)?",
+            "options": [
+              "used[i-1] would also work; the condition is just one of two equivalent forms",
+              "`!used[i-1]` means 'nums[i-1] is NOT currently in the path at positions 0..current-1' — when nums[i-1] is NOT used and we're about to pick nums[i] (same value), we're starting a new 'sibling branch' where nums[i-1] hasn't been committed to a position before nums[i]; this would create duplicates (same value used in identical relative positions); `used[i-1]` would skip when nums[i-1] IS in the path, which is incorrect — if nums[i-1] is already in the path, using nums[i] next creates a DIFFERENT and VALID permutation",
+              "!used[i-1] prevents array index out of bounds",
+              "The condition should be !used[i] not !used[i-1]"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's explanation: 'Skip picking 1b at position k if 1a is NOT yet in the path at positions 0..k-1. !used[i-1] = 1a is not used = we haven't committed to having 1a before 1b. So: if we are about to pick 1b without 1a being used, skip it. This enforces: 1a must always appear before 1b in any valid generation' — this canonical ordering prevents duplicates while preserving all unique permutations."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M4-L3-LG-1",
+            "question": "For `permute([1,2,3])`, how many permutations are generated and why is the count n! = 6?",
+            "options": [
+              "5 permutations; one is skipped due to the used-array check",
+              "6 permutations = 3! = 3*2*1: at position 0, there are 3 choices; at position 1, 2 remaining choices; at position 2, 1 remaining choice; 3*2*1=6; the specific permutations are [1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1] — all orderings of 3 distinct elements — confirmed by direct execution returning 6",
+              "8 permutations; the same as 2^3 since each element is either first or not",
+              "9 permutations = 3^2 since 3 choices are made and there are 3 elements"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: permute([1,2,3]) returns 6 permutations; n! is the count because each position has exactly (n - current_depth) choices remaining (all elements not yet in the path); the product of these decreasing counts is n*(n-1)*...*1 = n!."
+          },
+          {
+            "id": "L2M4-L3-LG-2",
+            "question": "For `permuteUnique([1,1,2])`, the answer is 3 unique permutations. Which 3 are they, and why are 3 of the naive 6 eliminated?",
+            "options": [
+              "The 3 are [1,1,2],[1,2,1],[2,1,1]; the naive 6 would count each of these as two due to the two indistinguishable 1s",
+              "The 3 unique permutations are [1,1,2], [1,2,1], [2,1,1] — confirmed by direct execution; naively treating the two 1s as distinct (1a and 1b) would generate 6: [1a,1b,2],[1a,2,1b],[1b,1a,2],[1b,2,1a],[2,1a,1b],[2,1b,1a]; since 1a and 1b are identical, {1a,1b,2}={1b,1a,2}, etc., leaving 3 distinct permutations; the `!used[i-1]` condition ensures 1a always precedes 1b in the generation order, canonically eliminating duplicates",
+              "The 3 are [1,1,2],[2,2,1],[1,2,2]; the others are invalid",
+              "All 6 permutations are generated; the lesson's claim of 3 is incorrect"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: permuteUnique([1,1,2]) returns [[1,1,2],[1,2,1],[2,1,1]]; naively 3!/2!=3 since there are 2 identical elements; the `!used[i-1]` condition enforces canonical ordering (first 1 must always be placed before second 1), eliminating the 3 duplicates that would arise from swapping the two 1s."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M4-L3-SY-1",
+            "question": "In `permute`, `used[i] = true` is set BEFORE `path.push(nums[i])` and `used[i] = false` is set AFTER `path.pop()`. Is the ordering of these paired operations critical?",
+            "options": [
+              "The ordering is not critical; choose/unchoose can happen in any order",
+              "YES, the ordering is critical: `used[i] = true` must happen BEFORE recursion so that deeper calls see the element as 'taken'; `used[i] = false` must happen AFTER path.pop() so that the path and used array stay CONSISTENT (both updated together in the choose phase, both reverted together in the unchoose phase); separating these paired operations (e.g., setting used before push but resetting after push but before pop) would create inconsistency between the path contents and the used array",
+              "The order doesn't matter because push and pop are atomic",
+              "used[i] could be set AFTER path.push without any correctness impact"
+            ],
+            "answer": 1,
+            "explanation": "The choose phase (used[i]=true, path.push) and unchoose phase (path.pop, used[i]=false) must each execute atomically — the used array and path must always represent the same set of elements; if used[i]=true happened after path.push, any exception between them would leave them inconsistent; more practically, the recursive call must see used[i]=true immediately after the element is 'chosen'."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M4-L3-CC-1",
+            "title": "Permutations I and II",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both Permutations variants from this lesson.",
+            "requirements": [
+              "Implement `permuteImpl(nums)` matching the lesson's used-array approach for Permutations I",
+              "Implement `permuteUniqueImpl(nums)` matching the lesson's sort + !used[i-1] deduplication for Permutations II"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function permuteImpl(nums) {\n  // TODO: used array, no start index, base case path.length===nums.length\n}\n\nfunction permuteUniqueImpl(nums) {\n  // TODO: sort, used array, skip i>0 && nums[i]===nums[i-1] && !used[i-1]\n}"
+            },
+            "test_cases": [
+              {
+                "input": "permuteImpl([1,2,3]).length",
+                "expected": 6,
+                "type": "visible"
+              },
+              {
+                "input": "permuteUniqueImpl([1,1,2]).length",
+                "expected": 3,
+                "type": "visible"
+              },
+              {
+                "input": "permuteUniqueImpl([1,1,2]).map(p=>p.join()).sort().toString()",
+                "expected": "1,1,2,1,2,1,2,1,1",
+                "type": "visible"
+              },
+              {
+                "input": "permuteImpl([1]).length",
+                "expected": 1,
+                "type": "hidden"
+              },
+              {
+                "input": "permuteUniqueImpl([1,2,1]).length",
+                "expected": 3,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function permuteImpl(nums) {\n  const result = [], used = new Array(nums.length).fill(false);\n  function backtrack(path) {\n    if (path.length === nums.length) { result.push([...path]); return; }\n    for (let i = 0; i < nums.length; i++) {\n      if (used[i]) continue;\n      used[i] = true; path.push(nums[i]);\n      backtrack(path);\n      path.pop(); used[i] = false;\n    }\n  }\n  backtrack([]);\n  return result;\n}\n\nfunction permuteUniqueImpl(nums) {\n  nums.sort((a,b) => a-b);\n  const result = [], used = new Array(nums.length).fill(false);\n  function backtrack(path) {\n    if (path.length === nums.length) { result.push([...path]); return; }\n    for (let i = 0; i < nums.length; i++) {\n      if (used[i]) continue;\n      if (i > 0 && nums[i] === nums[i-1] && !used[i-1]) continue;\n      used[i] = true; path.push(nums[i]);\n      backtrack(path);\n      path.pop(); used[i] = false;\n    }\n  }\n  backtrack([]);\n  return result;\n}"
+            },
+            "complexity_analysis": "permuteImpl: O(n*n!) time, O(n) space. permuteUniqueImpl: O(n*n!) worst case (all unique), O(n log n) for sort.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "permuteImpl: no start index; loop i from 0 to n; skip if used[i]; choose: used[i]=true + push; explore: backtrack; unchoose: pop + used[i]=false."
+              },
+              {
+                "level": 2,
+                "text": "permuteUniqueImpl: sort first; add guard: if(i>0 && nums[i]===nums[i-1] && !used[i-1]) continue."
+              },
+              {
+                "level": 3,
+                "text": "The !used[i-1] condition (not used[i-1]) ensures the first duplicate is always committed before the second — canonical ordering prevents duplicate permutations."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 4,
+      "title": "Combination Sum I And II",
+      "tag": null,
+      "objective": "Solve Combination Sum I (unlimited use, unique candidates) and II (one use each, duplicates in input) by correctly setting the recursive start index and applying deduplication.",
+      "concepts": [
+        "Combination Sum I: find all combinations summing to target, numbers reusable",
+        "Start index at i (not i+1): allows reusing the current element",
+        "Pruning: skip if candidates[i] > remaining (sorted array)",
+        "Combination Sum II: each number used once, duplicates in input",
+        "Start index at i+1: each element used at most once",
+        "Deduplication: same as Subsets II: i > start and nums[i]==nums[i-1]",
+        "Time: O(n * 2^n) bounded by exponential search space",
+        "The single change: recurse with i vs i+1 distinguishes reusable from one-use"
+      ],
+      "explanation": "Combination Sum I (#39): find all unique combinations of candidates that sum to target, where the same number may be used unlimited times. The backtracking: iterate from start, try each candidate, recurse with remaining = remaining - candidates[i]. Crucially, recurse with start = i (not i+1) to allow reusing the current candidate. Base case: remaining == 0 means a valid combination found. Pruning: if candidates[i] > remaining, skip (and all larger candidates if sorted). Sort first to enable this pruning and to avoid duplicate combinations. Combination Sum II (#40): each number used at most once and the input may contain duplicates. Sort first. Recurse with i+1 (not i) to prevent reuse. Apply the Subsets II deduplication: skip when i > start AND candidates[i] == candidates[i-1]. The single change from i to i+1 (and the deduplication) is what separates these two variants. This pattern — sort, use start index for one-time use with dedup, or use i for reusable — applies to all combination-family problems.",
+      "analogy": "Combination Sum I is like making exact change from a pile of coins where you have unlimited copies of each denomination. You try each denomination and can keep using the same one until you overshoot or hit the target. Combination Sum II is the same problem but you have exactly one physical coin of each denomination (including duplicates). You cannot use the same physical coin twice, and using two identical coins must not produce the same combination twice.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// COMBINATION SUM I (#39) — reusable candidates\nfunction combinationSum(candidates, target) {\n    candidates.sort((a, b) => a - b); // sort for pruning\n    const result = [];\n\n    function backtrack(start, remaining, path) {\n        if (remaining === 0) {\n            result.push([...path]);\n            return;\n        }\n        for (let i = start; i < candidates.length; i++) {\n            if (candidates[i] > remaining) break; // PRUNING: sorted, so all further too large\n            path.push(candidates[i]);\n            backtrack(i, remaining - candidates[i], path); // i NOT i+1: reuse allowed\n            path.pop();\n        }\n    }\n    backtrack(0, target, []);\n    return result;\n}\nconsole.log(combinationSum([2,3,6,7], 7));\n// [[2,2,3],[7]]\n\n// COMBINATION SUM II (#40) — one use each, duplicates in input\nfunction combinationSum2(candidates, target) {\n    candidates.sort((a, b) => a - b); // sort: groups duplicates AND enables pruning\n    const result = [];\n\n    function backtrack(start, remaining, path) {\n        if (remaining === 0) {\n            result.push([...path]);\n            return;\n        }\n        for (let i = start; i < candidates.length; i++) {\n            if (candidates[i] > remaining) break; // pruning\n            // DEDUPLICATION: skip if same value as previous at this level\n            if (i > start && candidates[i] === candidates[i-1]) continue;\n            path.push(candidates[i]);\n            backtrack(i + 1, remaining - candidates[i], path); // i+1: no reuse\n            path.pop();\n        }\n    }\n    backtrack(0, target, []);\n    return result;\n}\nconsole.log(combinationSum2([10,1,2,7,6,1,5], 8));\n// [[1,1,6],[1,2,5],[1,7],[2,6]]\n\n// THE THREE KEY DIFFERENCES:\n// Combination Sum I -> II:\n// 1. Sort (both need it, but II needs it more for dedup)\n// 2. Recurse with i -> i+1 (prevents reuse)\n// 3. Add deduplication: if i > start && nums[i] == nums[i-1]: continue\n\n// COMBINATION SUM III (#216 NeetCode150):\n// Find all k-element combinations from 1-9 summing to n\nfunction combinationSum3(k, n) {\n    const result = [];\n    function backtrack(start, remaining, path) {\n        if (path.length === k && remaining === 0) { result.push([...path]); return; }\n        if (path.length === k || remaining <= 0) return; // pruning\n        for (let i = start; i <= 9; i++) {\n            path.push(i);\n            backtrack(i + 1, remaining - i, path);\n            path.pop();\n        }\n    }\n    backtrack(1, n, []);\n    return result;\n}\nconsole.log(combinationSum3(3, 7)); // [[1,2,4]]",
+        "explanation": "The break in the pruning condition (not continue) is important when the candidates are sorted: if candidates[i] > remaining, ALL remaining candidates (which are >= candidates[i]) are also too large. A break exits the loop entirely, saving O(n-i) iterations. A continue would skip only this candidate and try the next larger ones unnecessarily."
+      },
+      "common_mistakes": [
+        "Using i+1 in Combination Sum I (preventing reuse) — i+1 treats each element as usable once; for unlimited reuse, the recursion must use i (the current element can be chosen again at the next level)",
+        "Using i instead of i+1 in Combination Sum II (allowing unintended reuse) — the same element at the same index should not be used twice; i+1 ensures each physical element is used at most once",
+        "Using break vs continue for pruning without checking whether the array is sorted — break is only valid when the array is sorted (all subsequent candidates are also too large); if not sorted, use continue to skip only this candidate"
+      ],
+      "interview_relevance": "Combination Sum (#39) and Combination Sum II (#40) are both NeetCode 150. They are a pair that specifically tests whether candidates understand the i vs i+1 distinction and the deduplication condition. Interviewers give Combination Sum II after Combination Sum I as a follow-up: 'Now modify it so each element can only be used once and the input may have duplicates.' Deriving the three changes immediately is the expected response.",
+      "mini_challenge": "Implement both combinationSum and combinationSum2. Verify combinationSum([2,3,6,7],7) returns [[2,2,3],[7]] and combinationSum2([10,1,2,7,6,1,5],8) returns [[1,1,6],[1,2,5],[1,7],[2,6]]. Then implement combinationSum3 and verify it returns [[1,2,4]] for (k=3, n=7). Finally, identify the combination-family variant of each LeetCode problem: #39 (reuse, unique), #40 (one-use, duplicates), #216 (one-use, range 1-9, exact k elements). Map each to its start index strategy.",
+      "flashcards": [
+        {
+          "front": "Combination Sum I vs II: the ONE key difference in the recursive call?",
+          "back": "Sum I: backtrack(i, ...) — recurse with SAME i (reuse allowed). Sum II: backtrack(i+1, ...) — recurse with i+1 (each element used at most once). This single change switches between unlimited and one-use semantics."
+        },
+        {
+          "front": "Combination Sum I: why sort the candidates?",
+          "back": "Sorting enables the break pruning: if candidates[i] > remaining, ALL candidates[i..n-1] are also too large (since sorted). break exits the entire loop. Without sorting, you'd need continue to skip just the current one, missing the early exit."
+        },
+        {
+          "front": "Combination Sum II dedup: same condition as Subsets II?",
+          "back": "YES: skip when i > start AND candidates[i] == candidates[i-1]. Identical logic: sort first, skip repeated value at same level. The i > start guard allows the first occurrence at each depth, preventing removal of valid combinations."
+        },
+        {
+          "front": "Combination Sum I: can candidates contain duplicates?",
+          "back": "The problem guarantees unique candidates, so no dedup needed. The sort is only for pruning (break on candidates[i]>remaining). No dedup skip condition in the loop."
+        },
+        {
+          "front": "break vs continue in pruning: which to use and when?",
+          "back": "break: when array is SORTED and remaining candidates are all larger (no further candidates can help). Exits the whole loop. continue: when only the current candidate is invalid but others might work (not sorted, or specific skip condition). For Combination Sum with sorted array: use break."
+        },
+        {
+          "front": "Combination Sum III (#216): how does it differ from I and II?",
+          "back": "Candidates: digits 1-9 only (not an input array). Length constraint: exactly k elements. Sum constraint: sums to n. Recurse with i+1 (each digit used once). Base case: path.length==k AND remaining==0. Prune: path.length>k OR remaining<0."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "combinationSum([2,3,6,7], 7): how many valid combinations?",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "answer": 1,
+          "explanation": "[2,2,3] (2+2+3=7) and [7] (7=7). Two combinations. The sorted candidates with break pruning efficiently cuts the search: after 7, all candidates are ≥7, so we stop when remaining<candidate."
+        },
+        {
+          "question": "combinationSum vs combinationSum2: for input [1,1,2], target=3. Which returns more combinations?",
+          "options": [
+            "Sum I (reuse): more, because can reuse elements",
+            "Sum II (one-use): more, because handles duplicates",
+            "Same — identical input",
+            "Sum I: [1,1,1] and [1,2] = 2. Sum II: [1,1,1]? No, only one 1. [1,2]=one, [1,1,... wait"
+          ],
+          "answer": 0,
+          "explanation": "Sum I (reuse allowed): [1,1,1], [1,2] = 2 combinations. Sum II (one-use, input=[1,1,2]): [1,1... but second 1 is a different element! [1,1,2]? 1+1+2=4≠3. [1,2]=3 only. So Sum I has 2 combinations, Sum II has 1. Sum I wins."
+        },
+        {
+          "question": "In Combination Sum I, backtrack(i, remaining-candidates[i], path) uses i not i+1. What combination would be MISSED if i+1 were used?",
+          "options": [
+            "[2,2,3] would be missed since 2 can't be reused",
+            "[7] would be missed",
+            "[3,3] if target=6",
+            "Both A and C"
+          ],
+          "answer": 3,
+          "explanation": "With i+1: after using candidates[i]=2 once, the next recursive call starts from i+1=next candidate. [2,2,3] requires using 2 twice — only possible when recursing with i (same position). [3,3] for target=6 similarly requires reuse. Both missed with i+1."
+        },
+        {
+          "question": "Combination Sum II sorted=[1,1,2,5,6,7,10], target=8. At start, i=0 (val=1). Recurse. Inside, i=1 (val=1). Is i=1 skipped?",
+          "options": [
+            "Yes — i>start AND nums[1]=nums[0]=1 → skip",
+            "No — i=1=start in the inner call, so i>start is FALSE",
+            "Yes — because two 1s would exceed 8",
+            "Depends on what 'start' is in the inner call"
+          ],
+          "answer": 1,
+          "explanation": "After recursing into i=0 (choosing first 1), the inner backtrack has start=1. Inside that call, i=1: i=1=start=1, so i>start is FALSE → NOT skipped. This correctly allows using the second 1 (e.g., [1,1,6])."
+        }
+      ],
+      "visual_aid": {
+        "type": "comparison_tree",
+        "description": "Combination Sum I vs II — key structural differences",
+        "diagram": "COMBINATION SUM I vs II — key differences:\n\n                    I                    II\nCandidates:  unique, reusable     may have dups, one-use\nSort:        for pruning (break)  for pruning + dedup\nRecurse with: i (same pos)        i+1 (next pos)\nDedup:       none needed          i>start && c[i]==c[i-1]\n\nFor candidates=[2,3], target=6:\n\nSum I (recurse with i):\n  [2,2,2] ← 2 reused 3 times (valid)\n  [2,2,2] path: backtrack(0)→pick 2→backtrack(0)→pick 2→backtrack(0)→pick 2\n  [3,3]   ← 3 reused (valid)\n\nSum II with [2,2,3], target=6:\n  [2,2... wait, two 2s exist: [2a,2b,... nope 2+2=4, +3=7≠6\n  [3,3? only one 3]  → no valid combos! \n  Valid: [2a,2b,... no: 2+2=4, +2=6 but only 2 twos. Hmm [2,2]=4, need 2 more but only 3 left.\n  Result: no valid combinations.\n\nBETTER EXAMPLE: candidates=[1,1,2], target=3:\n  Sum I:  [1,1,1], [1,2]           (2 combos, 1 reused)\n  Sum II: dedup removes one [1]    [1,2] only (1 combo, each used once)\n\nSINGLE CHANGE: i → i+1"
+      },
+      "complexity_summary": {
+        "combination_sum_I_time": "O(n^(T/M)) where T=target, M=min candidate",
+        "combination_sum_II_time": "O(2^n) with pruning",
+        "space": "O(target/min_candidate) for Sum I, O(n) for Sum II call stack",
+        "key_rule": "Reuse: recurse with i. One-use: recurse with i+1. Dedup for duplicates: sort + i>start skip."
+      },
+      "practice_problems": [
+        {
+          "id": "lc-39",
+          "title": "Combination Sum",
+          "difficulty": "Medium",
+          "pattern": "Backtracking — recurse with i (reuse)",
+          "blind75": true
+        },
+        {
+          "id": "lc-40",
+          "title": "Combination Sum II",
+          "difficulty": "Medium",
+          "pattern": "Backtracking — recurse with i+1 + dedup",
+          "blind75": true
+        },
+        {
+          "id": "lc-216",
+          "title": "Combination Sum III",
+          "difficulty": "Medium",
+          "pattern": "Backtracking — digits 1-9, k elements, sum n"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M4-L4-TH-1",
+            "question": "What is the SINGLE CODE CHANGE that distinguishes Combination Sum I (reusable candidates) from Combination Sum II (each used once)?",
+            "options": [
+              "The deduplication condition is the single change",
+              "The recursive call uses `i` (Combination Sum I: reuse allowed) vs `i+1` (Combination Sum II: each element used at most once); `backtrack(i, ...)` allows the current element to be selected again on the next call; `backtrack(i+1, ...)` advances past the current element, preventing reuse — this is the same i vs i+1 distinction as unbounded vs 0/1 knapsack; Combination Sum II additionally needs sorting and deduplication",
+              "The target remaining check is the single change",
+              "The base case condition is the single change"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'The single change: recurse with i vs i+1 distinguishes reusable from one-use' and 'Start index at i (not i+1): allows reusing the current element' vs 'Start index at i+1: each element used at most once' — this is the core distinction; Combination Sum II adds deduplication on top."
+          },
+          {
+            "id": "L2M4-L4-TH-2",
+            "question": "In both Combination Sum variants, `if (candidates[i] > remaining) break` uses BREAK not CONTINUE. Why break (not continue)?",
+            "options": [
+              "break and continue produce the same result since loop terminates immediately",
+              "The candidates array is SORTED IN ASCENDING ORDER — if candidates[i] > remaining, then ALL candidates at indices j > i are EVEN LARGER (since sorted), meaning none of them can fit either; `break` exits the entire inner loop efficiently, pruning the entire remaining subtree; `continue` would only skip the current candidate and try larger ones, which would ALL fail the check — wasting work; the pruning is only valid because of the sort prerequisite",
+              "break is used because continue causes incorrect duplicate counting",
+              "break terminates the entire backtracking; continue terminates only one branch"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Pruning: skip if candidates[i] > remaining (sorted array)' and 'if (candidates[i] > remaining) break; // PRUNING: sorted, so all further too large' — the break is a direct consequence of the sorted precondition; if the array weren't sorted, only continue would be correct (a later smaller element might still fit)."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M4-L4-LG-1",
+            "question": "For `combinationSum([2,3,6,7], target=7)`, trace why `[2,2,3]` appears before `[7]` in the result.",
+            "options": [
+              "[7] appears first because 7 is the largest candidate",
+              "The backtracking explores candidates in order: starting with 2 (smallest), it builds [2,2,2] (rem=-1, prune), [2,2,3] (rem=2, 3>2, but 2+2+3=7, rem=0→add), [2,2,6] (rem=1, prune since 6>1)... then [2,3] → [2,3,3] (rem=2), → [2,5] impossible → [2,6] (rem=-1, prune) → [2,7] (9>7 prune)... → [3] → eventually [7] (rem=0→add); depth-first order starting from smallest produces [2,2,3] first, then [7]",
+              "Results are sorted by length; shorter results like [7] appear last",
+              "The result order depends on JavaScript's sort algorithm"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: combinationSum([2,3,6,7],7) returns [[2,2,3],[7]]; DFS explores starting from the smallest candidate (2), exhausting all paths starting with 2 before moving to 3, 6, 7; [2,2,3] is found first as it's on the leftmost branch; [7] is found on the rightmost branch (starting with 7 directly)."
+          },
+          {
+            "id": "L2M4-L4-LG-2",
+            "question": "For `combinationSum2([10,1,2,7,6,1,5], target=8)`, the answer is `[[1,1,6],[1,2,5],[1,7],[2,6]]`. After sorting the input becomes [1,1,2,5,6,7,10]. How does deduplication prevent `[1,1,6]` from appearing twice?",
+            "options": [
+              "Deduplication doesn't affect [1,1,6]; it only eliminates single-element duplicates",
+              "After sorting: [1,1,2,5,6,7,10]; when start=0, the loop tries i=0 (first '1') and i=1 (second '1'); at i=1: i=1>start=0 AND candidates[1]=1===candidates[0]=1 → SKIP; this prevents starting a combination with the SECOND '1' at depth 0; the combination [1,1,6] can only be generated starting with the FIRST '1' at i=0 (then recursing with start=1 where both 1s are accessible); this ensures [1,1,6] appears exactly once",
+              "The deduplication removes [1,1,6] entirely; it doesn't appear in the result",
+              "[1,1,6] appears twice by design; deduplication only works for single elements"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's deduplication logic: at depth 0, i=1 is skipped (i>start=0 && same value) — only i=0 (first '1') starts paths at this level; paths starting with the second '1' alone would be exact duplicates of paths starting with the first '1'; by skipping, [1,1,6] is generated exactly once via the first '1' then the second '1' at a deeper level."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M4-L4-SY-1",
+            "question": "In `combinationSum3(k, n)`, the loop runs `for (let i = start; i <= 9; i++)` (up to 9, not array length). Why is 9 the fixed upper bound?",
+            "options": [
+              "9 is used because JavaScript arrays are 0-indexed to 9",
+              "Combination Sum III specifically uses digits 1-9 (a fixed 9-element set); unlike Combination Sum I/II which operate on a provided `candidates` array, this variant always uses the fixed set {1,2,...,9}; the upper bound 9 encodes this domain constraint directly in the loop; additionally, since we need exactly k distinct elements that sum to n, selecting elements > 9 or > remaining would be invalid",
+              "9 prevents integer overflow in JavaScript",
+              "The upper bound should be min(9, n) for correct pruning"
+            ],
+            "answer": 1,
+            "explanation": "Combination Sum III (#216) specifies 'choose k numbers from 1-9 summing to n' — the candidates are always exactly {1,2,...,9} regardless of the input parameters; the fixed upper bound 9 encodes this domain-specific constraint; the standard Combination Sum variants use candidates.length because the candidate set is variable."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M4-L4-CC-1",
+            "title": "Combination Sum I, II, and III",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement all three Combination Sum variants from this lesson.",
+            "requirements": [
+              "Implement `combinationSumImpl(candidates, target)` matching the lesson's Combination Sum I (reusable, recurse with i)",
+              "Implement `combinationSum2Impl(candidates, target)` matching the lesson's Combination Sum II (one-use, sort+dedup, recurse with i+1)",
+              "Implement `combinationSum3Impl(k, n)` matching the lesson's Combination Sum III (choose k from 1-9)"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function combinationSumImpl(candidates, target) {\n  // TODO: sort, recurse with i (reuse allowed), break on > remaining\n}\n\nfunction combinationSum2Impl(candidates, target) {\n  // TODO: sort, recurse with i+1, dedup i>start && same value\n}\n\nfunction combinationSum3Impl(k, n) {\n  // TODO: loop 1..9, pick k elements summing to n\n}"
+            },
+            "test_cases": [
+              {
+                "input": "combinationSumImpl([2,3,6,7], 7).map(c=>c.join()).sort().toString()",
+                "expected": "2,2,3,7",
+                "type": "visible"
+              },
+              {
+                "input": "combinationSum2Impl([10,1,2,7,6,1,5], 8).length",
+                "expected": 4,
+                "type": "visible"
+              },
+              {
+                "input": "combinationSum3Impl(3, 7)",
+                "expected": [
+                  [
+                    1,
+                    2,
+                    4
+                  ]
+                ],
+                "type": "visible"
+              },
+              {
+                "input": "combinationSumImpl([2], 1).length",
+                "expected": 0,
+                "type": "hidden"
+              },
+              {
+                "input": "combinationSum2Impl([1,1,1,1,1], 3).length",
+                "expected": 1,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function combinationSumImpl(candidates, target) {\n  candidates.sort((a,b) => a-b);\n  const result = [];\n  function backtrack(start, rem, path) {\n    if (rem === 0) { result.push([...path]); return; }\n    for (let i = start; i < candidates.length; i++) {\n      if (candidates[i] > rem) break;\n      path.push(candidates[i]); backtrack(i, rem-candidates[i], path); path.pop();\n    }\n  }\n  backtrack(0, target, []);\n  return result;\n}\n\nfunction combinationSum2Impl(candidates, target) {\n  candidates.sort((a,b) => a-b);\n  const result = [];\n  function backtrack(start, rem, path) {\n    if (rem === 0) { result.push([...path]); return; }\n    for (let i = start; i < candidates.length; i++) {\n      if (candidates[i] > rem) break;\n      if (i > start && candidates[i] === candidates[i-1]) continue;\n      path.push(candidates[i]); backtrack(i+1, rem-candidates[i], path); path.pop();\n    }\n  }\n  backtrack(0, target, []);\n  return result;\n}\n\nfunction combinationSum3Impl(k, n) {\n  const result = [];\n  function backtrack(start, rem, path) {\n    if (path.length === k && rem === 0) { result.push([...path]); return; }\n    if (path.length === k || rem <= 0) return;\n    for (let i = start; i <= 9; i++) {\n      path.push(i); backtrack(i+1, rem-i, path); path.pop();\n    }\n  }\n  backtrack(1, n, []);\n  return result;\n}"
+            },
+            "complexity_analysis": "combinationSumImpl: O(n * 2^(t/m)) where t=target, m=min candidate. combinationSum2Impl: O(n * 2^n). combinationSum3Impl: O(9^k / k!) bounded by C(9,k).",
+            "hints": [
+              {
+                "level": 1,
+                "text": "combinationSumImpl: sort; recurse with i (same index) to allow reuse; break when candidates[i]>remaining."
+              },
+              {
+                "level": 2,
+                "text": "combinationSum2Impl: sort; recurse with i+1 (no reuse); add dedup guard i>start && same value."
+              },
+              {
+                "level": 3,
+                "text": "combinationSum3Impl: two-part base case: both path.length===k AND rem===0 must be true; prune if path.length===k but rem!=0, or rem<=0."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 5,
+      "title": "Letter Combinations Of A Phone Number",
+      "tag": "UPDATED",
+      "objective": "Solve Letter Combinations of a Phone Number using a phone mapping and iterative recursion depth equal to the input length.",
+      "concepts": [
+        "Phone mapping: '2'->'abc', '3'->'def', ..., '9'->'wxyz'",
+        "Recursive depth: one level per digit in the input",
+        "At each level: try all letters mapped to the current digit",
+        "Base case: path.length === digits.length",
+        "No start index or used array: each level maps to exactly one digit",
+        "O(4^n * n) time: at most 4 letters per digit, n digits deep",
+        "Iterative alternative: BFS-style using a queue",
+        "Empty input edge case: return [] immediately"
+      ],
+      "explanation": "Letter Combinations of a Phone Number (#17) maps a digit string to all possible letter strings using a phone keypad. The backtracking structure is simpler than Subsets or Permutations because each level of recursion corresponds to exactly one digit. There is no choice about which digit to use — the current digit is digits[path.length]. The choice at each level is which letter to map to. This makes the recursion purely depth-driven: recurse until path.length equals digits.length, at which point path.join('') is a valid combination. No start index or used array is needed because each level consumes exactly one digit and all letters for that digit are valid choices. The phone map can be a hardcoded object or derived from a string 'abc', 'def', 'ghi', 'jkl', 'mno', 'pqrs', 'tuv', 'wxyz' indexed from '2'-'9'.",
+      "analogy": "Letter Combinations is like a multi-round game show where each round you spin a wheel. Round 1's wheel has the letters on button 2. Round 2's wheel has the letters on button 3. You write down one letter from each round in sequence. Every possible combination of spins produces one valid combination. The backtracking tries every spin result systematically and records every complete sequence.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// LETTER COMBINATIONS OF A PHONE NUMBER (#17)\n// O(4^n * n) time, O(n) space (call stack depth)\nfunction letterCombinations(digits) {\n    if (!digits.length) return []; // edge case: empty input\n\n    const phoneMap = {\n        '2': 'abc', '3': 'def', '4': 'ghi', '5': 'jkl',\n        '6': 'mno', '7': 'pqrs', '8': 'tuv', '9': 'wxyz'\n    };\n    const result = [];\n\n    function backtrack(index, path) {\n        if (index === digits.length) {\n            result.push(path.join('')); // or [...path] since path is array of chars\n            return;\n        }\n        for (const letter of phoneMap[digits[index]]) {\n            path.push(letter);                  // choose\n            backtrack(index + 1, path);          // explore: advance to next digit\n            path.pop();                          // unchoose\n        }\n    }\n    backtrack(0, []);\n    return result;\n}\n\nconsole.log(letterCombinations('23'));\n// ['ad','ae','af','bd','be','bf','cd','ce','cf']\nconsole.log(letterCombinations(''));   // []\nconsole.log(letterCombinations('2'));  // ['a','b','c']\n\n// ITERATIVE BFS ALTERNATIVE (not backtracking):\nfunction letterCombinations_iter(digits) {\n    if (!digits.length) return [];\n    const phoneMap = {'2':'abc','3':'def','4':'ghi','5':'jkl',\n                      '6':'mno','7':'pqrs','8':'tuv','9':'wxyz'};\n    let result = [''];\n    for (const digit of digits) {\n        const letters = phoneMap[digit];\n        const next = [];\n        for (const combo of result) {\n            for (const letter of letters) {\n                next.push(combo + letter);\n            }\n        }\n        result = next;\n    }\n    return result;\n}\n// Same output, O(4^n) space to store all intermediate combinations\n\n// NOTE: The backtracking solution uses O(n) space (call stack + path)\n// while the iterative solution uses O(4^n) space at peak\n// For small n (phone numbers <= 10 digits) both are practical",
+        "explanation": "The iterative BFS approach builds combinations layer by layer: start with [''], then for each digit, expand every existing partial combination with every letter for that digit. It is O(4^n) space because it stores all partial combinations at once. The backtracking approach is O(n) space (only the current path), making it strictly better for memory despite identical time complexity."
+      },
+      "common_mistakes": [
+        "Not handling the empty string edge case — if digits is empty or has length 0, return [] (not ['']); an empty digit string has no valid letter combinations, not one empty combination",
+        "Using index comparison incorrectly in the base case — the base case is when index equals digits.length (all digits processed); using index > digits.length could miss the last digit's combinations",
+        "Building the path as a string instead of an array and then using += — string concatenation in a loop is O(n²) because each += creates a new string; use an array and join at the end for O(n) path construction"
+      ],
+      "interview_relevance": "Letter Combinations of a Phone Number (#17) is NeetCode 150 and appears frequently at startups and mid-size companies. It is used specifically because the recursive structure is cleaner and more predictable than Subsets/Permutations, making it a good warm-up for candidates who are nervous. The iterative alternative is worth knowing as a follow-up: 'Can you solve this without recursion?'",
+      "mini_challenge": "Implement letterCombinations and verify it returns 9 combinations for '23' and 3 for '2'. Then implement a variant that returns combinations for digits that include '0' (which maps to ' ') and '1' (which maps to ''). Handle the edge cases: '0' adds a space to combinations, '1' is skipped. Finally, solve IP Addresses (LeetCode #93): restore all valid IP addresses from a string of digits. This is a similar depth-bounded backtracking where each level tries 1, 2, or 3 digit segments.",
+      "flashcards": [
+        {
+          "front": "Letter Combinations: what is the recursive depth?",
+          "back": "Exactly digits.length. Each recursive call processes ONE digit (at index = path.length). The recursion never goes deeper than the number of digits. No start index or used-array needed."
+        },
+        {
+          "front": "Letter Combinations: base case?",
+          "back": "index === digits.length. All digits have been processed. result.push(path.join('')) records the complete combination. Use join('') to convert the path array of chars to a string."
+        },
+        {
+          "front": "Letter Combinations: why is path an array of chars (not a string)?",
+          "back": "String += creates a new string O(n) each time — O(n²) total for n characters. Array push is O(1) amortized, join at the end is O(n). Array approach is strictly faster and allows path.pop() for backtracking (strings are immutable)."
+        },
+        {
+          "front": "Letter Combinations: empty input edge case?",
+          "back": "Return [] immediately if digits is empty or has length 0. An empty digit string has NO valid letter combinations (not one empty string). Without this guard, result.push('') adds [''] incorrectly."
+        },
+        {
+          "front": "Letter Combinations: BFS vs backtracking — space comparison?",
+          "back": "Backtracking: O(n) space (current path + call stack depth n). BFS iterative: O(4^n) space — stores ALL partial combinations at once (grows layer by layer). For n digits, backtracking is strictly better on memory."
+        },
+        {
+          "front": "Letter Combinations: time complexity?",
+          "back": "O(4^n × n). At most 4 letters per digit (7,8,9 have 4 letters), n digits deep. 4^n combinations, each of length n to join/copy. Note: digits 7 and 9 have 4 letters; others have 3."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "letterCombinations('23'): how many results?",
+          "options": [
+            "6",
+            "8",
+            "9",
+            "12"
+          ],
+          "answer": 2,
+          "explanation": "'2'→abc (3 letters), '3'→def (3 letters). 3×3=9 combinations. Each digit contributes a factor: abc × def = {ad,ae,af,bd,be,bf,cd,ce,cf}."
+        },
+        {
+          "question": "letterCombinations(''): what should be returned?",
+          "options": [
+            "['']",
+            "[]",
+            "undefined",
+            "throws error"
+          ],
+          "answer": 1,
+          "explanation": "Empty digits → no valid combinations → return []. NOT [''] (one empty string). The guard if (!digits.length) return [] handles this before any recursion."
+        },
+        {
+          "question": "At index=1 processing digit '3' for path=['a'], which letters are tried?",
+          "options": [
+            "a,b,c (digit '2' again)",
+            "d,e,f (digit '3')",
+            "depends on path length",
+            "g,h,i"
+          ],
+          "answer": 1,
+          "explanation": "digits[index]=digits[1]='3'. phoneMap['3']='def'. The loop tries 'd', 'e', 'f'. Each is pushed to path, recurse with index+1=2 (=digits.length → record), then popped."
+        },
+        {
+          "question": "Why is backtrack(index+1, path) correct — why not backtrack(index, path) (like Combination Sum I)?",
+          "options": [
+            "To prevent reusing the same digit",
+            "Each level maps to a DIFFERENT digit (index advances with depth). Staying at index would re-process the same digit forever.",
+            "For performance",
+            "No difference"
+          ],
+          "answer": 1,
+          "explanation": "Unlike Combination Sum I where elements are freely chosen from a pool, here each digit in the INPUT determines what's available at that level. Depth=index: must process digits[index], then advance to digits[index+1]. Never stay at the same index."
+        }
+      ],
+      "visual_aid": {
+        "type": "recursive_tree",
+        "description": "Letter Combinations '23' recursive tree",
+        "diagram": "letterCombinations('23'):\n  phoneMap: '2'→'abc', '3'→'def'\n\nDepth 0 (index=0, digit='2'):\n  Try 'a': path=['a']\n    Depth 1 (index=1, digit='3'):\n      Try 'd': path=['a','d'] → index=2=len → RECORD 'ad'\n      Try 'e': path=['a','e'] → RECORD 'ae'\n      Try 'f': path=['a','f'] → RECORD 'af'\n  Try 'b': path=['b']\n    → RECORD 'bd', 'be', 'bf'\n  Try 'c': path=['c']\n    → RECORD 'cd', 'ce', 'cf'\n\n9 results: ['ad','ae','af','bd','be','bf','cd','ce','cf'] ✓\n\nKEY INSIGHT: No start index, no used-array.\n  index advances with recursion depth.\n  digits[index] determines available letters at each depth."
+      },
+      "complexity_summary": {
+        "time": "O(4^n × n) — 4^n combinations (worst case 4 letters/digit), n to join",
+        "space_backtracking": "O(n) path + O(n) call stack = O(n)",
+        "space_bfs": "O(4^n) — stores all partial combos simultaneously",
+        "edge_case": "Empty input → return [] (not [''])"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-17",
+          "title": "Letter Combinations of a Phone Number",
+          "difficulty": "Medium",
+          "pattern": "Depth-bounded backtracking — index=digit position",
+          "blind75": true
+        },
+        {
+          "id": "lc-93",
+          "title": "Restore IP Addresses",
+          "difficulty": "Medium",
+          "pattern": "Depth-bounded backtracking — 4 levels, 1-3 digit segments"
+        },
+        {
+          "id": "lc-784",
+          "title": "Letter Case Permutation",
+          "difficulty": "Medium",
+          "pattern": "Backtracking — toggle case at each char"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M4-L5-TH-1",
+            "question": "In Letter Combinations, what replaces the `start` index or `used` array used in other backtracking problems?",
+            "options": [
+              "A set tracking previously chosen letters",
+              "The RECURSION DEPTH `index` replaces both the start index and used array: each level of recursion corresponds to EXACTLY ONE DIGIT in the input, and at that level, ALL LETTERS for that digit are tried (no skipping needed since different digits map to disjoint letter sets); `index` advances by exactly 1 each level (index+1), naturally consuming the input left to right without any revisiting or deduplication concerns",
+              "A sorted copy of the digit string",
+              "A hash map tracking the current combination length"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concepts: 'Recursive depth: one level per digit in the input' and 'At each level: try all letters mapped to the current digit' and 'No start index or used array: each level maps to exactly one digit' — the phone mapping structure is inherently conflict-free (each digit maps to distinct letters), so no used tracking is needed; depth naturally advances through the input."
+          },
+          {
+            "id": "L2M4-L5-TH-2",
+            "question": "What is the TIME COMPLEXITY of Letter Combinations, and why is it `O(4^n * n)` rather than `O(3^n * n)`?",
+            "options": [
+              "The complexity is O(3^n) since most digits map to 3 letters",
+              "The complexity is `O(4^n * n)` because digits '7' and '9' each map to 4 letters ('pqrs' and 'wxyz' respectively) — these contribute branching factor 4 rather than 3; using 4^n as the upper bound accounts for the worst case of all digits being '7' or '9'; the multiplicative n factor comes from copying each complete combination (length n) to the result array",
+              "The complexity is O(n!) since letters within each digit can be permuted",
+              "The complexity is O(26^n) since any letter could appear at any position"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'O(4^n * n) time: at most 4 letters per digit, n digits deep' — the 4 comes from the maximum branching factor (digits 7 and 9 with 4 letters); using 3^n would undercount; the n multiplier accounts for the O(n) string copy when pushing to result."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M4-L5-LG-1",
+            "question": "For `letterCombinations('23')`, digit '2' maps to 'abc' and digit '3' maps to 'def'. How are the 9 combinations generated by the backtracking?",
+            "options": [
+              "All 9 are generated at once in a single recursive call",
+              "The backtracking generates combinations by exploring each letter of '2' as the first character, then for each, exploring all 3 letters of '3': index=0 tries 'a'→backtrack(1): index=1 tries 'd','e','f' → results 'ad','ae','af'; then 'b'→backtrack(1): 'bd','be','bf'; then 'c'→backtrack(1): 'cd','ce','cf'; 3 (letters of '2') × 3 (letters of '3') = 9 combinations — confirmed by direct execution returning exactly these 9 strings",
+              "The 9 combinations are generated using the iterative BFS approach in the lesson",
+              "index=0 generates all combinations for digit '2' before moving to digit '3'"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: letterCombinations('23') returns ['ad','ae','af','bd','be','bf','cd','ce','cf']; the DFS explores 'a' at depth 0 fully (generating 'ad','ae','af'), then 'b' fully ('bd','be','bf'), then 'c' ('cd','ce','cf'); 3*3=9 total, matching the 4^n bound (here 3^2=9 since neither digit has 4 letters)."
+          },
+          {
+            "id": "L2M4-L5-LG-2",
+            "question": "Compare the BACKTRACKING and ITERATIVE BFS approaches for Letter Combinations. Which uses more peak MEMORY and why?",
+            "options": [
+              "Backtracking uses more memory due to the call stack",
+              "The ITERATIVE BFS approach uses more peak memory: at each step, it builds a `next` array containing ALL INTERMEDIATE COMBINATIONS built so far (growing from 1 to up to 4^n entries); backtracking uses only O(n) memory for the call stack + current path; the iterative approach trades call stack depth for heap memory storing all intermediate strings; the lesson confirms: 'The backtracking solution uses O(n) space (call stack + path) while the iterative solution uses O(4^n) space at peak'",
+              "Both approaches use the same O(4^n) memory",
+              "BFS always uses less memory than DFS for the same problem"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's explicit comparison: 'The backtracking solution uses O(n) space (call stack + path) while the iterative solution uses O(4^n) space at peak' — iterative BFS maintains all intermediate combinations in memory simultaneously (growing to 4^n at peak), while backtracking only keeps the single current path + recursion depth."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M4-L5-SY-1",
+            "question": "In `letterCombinations`, the base case `result.push(path.join(''))` uses `join('')` rather than `[...path]`. What does this reveal about the choice of data structure for `path`?",
+            "options": [
+              "join('') is always faster than spreading; it's purely a performance choice",
+              "`path` is an array of INDIVIDUAL CHARACTERS (not substrings), and the final result should be a STRING (concatenation of all characters); `path.join('')` joins the character array into a single string without separator, producing the complete combination; alternatively, `[...path]` would produce an array of characters instead of a string; the choice of `path.join('')` reflects that Letter Combinations' output is strings, not arrays",
+              "join('') is used because path may contain undefined elements",
+              "The spread [...path] would cause type errors with character arrays"
+            ],
+            "answer": 1,
+            "explanation": "The path stores individual characters (strings of length 1); `path.join('')` concatenates them into the complete word-like string that Letter Combinations returns; this contrasts with subset/permutation problems where `[...path]` is used because the result is an array of numbers; the data type of the path elements and the expected output format together determine which collection method is appropriate."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M4-L5-CC-1",
+            "title": "Letter Combinations of a Phone Number",
+            "difficulty": "Intermediate",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both Letter Combinations approaches from this lesson.",
+            "requirements": [
+              "Implement `letterCombinationsImpl(digits)` matching the lesson's backtracking approach (index-depth, no start/used)",
+              "Implement `letterCombinationsIter(digits)` matching the lesson's iterative BFS approach"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function letterCombinationsImpl(digits) {\n  // TODO: phoneMap, backtrack(index, path), base case index===digits.length\n}\n\nfunction letterCombinationsIter(digits) {\n  // TODO: BFS-style, start with [''], extend each combo with each letter of next digit\n}"
+            },
+            "test_cases": [
+              {
+                "input": "letterCombinationsImpl('23').sort().toString()",
+                "expected": "ad,ae,af,bd,be,bf,cd,ce,cf",
+                "type": "visible"
+              },
+              {
+                "input": "letterCombinationsImpl('')",
+                "expected": [],
+                "type": "visible"
+              },
+              {
+                "input": "letterCombinationsIter('2').sort().toString()",
+                "expected": "a,b,c",
+                "type": "visible"
+              },
+              {
+                "input": "letterCombinationsImpl('9').length",
+                "expected": 4,
+                "type": "hidden"
+              },
+              {
+                "input": "letterCombinationsIter('23').sort().toString()",
+                "expected": "ad,ae,af,bd,be,bf,cd,ce,cf",
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function letterCombinationsImpl(digits) {\n  if (!digits.length) return [];\n  const pm = {'2':'abc','3':'def','4':'ghi','5':'jkl','6':'mno','7':'pqrs','8':'tuv','9':'wxyz'};\n  const result = [];\n  function backtrack(index, path) {\n    if (index === digits.length) { result.push(path.join('')); return; }\n    for (const letter of pm[digits[index]]) {\n      path.push(letter); backtrack(index+1, path); path.pop();\n    }\n  }\n  backtrack(0, []);\n  return result;\n}\n\nfunction letterCombinationsIter(digits) {\n  if (!digits.length) return [];\n  const pm = {'2':'abc','3':'def','4':'ghi','5':'jkl','6':'mno','7':'pqrs','8':'tuv','9':'wxyz'};\n  let result = [''];\n  for (const digit of digits) {\n    const next = [];\n    for (const combo of result)\n      for (const letter of pm[digit])\n        next.push(combo + letter);\n    result = next;\n  }\n  return result;\n}"
+            },
+            "complexity_analysis": "letterCombinationsImpl: O(4^n * n) time, O(n) space. letterCombinationsIter: O(4^n * n) time, O(4^n) peak space.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "letterCombinationsImpl: check empty digits edge case; backtrack(index,path): base case index===digits.length → push path.join(''); loop over pm[digits[index]]."
+              },
+              {
+                "level": 2,
+                "text": "letterCombinationsIter: start with result=['']; for each digit, build next by extending every existing combo with every letter of that digit."
+              },
+              {
+                "level": 3,
+                "text": "Both approaches handle the empty string edge case the same way: check digits.length===0 and return [] before any processing."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "lesson_number": 6,
+      "title": "Palindrome Partitioning",
+      "tag": "UPDATED",
+      "objective": "Solve Palindrome Partitioning by combining backtracking (enumerate all partitions) with a palindrome validity check (isPalindrome function), and optimise with a precomputed 2D palindrome table.",
+      "concepts": [
+        "Palindrome Partitioning: all ways to partition s into palindromic substrings",
+        "Backtracking: try all cut positions from current index to end",
+        "Check validity: is s[start..i] a palindrome before recursing",
+        "Prune: skip non-palindromic cuts immediately",
+        "Base case: start === s.length (entire string partitioned)",
+        "O(n * 2^n) time: 2^n partitions, each check O(n)",
+        "Optimisation: precompute 2D isPalin table in O(n^2) for O(1) checks",
+        "Path contains the palindromic substrings, not indices"
+      ],
+      "explanation": "Palindrome Partitioning (#131) asks for all ways to split a string so every substring is a palindrome. The backtracking: at each step, try every possible cut from the current start index to the end of the string. For each possible cut s[start..i], check if it is a palindrome. If yes, add it to the path and recurse from i+1. If no, skip it (prune). When start reaches the end of the string, the current path is a complete valid partition. The palindrome check can be an O(n) function (check left/right pointers) or a precomputed O(n²) table where dp[i][j] = true if s[i..j] is a palindrome. The 2D table reduces each validity check from O(n) to O(1), which is significant when n is large. The table can be built using the same expand-around-centre approach from Module 1 Lesson 6 or using 2D DP (same as Longest Palindromic Substring).",
+      "analogy": "Palindrome Partitioning is like cutting a ribbon into pieces where every piece must be a palindrome. You try every possible first cut (from length 1 to the full ribbon). If the first piece is a palindrome, you keep that piece and recursively try all valid cuts for the remaining ribbon. If the first piece is not a palindrome, you skip that cut and try the next length. When the ribbon is fully cut into palindromes, you record that partition.",
+      "code_example": {
+        "language": "javascript",
+        "code": "// PALINDROME PARTITIONING (#131)\n// O(n * 2^n) time without precomputation, O(n^2 * 2^n) with n-len palindrome checks\nfunction partition(s) {\n    const result = [];\n\n    // Palindrome check: O(n) per call\n    function isPalin(str, l, r) {\n        while (l < r) {\n            if (str[l] !== str[r]) return false;\n            l++; r--;\n        }\n        return true;\n    }\n\n    function backtrack(start, path) {\n        if (start === s.length) {\n            result.push([...path]); // complete partition\n            return;\n        }\n        for (let end = start; end < s.length; end++) {\n            if (isPalin(s, start, end)) {     // only recurse if palindrome\n                path.push(s.slice(start, end + 1)); // add palindrome substring\n                backtrack(end + 1, path);            // explore from end+1\n                path.pop();                          // unchoose\n            }\n        }\n    }\n    backtrack(0, []);\n    return result;\n}\n\nconsole.log(partition('aab'));\n// [['a','a','b'], ['aa','b']]\n\n// OPTIMISED: precompute palindrome table O(n^2) space and time\nfunction partition_opt(s) {\n    const n = s.length;\n    // dp[i][j] = true if s[i..j] is a palindrome\n    const dp = Array.from({length: n}, () => new Array(n).fill(false));\n    // Fill by increasing length (same as Module 1 Lesson 6)\n    for (let i = 0; i < n; i++) dp[i][i] = true; // single chars\n    for (let i = 0; i < n-1; i++) dp[i][i+1] = s[i] === s[i+1]; // pairs\n    for (let len = 3; len <= n; len++) {\n        for (let i = 0; i <= n-len; i++) {\n            const j = i + len - 1;\n            dp[i][j] = s[i] === s[j] && dp[i+1][j-1];\n        }\n    }\n\n    const result = [];\n    function backtrack(start, path) {\n        if (start === n) { result.push([...path]); return; }\n        for (let end = start; end < n; end++) {\n            if (dp[start][end]) {           // O(1) lookup\n                path.push(s.slice(start, end + 1));\n                backtrack(end + 1, path);\n                path.pop();\n            }\n        }\n    }\n    backtrack(0, []);\n    return result;\n}\nconsole.log(partition_opt('aab')); // same output",
+        "explanation": "The precomputed dp table changes each palindrome check from O(length-of-substring) to O(1). For a string of length n, this reduces the total palindrome checking work from O(n) * O(2^n cuts) = O(n * 2^n) checks to O(1) * O(2^n cuts) = O(2^n) checks, after the O(n²) precomputation. For large n, this is a meaningful optimisation."
+      },
+      "common_mistakes": [
+        "Adding non-palindromic substrings to the path without checking — the isPalin check is the pruning condition; skipping it generates all partitions, not just palindromic ones",
+        "Using path.push(s[start]) (single character) instead of path.push(s.slice(start, end+1)) — the path should store the actual substring, not a single character; single characters are always palindromes but longer substrings must be pushed as whole strings",
+        "Not handling the base case when start reaches s.length — the base case is when the entire string has been partitioned; if start < s.length, there are still characters to process"
+      ],
+      "interview_relevance": "Palindrome Partitioning (#131) is Blind 75 and NeetCode 150. It combines two patterns that candidates often study separately (palindrome checking from Module 1 and backtracking from this module). The precomputed table optimisation is specifically asked: 'Can you reduce the palindrome checking overhead?' The answer (O(n²) DP table for O(1) lookups) demonstrates advanced DP + backtracking combination.",
+      "mini_challenge": "Implement partition and verify it returns [['a','a','b'],['aa','b']] for 'aab'. Implement partition_opt with the precomputed table and verify the same output. Then measure: how many total isPalin calls does the naive version make vs how many dp lookups does the optimised version make for s='aabbaa'? Then solve Palindrome Partitioning II (LeetCode #132): find the minimum number of cuts to partition s into all palindromes. This is a DP problem (not backtracking), showing how the same palindrome table is reused in a DP solution.",
+      "flashcards": [
+        {
+          "front": "Palindrome Partitioning: what does the backtracking loop try?",
+          "back": "All possible END positions (end from start to n-1) for the CURRENT substring. For each end, check if s[start..end] is a palindrome. If yes, add it to path and recurse from end+1."
+        },
+        {
+          "front": "Palindrome Partitioning: base case?",
+          "back": "start === s.length. The entire string has been partitioned. Add [...path] to result. This means ALL characters from 0 to s.length-1 are covered by palindromes in path."
+        },
+        {
+          "front": "Palindrome Partitioning: isPalin vs precomputed table — when to use each?",
+          "back": "isPalin O(n) per call: simpler, acceptable for short strings. Precomputed 2D table O(n²) time O(n²) space: reduces each check to O(1), better for long strings. Interview: start with isPalin, then offer the precomputed optimisation."
+        },
+        {
+          "front": "Palindrome Partitioning: what is stored in path?",
+          "back": "The SUBSTRINGS (not indices). path.push(s.slice(start, end+1)). When recording a result, each entry in result is an array of palindromic substring strings."
+        },
+        {
+          "front": "Palindrome Partitioning II (#132): how does it differ?",
+          "back": "#131 (backtracking): return ALL valid partitions. #132 (DP): return MINIMUM number of cuts. Different goals → different algorithms. Both use the palindrome table, but #132 uses 1D DP on cut counts, not backtracking."
+        },
+        {
+          "front": "Palindrome Partitioning: 2D palindrome table fill order?",
+          "back": "Single chars (all true). Adjacent pairs (true if equal). Then by INCREASING length: for len 3 to n: dp[i][j] = s[i]==s[j] && dp[i+1][j-1]. Must fill shorter strings before longer to use dp[i+1][j-1]."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "partition('aab'): how many valid partitions?",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "answer": 1,
+          "explanation": "[['a','a','b']] (each char alone) and [['aa','b']] (aa is palindrome). 2 partitions. 'aab' itself is not a palindrome, 'ab' is not, 'a' and 'aa' are, 'b' is."
+        },
+        {
+          "question": "partition('a'): result?",
+          "options": [
+            "[]",
+            "['a']",
+            "[['a']]",
+            "[['a','a']]"
+          ],
+          "answer": 2,
+          "explanation": "Single character 'a' is a palindrome. One partition: [['a']]. result contains one array which contains one string."
+        },
+        {
+          "question": "For partition('aab'), at start=0, end=1: s[0..1]='aa'. Is isPalin('aab',0,1) true?",
+          "options": [
+            "Yes — 'aa' is a palindrome",
+            "No — not odd length",
+            "Depends on implementation",
+            "No — needs all characters"
+          ],
+          "answer": 0,
+          "explanation": "isPalin checks left/right pointers: l=0,r=1. s[0]='a'=s[1]='a' → match. l++ > r, exit. Return true. 'aa' is a palindrome."
+        },
+        {
+          "question": "The precomputed 2D dp table reduces palindrome checks from O(?) to O(1)?",
+          "options": [
+            "O(n²) each",
+            "O(n) each",
+            "O(log n) each",
+            "O(1) even without precomputation"
+          ],
+          "answer": 1,
+          "explanation": "Without precomputation: isPalin(s, l, r) scans from l to r → O(r-l+1) = O(n) worst case. With precomputed dp[i][j]: single array lookup → O(1). Precomputation cost: O(n²) once."
+        }
+      ],
+      "visual_aid": {
+        "type": "backtrack_with_check",
+        "description": "Palindrome Partitioning backtracking tree for 'aab'",
+        "diagram": "partition('aab'):\n\nbacktrack(start=0, path=[]):\n  end=0: s[0..0]='a' → isPalin? YES\n    path=['a'], backtrack(start=1):\n      end=1: s[1..1]='a' → isPalin? YES\n        path=['a','a'], backtrack(start=2):\n          end=2: s[2..2]='b' → isPalin? YES\n            path=['a','a','b'], backtrack(start=3):\n              start=3=s.length → RECORD ['a','a','b'] ✓\n            pop 'b'\n          pop 'a'\n        end=2: s[1..2]='ab' → isPalin? NO → skip\n      pop 'a'\n    end=1: s[0..1]='aa' → isPalin? YES\n      path=['aa'], backtrack(start=2):\n        end=2: s[2..2]='b' → isPalin? YES\n          path=['aa','b'], backtrack(start=3):\n            RECORD ['aa','b'] ✓\n          pop 'b'\n        pop 'aa'\n    end=2: s[0..2]='aab' → isPalin? NO → skip\n\nResult: [['a','a','b'], ['aa','b']] ✓"
+      },
+      "complexity_summary": {
+        "time_with_isPalin": "O(n × 2^n) — 2^n partitions, O(n) palindrome check each",
+        "time_with_precomputed": "O(n² + 2^n) — O(n²) precompute + O(1) checks",
+        "space": "O(n²) for precomputed table + O(n) call stack",
+        "connection": "Palindrome table from M01-L6 reused here + in Palindrome Partitioning II (#132)"
+      },
+      "practice_problems": [
+        {
+          "id": "lc-131",
+          "title": "Palindrome Partitioning",
+          "difficulty": "Medium",
+          "pattern": "Backtracking + isPalin check + optional 2D table optimisation",
+          "blind75": true
+        },
+        {
+          "id": "lc-132",
+          "title": "Palindrome Partitioning II",
+          "difficulty": "Hard",
+          "pattern": "1D DP on cut count — not backtracking"
+        },
+        {
+          "id": "lc-698",
+          "title": "Partition to K Equal Sum Subsets",
+          "difficulty": "Medium",
+          "pattern": "Backtracking with state array"
+        }
+      ],
+      "practice_assessment": {
+        "theory_mcq": [
+          {
+            "id": "L2M4-L6-TH-1",
+            "question": "In Palindrome Partitioning, how does the algorithm decide which CUT POSITIONS to try, and what makes a cut VALID before recursing?",
+            "options": [
+              "All cut positions are always tried regardless of validity",
+              "The algorithm tries ALL possible `end` positions from `start` to `s.length-1`; a cut at `end` is VALID only if `s[start..end]` is a PALINDROME; only valid cuts trigger recursion (the substring is added to path and backtrack(end+1, path) is called); invalid cuts (non-palindromic substrings) are PRUNED immediately by the `if (isPalin(s, start, end))` check — this is the problem-specific pruning condition",
+              "Only cuts of even length are tried since only even-length palindromes matter",
+              "Cuts are validated after recursion, not before"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Check validity: is s[start..i] a palindrome before recursing. Prune: skip non-palindromic cuts immediately' — the palindrome check is the pruning condition specific to this problem; without it, all 2^n-1 possible partitions would be explored; with it, only partitions where every segment is a palindrome are explored."
+          },
+          {
+            "id": "L2M4-L6-TH-2",
+            "question": "How does precomputing the 2D palindrome table `dp[i][j]` OPTIMISE Palindrome Partitioning, and what is the trade-off?",
+            "options": [
+              "Precomputation reduces the number of partitions that are explored",
+              "The precomputed table enables O(1) palindrome LOOKUP instead of O(n) per-call checking: without precomputation, `isPalin(s, start, end)` costs O(n) for each of the O(n*2^n) backtracking calls; with the dp table, each check is O(1) (direct index lookup); the TRADE-OFF is O(n²) preprocessing time and O(n²) space for the table vs O(1) space (but O(n) per check) without it; for strings where many partitions are valid, the precomputation amortizes well",
+              "Precomputation reduces the number of partitions from O(2^n) to O(n²)",
+              "Precomputation is always worse due to the O(n²) setup cost"
+            ],
+            "answer": 1,
+            "explanation": "Matching the lesson's concept: 'Optimisation: precompute 2D isPalin table in O(n^2) for O(1) checks' — the palindrome validity check is called at every (start, end) pair in the backtracking; replacing O(n) per check with O(1) lookup reduces the overall algorithm from O(n²*2^n) to O(n*2^n); the n² space and time precomputation cost is acceptable as a one-time setup."
+          }
+        ],
+        "logic_mcq": [
+          {
+            "id": "L2M4-L6-LG-1",
+            "question": "For `partition('aab')`, the answer is `[['a','a','b'], ['aa','b']]`. Trace how the algorithm finds `['aa','b']`.",
+            "options": [
+              "['aa','b'] is found first because 'aa' is checked before 'a'",
+              "Backtracking from start=0: first tries end=0 ('a' is palindrome→add, recurse start=1); at start=1: tries end=1 ('a' palindrome→add, recurse start=2); at start=2: tries end=2 ('b' palindrome→add, recurse start=3=s.length→push ['a','a','b']); back to start=1: tries end=2 ('ab' not palindrome→skip); back to start=0: tries end=1 ('aa' IS palindrome→add, recurse start=2); at start=2: 'b' palindrome→push ['aa','b'] — confirmed by direct execution",
+              "['aa','b'] cannot be found because 'aa' spans two positions and is skipped",
+              "['aa','b'] is found by the iterative BFS approach, not the recursive one"
+            ],
+            "answer": 1,
+            "explanation": "Confirmed by direct execution: partition('aab') returns [['a','a','b'],['aa','b']]; DFS explores end=0 first (generating all single-'a' prefixed paths), then end=1 (the 'aa' palindrome prefix); when end=1 is found to be palindromic, the remaining 'b' is trivially palindromic, producing the second partition."
+          },
+          {
+            "id": "L2M4-L6-LG-2",
+            "question": "In the optimised version's dp table for 'aab', what are dp[0][0], dp[0][1], dp[0][2]?",
+            "options": [
+              "dp[0][0]=true, dp[0][1]=true, dp[0][2]=false — confirmed by: dp[0][0]='a' is palindrome (single char); dp[0][1]: s[0]='a'==s[1]='a' (adjacent equal chars pair); dp[0][2]: s[0]='a'!=s[2]='b' (outer chars differ → false)",
+              "dp[0][0]=false, dp[0][1]=true, dp[0][2]=true",
+              "All are true because 'a' appears in all positions",
+              "dp[0][0]=true, dp[0][1]=false, dp[0][2]=false"
+            ],
+            "answer": 0,
+            "explanation": "Using the 2D palindrome DP: dp[i][i]=true (all single chars); dp[i][i+1]=s[i]===s[i+1] (pairs); dp[i][j]=s[i]===s[j]&&dp[i+1][j-1] (longer); for 'aab': dp[0][0]=true ('a'); dp[0][1]=s[0]='a'===s[1]='a'→true ('aa'); dp[0][2]=s[0]='a'!==s[2]='b'→false ('aab' not palindrome) — these values enable O(1) validity checks in the backtracking."
+          }
+        ],
+        "syntax_mcq": [
+          {
+            "id": "L2M4-L6-SY-1",
+            "question": "In `partition`, `path.push(s.slice(start, end + 1))` pushes a SUBSTRING (not a character or index). What does this mean for the `unchoose` step?",
+            "options": [
+              "The unchoose step must call s.slice again to reconstruct what was pushed",
+              "The `path.pop()` in the unchoose step simply REMOVES the substring that was pushed — JavaScript's Array.pop() removes the LAST ELEMENT regardless of its type; whether the path contains numbers (like in combination sum), characters (like in letter combinations), or substrings (like here), `path.pop()` correctly reverts the push; the substring itself doesn't need to be 'unparsed' or 'returned' to any structure since it was created as a new string value",
+              "pop() doesn't work with strings; a different unchoose mechanism is needed",
+              "The path must store indices instead of substrings to enable pop()"
+            ],
+            "answer": 1,
+            "explanation": "The backtracking template's `path.push` and `path.pop` work with ANY JavaScript value type: numbers, characters, arrays, or strings; `push` appends to the end and `pop` removes from the end, regardless of the element type; the path in palindrome partitioning stores substrings rather than indices for clarity, but the choose/unchoose mechanism is identical to all other backtracking problems."
+          }
+        ],
+        "coding_challenges": [
+          {
+            "id": "L2M4-L6-CC-1",
+            "title": "Palindrome Partitioning: Basic and Optimised",
+            "difficulty": "Advanced",
+            "project_style": "freeCodeCamp-style applied mini-project",
+            "problem_statement": "Implement both Palindrome Partitioning variants from this lesson.",
+            "requirements": [
+              "Implement `partitionImpl(s)` matching the lesson's basic backtracking with O(n) palindrome checks",
+              "Implement `partitionOpt(s)` matching the lesson's optimised version with precomputed 2D palindrome table"
+            ],
+            "starter_code": {
+              "language": "javascript",
+              "code": "function partitionImpl(s) {\n  // TODO: isPalin helper, backtrack with palindrome check before recursing\n}\n\nfunction partitionOpt(s) {\n  // TODO: precompute dp[i][j] palindrome table, then backtrack with O(1) lookup\n}"
+            },
+            "test_cases": [
+              {
+                "input": "partitionImpl('aab').map(p=>p.join()).sort().toString()",
+                "expected": "a,a,b,aa,b",
+                "type": "visible"
+              },
+              {
+                "input": "partitionOpt('aab').length",
+                "expected": 2,
+                "type": "visible"
+              },
+              {
+                "input": "partitionImpl('a').length",
+                "expected": 1,
+                "type": "visible"
+              },
+              {
+                "input": "partitionOpt('aba').length",
+                "expected": 2,
+                "type": "hidden"
+              },
+              {
+                "input": "partitionImpl('aaa').length",
+                "expected": 4,
+                "type": "hidden"
+              }
+            ],
+            "solution": {
+              "language": "javascript",
+              "code": "function partitionImpl(s) {\n  const result = [];\n  function isPalin(l, r) {\n    while (l < r) { if (s[l] !== s[r]) return false; l++; r--; }\n    return true;\n  }\n  function backtrack(start, path) {\n    if (start === s.length) { result.push([...path]); return; }\n    for (let end = start; end < s.length; end++) {\n      if (isPalin(start, end)) {\n        path.push(s.slice(start, end+1));\n        backtrack(end+1, path);\n        path.pop();\n      }\n    }\n  }\n  backtrack(0, []);\n  return result;\n}\n\nfunction partitionOpt(s) {\n  const n = s.length;\n  const dp = Array.from({length:n},()=>new Array(n).fill(false));\n  for (let i = 0; i < n; i++) dp[i][i] = true;\n  for (let i = 0; i < n-1; i++) dp[i][i+1] = s[i] === s[i+1];\n  for (let len = 3; len <= n; len++)\n    for (let i = 0; i <= n-len; i++) {\n      const j = i + len - 1;\n      dp[i][j] = s[i] === s[j] && dp[i+1][j-1];\n    }\n  const result = [];\n  function backtrack(start, path) {\n    if (start === n) { result.push([...path]); return; }\n    for (let end = start; end < n; end++) {\n      if (dp[start][end]) {\n        path.push(s.slice(start, end+1));\n        backtrack(end+1, path);\n        path.pop();\n      }\n    }\n  }\n  backtrack(0, []);\n  return result;\n}"
+            },
+            "complexity_analysis": "partitionImpl: O(n * 2^n) time, O(n) space. partitionOpt: O(n² + n*2^n) time, O(n²) space for dp table.",
+            "hints": [
+              {
+                "level": 1,
+                "text": "partitionImpl: for each end from start to s.length-1, check isPalin(start,end) before adding to path and recursing with backtrack(end+1,path)."
+              },
+              {
+                "level": 2,
+                "text": "partitionOpt: build dp table (single chars, pairs, then length-3+ by expansion); then backtrack with dp[start][end] as O(1) check."
+              },
+              {
+                "level": 3,
+                "text": "Both use the same backtracking structure; the only difference is the palindrome check: O(n) per call (isPalin function) vs O(1) (dp table lookup)."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "module_summary": {
+    "total_lessons": 6,
+    "level": "L2",
+    "blind75_problems_unlocked": 9,
+    "neetcode150_additional": 4,
+    "core_patterns": [
+      "Choose-explore-unchoose template: the three mandatory steps of every backtracking function",
+      "ALWAYS push [...path] not path — path is mutable; push a copy when recording solutions",
+      "Start index (subsets/combinations): prevents backward choices, ensures each combo generated once",
+      "Used-array (permutations): allows any unused element at any position, reset after recursion",
+      "Dedup for duplicates: SORT first + skip when i>start AND nums[i]==nums[i-1]",
+      "Permutation dedup: sort + skip when i>0 AND nums[i]==nums[i-1] AND !used[i-1]",
+      "Reuse vs one-use: recurse with i (reuse) vs i+1 (one-use) in Combination Sum",
+      "Pruning: break when candidates[i]>remaining (sorted array); saves entire subtree",
+      "Depth-bounded backtracking: index as depth (Letter Combinations — one digit per level)",
+      "Backtracking + DP table: precompute palindrome validity, use O(1) in backtracking"
+    ],
+    "prerequisite_modules": [
+      "L1-M05",
+      "L1-M07",
+      "L2-M01"
+    ],
+    "unlocks_modules": [
+      "L2-M05 (Backtracking Hard Patterns — N-Queens, Sudoku, Word Search)"
+    ],
+    "recommended_problem_order": [
+      "lc-78",
+      "lc-90",
+      "lc-46",
+      "lc-47",
+      "lc-39",
+      "lc-40",
+      "lc-17",
+      "lc-131"
+    ],
+    "spaced_review_target": "Re-solve 3 DP problems from Modules 1–3 before Module 5",
+    "module_difficulty": "Medium — backtracking structure is learnable from a template; the hard part is deduplication conditions (i>start vs i>0, !used[i-1] in permutations). Budget extra time for Subsets II and Permutations II.",
+    "honest_time_estimate": "12-14 hours. Framework (L1): 1 hr. Subsets I+II (L2): 2 hrs. Permutations I+II (L3): 2.5 hrs. Combination Sum I+II (L4): 2.5 hrs. Letter Combos (L5): 1.5 hrs. Palindrome Partitioning (L6): 2.5 hrs.",
+    "critical_implementation_rules": [
+      "result.push([...path]) — ALWAYS copy, never push reference",
+      "path.pop() AND used[i]=false — BOTH parts of unchoose for permutations",
+      "i > start (not i > 0) for subset/combination dedup",
+      "!used[i-1] (not used[i-1]) for permutation dedup"
+    ]
+  },
+  "assessment_type": "module_practice_assessment",
+  "assessment_style": "freeCodeCamp-style: progressive MCQ checkpoints (theory, logic, syntax) per lesson, each lesson capped by an applied coding challenge",
+  "assessment_summary": {
+    "total_lessons_covered": 6,
+    "question_type_totals": {
+      "theory_mcq": 12,
+      "logic_mcq": 12,
+      "syntax_mcq": 6,
+      "total_mcq": 30,
+      "coding_challenges": 6
+    },
+    "grand_total_items": 36,
+    "difficulty_spread": {
+      "beginner_intermediate": "Lesson 1 (backtracking template, choose/explore/unchoose, [...path] copy)",
+      "intermediate": "Lessons 2-4 (subsets I/II with deduplication, permutations I/II with !used[i-1], combination sum I/II/III with i vs i+1 and break pruning)",
+      "advanced": "Lessons 5-6 (letter combinations with index-depth, palindrome partitioning with isPalin check and 2D dp table optimisation)"
+    },
+    "passing_criteria_suggestion": "80% on MCQ sections + all visible test cases passing on coding challenges, with hidden test cases used for final validation"
+  }
+}

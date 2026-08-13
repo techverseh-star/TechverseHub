@@ -3,16 +3,19 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PageSpinner } from "@/components/ui/page-spinner";
 import {
   ArrowLeft, Play, Bug, Lightbulb, RotateCcw, Copy, Check,
   Clock, ChevronRight, ChevronDown, Loader2, Sparkles, Code2
 } from "lucide-react";
-import Editor from "@monaco-editor/react";
-import { supabase } from "@/lib/supabase";
+
+const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 import { getProjectById, Project } from "@/lib/api";
+import { useAuth } from "@/components/AuthProvider";
 
 const getLanguageForMonaco = (lang: string) => {
   const map: Record<string, string> = {
@@ -32,7 +35,7 @@ export default function ProjectDetailPage() {
   const projectId = params.id as string;
 
   const [project, setProject] = useState<Project | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const { user, session, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [code, setCode] = useState("");
   const [output, setOutput] = useState("");
@@ -45,15 +48,14 @@ export default function ProjectDetailPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.push("/auth/login");
+      return;
+    }
+
     async function loadData() {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/auth/login");
-        return;
-      }
-      setUser(user);
-
       const projectData = await getProjectById(projectId);
       if (projectData) {
         setProject(projectData);
@@ -62,7 +64,7 @@ export default function ProjectDetailPage() {
       setLoading(false);
     }
     loadData();
-  }, [router, projectId]);
+  }, [authLoading, user, router, projectId]);
 
   const runCode = async () => {
     if (!project) return;
@@ -72,7 +74,10 @@ export default function ProjectDetailPage() {
     try {
       const response = await fetch("/api/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           code,
           language: project.language
@@ -96,7 +101,10 @@ export default function ProjectDetailPage() {
     try {
       const response = await fetch("/api/ai/groq", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           task: "code_debug",
           code,
@@ -123,7 +131,10 @@ export default function ProjectDetailPage() {
     try {
       const response = await fetch("/api/ai/groq", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           task: "practice_hint",
           code,
@@ -168,9 +179,7 @@ export default function ProjectDetailPage() {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="flex items-center justify-center min-h-[80vh]">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        </div>
+        <PageSpinner label="Loading project..." size="full" />
       </div>
     );
   }
@@ -182,12 +191,10 @@ export default function ProjectDetailPage() {
         <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
           <h1 className="text-2xl font-bold mb-4">Project Not Found</h1>
           <p className="text-muted-foreground mb-8">The project you are looking for does not exist or has been removed.</p>
-          <Link href="/projects">
-            <Button>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Projects
-            </Button>
-          </Link>
+          <Button onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Projects
+          </Button>
         </div>
       </div>
     );
@@ -200,12 +207,10 @@ export default function ProjectDetailPage() {
       <div className="border-b border-border bg-card/50 px-4 py-3">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/projects">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-            </Link>
+            <Button onClick={() => router.back()} variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
             <div>
               <h1 className="font-semibold">{project.title}</h1>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">

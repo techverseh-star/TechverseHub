@@ -1,0 +1,863 @@
+{
+  "levelId": "level-3",
+  "moduleId": "module-37",
+  "title": "Software Architecture Patterns And Engineering Design",
+  "shortTitle": "Architecture Patterns And Design",
+  "difficulty": "advanced",
+  "estimatedDuration": "18-22 hours",
+  "xpReward": 1800,
+  "description": "Name and systematize the architectural patterns this curriculum has already built in practice. Module 18's Controller/Service/Repository is layered architecture. Module 28's domain events is the event sourcing data model. Module 35's read/write split is CQRS. Module 27's microservices boundary question is answered by Domain-Driven Design's bounded contexts. This module gives the vocabulary and formal articulation to structural decisions already embedded in this curriculum, then extends to the specific patterns Level 3's distributed system complexity introduces: CQRS and event sourcing as deliberate architectural choices, REST/GraphQL/gRPC as API design tradeoffs, and Architecture Decision Records as the formal practice of making architecture choices durably visible and traceable.",
+  "moduleGoal": {
+    "primary": "Recognize the formal names of architectural patterns already built in prior modules, and understand how each pattern's formal vocabulary enables more precise reasoning about architectural tradeoffs.",
+    "secondary": "Apply Domain-Driven Design's bounded contexts to Module 27's microservices boundary question, choose between REST/GraphQL/gRPC based on specific API usage patterns, and maintain Architecture Decision Records as the formal practice of evidence-grounded, durable architectural decision-making.",
+    "outcomeStatement": "By the end of this module, you will be able to name and apply the architectural patterns this curriculum has embedded in practice, articulate why each pattern exists and what problem it solves, reason about API design tradeoffs based on specific client usage patterns, and maintain ADRs as the organizational complement to every evidence-based architectural decision."
+  },
+  "prerequisites": [
+    "module-1",
+    "module-2",
+    "module-3",
+    "module-4",
+    "module-5",
+    "module-6",
+    "module-7",
+    "module-8",
+    "module-9",
+    "module-10",
+    "module-11",
+    "module-12",
+    "module-13",
+    "module-14",
+    "module-15",
+    "module-16",
+    "module-17",
+    "module-18",
+    "module-19",
+    "module-20",
+    "module-21",
+    "module-22",
+    "module-23",
+    "module-24",
+    "module-25",
+    "module-26",
+    "module-27",
+    "module-28",
+    "module-29",
+    "module-30",
+    "module-31",
+    "module-32",
+    "module-33",
+    "module-34",
+    "module-35",
+    "module-36"
+  ],
+  "skillsUnlocked": [
+    "Layered And Hexagonal Architecture",
+    "Domain-Driven Design",
+    "CQRS And Event Sourcing",
+    "API Design Pattern Selection",
+    "Architecture Decision Records",
+    "Production Architecture Review"
+  ],
+  "lessons": [
+    {
+      "lessonId": "lesson-1",
+      "order": 1,
+      "title": "Architecture Fundamentals",
+      "shortTitle": "Architecture Fundamentals",
+      "estimatedDuration": "75-95 minutes",
+      "xpReward": 140,
+      "nextLessonId": "lesson-2",
+      "prevLessonId": null,
+      "prerequisites": [],
+      "lessonGoal": "Recognize Module 18's Controller/Service/Repository pattern as layered architecture and understand how hexagonal architecture extends it, establishing the formal vocabulary for structural separation of concerns this curriculum has always applied.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "Naming What Module 18 Built: Layered Architecture",
+          "content": "Module 18 introduced the Controller/Service/Repository pattern with a specific, deliberate justification: each layer has a single responsibility, depends only on the layer below it, and can be tested in isolation. This exact structure is LAYERED ARCHITECTURE (also called N-TIER ARCHITECTURE in its classic form): a formal pattern organizing application code into horizontal layers where each layer has a distinct responsibility (HTTP handling, business logic, data access) and dependencies flow in one direction only (inward, toward the domain). Module 18 built this pattern correctly without naming it; this lesson names it and extends it to HEXAGONAL ARCHITECTURE (Ports and Adapters), which makes the dependency direction explicit and enables swapping any 'adapter' (a specific database, a specific HTTP framework, a specific message queue) without changing the domain logic."
+        },
+        {
+          "type": "mentalModel",
+          "title": "An Electrical Socket And Any Compatible Plug Versus A Hardwired Appliance",
+          "content": "Layered architecture is like a building's electrical system: the wiring (infrastructure), the sockets (adapter layer), and the appliances (domain logic) are distinct layers where the appliances don't know or care about the specific wiring technology used. Hexagonal architecture makes this explicit and intentional: the SOCKET (PORT) is a stable, technology-agnostic interface that any compliant plug (ADAPTER) can connect to. You can replace a two-pin European plug with a three-pin American plug (swap a PostgreSQL adapter for a MongoDB adapter) without rewiring the building (without changing domain logic). The key insight is that the appliance (domain logic) defines what interface the socket must provide (the port), not the other way around \u2014 the domain rules the infrastructure."
+        },
+        {
+          "type": "structure",
+          "title": "Module 18's Controller/Service/Repository Rewritten As Explicit Hexagonal Architecture",
+          "content": "The exact same Module 18 pattern, now with hexagonal\narchitecture's formal vocabulary made explicit:\n\n// PORT: a technology-agnostic interface that the domain defines\n// (the Repository interface Module 18 used is exactly this)\ninterface UserRepository {\n  findById(id: string): Promise<User | null>;\n  save(user: User): Promise<void>;\n}\n\n// DOMAIN (the innermost layer - depends on nothing external)\nclass UserService {\n  constructor(private userRepo: UserRepository) {}\n  // depends only on the PORT (the interface), not any adapter\n\n  async deactivateUser(userId: string): Promise<void> {\n    const user = await this.userRepo.findById(userId);\n    if (!user) throw new NotFoundError('User not found');\n    user.deactivate(); // pure domain logic - no database, no HTTP\n    await this.userRepo.save(user);\n  }\n}\n\n// ADAPTER (a specific technology plugging into the PORT)\nclass PostgresUserRepository implements UserRepository {\n  async findById(id: string): Promise<User | null> {\n    const row = await db.query('SELECT * FROM users WHERE id = $1', [id]);\n    return row ? mapRowToUser(row) : null;\n  }\n  async save(user: User): Promise<void> {\n    await db.query('UPDATE users SET ... WHERE id = $1', [user.id]);\n  }\n}\n// Module 18's pattern WAS hexagonal architecture -\n// this lesson just names and formalizes it"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why The Dependency Direction Rule Is The Single Most Important Property Of Layered Architecture",
+          "content": "This is the single most important structural property that distinguishes correctly-implemented layered architecture from merely-named layering: dependencies ALWAYS point inward, toward the domain, and NEVER outward. The domain (UserService) knows about the UserRepository PORT but NOT about PostgresUserRepository (the adapter). This asymmetry is what makes the adapter swappable: the domain defines what interface it needs (the port), and any adapter that implements that interface can be substituted. If UserService directly called `db.query()`, replacing the database would require changing UserService \u2014 the dependency would point outward toward infrastructure. This is exactly Module 18's own reasoning for why Controllers should not call database libraries directly \u2014 this lesson formalizes that reasoning as the hexagonal architecture principle."
+        },
+        {
+          "type": "codeLesson",
+          "title": "Demonstrating Adapter Substitution Without Domain Change",
+          "content": "This demonstrates hexagonal architecture's core value: swapping adapters without changing domain logic, directly extending Module 18's test isolation discipline:",
+          "code": "// TEST ADAPTER: an in-memory implementation for unit testing\n// (this is exactly what Module 18 called 'mocking the repository')\nclass InMemoryUserRepository implements UserRepository {\n  private users = new Map<string, User>();\n\n  async findById(id: string): Promise<User | null> {\n    return this.users.get(id) ?? null;\n  }\n\n  async save(user: User): Promise<void> {\n    this.users.set(user.id, user);\n  }\n}\n\n// PRODUCTION ADAPTER: PostgreSQL\nclass PostgresUserRepository implements UserRepository {\n  async findById(id: string): Promise<User | null> {\n    // ... database implementation ...\n  }\n  async save(user: User): Promise<void> {\n    // ... database implementation ...\n  }\n}\n\n// DOMAIN LOGIC IS IDENTICAL IN BOTH CASES:\nconst testRepo = new InMemoryUserRepository();\nconst testService = new UserService(testRepo);\n// ^ UserService's deactivateUser logic runs identically here\n\nconst prodRepo = new PostgresUserRepository();\nconst prodService = new UserService(prodRepo);\n// ^ and here - UserService doesn't know or care which adapter is used\n\n// This is why Module 18's Repository pattern enabled fast tests:\n// not by magic, but because the dependency direction rule\n// kept UserService testable independently of any real database",
+          "explanation": "This demonstrates that Module 18's test isolation technique WAS hexagonal architecture's adapter substitution: the InMemoryUserRepository IS the test adapter; the PostgresUserRepository IS the production adapter. The UserService's domain logic is unchanged between them because it depends only on the interface (port), not the implementation. This is the formal, architectural articulation of Module 18's own reasoning \u2014 the same pattern, now named and explained at its structural level."
+        },
+        {
+          "type": "realUsage",
+          "title": "Why Real Codebases Explicitly Apply Hexagonal Architecture For Long-Term Maintainability",
+          "content": "Real production codebases explicitly apply hexagonal architecture (often via dependency injection frameworks) specifically because the adapter-substitution property becomes genuinely valuable over time: replacing an aging PostgreSQL database with a new distributed database requires only writing a new adapter implementing the existing port interface, not refactoring every piece of business logic that touches the database. Real teams also find that the enforced dependency direction makes domain logic testable at the unit level without any infrastructure dependencies, directly continuing Module 18's own test isolation discipline at the architectural level."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common Architecture Fundamentals Mistakes",
+          "content": "1. Naming layers without enforcing the dependency direction rule, creating 'layered' code where domain logic imports database libraries directly, retaining the naming without the testability and substitutability properties.\n\n2. Defining ports that expose infrastructure details (returning a SQL row rather than a domain object), breaking the adapter's responsibility to translate between infrastructure format and domain format.\n\n3. Creating 'anemic domain models' where domain objects have no behavior (only data fields) and all business logic lives in services, missing that domain objects should encapsulate the business rules that operate on their own data.\n\n4. Treating every module as requiring full hexagonal architecture, adding interface-and-adapter indirection to simple scripts or utility functions that have no realistic need for adapter substitution.\n\n5. Implementing the Repository interface without the key discipline Module 18 established: each repository method should return domain objects, never database rows or ORM-specific objects."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "Architecture Names As Precision Tools For Team Communication, Not Labels For Their Own Sake",
+          "content": "This lesson's central value is precisely that naming Module 18's pattern as 'layered/hexagonal architecture' gives a team a shared, precise vocabulary for architectural conversations: instead of 'the thing where we use interfaces for the database so we can test it', a team can say 'the port/adapter boundary' or 'the dependency direction rule'. This vocabulary precision is what makes architectural reviews, new engineer onboarding, and ADRs (lesson 5) genuinely useful \u2014 everyone has the same name for the same concept. The architecture names aren't labels for their own sake; they're precision tools for the most important kind of team communication: architecture."
+        },
+        {
+          "type": "debugging",
+          "title": "Diagnosing A Layer Boundary Violation By Checking The Dependency Direction",
+          "content": "The most direct way to identify a layered architecture violation is to ask: does this file's import list contain references to infrastructure details (database clients, HTTP libraries, specific ORMs) in a file that should be domain-layer code? If UserService imports `pg` (the PostgreSQL client) directly rather than depending on a UserRepository interface, the dependency direction rule is violated, and the service cannot be unit-tested without a real database. This is the exact test-isolation problem Module 18 identified \u2014 now understood as an architectural principle with a formal name and a clear diagnostic: check the import list of domain-layer files for infrastructure dependencies."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp1-1",
+          "type": "multiple_choice",
+          "question": "What is the single most important structural property of correctly-implemented layered/hexagonal architecture?",
+          "options": [
+            "Code is organized into folders named 'controllers', 'services', and 'repositories'",
+            "Dependencies always point inward toward the domain, never outward toward infrastructure - the domain defines the port interface it needs, and infrastructure adapters implement that interface, so the domain can be tested without any infrastructure and any adapter can be substituted without changing domain logic",
+            "All business logic must be in a single service class",
+            "Controllers are always responsible for database queries"
+          ],
+          "correctAnswer": 1,
+          "explanation": "The dependency direction rule (always inward toward the domain) is the single most important property - it enables adapter substitution, unit testing without infrastructure, and clean separation of concerns."
+        },
+        {
+          "id": "cp1-2",
+          "type": "multiple_choice",
+          "question": "In hexagonal architecture terminology, what are Module 18's Repository interfaces, and what are the PostgreSQL and InMemory implementations?",
+          "options": [
+            "The interfaces are adapters; the implementations are ports",
+            "The interfaces are PORTS (technology-agnostic contracts the domain defines and depends on); the PostgreSQL and InMemory implementations are ADAPTERS (specific technology implementations that plug into the port)",
+            "Both are adapters with no distinction",
+            "The Repository interface concept is unrelated to hexagonal architecture"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Repository interfaces ARE ports - technology-agnostic contracts the domain defines. PostgreSQL and InMemory implementations are adapters - specific technology implementations that fulfill the port contract."
+        },
+        {
+          "id": "cp1-3",
+          "type": "scenario",
+          "question": "A UserService class imports `pg` (the PostgreSQL client) and calls `pool.query()` directly instead of using a UserRepository interface. What architectural problem does this create?",
+          "options": [
+            "No problem; direct database access in services is equivalent to using a repository",
+            "This violates the dependency direction rule: domain logic (UserService) now depends on infrastructure (pg), making it impossible to unit test UserService without a real PostgreSQL database, and making any database replacement require changes to UserService itself",
+            "This is the correct approach; repositories add unnecessary complexity",
+            "The only issue is performance; the architectural design is sound"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Direct infrastructure dependency in domain code violates the dependency direction rule, making unit testing impossible without a real database and making database replacement require domain code changes."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch1-refactor-to-hexagonal",
+        "title": "Refactor A Service With Direct Database Access Into Hexagonal Architecture",
+        "description": "Refactor an OrderService that calls the database directly into hexagonal architecture with an explicit OrderRepository port, a PostgresOrderRepository adapter, and an InMemoryOrderRepository for testing.",
+        "starterCode": "import { Pool } from 'pg';\n\n// CURRENT: domain depends directly on infrastructure\nclass OrderService {\n  constructor(private db: Pool) {}\n\n  async getOrder(orderId: string) {\n    const result = await this.db.query(\n      'SELECT * FROM orders WHERE id = $1',\n      [orderId]\n    );\n    return result.rows[0] ?? null;\n  }\n\n  async cancelOrder(orderId: string): Promise<void> {\n    const result = await this.db.query(\n      'SELECT * FROM orders WHERE id = $1',\n      [orderId]\n    );\n    if (!result.rows[0]) throw new Error('Order not found');\n    if (result.rows[0].status === 'shipped') throw new Error('Cannot cancel shipped order');\n    await this.db.query(\n      'UPDATE orders SET status = $2 WHERE id = $1',\n      [orderId, 'cancelled']\n    );\n  }\n}\n\n// TODO: define an OrderRepository port (interface)\n// TODO: implement PostgresOrderRepository adapter\n// TODO: implement InMemoryOrderRepository for testing\n// TODO: refactor OrderService to depend only on the port",
+        "solutionExample": "// PORT: technology-agnostic interface the domain depends on\ninterface Order {\n  id: string;\n  status: 'pending' | 'shipped' | 'cancelled';\n  userId: string;\n}\n\ninterface OrderRepository {\n  findById(id: string): Promise<Order | null>;\n  save(order: Order): Promise<void>;\n}\n\n// DOMAIN: depends only on the port, not any adapter\nclass OrderService {\n  constructor(private orderRepo: OrderRepository) {}\n\n  async cancelOrder(orderId: string): Promise<void> {\n    const order = await this.orderRepo.findById(orderId);\n    if (!order) throw new Error('Order not found');\n    if (order.status === 'shipped') throw new Error('Cannot cancel shipped order');\n    await this.orderRepo.save({ ...order, status: 'cancelled' });\n  }\n}\n\n// PRODUCTION ADAPTER: PostgreSQL\nclass PostgresOrderRepository implements OrderRepository {\n  constructor(private db: Pool) {}\n\n  async findById(id: string): Promise<Order | null> {\n    const result = await this.db.query('SELECT * FROM orders WHERE id = $1', [id]);\n    return result.rows[0] ? mapRowToOrder(result.rows[0]) : null;\n  }\n\n  async save(order: Order): Promise<void> {\n    await this.db.query('UPDATE orders SET status = $2 WHERE id = $1', [order.id, order.status]);\n  }\n}\n\n// TEST ADAPTER: in-memory\nclass InMemoryOrderRepository implements OrderRepository {\n  private orders = new Map<string, Order>();\n\n  async findById(id: string): Promise<Order | null> {\n    return this.orders.get(id) ?? null;\n  }\n\n  async save(order: Order): Promise<void> {\n    this.orders.set(order.id, order);\n  }\n}",
+        "validationRules": [
+          "Must define an OrderRepository interface (port) with findById and save methods",
+          "OrderService must depend only on the OrderRepository interface, not on Pool or any database-specific type",
+          "PostgresOrderRepository must implement the interface and translate between database rows and domain Order objects",
+          "InMemoryOrderRepository must implement the same interface using in-memory storage, enabling unit testing without a database"
+        ],
+        "hints": [
+          "The key insight is that OrderService should not import 'pg' at all after refactoring - its constructor should accept an OrderRepository, not a Pool",
+          "The adapter's job is translation: PostgresOrderRepository converts SQL rows to Order domain objects and back. The domain should work with Order objects, not raw database rows",
+          "InMemoryOrderRepository with a Map<string, Order> is essentially what Module 18 called 'mocking the repository' - now understood as a legitimate hexagonal architecture adapter"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-2",
+      "order": 2,
+      "title": "Domain-Driven Design",
+      "shortTitle": "Domain-Driven Design",
+      "estimatedDuration": "90-115 minutes",
+      "xpReward": 150,
+      "nextLessonId": "lesson-3",
+      "prevLessonId": "lesson-1",
+      "prerequisites": [
+        "lesson-1"
+      ],
+      "lessonGoal": "Apply Domain-Driven Design's bounded contexts and ubiquitous language to answer Module 27's open question: how to determine the correct boundaries for microservices rather than splitting arbitrarily.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "Answering Module 27's Open Microservices Question With DDD's Bounded Contexts",
+          "content": "Module 27, lesson 6 identified microservices as a tradeoff worth adopting only when team independence and individual deployability are genuinely needed, but left one question deliberately open: once you decide to split, how do you determine the correct boundaries? DOMAIN-DRIVEN DESIGN (DDD) provides the answer: a BOUNDED CONTEXT is a region of the business domain where a specific model of the domain applies consistently and coherently, with its own UBIQUITOUS LANGUAGE \u2014 a precise, shared vocabulary used identically by domain experts, code, and documentation within that context. Bounded contexts naturally correspond to the correct microservice boundaries because they represent areas where the business itself operates with a coherent, self-contained model."
+        },
+        {
+          "type": "mentalModel",
+          "title": "The Same Word Meaning Different Things In Different Departments",
+          "content": "Consider the word 'customer' in a large company: to the sales department, a 'customer' is a lead pipeline entry with a probability score and a last-contact date. To the billing department, a 'customer' is an account with a payment method and an outstanding balance. To the support department, a 'customer' is a ticket submitter with a history of issues. These are three genuinely different models of the same word, each coherent within its own bounded context. If a single codebase tries to represent 'customer' as one class that satisfies all three contexts simultaneously, it becomes a bloated, incoherent mess that serves none of them well. DDD's bounded contexts say: keep each context's model separate, precise, and coherent within its own boundary, and define explicit CONTEXT MAPPINGS for how they communicate across those boundaries."
+        },
+        {
+          "type": "structure",
+          "title": "Identifying Bounded Contexts In An E-Commerce Domain",
+          "content": "An e-commerce domain decomposed into bounded contexts,\ndirectly answering 'where should the service boundaries go?':\n\n// BOUNDED CONTEXT 1: Order Management\n// Ubiquitous language within this context:\ninterface Order {\n  orderId: string;\n  lineItems: LineItem[];\n  shippingAddress: Address;\n  status: OrderStatus; // 'placed' | 'confirmed' | 'shipped' | 'delivered'\n}\n// 'Order' here means a purchase event with line items\n\n// BOUNDED CONTEXT 2: Inventory\n// Same word 'product', completely different model:\ninterface StockItem {\n  productId: string;\n  sku: string;\n  warehouseLocation: string;\n  quantityAvailable: number;\n  reorderThreshold: number;\n}\n// 'Product' here means a physical item with a warehouse location\n\n// BOUNDED CONTEXT 3: Customer (Billing view)\ninterface CustomerAccount {\n  accountId: string;\n  paymentMethods: PaymentMethod[];\n  outstandingBalance: Money;\n  subscriptionStatus: SubscriptionStatus;\n}\n// 'Customer' here means a billing relationship\n\n// CONTEXT MAPPING: Order Management needs to know inventory\n// but must communicate across the context boundary\ninterface InventoryCheckRequest {\n  productId: string;   // shared identifier that crosses the boundary\n  quantity: number;\n}"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why Bounded Contexts Naturally Map To Correct Microservice Boundaries",
+          "content": "This is the single most important, precise architectural insight this lesson must establish: bounded contexts correspond to correct microservice boundaries because each bounded context has exactly the properties that make a good microservice \u2014 a coherent, self-contained model with its own data and its own business rules that can change independently without affecting other contexts. When a team adds a new field to the Inventory context's StockItem (a 'lastCountedDate' field for cycle counting), this change is entirely local to the Inventory context and requires no changes to the Order Management context \u2014 which is precisely Module 27, lesson 6's 'deploy independently' benefit. Splitting a service along a line that crosses a bounded context (putting half the Order Management model in one service and half in another) creates the worst of both worlds: distributed monolith, with cross-service coupling without independent deployability."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Context Mapping Implementation Using Module 28's Event-Driven Architecture",
+          "content": "This demonstrates how bounded contexts communicate across boundaries without coupling their internal models, directly applying Module 28's event-driven architecture to context mapping:",
+          "code": "// When an order is placed in the Order Management context,\n// it needs to reserve inventory in the Inventory context.\n// The WRONG approach: Order Management directly imports\n// Inventory's internal StockItem model - crosses the context boundary\n\n// THE CORRECT APPROACH: communicate via a context-mapping event\n// that contains only the shared data, not the internal models\n\n// In the Order Management context:\nasync function placeOrder(orderData: CreateOrderInput): Promise<Order> {\n  const order = Order.create(orderData);\n  await orderRepository.save(order);\n\n  // Publish an event that crosses the context boundary\n  // using ONLY shared identifiers, not internal models\n  await eventBus.publish('order-management.order-placed', {\n    orderId: order.orderId,\n    lineItems: order.lineItems.map(item => ({\n      productId: item.productId, // shared identifier\n      quantity: item.quantity\n    }))\n    // Note: NO shippingAddress, status, or other Order Management\n    // internal fields that the Inventory context doesn't need\n  });\n\n  return order;\n}\n\n// In the Inventory context (separate service or module):\neventBus.subscribe('order-management.order-placed', async (event) => {\n  for (const item of event.lineItems) {\n    // Inventory context uses its OWN internal model, not Order's\n    const stockItem = await stockRepository.findBySku(item.productId);\n    stockItem.reserveQuantity(item.quantity);\n    await stockRepository.save(stockItem);\n  }\n});",
+          "explanation": "This context mapping uses Module 28's event-driven architecture as the communication mechanism, with the event payload containing only the shared identifiers and data that cross the context boundary \u2014 not the Order Management context's full internal Order model. The Inventory context receives the event and processes it using its own StockItem model internally. This is the correct implementation of DDD's ANTI-CORRUPTION LAYER concept: each context translates incoming data into its own model rather than importing and using another context's models directly."
+        },
+        {
+          "type": "realUsage",
+          "title": "Why Real Engineering Teams Use DDD Vocabulary To Guide Service Decomposition",
+          "content": "Real engineering teams adopting microservices specifically use DDD's bounded context vocabulary to guide decomposition decisions, precisely because 'split by technical layer' (front-end/back-end/database) and 'split by data type' (all user-related services together) produce services that are coupled at the business logic level even when they're technically separate. DDD's bounded context approach produces services that can change independently because they're split along BUSINESS MODEL boundaries rather than technical or data-type boundaries. Real teams find that domain experts can identify bounded context boundaries more naturally than engineers can identify them through technical analysis alone."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common Domain-Driven Design Mistakes",
+          "content": "1. Treating DDD as a technical pattern rather than a collaboration between technical and domain experts, missing that 'ubiquitous language' specifically requires domain experts to participate in naming and defining the concepts that appear in code.\n\n2. Making bounded context boundaries too fine-grained (one microservice per entity), creating many small services that are all tightly coupled to each other through extensive cross-context communication.\n\n3. Sharing a single database across bounded contexts (sharing the orders table between Order Management and Inventory services), coupling the contexts' data models at the database level even when the services are technically separate.\n\n4. Directly importing another bounded context's internal domain model (Order Management importing StockItem from the Inventory context), coupling the contexts' business models in exactly the way the context boundary exists to prevent.\n\n5. Applying DDD patterns to a simple application that doesn't have genuinely complex domain logic or multiple distinct business subdomains, adding architectural complexity without corresponding benefit."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "DDD's Bounded Contexts As The Business-Aligned Completion Of Module 27's Microservices Framework",
+          "content": "This lesson's most important contribution is providing the CRITERION that Module 27 deliberately left undefined: when splitting a system into services, split along bounded context boundaries, not along technical or data-type boundaries. A developer who asks 'where is the bounded context boundary here?' before splitting a service will avoid the most common microservices failure mode \u2014 the distributed monolith, where services are technically separate but so tightly coupled that they must be deployed together and changed together, getting all the costs of distribution with none of the independence benefits."
+        },
+        {
+          "type": "debugging",
+          "title": "Identifying A Bounded Context Violation By Looking For Cross-Context Model Coupling",
+          "content": "The most direct signal that a bounded context boundary has been violated is finding imports of another service's or module's domain model types in a service that should be independent. If the Inventory service imports the Order type from Order Management to process order fulfillment, it has a cross-context model coupling that will cause the Inventory service to change every time the Order Management service's Order model changes. The correct fix is the context mapping pattern from this lesson's codeLesson: communicate via events or shared identifiers only, let each context translate into its own model internally."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp2-1",
+          "type": "multiple_choice",
+          "question": "What does this lesson identify as the primary criterion for determining correct microservice boundaries?",
+          "options": [
+            "Split by technical layer (all API handlers together, all database access together)",
+            "Split along DDD bounded context boundaries - regions of the business domain where a specific, coherent model applies with its own ubiquitous language, naturally corresponding to areas that can change independently because their business model is self-contained",
+            "Split by team size (one microservice per 3 engineers)",
+            "Split by data type (all user-related data in one service)"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Bounded contexts - regions with coherent, self-contained business models - provide the natural criterion for microservice boundaries, since services along these lines can change and deploy independently."
+        },
+        {
+          "id": "cp2-2",
+          "type": "scenario",
+          "question": "An Inventory service directly imports and uses the Order type from the Order Management service to process fulfillment. What problem does this create?",
+          "options": [
+            "No problem; sharing types across services is always efficient",
+            "This creates cross-context model coupling: any change to the Order type in Order Management (adding a new field, renaming a property) requires a corresponding change in the Inventory service, defeating the independent deployability that was the reason for separating these services in the first place",
+            "The only issue is that it increases import statements in the codebase",
+            "This is the recommended approach for microservices communication"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Cross-context model coupling means any Order type change requires changes in the Inventory service, defeating independent deployability - the core benefit of the microservices split."
+        },
+        {
+          "id": "cp2-3",
+          "type": "multiple_choice",
+          "question": "Why should each bounded context have its own database (or at minimum its own database schema)?",
+          "options": [
+            "Separate databases are required by the DDD specification",
+            "A shared database couples bounded contexts at the data model level: if Order Management and Inventory share an 'orders' table, a schema change needed by one context can break the other, giving up independent deployability at the data layer even when services are technically separate",
+            "Performance is the primary reason for separate databases",
+            "Bounded contexts can always share a database without any negative consequences"
+          ],
+          "correctAnswer": 1,
+          "explanation": "A shared database couples contexts at the data model level - schema changes for one context can break another, defeating independent deployability at the most fundamental level."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch2-identify-bounded-contexts",
+        "title": "Identify Bounded Contexts And Design Context Mappings For A Healthcare Domain",
+        "description": "Given a healthcare system description, identify the bounded contexts, explain what 'patient' means differently in each context, and design a context mapping event for when a new appointment is scheduled.",
+        "starterCode": "// HEALTHCARE SYSTEM description:\n// - Scheduling: books appointments, manages doctor availability,\n//   handles appointment reminders\n// - Clinical: records diagnoses, treatment plans, prescriptions,\n//   medical history\n// - Billing: processes insurance claims, generates invoices,\n//   tracks payment status\n// - Patient Portal: self-service login, appointment viewing,\n//   test results viewing\n\n// TODO: identify bounded contexts and what 'patient' means in each\n// TODO: design a context mapping event for 'appointment scheduled'\n// that allows the Billing context to prepare an expected claim\n// without importing Scheduling's internal appointment model",
+        "solutionExample": "// BOUNDED CONTEXTS:\n\n// 1. Scheduling Context\n// 'Patient' = a bookable entity with a preferred doctor and\n//   time-slot preferences\ninterface SchedulingPatient {\n  patientId: string;\n  preferredProviderId: string;\n  appointmentHistory: AppointmentSlot[];\n  timezone: string;\n}\n\n// 2. Clinical Context\n// 'Patient' = a medical subject with health history\ninterface ClinicalPatient {\n  patientId: string;\n  dateOfBirth: Date;\n  allergies: Allergy[];\n  diagnoses: Diagnosis[];\n  currentMedications: Medication[];\n}\n\n// 3. Billing Context\n// 'Patient' = a payer with insurance and financial relationships\ninterface BillingPatient {\n  patientId: string;\n  primaryInsurance: InsurancePlan;\n  secondaryInsurance?: InsurancePlan;\n  outstandingBalance: Money;\n  paymentMethod: PaymentMethod;\n}\n\n// CONTEXT MAPPING EVENT: Scheduling -> Billing\n// Contains ONLY what Billing needs, using shared identifiers,\n// not Scheduling's full internal AppointmentSlot model\ninterface AppointmentScheduledEvent {\n  eventType: 'scheduling.appointment-scheduled';\n  appointmentId: string;        // shared identifier\n  patientId: string;            // shared identifier\n  providerId: string;           // shared identifier\n  appointmentDateTime: string;  // shared data Billing needs for claim timing\n  serviceType: string;          // e.g. 'consultation', 'follow-up'\n  // NOT included: reminder settings, room assignment, slot duration\n  // (Scheduling internal data Billing doesn't need)\n}\n\n// Billing subscribes and builds ITS OWN internal model:\nbillingEventBus.subscribe('scheduling.appointment-scheduled',\n  async (event: AppointmentScheduledEvent) => {\n    const expectedClaim = ExpectedClaim.create({\n      appointmentId: event.appointmentId,\n      patientId: event.patientId,\n      // Billing fetches its own patient record using the shared patientId\n      billingPatient: await billingPatientRepo.findById(event.patientId),\n      serviceType: event.serviceType,\n      scheduledDate: new Date(event.appointmentDateTime)\n    });\n    await expectedClaimRepo.save(expectedClaim);\n  }\n);",
+        "validationRules": [
+          "Must identify at least 3 distinct bounded contexts in the healthcare domain",
+          "Must show that 'patient' has genuinely different attributes in at least 2 different contexts",
+          "The context mapping event must contain only shared identifiers and essential data, NOT the full internal appointment model",
+          "The receiving context (Billing) must translate the event into its own internal model rather than using Scheduling's types"
+        ],
+        "hints": [
+          "The key test for bounded contexts: what data does this context own exclusively that other contexts don't need to know about? Scheduling owns slot times; Clinical owns diagnoses; Billing owns insurance information",
+          "The context mapping event should be defined by what the RECEIVING context (Billing) needs, not by what the SENDING context (Scheduling) has internally",
+          "patientId is the shared identifier that lets each context look up its own view of the patient - no context needs to import another context's patient model"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-3",
+      "order": 3,
+      "title": "CQRS And Event Sourcing",
+      "shortTitle": "CQRS And Event Sourcing",
+      "estimatedDuration": "90-115 minutes",
+      "xpReward": 150,
+      "nextLessonId": "lesson-4",
+      "prevLessonId": "lesson-2",
+      "prerequisites": [
+        "lesson-2"
+      ],
+      "lessonGoal": "Recognize Module 35's read/write split as CQRS and Module 28's domain events as event sourcing's data model, understanding when each pattern genuinely earns its added complexity.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "Naming Two Patterns This Curriculum Has Already Built In Practice",
+          "content": "COMMAND QUERY RESPONSIBILITY SEGREGATION (CQRS) is the formal name for Module 35's read/write separation: the principle that operations that CHANGE state (commands: create order, cancel subscription) and operations that READ state (queries: fetch user orders, get dashboard data) should use separate, independently-optimized models. Module 35 built this with read replicas and OLAP databases; CQRS makes it an explicit architectural decision with dedicated command and query models rather than a single model that serves both. EVENT SOURCING is the formal name for what Module 28's domain events already pointed toward: instead of storing only the CURRENT state of a record, store every DOMAIN EVENT that has ever changed that state, deriving the current state by replaying events from the beginning (or from a recent snapshot)."
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Bank Ledger Versus A Balance-Only Display",
+          "content": "Traditional storage is like a bank account display that shows only the current balance: easy to read, efficient to query, but if you need to know HOW the account reached that balance, you have no historical record. Event sourcing is like the complete transaction ledger: every deposit, withdrawal, and fee is recorded permanently, and the current balance is DERIVED by adding them all up. CQRS says: don't make people derive the balance every time they look \u2014 maintain a separate, pre-computed BALANCE VIEW (the query model) that's updated whenever the ledger (the command model) records a new event. Neither the ledger nor the balance view is the 'real' data; the ledger (events) is the source of truth, and the balance view is the efficient read projection."
+        },
+        {
+          "type": "structure",
+          "title": "A Complete CQRS Implementation With Separate Command And Query Models",
+          "content": "A minimal but complete CQRS implementation directly extending\nModule 18's Controller/Service/Repository pattern:\n\n// COMMAND SIDE: optimized for writes and business rule enforcement\nclass OrderCommandService {\n  constructor(private orderRepo: OrderRepository) {}\n\n  async placeOrder(command: PlaceOrderCommand): Promise<string> {\n    // Business rule validation happens HERE in the command model\n    const inventory = await this.checkInventory(command.items);\n    if (!inventory.allAvailable) throw new InsufficientInventoryError();\n\n    const order = Order.create(command);\n    await this.orderRepo.save(order); // persists the canonical state\n    await this.eventBus.publish('order-placed', { orderId: order.id });\n    return order.id;\n  }\n}\n\n// QUERY SIDE: optimized for reads, denormalized for specific UIs\n// (this is exactly Module 35's OLAP read model)\ninterface OrderSummaryView {\n  orderId: string;\n  customerName: string;       // denormalized from Customer context\n  itemDescriptions: string[]; // denormalized from Product context\n  totalFormatted: string;     // pre-formatted for display\n  statusLabel: string;        // UI-friendly status string\n}\n\nclass OrderQueryService {\n  constructor(private readDb: ReadonlyDatabase) {}\n\n  async getOrdersForUser(userId: string): Promise<OrderSummaryView[]> {\n    // Reads from a denormalized view pre-joined with customer/product data\n    return this.readDb.query(\n      'SELECT * FROM order_summary_view WHERE user_id = $1',\n      [userId]\n    );\n  }\n}"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why CQRS Is Only Justified When Command And Query Optimization Requirements Genuinely Conflict",
+          "content": "This is the single most important, evidence-based judgment this lesson must establish, directly extending Module 27's 'add complexity only with evidence' discipline: CQRS adds genuine complexity (two models to maintain, synchronization between them, eventual consistency on reads after writes) that is ONLY justified when command and query optimization requirements genuinely, measurably conflict. A simple CRUD application with 1,000 daily active users and a single, shared data model that serves both reads and writes is correctly simple. A system where writes require strict transactional consistency and complex business rule validation while reads require denormalized, pre-joined data from multiple bounded contexts for high-traffic dashboards has genuinely conflicting requirements that CQRS directly resolves. The evidence test: are you observing actual performance conflicts or code complexity from a shared model? If not, CQRS adds complexity without benefit."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Minimal Event Sourcing Implementation Demonstrating The Replay Pattern",
+          "content": "This demonstrates event sourcing's core mechanism, directly showing how current state is derived from event history:",
+          "code": "// EVENT STORE: append-only log of domain events\n// (This is what Module 28's domain events were pointing toward)\ninterface OrderEvent {\n  eventId: string;\n  orderId: string;\n  eventType: 'OrderPlaced' | 'ItemAdded' | 'OrderCancelled' | 'OrderShipped';\n  eventData: Record<string, unknown>;\n  occurredAt: Date;\n}\n\n// RECONSTITUTE current state from events (the replay pattern)\nfunction reconstitute(events: OrderEvent[]): Order {\n  let order: Partial<Order> = {};\n\n  for (const event of events) {\n    switch (event.eventType) {\n      case 'OrderPlaced':\n        order = { id: event.orderId, status: 'placed', items: [], ...event.eventData };\n        break;\n      case 'ItemAdded':\n        order.items = [...(order.items ?? []), event.eventData.item as LineItem];\n        break;\n      case 'OrderCancelled':\n        order.status = 'cancelled';\n        break;\n      case 'OrderShipped':\n        order.status = 'shipped';\n        order.shippedAt = event.occurredAt;\n        break;\n    }\n  }\n\n  return order as Order;\n}\n\n// Loading an order replays all its events from the beginning\nasync function loadOrder(orderId: string): Promise<Order> {\n  const events = await eventStore.getEventsForAggregate(orderId);\n  // events are sorted chronologically - the replay gives current state\n  return reconstitute(events);\n}\n\n// THE GENUINE BENEFIT: complete, queryable audit history for free\n// - When was this order cancelled? Filter for OrderCancelled events\n// - What were the original items? Filter for OrderPlaced events\n// - Who modified what and when? Every event has a timestamp and actor",
+          "explanation": "This demonstrates event sourcing's core property: the current state is always derivable from events, but the events themselves are the durable, permanent record. The complete order history (placed with original items, items added, eventually cancelled) is implicit in the event log \u2014 no separate audit log or history table is needed because the events ARE the history. This makes event sourcing genuinely valuable for domains where audit history, temporal queries ('what was the state at time T?'), and debugging production issues are important requirements."
+        },
+        {
+          "type": "realUsage",
+          "title": "Why Real Systems Use CQRS And Event Sourcing Only When Their Specific Benefits Are Genuinely Needed",
+          "content": "Real production systems use CQRS when read and write models have genuinely conflicting optimization requirements \u2014 typically high-volume dashboards or reports that need denormalized data from multiple sources alongside write-heavy transaction processing with strict consistency. Event sourcing is most genuinely valuable for domains with strong audit requirements (financial systems, medical records, legal document management) where understanding exactly what happened and when is as important as the current state. Real teams specifically caution against applying either pattern as a default, since both introduce genuine complexity (event schema evolution for event sourcing, eventual consistency management for CQRS) that is only worthwhile when the specific benefit is genuinely needed."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common CQRS And Event Sourcing Mistakes",
+          "content": "1. Applying CQRS to every service as an architectural default, adding command/query split complexity to services where a single shared model would serve both purposes adequately with no observed conflict.\n\n2. Using event sourcing without considering event schema evolution: once an event is in the store, changing its schema (renaming a field, changing a data type) requires migrating or versioning every historical event of that type, which is a genuine operational burden.\n\n3. Forgetting to update the CQRS read model when the command model changes state, leaving read queries returning stale data immediately after writes (an eventual consistency lag that must be explicitly designed for, not assumed away).\n\n4. Making events too coarse-grained ('order-updated' with the full new order state) rather than capturing specific, meaningful domain actions ('item-added', 'shipping-address-changed'), losing the audit and temporal query benefits of event sourcing.\n\n5. Using event sourcing for simple CRUD entities (profile picture updates, notification preferences) where the event history has no genuine business value, adding append-only complexity without the corresponding benefit."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "Recognizing The Patterns Already Embedded In This Curriculum's Prior Modules",
+          "content": "This lesson's most important insight is the cross-module recognition it enables: Module 35's read replica and OLAP database split WAS CQRS applied at the database level; Module 28's domain events in the queue WAS event sourcing's data model applied at the messaging level. Recognizing these as instances of the same patterns \u2014 rather than as isolated, unrelated architectural decisions \u2014 is precisely the kind of pattern transfer that makes an experienced developer. The developer who sees CQRS in a system they've never encountered can say 'I recognize this: the read model will lag the write model by some propagation time, and critical reads will need to come from the write side' \u2014 because they've already reasoned about this in Module 35's replication lag and Module 29's eventual consistency discussions."
+        },
+        {
+          "type": "debugging",
+          "title": "Diagnosing A CQRS Stale-Read Problem By Tracing The Read Model Synchronization",
+          "content": "The most common CQRS operational problem is a stale read: a user performs a write operation (places an order) and immediately reads the orders list, but their new order isn't visible because the read model hasn't yet been updated. This is precisely Module 35, lesson 2's replication lag problem, now expressed in CQRS vocabulary. The diagnostic sequence is the same: confirm the write succeeded in the command model (check the write database), then check whether the read model synchronization event was published and processed. The fix is either accepting eventual consistency (show a 'your order is processing' message rather than immediately showing the order in the list) or routing the immediate post-write read to the command model (Module 35's requireStrongConsistency: true routing pattern)."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp3-1",
+          "type": "multiple_choice",
+          "question": "When is CQRS genuinely warranted, according to this lesson?",
+          "options": [
+            "CQRS should be the default architecture for every service",
+            "CQRS is warranted when command and query optimization requirements genuinely, measurably conflict - typically when writes require strict transactional consistency with complex business rules while reads require denormalized, pre-joined data for high-traffic views that can't be efficiently served by the same model",
+            "CQRS is only appropriate for financial systems",
+            "CQRS should be avoided in all cases since it adds too much complexity"
+          ],
+          "correctAnswer": 1,
+          "explanation": "CQRS is warranted when command and query optimization requirements genuinely conflict - not as a default, since it adds real complexity (synchronization, eventual consistency) that is only justified by actual conflicting requirements."
+        },
+        {
+          "id": "cp3-2",
+          "type": "multiple_choice",
+          "question": "What is the event sourcing replay pattern, and what does it replace?",
+          "options": [
+            "Replaying events is only a backup recovery mechanism",
+            "Replaying the ordered sequence of domain events for an aggregate reconstitutes its current state - this replaces storing only the current state snapshot, keeping instead every event that has ever changed the aggregate's state, making the full audit history implicit in the event log",
+            "Event replay is equivalent to database backup and restore",
+            "The replay pattern is used only in testing, never in production"
+          ],
+          "correctAnswer": 1,
+          "explanation": "The replay pattern derives current state by applying all historical domain events in sequence, replacing current-state-only storage with a complete, permanent event history that makes audit trails implicit."
+        },
+        {
+          "id": "cp3-3",
+          "type": "scenario",
+          "question": "A developer observes stale data in a CQRS read model immediately after a write. A user places an order but it doesn't appear in their order list. What is this, and what are the two correct fixes?",
+          "options": [
+            "This is a bug in the write service that should be fixed by preventing the write from completing until the read model is updated",
+            "This is expected eventual consistency behavior in CQRS: the read model updates asynchronously after the write. Fix 1: design the UI to show 'order submitted' rather than immediately showing the orders list (accept eventual consistency). Fix 2: route the immediate post-write read to the command model for strong consistency (Module 35's requireStrongConsistency pattern)",
+            "This can only be fixed by abandoning CQRS",
+            "Stale reads in CQRS always indicate a bug in the read model synchronization that must be fixed immediately"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Post-write stale reads are expected CQRS eventual consistency behavior, fixed by either designing for asynchronous updates (show 'submitted' message) or routing the critical post-write read to the command model for strong consistency."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch3-implement-cqrs-for-inventory",
+        "title": "Implement CQRS With Separate Command And Query Services For Inventory Management",
+        "description": "Build a minimal CQRS implementation for inventory management where the command side validates business rules (no negative stock) and the query side returns a pre-formatted view for a warehouse dashboard.",
+        "starterCode": "// CURRENT: single model serving both reads and writes\nclass InventoryService {\n  async adjustStock(productId: string, delta: number): Promise<void> {\n    const current = await db.query('SELECT qty FROM inventory WHERE id = $1', [productId]);\n    const newQty = current.rows[0].qty + delta;\n    if (newQty < 0) throw new Error('Insufficient stock');\n    await db.query('UPDATE inventory SET qty = $2 WHERE id = $1', [productId, newQty]);\n  }\n\n  async getWarehouseDashboard(): Promise<any[]> {\n    // Returns raw data that the UI has to format\n    return db.query('SELECT * FROM inventory').then(r => r.rows);\n  }\n}\n\n// TODO: split into separate InventoryCommandService (write side)\n// with business rule enforcement and InventoryQueryService (read\n// side) returning a pre-formatted WarehouseItemView",
+        "solutionExample": "// COMMAND SIDE\ninterface AdjustStockCommand {\n  productId: string;\n  delta: number;\n  reason: 'sale' | 'restock' | 'adjustment';\n}\n\nclass InventoryCommandService {\n  constructor(private writeDb: Database, private eventBus: EventBus) {}\n\n  async adjustStock(command: AdjustStockCommand): Promise<void> {\n    const item = await this.writeDb.query(\n      'SELECT qty, product_name FROM inventory WHERE id = $1',\n      [command.productId]\n    );\n    if (!item.rows[0]) throw new Error('Product not found');\n\n    const newQty = item.rows[0].qty + command.delta;\n    if (newQty < 0) throw new Error(`Insufficient stock: would go to ${newQty}`);\n\n    await this.writeDb.query(\n      'UPDATE inventory SET qty = $2 WHERE id = $1',\n      [command.productId, newQty]\n    );\n\n    // Publish event to trigger read model update\n    await this.eventBus.publish('inventory.stock-adjusted', {\n      productId: command.productId,\n      newQuantity: newQty,\n      reason: command.reason\n    });\n  }\n}\n\n// QUERY SIDE: pre-formatted for specific UI needs\ninterface WarehouseItemView {\n  productId: string;\n  productName: string;\n  currentStock: number;\n  stockStatus: 'critical' | 'low' | 'adequate' | 'overstocked';\n  reorderRequired: boolean;\n}\n\nclass InventoryQueryService {\n  constructor(private readDb: ReadonlyDatabase) {}\n\n  async getWarehouseDashboard(): Promise<WarehouseItemView[]> {\n    const rows = await this.readDb.query(\n      'SELECT * FROM inventory_dashboard_view ORDER BY stock_status'\n    );\n    return rows.map(row => ({\n      productId: row.id,\n      productName: row.product_name,\n      currentStock: row.qty,\n      stockStatus: this.classifyStatus(row.qty, row.reorder_threshold),\n      reorderRequired: row.qty <= row.reorder_threshold\n    }));\n  }\n\n  private classifyStatus(qty: number, threshold: number): WarehouseItemView['stockStatus'] {\n    if (qty <= 0) return 'critical';\n    if (qty <= threshold) return 'low';\n    if (qty > threshold * 3) return 'overstocked';\n    return 'adequate';\n  }\n}",
+        "validationRules": [
+          "Command service must enforce the business rule (no negative stock) and publish an event after successful writes",
+          "Query service must return a properly typed WarehouseItemView, not raw database rows",
+          "The two services must have clearly separated constructor dependencies (write DB vs read DB)",
+          "The query service should pre-compute display-friendly values (stockStatus, reorderRequired) rather than returning raw data for the UI to interpret"
+        ],
+        "hints": [
+          "The command service depends on the WRITE database with full read/write access; the query service depends on a READ-ONLY database or view - this separation is the core of CQRS",
+          "Publishing an event after adjustStock allows a read model updater (not shown here) to keep the query side's denormalized view current - this is the synchronization mechanism",
+          "The WarehouseItemView's stockStatus and reorderRequired are computed from raw data in the query service, not stored separately - this pre-formatting for specific UI needs is a key CQRS query model benefit"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-4",
+      "order": 4,
+      "title": "API Design Patterns",
+      "shortTitle": "API Design Patterns",
+      "estimatedDuration": "85-110 minutes",
+      "xpReward": 150,
+      "nextLessonId": "lesson-5",
+      "prevLessonId": "lesson-3",
+      "prerequisites": [
+        "lesson-3"
+      ],
+      "lessonGoal": "Choose between REST, GraphQL, and gRPC based on specific client usage patterns and system requirements, recognizing that each is optimal for a different set of real-world API needs.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "Three API Styles That Emerged For Three Different Problems",
+          "content": "This curriculum has used REST (Representational State Transfer) throughout Modules 4-26 \u2014 resource-based URLs, HTTP methods as verbs, JSON responses. REST is genuinely the right default for most client-server APIs. GRAPHQL emerged to solve a specific REST limitation: over-fetching (clients receive more data than they need) and under-fetching (clients need multiple round trips to assemble data from several endpoints). GRPC emerged for a different problem: high-throughput, low-latency service-to-service communication in distributed systems where REST's HTTP/1.1 and JSON verbosity add meaningful overhead. All three have the same basic job (client requests, server responds) but genuinely different trade-offs that make each the right choice for a specific context."
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Fixed Menu, A Make-Your-Own Buffet, And A Direct Telephone Line",
+          "content": "REST is like a restaurant's FIXED MENU: the server decides what each dish contains, portions are standardized, and you order by name. Simple and clear, but if you want only the soup from the soup-and-salad combo, you still get (and pay for) the salad. GraphQL is like a MAKE-YOUR-OWN BUFFET: you specify exactly which components you want, in what quantity, assembled how, and you get precisely that \u2014 but someone has to build the buffet and manage all the possible combinations. gRPC is like a DEDICATED TELEPHONE LINE between two specific offices: extremely efficient, very low latency, perfectly matched to the communication needs of those two offices specifically, but the protocol is explicitly negotiated and both sides must understand each other's type definitions in advance."
+        },
+        {
+          "type": "structure",
+          "title": "The Three API Styles Compared On Their Key Dimensions",
+          "content": "The critical differences that determine which style is appropriate\nfor a specific API use case:\n\n// REST: resource-based, HTTP methods, JSON, stateless\n// WHEN: public APIs, simple CRUD, diverse clients, cacheable resources\nGET  /orders/:id          -> Order object\nPOST /orders              -> creates Order\nPUT  /orders/:id/cancel   -> cancels Order\n// Strength: universally understood, excellent caching (CDNs),\n// great tooling, easy to consume from any client\n// Weakness: over-fetching (GET /users/123 returns all fields\n//   even if client only needs 'name'), multiple round trips for\n//   related data\n\n// GRAPHQL: query language, single endpoint, client-specified shape\n// WHEN: complex frontends with varying data needs, mobile (bandwidth-\n//   sensitive), multiple clients with different field requirements\nPOST /graphql\nbody: query {\n  order(id: $id) {\n    orderId status          // client requests ONLY these fields\n    customer { name email } // joins handled by the resolver layer\n    items { productName qty } // not the full product object\n  }\n}\n// Strength: no over-fetching, single round trip for complex data,\n//   client controls shape\n// Weakness: caching complexity, N+1 problem at resolvers (lesson 3's\n//   DataLoader exactly addresses this), learning curve\n\n// GRPC: binary protocol (Protocol Buffers), strongly typed,\n//   bidirectional streaming possible\n// WHEN: internal service-to-service, high throughput, type safety\n//   critical, streaming (live data feeds)\n// proto definition (shared between services):\nservice OrderService {\n  rpc GetOrder (GetOrderRequest) returns (Order);\n  rpc WatchOrderStatus (WatchRequest) returns (stream StatusUpdate);\n}\n// Strength: ~10x more efficient than REST/JSON, strongly typed by\n//   default, native streaming support\n// Weakness: not human-readable, requires Proto schema coordination,\n//   harder to debug than HTTP/JSON"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why GraphQL's N+1 Problem Requires DataLoader And How DataLoader Solves It",
+          "content": "This is the single most important, concrete implementation detail GraphQL introduces that REST does not: the N+1 QUERY PROBLEM. A GraphQL resolver for a list of orders that also fetches each order's customer naively executes: 1 query to get all orders, then N queries (one per order) to fetch each customer \u2014 N+1 total queries. At 100 orders, this is 101 database queries where 2 would suffice. DATALOADER solves this by BATCHING: instead of immediately executing each customer lookup, DataLoader collects all pending lookups within a single event loop tick, then executes ONE batch query (SELECT * FROM customers WHERE id IN (...)) and distributes the results back to the waiting resolvers. This is the exact Module 24, lesson 3 N+1 problem, now presented in the specific GraphQL context where it's most structurally tempting."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Complete DataLoader Implementation For GraphQL's N+1 Problem",
+          "content": "This demonstrates DataLoader solving the GraphQL N+1 problem, directly connecting to Module 24's N+1 discipline:",
+          "code": "import DataLoader from 'dataloader';\n\n// WITHOUT DataLoader: N+1 queries\nconst resolversWithNPlusOne = {\n  Query: {\n    orders: async () => db.query('SELECT * FROM orders LIMIT 10') // 1 query\n  },\n  Order: {\n    customer: async (order) =>\n      // Called once per order -> 10 queries for 10 orders!\n      db.query('SELECT * FROM customers WHERE id = $1', [order.customerId])\n  }\n};\n\n// WITH DataLoader: 2 queries total regardless of order count\nconst customerLoader = new DataLoader(async (customerIds: string[]) => {\n  // Batch: called ONCE with ALL pending customer IDs\n  const customers = await db.query(\n    'SELECT * FROM customers WHERE id = ANY($1)',\n    [customerIds]\n  );\n  // DataLoader requires results in the same order as the input IDs\n  const customerMap = new Map(customers.rows.map(c => [c.id, c]));\n  return customerIds.map(id => customerMap.get(id) ?? null);\n});\n\nconst resolversWithDataLoader = {\n  Query: {\n    orders: async () => db.query('SELECT * FROM orders LIMIT 10') // 1 query\n  },\n  Order: {\n    customer: async (order) =>\n      // DataLoader batches all pending customer lookups into 1 query\n      customerLoader.load(order.customerId) // 1 batch query total\n  }\n};\n// Total: 2 queries (orders + batched customers) vs 11 without DataLoader",
+          "explanation": "DataLoader's batching mechanism is the precise, structural solution to GraphQL's N+1 problem: each resolver calls `customerLoader.load(id)`, which doesn't immediately execute a query. Instead, DataLoader collects all `load` calls made within the same event loop tick, then executes ONE batch query with ALL the collected IDs, and distributes results back to each waiting `load` call. The resolver code looks like individual lookups; DataLoader makes them a batch transparently. This is Module 24's N+1 solution applied specifically to GraphQL's resolver execution model."
+        },
+        {
+          "type": "realUsage",
+          "title": "Why Real API Architectures Often Use Multiple Styles For Different Use Cases",
+          "content": "Real production architectures frequently use more than one API style for genuinely different use cases: REST for public APIs consumed by third parties (where universal tooling and caching matter most), GraphQL for the primary web and mobile frontend (where client-controlled data shape eliminates over-fetching), and gRPC for internal service-to-service communication (where type safety and throughput efficiency matter and human readability doesn't). Real teams specifically choose the style based on the specific consumer's needs \u2014 a mobile app on a 3G connection genuinely benefits from GraphQL's bandwidth efficiency; a high-throughput internal data pipeline genuinely benefits from gRPC's binary protocol \u2014 rather than standardizing on one style universally."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common API Design Pattern Mistakes",
+          "content": "1. Choosing GraphQL as the default for every API, including simple CRUD services where REST's resource model is cleaner and caching benefits are significant, adding resolver complexity without the corresponding benefit.\n\n2. Using gRPC for public-facing APIs where external developers need to consume the API without pre-coordinating on Protocol Buffer schema definitions, missing that gRPC's schema coupling requirement is a genuine adoption barrier.\n\n3. Not implementing DataLoader in GraphQL services, creating N+1 query patterns that make GraphQL dramatically slower than REST for list queries with nested data.\n\n4. Designing REST APIs that expose database table structure directly (GET /users/:id/order_line_items) rather than domain model resources, creating coupling between the API and internal data model.\n\n5. Implementing GraphQL without query depth limits or query complexity analysis, exposing the server to deeply-nested queries that can cause unbounded database load from a single API request."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "API Style Selection As Evidence-Based Matching Of Pattern To Problem",
+          "content": "This lesson's API style decision framework is the direct application of this curriculum's evidence-based, problem-matching discipline to API design: the question is never 'which API style is best?' but 'which API style best matches this specific client's specific needs?' REST's caching and universal tooling are genuinely valuable for public APIs with diverse consumers. GraphQL's client-controlled shape is genuinely valuable when mobile bandwidth or multiple frontends with different data needs make over-fetching a real cost. gRPC's efficiency is genuinely valuable for internal high-throughput communication. The discipline is the same as Module 19's 'choose the right index type' or Module 35's 'choose the right storage engine' \u2014 matching the tool's genuine strengths to the problem's genuine requirements."
+        },
+        {
+          "type": "debugging",
+          "title": "Diagnosing A GraphQL N+1 Problem By Counting Database Queries Per Request",
+          "content": "The most direct way to identify a GraphQL N+1 problem is instrumenting the database query count per GraphQL request: a query that returns 20 orders with customer data should execute at most 2 database queries (orders, then batched customers). If the count is 21 (1 + 20), the N+1 pattern is present and DataLoader is missing or not applied to the specific resolver. Module 36's lesson 4 structured logging provides exactly the right mechanism for this diagnosis: each database query logged with the trace ID of the request makes it trivially easy to count how many queries a specific GraphQL request generates."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp4-1",
+          "type": "multiple_choice",
+          "question": "A mobile application needs to fetch a user's profile page showing their name, avatar, recent orders (5 items), and each order's status. The REST API returns the full user object (50 fields) and full order objects (30 fields each). Which API style specifically solves the over-fetching and round-trip problems here?",
+          "options": [
+            "REST is always the correct choice regardless of over-fetching",
+            "GraphQL: the client can specify exactly which fields to fetch (name, avatarUrl from user; orderId, status from orders) in a single request, eliminating both over-fetching (no unused fields) and the multiple round trips a REST implementation would require",
+            "gRPC is the appropriate solution for mobile applications",
+            "Over-fetching in REST can always be solved by adding more endpoints"
+          ],
+          "correctAnswer": 1,
+          "explanation": "GraphQL solves over-fetching (client specifies exactly which fields) and multiple round trips (single request assembles user + orders + status) in a single operation."
+        },
+        {
+          "id": "cp4-2",
+          "type": "scenario",
+          "question": "A GraphQL query returns 50 orders and for each order fetches the customer name. Without DataLoader, how many database queries does this execute, and why?",
+          "options": [
+            "2 queries: 1 for orders, 1 for all customers",
+            "51 queries: 1 for orders, then 1 per order for each customer lookup - the N+1 problem, because each Order.customer resolver executes immediately and independently without batching",
+            "1 query with a JOIN across all tables",
+            "The number depends on the GraphQL client's implementation"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Without DataLoader: 1 query for the 50 orders, then 50 individual customer queries (one per resolver invocation) = 51 total - the classic N+1 problem in GraphQL's resolver model."
+        },
+        {
+          "id": "cp4-3",
+          "type": "multiple_choice",
+          "question": "When is gRPC genuinely the right choice over REST or GraphQL?",
+          "options": [
+            "gRPC should be the default for all API communication",
+            "gRPC is right for internal service-to-service communication where throughput is high, type safety from shared Proto definitions is valuable, both services are controlled by the same organization, and human-readable wire format and universal tooling are not required",
+            "gRPC is only appropriate for streaming APIs",
+            "gRPC should be used whenever REST seems too complex"
+          ],
+          "correctAnswer": 1,
+          "explanation": "gRPC is right for internal service-to-service communication with high throughput needs, shared type definitions between services, and where binary protocol overhead is worthwhile over REST's human-readable JSON."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch4-choose-api-style-for-three-scenarios",
+        "title": "Choose The Correct API Style For Three Different Real-World Scenarios",
+        "description": "Given three API use cases with specific requirements, choose REST, GraphQL, or gRPC for each with specific reasoning, and implement a minimal sketch of the chosen approach for Scenario B.",
+        "starterCode": "// SCENARIO A: A public API for third-party developers to integrate\n// with an e-commerce platform. Clients are diverse (PHP, Python, Ruby,\n// mobile, browser). Needs to be cacheable by CDN. Simple CRUD for\n// products, orders, customers.\n\n// SCENARIO B: A mobile app (iOS/Android) showing a social feed\n// where each post shows: author name + avatar, post text, like count,\n// first 3 comments with commenter names. Different UI screens need\n// completely different subsets of post data.\n\n// SCENARIO C: Two internal microservices communicating 50,000 times/\n// per minute. One service emits real-time price updates; the other\n// consumes them. Type safety between the two services is critical.\n// Both services are owned by the same team.\n\n// TODO: choose API style for each scenario with reasoning\n// TODO: implement a minimal GraphQL schema + DataLoader for Scenario B",
+        "solutionExample": "// SCENARIO A: REST\n// Reasoning: public API with diverse third-party clients benefits\n// from REST's universal tooling and understanding. CDN caching of\n// GET /products works directly. Simple CRUD maps naturally to\n// REST's resource model. No complex client-specific data shaping needed.\n\n// SCENARIO B: GraphQL\n// Reasoning: multiple screens needing completely different data\n// subsets is the canonical GraphQL use case. Mobile bandwidth\n// sensitivity makes over-fetching genuinely costly. Multiple\n// screens (feed, post detail, profile) can each request exactly\n// what they need.\n\n// Minimal GraphQL schema for Scenario B:\nconst typeDefs = `\n  type Query {\n    feed(userId: ID!, limit: Int = 20): [Post!]!\n  }\n  type Post {\n    postId: ID!\n    text: String!\n    likeCount: Int!\n    author: Author!\n    topComments(limit: Int = 3): [Comment!]!\n  }\n  type Author {\n    userId: ID!\n    name: String!\n    avatarUrl: String!\n  }\n  type Comment {\n    text: String!\n    author: Author!\n  }\n`;\n\n// DataLoader prevents N+1 on author lookups\nconst authorLoader = new DataLoader(async (userIds: string[]) => {\n  const authors = await db.query(\n    'SELECT id, name, avatar_url FROM users WHERE id = ANY($1)',\n    [userIds]\n  );\n  const map = new Map(authors.rows.map(a => [a.id, a]));\n  return userIds.map(id => map.get(id) ?? null);\n});\n\nconst resolvers = {\n  Query: {\n    feed: (_, { userId, limit }) =>\n      db.query('SELECT * FROM posts WHERE ... ORDER BY created_at DESC LIMIT $1', [limit])\n  },\n  Post: {\n    author: (post) => authorLoader.load(post.authorId), // batched\n    topComments: (post, { limit }) =>\n      db.query('SELECT * FROM comments WHERE post_id = $1 LIMIT $2', [post.id, limit])\n  },\n  Comment: {\n    author: (comment) => authorLoader.load(comment.authorId) // same loader\n  }\n};\n\n// SCENARIO C: gRPC\n// Reasoning: 50k/min internal communication - gRPC's binary protocol\n// handles this ~10x more efficiently than REST/JSON. Real-time price\n// streaming is a native gRPC use case (server streaming). Both services\n// are owned by the same team, making Proto schema coordination practical.\n// proto definition:\n// service PriceService {\n//   rpc StreamPrices (StreamPricesRequest) returns (stream PriceUpdate);\n// }",
+        "validationRules": [
+          "Scenario A must choose REST with reasoning citing public API, diverse clients, CDN caching, and simple CRUD fit",
+          "Scenario B must choose GraphQL with reasoning citing multiple screens with different data needs and mobile bandwidth sensitivity",
+          "Scenario C must choose gRPC with reasoning citing high throughput, internal services, streaming, and type safety",
+          "The Scenario B implementation must include DataLoader to prevent N+1 queries on author lookups"
+        ],
+        "hints": [
+          "The key Scenario A signal is 'third-party developers' and 'CDN cacheable' - REST's universal tooling and HTTP caching semantics are uniquely valuable for this combination",
+          "Scenario B's key signals are 'multiple UI screens need completely different subsets' and 'mobile' - these are GraphQL's canonical strengths",
+          "Scenario C's key signals are '50,000 times/minute', 'real-time streaming', and 'same team owns both services' - these are gRPC's strengths, and the same-team ownership makes Proto schema coordination feasible"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-5",
+      "order": 5,
+      "title": "Architecture Decision Records",
+      "shortTitle": "Architecture Decision Records",
+      "estimatedDuration": "75-95 minutes",
+      "xpReward": 140,
+      "nextLessonId": "lesson-6",
+      "prevLessonId": "lesson-4",
+      "prerequisites": [
+        "lesson-4"
+      ],
+      "lessonGoal": "Write Architecture Decision Records that make every architectural choice durably visible, evidence-grounded, and reversible \u2014 the formal, organizational expression of every evidence-first principle this curriculum has built.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "ADRs As The Formal Answer To 'Why Was This Decision Made'",
+          "content": "Every module in this curriculum has embedded the question 'why this architectural choice?' in its central argument: Module 27's bottleneck-first scaling rationale, Module 28's evidence for moving work out of the request cycle, Module 35's bottleneck evidence for read replicas, Module 36's symptom-based alert justification. ARCHITECTURE DECISION RECORDS (ADRs) are the formal, organizational practice of capturing these 'why' answers in a durable, version-controlled document alongside the code. An ADR records: the architectural decision made, the context that made it necessary, the options that were considered, the specific reasoning that led to the chosen option, and the consequences (expected and unexpected) that followed. The result is a team-accessible record that lets any engineer \u2014 including one who joined after the decision was made \u2014 understand WHY the architecture is the way it is and whether the original reasoning still applies."
+        },
+        {
+          "type": "mentalModel",
+          "title": "A Signed Purchase Order With Justification Versus An Unexplained Item On An Expense Report",
+          "content": "An architecture without ADRs is like an expense report with line items but no justification: PostgreSQL? AWS? Redis? Event-driven? All there, all real, all incurring costs, but why each one was chosen is invisible to anyone who wasn't in the meeting when it was decided. ADRs are like a signed purchase order with documented justification: 'PostgreSQL was chosen over MongoDB because our data has strong relational structure (orders have line items with foreign keys to products) and our team has existing PostgreSQL expertise; MongoDB was explicitly considered and rejected for these reasons; this decision remains valid as long as our data structure remains relational.' The purchase order doesn't just say what was bought \u2014 it says why, who approved it, and what would change the decision."
+        },
+        {
+          "type": "structure",
+          "title": "The Standard ADR Template With A Fully Worked Example",
+          "content": "The standard MADR (Markdown Architectural Decision Record) format,\nwith a complete, worked example from this curriculum's own patterns:\n\n# ADR-007: Use PostgreSQL With Read Replicas For Order Data\n\n## Status: Accepted\n\n## Context\nThe Order Management service stores ~50M order records with strong\nrelational integrity requirements (orders -> line_items -> products).\nRead traffic is 10:1 write ratio at peak. Module 36 metrics show\nprimary database at 35% CPU from reads at peak hours.\n\n## Decision\nAdd 2 PostgreSQL read replicas for ORDER queries. Writes continue\nto the primary. Critical reads (immediately post-write) route to\nprimary; non-critical reads route to replicas.\n\n## Options Considered\n1. Add read replicas (chosen) - complexity cost: low; addresses\n   measured read bottleneck; consistent with existing PostgreSQL expertise\n2. Migrate to MongoDB - complexity cost: high; doesn't directly\n   address the read throughput bottleneck; loses relational integrity\n3. Add Redis cache layer - addresses read throughput only for\n   cacheable data; orders have high update frequency (status changes)\n   that reduce cache hit rates; deferred to future consideration\n\n## Consequences\nExpected: ~60% reduction in primary CPU from reads; introduces\nreplication lag (< 50ms typically); team must handle read routing\nExpected tradeoff: eventual consistency on non-critical reads\nMonitoring: add replica lag metric to Module 36 dashboard\n\n## Decision Made By: Platform Team\n## Date: 2024-03-15\n## Supersedes: None\n## To Be Revisited If: primary write throughput becomes the bottleneck,\n  or if read replica count exceeds 4 (sharding may become appropriate)"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why The 'Options Considered' And 'To Be Revisited If' Sections Are The Most Valuable Parts",
+          "content": "This is the single most important, non-obvious property of a good ADR to establish: the OPTIONS CONSIDERED section is more valuable than the decision itself, because it records WHY alternatives were rejected. Without it, a new engineer might see Redis absent from the architecture and add it, not knowing it was explicitly evaluated and rejected for good reason. The TO BE REVISITED IF section makes the decision explicitly conditional: this is right NOW under these constraints; when these specific conditions change, the decision should be reconsidered. This converts an ADR from a historical document into a living governance artifact that actively prevents both repeated debates ('we already evaluated Redis \u2014 see ADR-007') and cargo-culting ('this is how we do it, we've always done it this way' \u2014 ADR-007 shows exactly what would change this)."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Complete ADR For A Decisions Made In This Curriculum's Own Modules",
+          "content": "This demonstrates an ADR written for an architectural decision this curriculum made explicitly, showing how the format captures the curriculum's own reasoning:",
+          "code": "# ADR-003: Use Event-Driven Architecture For Cross-Context Integration\n\n## Status: Accepted\n\n## Context\nThe Order Management, Inventory, and Notification bounded contexts\n(identified in Module 37's DDD analysis) need to coordinate when an\norder is placed. Direct synchronous calls from Order Management to\neach downstream context create tight coupling that defeats the\npurpose of the bounded context boundaries.\n\nCurrent state: Order Management makes synchronous HTTP calls to\nInventory and Notification on every order placement.\nObserved problems: Order placement latency includes Inventory and\nNotification latency (~800ms combined). Inventory downtime causes\norder placement failures.\n\n## Decision\nReplace synchronous HTTP calls with event-driven integration using\nModule 28's BullMQ/Redis queue. Order Management publishes\n'order-placed' event; Inventory and Notification subscribe\nindependently.\n\n## Options Considered\n1. Event-driven (chosen) - decouples bounded contexts; Order\n   placement latency drops by ~800ms; contexts can fail independently\n2. Synchronous HTTP calls (current) - simpler to trace; but creates\n   latency coupling and availability dependency\n3. Shared database (rejected) - violates bounded context data\n   ownership; DDD analysis explicitly ruled this out\n4. GraphQL Federation (deferred) - viable but heavier investment;\n   revisit if event-driven creates operational complexity\n\n## Consequences\nExpected: order placement <100ms (event publishing is fast);\nInventory/Notification failures don't block order placement;\nintroduces eventual consistency between contexts\nTradeoff: some orders may not trigger inventory reservation\nimmediately; monitoring must cover event queue health (Module 36)\n\n## To Be Revisited If: business requires synchronous inventory\nconfirmation before order acceptance (e.g., strict oversell prevention)",
+          "explanation": "This ADR demonstrates the key properties of a well-written record: the Context section references measurable evidence (800ms observed latency, availability dependency); the Options Considered section explains why each alternative was rejected or deferred rather than just listing them; the Consequences section names the expected tradeoff (eventual consistency) explicitly so it isn't a surprise later; and the To Be Revisited If section identifies the specific business requirement change that would invalidate this decision. A new engineer reading this can immediately understand the architectural choice, the evidence that justified it, and what would change it."
+        },
+        {
+          "type": "realUsage",
+          "title": "Why Real Engineering Organizations Maintain ADRs As Version-Controlled Documents",
+          "content": "Real engineering organizations that maintain ADRs store them in the same repository as the code they describe (often in an `docs/decisions/` directory), version-controlled alongside the code. This makes ADRs findable at the exact moment they're useful: when an engineer is looking at unusual code and wondering why it's written that way, they can check the relevant ADR. Real teams also find that the process of WRITING an ADR clarifies thinking about the decision itself \u2014 'what are the alternatives and why are we rejecting them?' is a genuinely valuable question to answer before committing to a significant architectural direction, not just after."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common Architecture Decision Record Mistakes",
+          "content": "1. Writing ADRs only for major, novel decisions and skipping them for decisions that 'feel obvious', missing that the decisions that feel obvious to the current team are exactly the ones that future team members will find most confusing.\n\n2. Writing the decision section without the options considered section, losing the record of why alternatives were rejected and allowing the same alternatives to be re-evaluated repeatedly without benefit of prior reasoning.\n\n3. Never updating the ADR status when the decision is superseded, leaving stale ADRs that contradict current practice and creating confusion about which record is authoritative.\n\n4. Writing ADRs after the implementation is complete as documentation, rather than as part of the decision-making process, losing the deliberative value of writing the 'options considered' section before the decision is made.\n\n5. Storing ADRs in a separate wiki that doesn't live with the code, making them harder to find at the moment of use and harder to keep synchronized with actual implementation changes."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "ADRs As The Formal, Organizational Expression Of This Curriculum's Evidence-First Principle",
+          "content": "This lesson's central argument is that ADRs are the formal, organizational completion of this curriculum's most consistently-applied principle: every architectural decision should be made with evidence and justified explicitly. Module 27's bottleneck discipline requires evidence before scaling decisions. Module 36's alert design requires symptom evidence. Module 35's replication discipline requires measured throughput constraints. ADRs convert this evidence-gathering and evidence-recording from a personal, momentary discipline into a team-permanent, institutionalized practice. The evidence that justified the decision \u2014 the measured latency, the observed bottleneck, the evaluated alternatives \u2014 lives in the ADR alongside the decision, making it permanently accessible to everyone who interacts with that part of the system."
+        },
+        {
+          "type": "debugging",
+          "title": "Using ADRs To Understand Why Unusual Code Exists Before Changing It",
+          "content": "When encountering code that seems suboptimal, overly complex, or using an unexpected pattern, checking for an ADR before changing it is a professional obligation \u2014 not a bureaucratic one. The ADR may record a genuine constraint (a performance requirement, a compliance mandate, a previous version that failed) that isn't visible from the code itself. The correct debugging sequence: find the code change that introduced the unusual pattern (git log), check if there's an ADR number referenced in the commit message or nearby documentation, read the ADR to understand the evidence that justified the pattern, then make a decision about whether that evidence still applies. If it no longer applies, the correct action is to update the ADR (marking it as superseded), then change the code with the updated reasoning recorded."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp5-1",
+          "type": "multiple_choice",
+          "question": "Why is the 'Options Considered' section the most valuable part of an ADR, according to this lesson?",
+          "options": [
+            "The decision itself is more important; options considered is secondary information",
+            "Options considered records why alternatives were rejected, preventing the same evaluation from happening repeatedly and ensuring future engineers understand not just what was chosen but why the other options were specifically not chosen - this institutional memory is what makes ADRs genuinely useful rather than just historical",
+            "Options considered is only valuable for major architectural decisions",
+            "The context section is more valuable than options considered"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Options Considered records why alternatives were rejected - preventing repeated evaluation of the same alternatives and giving future engineers the full picture of what was considered, not just what was decided."
+        },
+        {
+          "id": "cp5-2",
+          "type": "scenario",
+          "question": "An engineer discovers unusual event-driven code for what seems like a simple synchronous operation. There's an ADR for this decision (ADR-003) that explains it was adopted due to a latency coupling problem that has since been resolved. What should the engineer do?",
+          "options": [
+            "Leave the code unchanged since the ADR approved it",
+            "Read ADR-003 to understand the original evidence, verify that the latency coupling problem is genuinely resolved, then update ADR-003's status to 'Superseded' with an explanation of the changed conditions, and write a new ADR documenting the decision to revert to synchronous calls with the updated reasoning",
+            "Delete the ADR and change the code without documentation",
+            "The engineer cannot change code covered by an ADR"
+          ],
+          "correctAnswer": 1,
+          "explanation": "The correct process: verify the ADR's justification no longer applies, update its status to Superseded with explanation, and write a new ADR documenting the updated decision with current evidence."
+        },
+        {
+          "id": "cp5-3",
+          "type": "multiple_choice",
+          "question": "What does the 'To Be Revisited If' section in an ADR accomplish?",
+          "options": [
+            "It signals that the decision is uncertain and should be changed immediately",
+            "It converts the ADR from a static historical document to a living governance artifact by explicitly stating which changed conditions would invalidate the current decision, preventing both cargo-culting ('we've always done it this way') and unnecessary revisitation of decisions whose conditions haven't changed",
+            "It is optional boilerplate with no practical value",
+            "It commits the team to revisiting the decision on a fixed schedule"
+          ],
+          "correctAnswer": 1,
+          "explanation": "To Be Revisited If makes the decision explicitly conditional, preventing cargo-culting by naming what WOULD change it, while protecting stable decisions from unnecessary revisitation when conditions haven't changed."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch5-write-an-adr",
+        "title": "Write A Complete ADR For An Architectural Decision With Evidence-Based Justification",
+        "description": "Write a complete ADR for the decision to use GraphQL instead of REST for a new mobile API, using the standard ADR format with evidence-based context, options considered, and explicit 'to be revisited if' conditions.",
+        "starterCode": "# SITUATION:\n# A mobile app team is building a new social feature that shows:\n# - User profile (name, avatar, bio, follower count)\n# - Recent posts (text, image, like count)\n# - Each post's top 5 comments (commenter name, text)\n# The team is choosing between REST and GraphQL for the new API.\n# REST evidence: existing REST API team expertise; simple caching via CDN\n# GraphQL evidence: mobile bandwidth analysis shows REST over-fetches\n#   ~3x more data than needed; 4 different screen layouts need\n#   different data subsets; current REST implementation requires\n#   4 separate API calls per screen\n\n# Write a complete ADR using the MADR format",
+        "solutionExample": "# ADR-012: Use GraphQL For Social Feature Mobile API\n\n## Status: Accepted\n\n## Context\nBuilding a new social feature for the mobile app. Bandwidth analysis\nshows the existing REST API over-fetches approximately 3x the data\nactually consumed by mobile screens (users receive all profile\nfields; screens use ~7 of 25 fields). Profile screen requires\n4 separate REST API calls to assemble data; on 3G connections\nthis takes 1.2-1.8 seconds end-to-end.\n\nFour distinct screen layouts (feed, profile, post detail, search)\neach need meaningfully different subsets of user, post, and comment\ndata with no consistent overlap.\n\nTeam has REST expertise but no existing GraphQL implementation.\n\n## Decision\nImplement GraphQL API for the social feature mobile clients.\nExisting REST API remains unchanged for other consumers.\n\n## Options Considered\n1. GraphQL (chosen) - resolves over-fetching and round-trip problems\n   directly. Measured 3x bandwidth reduction expected. Single request\n   per screen. Cost: team must learn GraphQL; DataLoader required to\n   prevent N+1 queries; more complex server setup than REST.\n\n2. REST with tailored endpoints (e.g., /mobile/social/profile) -\n   reduces over-fetching but requires maintaining many screen-specific\n   endpoints. 4 round trips become ~1-2 but doesn't generalize.\n   Rejected: doesn't scale as screen designs evolve.\n\n3. REST with sparse fieldsets (?fields=name,avatar,bio) -\n   reduces over-fetching per request but still 4 round trips.\n   Rejected: non-standard, poor tooling support, same round trip problem.\n\n## Consequences\nExpected: ~3x bandwidth reduction; single round trip per screen;\nteam learning curve for GraphQL (~2-3 sprints to reach proficiency)\nRequired mitigations: DataLoader implementation mandatory (N+1\nwould make GraphQL slower than REST without it); query depth limits\nto prevent unbounded queries\nLimitation: HTTP-level CDN caching of GET requests not available for\nGraphQL POST queries; application-level caching (Redis) needed if\ncaching of specific queries becomes important\n\n## Decision Made By: Mobile Platform Team\n## Date: 2024-04-01\n\n## To Be Revisited If:\n- Team size drops below 3 engineers who understand GraphQL (consider\n  reverting to REST to reduce cognitive burden)\n- A third-party developer ecosystem needs to consume this API\n  (REST's universal tooling would be more appropriate)\n- Bandwidth is no longer a constraint (redesign makes all screens\n  use the same minimal data set)",
+        "validationRules": [
+          "Context section must include specific measured evidence (bandwidth ratio, round trip count, latency measurement)",
+          "Options Considered must include at least 2 alternatives to GraphQL with specific reasons each was rejected",
+          "Consequences section must name both expected benefits AND the expected costs/tradeoffs (DataLoader requirement, caching limitation)",
+          "To Be Revisited If section must identify at least 2 specific conditions that would invalidate this decision"
+        ],
+        "hints": [
+          "The Context section is strongest when it contains specific numbers from the situation description - '3x over-fetching' and '4 separate API calls' are the evidence that justifies the decision",
+          "Options Considered should explain WHY each alternative was rejected with specific reasoning, not just list them",
+          "The caching limitation of GraphQL (no HTTP-level CDN caching for POST queries) is a genuine consequence that should appear in the Consequences section as an honest tradeoff"
+        ]
+      }
+    },
+    {
+      "lessonId": "lesson-6",
+      "order": 6,
+      "title": "Production Architecture Review",
+      "shortTitle": "Production Architecture Review",
+      "estimatedDuration": "90-115 minutes",
+      "xpReward": 180,
+      "nextLessonId": null,
+      "prevLessonId": "lesson-5",
+      "prerequisites": [
+        "lesson-5"
+      ],
+      "lessonGoal": "Conduct a complete production architecture review applying all five of this module's patterns, confirming that architectural decisions are evidence-grounded, correctly applying the appropriate patterns, and documented in ADRs.",
+      "sections": [
+        {
+          "type": "definition",
+          "title": "The Production Architecture Review As The Synthesis Of All Five Lessons",
+          "content": "This module opened by naming patterns already embedded in this curriculum's practice. Each lesson then extended the formal vocabulary: lesson 1 named layered/hexagonal architecture and the dependency direction rule; lesson 2 named Domain-Driven Design and bounded contexts as the answer to Module 27's microservices boundary question; lesson 3 named CQRS and event sourcing as the formal articulation of patterns already built in Modules 28 and 35; lesson 4 established REST/GraphQL/gRPC as three complementary API style choices each optimal for different contexts; lesson 5 established ADRs as the organizational expression of the evidence-first discipline this curriculum has applied throughout. This closing lesson conducts a complete production architecture review that asks, for each pattern: is it applied correctly? is it applied where it's genuinely warranted? is the evidence that justified it documented in an ADR?"
+        },
+        {
+          "type": "mentalModel",
+          "title": "An Architectural Blueprint Review, Confirming Every Decision Is Load-Bearing For A Specific Reason",
+          "content": "A structural engineer reviewing a building's blueprint doesn't just verify that the building LOOKS like standard blueprints \u2014 they verify that EACH structural element is load-bearing for a specific, calculable reason, that the element chosen (steel beam vs. wooden joist vs. load-bearing wall) is appropriate for the specific load it carries, and that the decision is documented in engineering drawings. This closing lesson's architecture review applies the same discipline: each pattern (hexagonal architecture, bounded contexts, CQRS, GraphQL, ADRs) should be present where there's genuine structural need, chosen based on the specific load it carries (the specific bottleneck, the specific requirement, the specific team structure), and documented with the evidence that justified it."
+        },
+        {
+          "type": "structure",
+          "title": "The Complete Architecture Review Checklist",
+          "content": "A genuinely complete architecture review, applying all five\nlessons' frameworks:\n\n1. LAYERED/HEXAGONAL ARCHITECTURE (lesson 1)\n   - Do domain services depend on repository interfaces (ports)\n     rather than database clients directly?\n   - Can business logic be unit-tested without infrastructure\n     dependencies?\n   - Do import lists of domain-layer files reveal infrastructure\n     dependencies (boundary violations)?\n\n2. BOUNDED CONTEXTS (lesson 2)\n   - Are service/module boundaries aligned with DDD bounded contexts\n     or with arbitrary technical divisions?\n   - Do services share database tables with other services?\n   - Do services import domain model types from other services?\n\n3. CQRS / EVENT SOURCING (lesson 3)\n   - If CQRS is in use: is there genuine, evidence-based conflict\n     between read and write optimization requirements?\n   - If not in use: is there evidence of read/write performance\n     conflict that would warrant considering it?\n   - Is the CQRS read model kept synchronized (no stale reads\n     longer than the acceptable eventual consistency window)?\n\n4. API DESIGN (lesson 4)\n   - Is each API style choice (REST/GraphQL/gRPC) matched to the\n     specific consumer's needs?\n   - Does any GraphQL implementation have DataLoader for all N-depth\n     resolver patterns?\n   - Are public APIs using REST (universal tooling) and internal\n     high-throughput communication using gRPC where appropriate?\n\n5. ADRS (lesson 5)\n   - Are significant architectural decisions documented in ADRs?\n   - Do existing ADRs include options considered and 'to be revisited if'?\n   - Are obsolete ADRs marked as superseded rather than deleted?"
+        },
+        {
+          "type": "internalWorking",
+          "title": "Why The Correct Answer Is Often 'Not Applicable' For Advanced Patterns",
+          "content": "This is the single most important, concluding discipline this lesson must establish, directly mirroring every other Level 3 module's closing lesson: for many applications, several of this module's more advanced patterns (CQRS, event sourcing, gRPC) correctly do not apply, and their absence should be a deliberate, evidence-documented decision rather than an oversight. A small application with 2,000 daily active users and a single, simple read/write model is correctly NOT using CQRS \u2014 and the right architecture review conclusion is 'CQRS: not applicable at current scale; evidence would need to show conflicting read/write optimization requirements before warranting consideration.' What always applies, regardless of application size, are lessons 1, 2, and 5: hexagonal architecture's dependency direction rule, bounded context thinking even if boundaries aren't formalized as separate services, and ADRs documenting every significant decision."
+        },
+        {
+          "type": "codeLesson",
+          "title": "A Complete, Worked Architecture Review For A Realistic Application",
+          "content": "This demonstrates the complete five-category review applied to a realistic e-commerce application, with evidence-based conclusions including correctly-identified 'not applicable' verdicts:",
+          "code": "## PRODUCTION ARCHITECTURE REVIEW: E-Commerce Order Service\n\n### 1. Layered/Hexagonal Architecture:\nDOMAIN LAYER: OrderService imports 'pg' directly - FINDING.\n  OrderService has a dependency direction violation: it imports\n  the database client rather than a repository interface.\n  Fix: extract PostgresOrderRepository implementing OrderRepository\n  interface; inject via constructor. Enables unit testing without DB.\n\nInventoryCheckService correctly depends on InventoryPort interface.\nPaymentService correctly depends on PaymentGatewayPort.\nVERDICT: One violation (OrderService); others compliant.\n\n### 2. Bounded Contexts:\nOrder Management, Inventory, and Notifications correctly have\nseparate databases. Context mapping events in place.\nFINDING: Order Management imports Inventory's InventoryReservation\ntype directly - cross-context model coupling.\n  Fix: define a shared InventoryCheckResult DTO at the context\n  boundary rather than importing the internal model.\nVERDICT: Mostly correct; one model coupling to fix.\n\n### 3. CQRS/Event Sourcing:\nNOT APPLICABLE (evidence-based conclusion):\n  Current read:write ratio ~3:1. No observed conflict between\n  read and write optimization requirements. Single PostgreSQL\n  model serves both adequately at current scale (8K DAU).\n  Monitor: if read:write ratio exceeds 10:1 or read latency\n  degrades under load, reconsider.\n\n### 4. API Design:\nExternal API: REST - CORRECT. Third-party developers consume it.\nInternal service communication: REST - FINDING.\n  Order-to-Inventory calls are ~20K/hour. gRPC would be\n  more efficient. But: team has no gRPC experience. Deferring\n  until Order-to-Inventory becomes a measured bottleneck.\nGraphQL: not in use. No finding (no multi-client data need).\n\n### 5. ADRs:\nADR-001 (PostgreSQL): exists, has options considered.\nADR-002 (Event-driven for notifications): exists, good format.\nFINDING: No ADR for the REST-vs-gRPC internal API decision.\n  Recommendation: write ADR-003 documenting current REST choice\n  and the 'to be revisited if' condition.\n\n## SUMMARY: 3 findings (hexagonal violation, model coupling, missing ADR).\n## CQRS and gRPC correctly 'not applicable' at current scale.",
+          "explanation": "This review demonstrates the mature, evidence-first architecture review practice: three genuine findings are identified and specific, concrete fixes are given for each; CQRS is correctly concluded as 'not applicable at current scale' with specific evidence (8K DAU, no observed conflict) and a monitoring condition; gRPC is correctly deferred with explicit reasoning (team expertise gap, not yet a measured bottleneck). The pattern of 'here's the evidence for this conclusion' appears throughout, directly demonstrating that architecture reviews are not checklists to tick but evidence-gathering and reasoning exercises."
+        },
+        {
+          "type": "realUsage",
+          "title": "Why Real Engineering Organizations Conduct Architecture Reviews Regularly",
+          "content": "Real engineering organizations conduct architecture reviews at several levels: code review (is the dependency direction maintained in this PR?), design review before major new features (does the proposed design maintain bounded context boundaries?), and periodic full-architecture review (quarterly or when significant scale changes occur). Real teams find that the most valuable reviews are the ones that produce 'not applicable' conclusions with evidence \u2014 they confirm that the current architecture is correctly simple for its actual scale and requirements, preventing both premature complexity and the accumulation of unnecessary patterns adopted without genuine need."
+        },
+        {
+          "type": "failureCases",
+          "title": "Common Production Architecture Review Mistakes",
+          "content": "1. Treating 'not applicable' conclusions as gaps to be filled rather than as evidence-based correct conclusions, adding architectural patterns without measured need just because the checklist item exists.\n\n2. Conducting architecture reviews only when something has gone wrong, missing the preventive value of regular, proactive reviews that catch boundary violations and pattern misapplications before they accumulate.\n\n3. Reviewing each pattern in isolation without considering whether the patterns are correctly integrated (hexagonal architecture and bounded contexts reinforce each other; CQRS and event-driven architecture work together; all should be visible in ADRs).\n\n4. Producing architecture review findings without specific, actionable fixes for each finding, leaving the team with a list of problems but no clear path to resolving them.\n\n5. Never revisiting ADRs during architecture reviews to check whether 'to be revisited if' conditions have been met, losing the governance value of the conditional decision record."
+        },
+        {
+          "type": "engineeringThinking",
+          "title": "This Module's Final Argument: Formal Architecture Names Enable Precise Team Communication About Real Engineering Tradeoffs",
+          "content": "This module's final, closing argument: the formal architecture names introduced in lessons 1-5 are not prestigious vocabulary to signal sophistication \u2014 they are precision tools that enable teams to communicate about real engineering tradeoffs with greater accuracy and less ambiguity. 'This violates the hexagonal architecture dependency direction rule' is more precise than 'the service is too coupled to the database.' 'We need a context mapping here between the Order and Inventory bounded contexts' is more precise than 'we have to be careful about sharing data between services.' 'This decision needs an ADR with the options considered' is more precise than 'we should document this somewhere.' The vocabulary exists to make real conversations more productive \u2014 it has no other value."
+        },
+        {
+          "type": "debugging",
+          "title": "Conducting This Module's Complete Review On Your Own Application's Architecture",
+          "content": "The most valuable, practical closing exercise: applying this module's complete five-category checklist to your own application's actual architecture, explicitly, in writing, with specific evidence for each conclusion. For hexagonal architecture: find an actual import list in a domain-layer file and check it for infrastructure dependencies. For bounded contexts: find an actual import statement and check whether it crosses a context boundary. For CQRS: measure your actual read:write ratio and assess whether read and write optimization requirements conflict. For API design: check whether each API consumer's specific needs match the API style in use. For ADRs: find the most important architectural decision your codebase embeds and check whether an ADR exists for it. Any finding that lacks a specific, concrete fix is not yet a complete finding."
+        }
+      ],
+      "checkpoints": [
+        {
+          "id": "cp6-1",
+          "type": "multiple_choice",
+          "question": "According to this lesson, which three patterns from this module are always applicable regardless of application scale, and which should only be applied with evidence-based justification?",
+          "options": [
+            "All five patterns should be applied to every application regardless of scale",
+            "Hexagonal architecture, bounded context thinking, and ADRs are always applicable (even if informal); CQRS/event sourcing and gRPC require evidence of specific, measurable need (conflicting read/write requirements, throughput constraints) to justify their added complexity",
+            "None of the patterns are universally applicable",
+            "CQRS and gRPC should be applied to all services as production defaults"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Hexagonal architecture, bounded context thinking, and ADRs are always appropriate; CQRS/event sourcing and gRPC require specific, measured justification (conflicting read/write optimization, high throughput) to add their genuine complexity."
+        },
+        {
+          "id": "cp6-2",
+          "type": "scenario",
+          "question": "An architecture review concludes that CQRS is 'not applicable at current scale (8K DAU, no observed read/write optimization conflict)'. Is this a complete, correct conclusion?",
+          "options": [
+            "No - CQRS should be applied to all production services",
+            "Yes - this is a correct, evidence-based conclusion: at 8K DAU with no observed conflict between read and write optimization requirements, CQRS would add genuine complexity (dual models, synchronization, eventual consistency) without corresponding benefit. The conclusion becomes complete when it also states the monitoring condition that would trigger reconsideration",
+            "No - 'not applicable' conclusions are never legitimate in architecture reviews",
+            "This conclusion is only valid if the application has no database"
+          ],
+          "correctAnswer": 1,
+          "explanation": "A 'not applicable' conclusion backed by specific evidence (scale, no observed conflict) is a correct, complete architecture review finding. The addition of a monitoring condition (what would change this) makes it fully complete."
+        },
+        {
+          "id": "cp6-3",
+          "type": "multiple_choice",
+          "question": "What is this module's final argument about why formal architecture pattern names have value?",
+          "options": [
+            "Formal architecture names are primarily useful for job interviews and resumes",
+            "Formal architecture names are precision tools for team communication - 'violates the hexagonal dependency direction rule' is more precise than 'too coupled to the database', 'bounded context mapping' is more precise than 'careful about data sharing', and these precision tools make architectural discussions more productive and findings more actionable",
+            "Formal architecture names have no practical value beyond academic understanding",
+            "Formal names are only needed when managing very large teams"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Formal architecture names are precision communication tools - they enable teams to discuss real engineering tradeoffs with greater accuracy and less ambiguity than informal descriptions allow."
+        }
+      ],
+      "codingChallenge": {
+        "challengeId": "ch6-complete-architecture-review",
+        "title": "Conduct A Complete Five-Category Architecture Review For A Service",
+        "description": "Given a description of a food delivery application's architecture, conduct the complete five-category review, identifying genuine findings and correctly concluding 'not applicable' where evidence doesn't support a pattern.",
+        "starterCode": "// FOOD DELIVERY APP ARCHITECTURE:\n// - Single PostgreSQL database, no read replicas yet\n// - DeliveryService imports Pool directly from 'pg'\n//   and has no repository interface\n// - Restaurant, Order, Driver, and Customer concerns all live\n//   in a single 'delivery' bounded context with one shared schema\n// - External REST API for restaurant partners and customers\n// - 500 orders/day at current scale, no observed performance issues\n// - No ADRs exist for any architectural decisions\n// - Driver location updates arrive at 200/minute (GPS pings)\n//   currently handled via REST POST /driver-locations\n\n// TODO: conduct the complete 5-category review, identifying genuine\n// findings and correctly concluding 'not applicable' where warranted",
+        "solutionExample": "## PRODUCTION ARCHITECTURE REVIEW: Food Delivery App\n\n### 1. Layered/Hexagonal Architecture:\nFINDING: DeliveryService imports Pool from 'pg' directly.\n  This is a dependency direction violation: domain logic depends\n  on infrastructure. Cannot unit test DeliveryService without\n  a real PostgreSQL database.\n  Fix: define DeliveryRepository interface; implement\n  PostgresDeliveryRepository as an adapter; inject via constructor.\n\n### 2. Bounded Contexts:\nFINDING: Restaurant, Order, Driver, and Customer concerns all in\n  one bounded context is appropriate at 500 orders/day with a\n  single team. However, the bounded context analysis should be\n  documented even if no split is made yet.\n  OBSERVATION: 'Driver' and 'Customer' are genuinely different\n  subdomains with different models. If the team grows to separate\n  Driver and Customer squads, these are natural split points.\n  No immediate fix needed; document in ADR with 'to be revisited if'\n  condition (e.g., if team splits into separate Driver and Order squads).\n\n### 3. CQRS / Event Sourcing:\nNOT APPLICABLE (evidence-based):\n  500 orders/day with no observed performance issues. No conflict\n  between read and write optimization requirements demonstrated.\n  CQRS would add complexity without measurable benefit at this scale.\n  Monitor: if read latency degrades or analytical queries begin\n  competing with transactional writes, reconsider.\n\n### 4. API Design:\nExternal REST API: CORRECT. Restaurant partners and customers\n  are external consumers; REST's universal tooling is appropriate.\nDriver GPS updates (200/min REST POSTs): FINDING.\n  200 POST requests/minute is manageable with REST currently.\n  If GPS update frequency increases 10x (real-time navigation)\n  gRPC streaming would be more efficient. Defer until measured.\n  Action: document REST choice in ADR with gRPC as 'to be revisited if'\n  GPS frequency exceeds 2000/min.\n\n### 5. ADRs:\nFINDING: No ADRs exist. Several significant decisions lack documentation:\n  - Why PostgreSQL (vs MongoDB)?\n  - Why single shared database schema (vs separate context schemas)?\n  - Why REST for driver GPS (vs WebSocket or gRPC)?\n  Priority 1: ADR for PostgreSQL choice (most foundational).\n  Priority 2: ADR for bounded context decision with 'to be revisited if'.\n\n## SUMMARY: 3 genuine findings (hexagonal violation, missing ADRs,\n## deferred gRPC consideration for GPS).\n## CQRS correctly 'not applicable' at 500 orders/day with no observed\n## performance conflicts.",
+        "validationRules": [
+          "Must identify the DeliveryService direct pg import as a hexagonal architecture violation with a specific fix",
+          "CQRS must be correctly concluded as 'not applicable' with specific evidence (500 orders/day, no observed performance issues)",
+          "Must identify the missing ADRs as a finding and prioritize which decisions should be documented first",
+          "Must assess the driver GPS REST vs gRPC question with evidence-based reasoning (200/min is manageable; specify threshold for reconsideration)",
+          "Must include an observation about bounded context analysis even if no immediate split is warranted"
+        ],
+        "hints": [
+          "The hexagonal architecture finding is the most concrete and immediately fixable - DeliveryService importing Pool is a specific, identifiable boundary violation",
+          "At 500 orders/day with no observed issues, CQRS is definitively 'not applicable' - this is exactly the kind of scale where it would add cost without benefit",
+          "The driver GPS question is the most nuanced: 200/min is fine with REST, but noting the threshold at which gRPC streaming would be warranted makes the review more actionable"
+        ]
+      }
+    }
+  ],
+  "finalModuleProject": {
+    "projectId": "module-37-final-project",
+    "title": "Conduct A Complete Architecture Review And Write Three ADRs For An Existing Application",
+    "xpReward": 450,
+    "estimatedTime": "180-210 minutes",
+    "goal": "Apply all five of this module's architectural disciplines to a real or realistic application: identify bounded contexts, verify hexagonal architecture compliance, evaluate CQRS and API style choices with evidence, and write three ADRs documenting significant decisions.",
+    "description": "Choose an application (your Module 26 capstone, a previous project, or a well-described realistic application) and conduct the complete five-category architecture review. Identify at least one finding in each of the first four categories with a specific, concrete fix. Write three complete ADRs (using the MADR format from lesson 5): one for a data storage decision, one for an API style decision, and one for a service boundary or integration decision. Each ADR must include evidence-based context, at least two options considered with reasons for rejection, specific consequences including tradeoffs, and explicit 'to be revisited if' conditions. The review must conclude 'not applicable' for any category that genuinely does not apply at your application's current scale, with evidence.",
+    "requirements": [
+      {
+        "id": "req-1",
+        "requirement": "A complete five-category architecture review with at least one finding or evidence-based 'not applicable' conclusion for each category",
+        "required": true
+      },
+      {
+        "id": "req-2",
+        "requirement": "At least one hexagonal architecture finding with a specific refactoring showing the port interface and adapter pattern",
+        "required": true
+      },
+      {
+        "id": "req-3",
+        "requirement": "A bounded context analysis identifying at least two distinct contexts and one finding (cross-context coupling, shared database, or missing context mapping)",
+        "required": true
+      },
+      {
+        "id": "req-4",
+        "requirement": "An evidence-based CQRS conclusion with specific supporting evidence",
+        "required": true
+      },
+      {
+        "id": "req-5",
+        "requirement": "Three complete ADRs in MADR format: one for data storage, one for API style, one for service integration - each with context, options considered, consequences, and to be revisited if criteria",
+        "required": true
+      },
+      {
+        "id": "req-6",
+        "requirement": "At least one 'not applicable' conclusion with specific evidence, demonstrating evidence-grounded conclusions rather than prescriptive pattern-filling",
+        "required": true
+      }
+    ],
+    "submissionType": "code",
+    "rubric": [
+      {
+        "criterion": "Architecture review is systematic, covers all five categories, and produces specific findings or evidence-based 'not applicable' conclusions for each",
+        "points": 15
+      },
+      {
+        "criterion": "Hexagonal architecture finding demonstrates understanding of the dependency direction rule with a concrete refactoring example",
+        "points": 15
+      },
+      {
+        "criterion": "Bounded context analysis correctly identifies separate domains and at least one integration mechanism",
+        "points": 15
+      },
+      {
+        "criterion": "Three ADRs each include specific evidence in context, at least two rejected alternatives with reasons, named tradeoffs in consequences, and conditional 'to be revisited if' criteria",
+        "points": 30
+      },
+      {
+        "criterion": "'Not applicable' conclusion is backed by specific scale or requirement evidence rather than assumption",
+        "points": 15
+      },
+      {
+        "criterion": "Findings are accompanied by specific, actionable fixes rather than general recommendations",
+        "points": 10
+      }
+    ],
+    "totalPoints": 100,
+    "certificateUnlockCondition": "Score 70 or above on the rubric and complete all 6 lesson coding challenges."
+  }
+}
